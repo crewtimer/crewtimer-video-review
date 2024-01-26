@@ -34,10 +34,11 @@
         ],
         "link_settings": {
             "libraries": [
-                "../src/ffmpeg-built-win/lib/libavcodec.a",
-                "../src/ffmpeg-built-win/lib/libavformat.a",
-                "../src/ffmpeg-built-win/lib/libavutil.a",
-                "../src/ffmpeg-built-win/lib/libswscale.a",
+              "../src/ffmpeg-built-win/lib/libavcodec.a",
+              "../src/ffmpeg-built-win/lib/libavformat.a"
+              "../src/ffmpeg-built-win/lib/libavutil.a",
+              "../src/ffmpeg-built-win/lib/libswscale.a",
+              "Bcrypt.lib", "Mfuuid.lib", "Strmiids.lib"
             ],
           'library_dirs': ['../src/ffmpeg-built-win/lib']
           }
