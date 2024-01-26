@@ -7,6 +7,7 @@ import Status from './Status';
 import { useInitializing, useTabPosition } from './util/UseSettings';
 import FinishLynxHelp from './FinishLynxHelp';
 import { Toast } from './Toast';
+import Video from './video/Video';
 
 const useStyles = makeStyles({
   root: {
@@ -49,13 +50,15 @@ export default function CenteredTabs() {
         >
           <Tab label="Status" />
           <Tab label="Settings" />
+          <Tab label="Video" />
           <Tab label="Help" />
         </Tabs>
       </div>
       <Tabs style={{ zIndex: 0 }} />
       {tabPosition === 0 && <Status />}
       {tabPosition === 1 && <Setup />}
-      {tabPosition === 2 && <FinishLynxHelp />}
+      {tabPosition === 2 && <Video />}
+      {tabPosition === 3 && <FinishLynxHelp />}
       <Toast />
     </Paper>
     // </div>

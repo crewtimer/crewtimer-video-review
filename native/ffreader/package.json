@@ -1,0 +1,45 @@
+{
+  "name": "crewtimer_video_reader",
+  "version": "1.0.0",
+  "description": "A node electron utility to read mp4 files for CrewTimer Connect",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "install": "prebuild-install --verbose -r napi",
+    "install-prebuild": "prebuild-install --verbose -r napi",
+    "prebuild": "prebuild --runtime napi --all --verbose",
+    "rebuild": "node-gyp rebuild",
+    "uploadall": "prebuild --upload-all $GITHUB_TOKEN",
+    "upload": "prebuild --upload $GITHUB_TOKEN",
+    "build": "node-gyp rebuild",
+    "winbuild": "node-gyp rebuild --arch=x64 --target_platform=win32",
+    "build-ffmpeg-mac": "git clone https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg && ./configure --prefix=../src/ffmpeg-built-mac --enable-static --enable-gpl --disable-network --disable-programs --disable-doc --disable-avdevice --disable-swresample --disable-postproc --disable-avfilter && make && make install",
+    "build-ffmpeg-win": "git clone https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg && ./configure --prefix=../src/ffmpeg-built-win --enable-static --enable-gpl --disable-network --disable-programs --disable-doc --disable-avdevice --disable-swresample --disable-postproc --disable-avfilter --toolchain=msvc && make && make install",
+    "install-ffmpeg": "node -e \"require('os').platform() === 'darwin' ? require('child_process').execSync('npm run install-ffmpeg-mac') : require('os').platform() === 'win32' ? require('child_process').execSync('npm run install-ffmpeg-win') : console.log('Unsupported OS')\""
+  },
+  "keywords": [],
+  "author": "Glenn Engel (glenne)",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.9.4",
+    "electron": "^27.1.2",
+    "node-addon-api": "^7.0.0",
+    "node-gyp": "^10.0.1",
+    "prebuild": "^12.1.0",
+    "typescript": "^5.3.2"
+  },
+  "dependencies": {
+    "prebuild-install": "^7.1.1",
+    "bindings": "^1.5.0",
+    "tar": "^6.1.11"
+  },
+  "binary": {
+    "napi_versions": [
+      6
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crewtimer/crewtimer-connect.git"
+  }
+}

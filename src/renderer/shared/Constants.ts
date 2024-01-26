@@ -9,3 +9,8 @@ export const N_WAYPOINT = 'waypoint';
 export const N_FL_START_WAYPOINT_ENABLE = 'flStartEnable';
 export const N_FL_START_WAYPOINT = 'flStartWaypoint';
 export const N_DEBUG_LEVEL = 'debugLevel';
+
+export const N_IMAGE = 'image';
+export const N_IMAGE_FRAMES = 'imageFrames';
+export const N_VIDEO_FILE = 'videoFile';
+export const N_VIDEO_DIR = 'videoDir';

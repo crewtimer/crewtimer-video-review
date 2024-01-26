@@ -17,11 +17,13 @@ node 14.17.0
 npm 6.14.13
 node-gyp 9.1.0
 
-* Run `nvm ls-remote --lts` and pick a version.  e.g. 15.11.0
-* Install `nvm install 15.11.0`
-* Use it `nvm use 15.11.0`
-* Make it default `nvm alias default v15.11.0`
+* Run `nvm ls-remote --lts` and pick a version.  16 known to work.
+* Install `nvm install 16`
+* Use it `nvm use 16`
+* Make it default `nvm alias default v16`
 * Update node-gyp `npm i -g node-gyp@latest"`.  Required to build sqlite3.
+* Install yarn `npm i -g yarn`
+* Install ts-node `npm i -g ts-node`
 * Some report needing this: `npm config set node_gyp "/usr/local/lib/node_modules/node-gyp/bin/node-gyp.js`
 * Add sqlite3 to release/app/package.json instead of top level. `cd release/app && npm i --save sqlite3`
 * For firebase, edit webpack.config.renderer.dev.dll.ts and modify renderer field `entry: {
@@ -34,12 +36,19 @@ node-gyp 9.1.0
 ## Building from scratch
 
 ```bash
-git clone git@github.com:glenne/crewtimer-lynx.git
-npm install
-npm start
+git clone git@github.com:crewtimer/crewtimer-connect.git
+yarn install
+yarn electron-rebuild
+yarn start
 ```
 
 If the build fails with a node-gyp error, be sure node-gyp is installed globally.
+
+## Native modules
+
+A native module is used to read mp4 files from storage using the ffmpeg library.  This code is prebuilt and stored on github.
+
+To make updates to the native code, see [Instructions for the native video reader](native/ffreader/README.md).  Access to both a windows and Mac is required.
 
 ## Debugging
 

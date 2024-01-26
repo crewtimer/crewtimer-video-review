@@ -48,6 +48,7 @@ export const setFirebaseConnected = (connected: boolean) =>
   setMemValue(FirebaseConnectedKey, connected);
 
 export const getLynxFolderOK = () => getMemValue(LynxFolderOK, false);
+export const setLynxFolderOK = (ok: boolean) => setMemValue(LynxFolderOK, ok);
 export const getDebugLevel = () => getMemValue<number>(N_DEBUG_LEVEL, 0);
 
 export const getLynxFolder = () => getStoredValue(N_LYNX_FOLDER, 'C:\\Lynx');
@@ -64,3 +65,6 @@ export const setBowToEvent = (newBowToEvent: Map<string, string>) => {
 export const getBowToEvent = () => bowToEvent;
 
 export const getFlightRaces = () => getStoredValue('FlightRaces', '');
+
+export const getVideoFile = () => getStoredValue('videoFile', 'test.mp4');
+export const setVideoFile = (file: string) => setStoredValue('videoFile', file);

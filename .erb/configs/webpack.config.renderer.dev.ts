@@ -152,6 +152,16 @@ const configuration: webpack.Configuration = {
   },
 
   devServer: {
+    client: {
+      overlay: {
+        runtimeErrors: (error) => {
+          if (error.message === 'ResizeObserver loop limit exceeded') {
+            return false;
+          }
+          return true;
+        },
+      },
+    },
     port,
     compress: true,
     hot: true,

@@ -25,10 +25,10 @@ export default function App() {
       window.FinishLynx.startLynxServer();
       setInitProgress(75);
 
-      // refreshAuthStatus();
       setInitProgress(100);
 
-      setInitializing(false);
+      // Wait for stored data to be loaded
+      setTimeout(() => setInitializing(false), 200);
     };
     doInit();
     return () => {

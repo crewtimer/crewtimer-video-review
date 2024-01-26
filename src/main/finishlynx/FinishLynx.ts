@@ -41,6 +41,7 @@ import {
   getLynxFolder,
   setLynxFolder,
   getLynxFolderOK,
+  setLynxFolderOK,
   getMobileConfig,
   setBowToEvent,
   getDay,
@@ -129,16 +130,28 @@ export function refreshLynxLssFile(folder: string) {
   if (!getLynxFolderOK()) {
     return;
   }
-  const lsspath = path.join(folder, 'CrewTimer.lss');
-  // Write lss file if it does not exist
-  fs.access(lsspath, (err: unknown) => {
-    const pathToTemplate = getAssetPath('CrewTimer.lss');
+  try {
+    const lsspath = path.join(folder, 'CrewTimer.lss');
+    // Write lss file if it does not exist
+    fs.access(lsspath, (err: unknown) => {
+      const pathToTemplate = getAssetPath('CrewTimer.lss');
 
-    const template = fs.readFileSync(pathToTemplate, 'utf8');
-    if (err || template !== fs.readFileSync(lsspath, 'utf8')) {
-      fs.writeFileSync(lsspath, template);
-    }
-  });
+      // Note: the sync methods will throw to a browser alert rather than being captured
+      // by try catch
+      const template = fs.readFileSync(pathToTemplate, 'utf8');
+      if (err || template !== fs.readFileSync(lsspath, 'utf8')) {
+        fs.writeFile(lsspath, template, (err) => {
+          if (err) {
+            setLynxFolderOK(false);
+            userMessage.info(err instanceof Error ? err.message : String(err));
+          }
+        });
+      }
+    });
+  } catch (err) {
+    setLynxFolderOK(false);
+    userMessage.info(err instanceof Error ? err.message : String(err));
+  }
 }
 
 // Remove chars which may confuse JSON encoding of strings

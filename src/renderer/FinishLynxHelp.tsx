@@ -4,15 +4,15 @@ import setup from '../assets/LynxSetup.png';
 
 const txt = `
 # Integration with FinishLynx
-Using the CrewTimer FinishLynx Connector with FinishLynx requires both
+Using the CrewTimer Connect utility with FinishLynx requires both
 CrewTimer and FinishLynx to be in agreement about the configuration.
 
-For a quick overview see the [CrewTimer FinishLynx Connect video](https://www.youtube.com/watch?v=633Bw2ub20Q).
+For a quick overview see the [CrewTimer Connect video](https://www.youtube.com/watch?v=633Bw2ub20Q).
 
-**You must be running FinishLynx 12.10 or later for full functionality**
+**You must be running FinishLynx 12.10 or later for full functionality**  In addition the FinishLynx Network Comm Port option (or alternative) must be present and activated.
 
 ## Configuration Steps
-1. Run CrewTimer FinishLynx Connect and enter your race credentials
+1. Run CrewTimer Connect and enter your race credentials
 2. Specify the FinishLynx Folder to match your FinishLynx Database Input Directory setting.  Usually c:\\Lynx.
 This will place a CrewTimer.lss scoreboard file into the specified folder.
 3. Start or Restart FinishLynx (v12.10 or later)

@@ -14,8 +14,10 @@ import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import './lapstorage/lapstorage-ipc-handler';
 import './store/store';
+import './util/fileops-handler';
 import './finishlynx/finishlynx-ipc-handler';
 import './firebase/firebase-ipc-handler';
+import { startVideoServices } from './video/video-main';
 import { getMainWindow, setMainWindow } from './mainWindow';
 
 // import { autoUpdater } from 'electron-updater';
@@ -106,6 +108,8 @@ const createWindow = async () => {
     return { action: 'deny' };
   });
 
+  startVideoServices();
+
   // Remove this if your app does not use auto updates
   // eslint-disable-next-line
   // new AppUpdater();
@@ -118,9 +122,12 @@ const createWindow = async () => {
 app.on('window-all-closed', () => {
   // Respect the OSX convention of having the application in memory even
   // after all windows have been closed
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  // if (process.platform !== 'darwin') {
+  //   app.quit();
+  // }
+
+  // Just quit instead of using platform check for darwin
+  app.quit();
 });
 
 app

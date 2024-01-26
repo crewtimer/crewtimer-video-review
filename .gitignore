@@ -33,3 +33,6 @@ CrewTimer.db
 *.evt
 *.sch
 /CrewTimer.lss
+.env
+*.mp4
+*.mkv

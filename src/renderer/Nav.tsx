@@ -25,7 +25,7 @@ import { getConnectionProps } from './util/Util';
 import { setToast } from './Toast';
 import { useUserMessages } from './util/UserMessage';
 
-const AboutText = `CrewTimer FinishLynx Connect v1.0.11`;
+const AboutText = `CrewTimer Connect v1.0.12`;
 
 const { LapStorage } = window;
 
@@ -127,7 +127,8 @@ export default function Nav() {
                 aria-haspopup="true"
                 onClick={handleMenu}
                 color="inherit"
-                size="large">
+                size="large"
+              >
                 <MenuIcon />
               </IconButton>
               <Menu
