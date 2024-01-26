@@ -1,0 +1,20 @@
+{
+  "name": "crewtimer-fl-connector",
+  "version": "1.0.11",
+  "description": "Connector for FinishLynx to capture time events which are published to CrewTimer",
+  "license": "MIT",
+  "author": {
+    "name": "Glenn Engel",
+    "email": "info@crewtimer.com",
+    "url": "https://crewtimr.com"
+  },
+  "main": "./dist/main/main.js",
+  "scripts": {
+    "electron-rebuild": "node -r ts-node/register ../../.erb/scripts/electron-rebuild.js",
+    "postinstall": "npm run electron-rebuild && npm run link-modules",
+    "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
+  },
+  "dependencies": {
+    "sqlite3": "^5.0.9"
+  }
+}

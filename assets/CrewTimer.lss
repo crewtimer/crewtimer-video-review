@@ -1,0 +1,76 @@
+; Lynx Scoreboard Script
+;
+; Written by Glenn Engel.  Adapted from other lss files.
+;
+; This format produces JSON results of the following form:
+;{
+;  "v": 2,
+;  "event": "1 Mens Varsity 8+",
+;  "eventNum": "1",
+;  "round": "0",
+;  "heat": "0",
+;  "results": [
+;    { "lane": "3", "name": "", "affil": "Mount Baker(MBC)", "t": "11:21:22.123  " },
+;    { "lane": "1", "name": "", "affil": "Purple Lake Crew(GLC)", "t": "11:21:24.234  " }
+;  ]
+;}
+;
+;;ResultsHeader
+; This is sent once each time the scoreboard is updated with results. It
+; is sent before any result lines are sent.
+; Line codes:
+;  \00  No variable
+;  \01  OFFICIAL/UNOFFICIAL string
+;  \02  Event name
+;  \03  Wind
+;  \04  Event number
+;  \05  Round number
+;  \06  Heat number
+;  \07  AUTO/MANUAL start type
+;  \08  Number of participants
+\00{"v":2
+; Event name
+\02,"event":"%s"
+; Event number
+\04,"eventNum":"%s"
+; Round number
+\05,"round":"%s"
+; Heat number
+\06,"heat":"%s"
+\0e,"start":"%s"
+\00,\0a"results":[
+
+;;ResultsTrailer
+; This is sent once each time the scoreboard is updated with results. It
+; is sent after all result lines are sent.
+; This sequence terminates the JSON message with a unique string
+\00],"eof":"1"}\0a
+
+;;Result
+; This is sent once for each result line displayed on the scoreboard.
+; Line codes:
+;  \00  No variable
+;  \01  Place
+;  \02  Lane
+;  \03  Id
+;  \06  Time
+;  \19  Start Time (requires FL 12.10 or later)
+; Register[0] is initialized with the index of the current result line and
+; will range from 0 through <SCBPageSize-1>.
+;
+; Add comma before { if this is not 0th item
+\14\00\He0,
+\00{
+; Place. Can also be DNS, DNF etc
+\01"p":"%s"
+; Lane
+\02,"l":"%s"
+; Id
+\03,"id":"%s"
+; Time
+\06,"t":"%s"
+; Start Time (default behavior)
+\19,"st":"%s"
+; FL Needs a linefeed every once in a while to flush it's output buffers or it
+; will hang if more than 4095 bytes are required.  Inject a linefeed after every result.
+\00}\0a
