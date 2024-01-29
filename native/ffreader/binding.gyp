@@ -45,8 +45,7 @@
         }],
       ],
 
-      "defines": [ "NAPI_DISABLE_CPP_EXCEPTIONS",
-                  "NAPI_VERSION=<(napi_build_version)", ],
+      "defines": [ "NAPI_DISABLE_CPP_EXCEPTIONS" ],
       "cflags!": [ "-fno-exceptions" ],
       "cflags_cc!": [ "-fno-exceptions" ]
     }

@@ -5,17 +5,31 @@ the [Electron React Boilerplate Project](https://electron-react-boilerplate.js.o
 
 See the [VSCode plugins suggested here](https://electron-react-boilerplate.js.org/docs/editor-configuration).
 
-## Installation and Configuration tweaks
+## Development Environment Setup
+
+Node version 16 or later is recommended.
+
+* [Visual Studio Code](https://code.visualstudio.com/) is the recommended IDE for editing code for this repo.  If you don't have it installed, please do that first.
+* The [nvm node version manager](https://github.com/nvm-sh/nvm) is recommended to manage node versions.  [Node.js which includes npm](https://nodejs.org/en) is required for local development.
+* Source code utilizes git.  If you are unfamiliar with git, the [Atlassian Sourcetree](https://www.sourcetreeapp.com/) program provides a nice GUI as does [Github Desktop](https://desktop.github.com/).
+
+## Quickstart
+
+```bash
+nvm install 16
+nvm use 16
+git clone git@github.com:crewtimer/crewtimer-connect.git
+yarn install
+yarn start
+```
+
+If the build fails with a node-gyp error, be sure node-gyp is installed globally.
+
+## Installation and Configuration Notes to self
 
 MacOS can build for all targets - mac, win, linux
 
 To build native libs (sqlite3) a recent version of npm is needed.
-
-These versions are known to work together:
-
-node 14.17.0
-npm 6.14.13
-node-gyp 9.1.0
 
 * Run `nvm ls-remote --lts` and pick a version.  16 known to work.
 * Install `nvm install 16`
@@ -32,17 +46,6 @@ node-gyp 9.1.0
 * In resolve: section of , add ```fallback: {
       path: require.resolve('path-browserify'),
     },``` to make path available from the renderer.
-
-## Building from scratch
-
-```bash
-git clone git@github.com:crewtimer/crewtimer-connect.git
-yarn install
-yarn electron-rebuild
-yarn start
-```
-
-If the build fails with a node-gyp error, be sure node-gyp is installed globally.
 
 ## Native modules
 
