@@ -1,23 +1,33 @@
 import * as React from 'react';
-import List from '@mui/material/List';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
-import { useVideoFile } from './video/VideoSettings';
+import { useSelectedIndex, useVideoFile } from './video/VideoSettings';
 import { openSelectedFile } from './video/VideoHelpers';
+import DataGrid, {
+  CellClickArgs,
+  CellMouseEvent,
+  Column,
+  DataGridHandle,
+} from 'react-data-grid';
+import 'react-data-grid/lib/styles.css';
+import { Box } from '@mui/material';
+import { useRef } from 'react';
 
 interface FileListProps {
   files: string[];
 }
 
-const FileList: React.FC<FileListProps> = ({ files }) => {
-  const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
-  const selectedItemRef = React.useRef<HTMLDivElement>(null);
-  const [videoFile] = useVideoFile();
+interface FileInfo {
+  id: number;
+  filename: string;
+}
 
-  const handleListItemClick = (index: number) => {
-    setSelectedIndex(index);
-    openSelectedFile(files[index]);
-  };
+function rowKeyGetter(row: FileInfo) {
+  return row.id;
+}
+
+const FileList: React.FC<FileListProps> = ({ files }) => {
+  const [selectedIndex, setSelectedIndex] = useSelectedIndex();
+  const [videoFile] = useVideoFile();
+  const dataGridRef = useRef<DataGridHandle | null>(null);
 
   React.useEffect(() => {
     const index = files.indexOf(videoFile);
@@ -27,45 +37,67 @@ const FileList: React.FC<FileListProps> = ({ files }) => {
   }, [files, videoFile]);
 
   React.useEffect(() => {
-    if (selectedIndex !== null && selectedItemRef.current) {
-      selectedItemRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-      });
+    console.log(`Selected index=${selectedIndex}, files.leng=${files.length}`);
+    if (files.length === 0) {
+      return;
     }
+    if (selectedIndex < 0) {
+      setSelectedIndex(0);
+      return;
+    }
+    if (selectedIndex > files.length - 1) {
+      setSelectedIndex(files.length - 1);
+      return;
+    }
+    openSelectedFile(files[selectedIndex]);
+    dataGridRef.current?.scrollToCell({ rowIdx: selectedIndex, idx: 0 });
   }, [selectedIndex]);
 
-  return (
-    <List
-      component="nav"
-      aria-label="file list"
-      sx={{ maxHeight: 300, overflow: 'auto' }}
-      dense
-    >
-      {files.map((file, index) => (
-        <ListItemButton
-          selected={selectedIndex === index}
-          onClick={() => handleListItemClick(index)}
-          key={file}
-          ref={selectedIndex === index ? selectedItemRef : null}
-          dense
-          sx={{
-            '&.Mui-selected': {
-              backgroundColor: '#556cd6',
-              color: '#fff',
-            },
-            '&.Mui-focusVisible': {
-              backgroundColor: '#2196f3',
-            },
-            ':hover': {
-              backgroundColor: '#2196f3',
-            },
-          }}
+  const columns: Column<FileInfo>[] = [
+    {
+      key: 'name',
+      name: 'Filename',
+      renderCell: ({ row, rowIdx }: { row: FileInfo; rowIdx: number }) => (
+        <Box
+          sx={
+            rowIdx === selectedIndex
+              ? { background: '#556cd6', color: 'white', paddingLeft: '0.5em' }
+              : { paddingLeft: '0.5em' }
+          }
         >
-          <ListItemText primary={file.replace(/.*\//, '')} />
-        </ListItemButton>
-      ))}
-    </List>
+          {row.filename.replace(/.*\//, '')}
+        </Box>
+      ),
+    },
+  ];
+
+  const dispItems = React.useMemo(
+    () => files.map((filename, index) => ({ id: index, filename })),
+    [files]
+  );
+
+  const handleClick = React.useCallback(
+    (args: CellClickArgs<FileInfo, unknown>, event: CellMouseEvent) => {
+      event.preventGridDefault();
+      const index = args.row.id;
+      setSelectedIndex(index);
+      // openSelectedFile(files[index]);
+      // dataGridRef.current?.scrollToCell({ rowIdx: index, idx: 0 });
+    },
+    []
+  );
+
+  return (
+    <DataGrid<FileInfo>
+      ref={dataGridRef}
+      style={{ height: '300px' }}
+      rowHeight={30}
+      columns={columns}
+      rows={dispItems}
+      rowKeyGetter={rowKeyGetter}
+      onCellClick={handleClick}
+      onCellDoubleClick={handleClick}
+    />
   );
 };
 

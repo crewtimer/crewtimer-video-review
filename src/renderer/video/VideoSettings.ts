@@ -29,6 +29,8 @@ export const [useVideoFile, setVideoFile, getVideoFile] = UseStoredDatum(
   ''
 );
 
+export const [useSelectedIndex, setSelectedIndex] = UseDatum(0);
+
 export const [useVideoDir, setVideoDir, getVideoDir] = UseStoredDatum(
   N_VIDEO_DIR,
   '.'
