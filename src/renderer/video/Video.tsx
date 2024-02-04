@@ -123,11 +123,34 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const infoRowHeight = 0; // 40;
   height = height - infoRowHeight;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const offscreenCanvas = useRef(document.createElement('canvas'));
+
   const setScale = useCallback((scale: number) => {
     mouseTracking.current.scale = scale;
     drawContent();
   }, []);
-  const offscreenCanvas = useRef(document.createElement('canvas'));
+
+  const initScaling = useCallback(() => {
+    setScale(1);
+    mouseTracking.current.mouseDown = false;
+    mouseTracking.current.isPinching = false;
+    mouseTracking.current.isZooming = false;
+    mouseTracking.current.calPointLeft.ts = 0;
+    mouseTracking.current.calPointRight.ts = 0;
+
+    mouseTracking.current.zoomWindow = {
+      x: 0,
+      y: 0,
+      width: image.width,
+      height: image.height,
+    };
+    mouseTracking.current.zoomStartWindow = mouseTracking.current.zoomWindow;
+    setZoomWindow(mouseTracking.current.zoomWindow);
+  }, [image.width, image.height]);
+
+  useEffect(() => {
+    initScaling();
+  }, [image.width, image.height]);
 
   useEffect(() => {
     offscreenCanvas.current.width = image.width;
@@ -314,21 +337,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       event.preventDefault();
       return;
     }
-    setScale(1);
-    mouseTracking.current.mouseDown = false;
-    mouseTracking.current.isPinching = false;
-    mouseTracking.current.isZooming = false;
-    mouseTracking.current.calPointLeft.ts = 0;
-    mouseTracking.current.calPointRight.ts = 0;
-
-    mouseTracking.current.zoomWindow = {
-      x: 0,
-      y: 0,
-      width: image.width,
-      height: image.height,
-    };
-    mouseTracking.current.zoomStartWindow = mouseTracking.current.zoomWindow;
-    setZoomWindow(mouseTracking.current.zoomWindow);
+    initScaling();
   };
 
   const handleMouseDown = useCallback(
