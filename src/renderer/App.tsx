@@ -5,6 +5,7 @@ import CenteredTabs from './CenteredTabs';
 import InitProgress, { useInitProgress } from './InitProgress';
 import Nav from './Nav';
 import StatusMonitor from './StatusMonitor';
+import { ConfirmDialog } from './util/ConfirmDialog';
 import { setInitializing } from './util/UseSettings';
 
 const { startLapStorage } = window.LapStorage;
@@ -45,6 +46,8 @@ export default function App() {
         <InitProgress />
         <CenteredTabs />
       </div>
+
+      <ConfirmDialog />
       <StatusMonitor />
     </Router>
   );

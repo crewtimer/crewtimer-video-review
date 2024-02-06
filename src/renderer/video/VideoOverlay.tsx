@@ -1,33 +1,21 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { UseDatum } from 'react-usedatum';
-import { useImage, useZoomWindow } from './VideoSettings';
+import {
+  Dir,
+  getVideoSettings,
+  GuideLine,
+  useImage,
+  useVideoSettings,
+  useZoomWindow,
+} from './VideoSettings';
+import { drawText } from './VideoUtils';
 
 interface Point {
   x: number;
   y: number;
 }
 
-enum Dir {
-  Horiz,
-  Vert,
-}
-
-export interface CourseConfig {
-  finish: {
-    top: number;
-    bottom: number;
-  };
-  lanes: {
-    label: string;
-    left: number;
-    right: number;
-  }[];
-}
 export const [useAdjustingOverlay] = UseDatum(false);
-export const [useCourseConfig, , getCourseConfig] = UseDatum<CourseConfig>({
-  finish: { top: 0, bottom: 0 },
-  lanes: [], // [{ label: '1', left: 1080 / 2, right: 1080 / 2 }],
-});
 
 export interface VideoOverlayProps {
   width: number; /// Canas width
@@ -49,11 +37,20 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [dragHandle, setDragHandle] = useState<'top' | 'bottom' | null>(null);
-  const [adjustingOverlay] = useAdjustingOverlay();
-  const [courseConfig, setCourseConfig] = useCourseConfig();
+  const [dragHandle, setDragHandle] = useState<{
+    pos: 'pt1' | 'pt2';
+    guide: GuideLine;
+  } | null>(null);
+  const [adjustingOverlay, setAdjustingOverlay] = useAdjustingOverlay();
+  const [courseConfig, setCourseConfig] = useState(getVideoSettings());
   const [zoomWindow] = useZoomWindow();
   const [image] = useImage();
+  const [videoSettings, setVideoSettings] = useVideoSettings();
+
+  useEffect(() => {
+    // init volatile copy used while moving the mouse
+    setCourseConfig(videoSettings);
+  }, [videoSettings]);
   const scale = Math.min(
     width / zoomWindow.width,
     destHeight / zoomWindow.height
@@ -80,6 +77,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
 
   const drawBox = useCallback(
     (context: CanvasRenderingContext2D, posScaled: Point, dir: Dir) => {
+      context.beginPath();
       context.strokeStyle = 'black';
       // const posScaled = scalePoint(pos.x, pos.y);
       if (dir === Dir.Horiz) {
@@ -110,24 +108,20 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   );
 
   const drawLine = useCallback(
-    (from: Point, to: Point, dir: Dir) => {
+    (from: Point, to: Point, color: string, dir: Dir) => {
       const context = canvasRef.current?.getContext('2d');
       if (!context) {
         return;
       }
-      let fromScaled = scalePoint(from.x, from.y);
-      let toScaled = scalePoint(to.x, to.y);
-
-      context.strokeStyle = 'red';
-      context.moveTo(fromScaled.x, fromScaled.y);
-      context.lineTo(toScaled.x, toScaled.y);
+      context.beginPath();
+      context.strokeStyle = color;
+      context.moveTo(from.x, from.y);
+      context.lineTo(to.x, to.y);
       context.stroke();
 
       if (adjustingOverlay) {
-        context.beginPath();
-        drawBox(context, { x: fromScaled.x, y: fromScaled.y }, dir);
-        drawBox(context, { x: toScaled.x, y: toScaled.y }, dir);
-        context.stroke();
+        drawBox(context, { x: from.x, y: from.y }, dir);
+        drawBox(context, { x: to.x, y: to.y }, dir);
       }
     },
     [scalePoint, adjustingOverlay]
@@ -142,36 +136,117 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
 
       // Draw the vertical line
       context.clearRect(0, 0, canvas.width, canvas.height);
-      context.strokeStyle = 'red';
-      context.beginPath();
-      drawLine(
-        { x: image.width / 2 + courseConfig.finish.top, y: 0 },
-        {
-          x: image.width / 2 + courseConfig.finish.bottom,
-          y: image.height - 1,
-        },
-        Dir.Vert
-      );
 
-      courseConfig.lanes.forEach((laneConfig) => {
-        drawLine(
-          { x: 0, y: laneConfig.left },
-          { x: image.width - 1, y: laneConfig.right },
-          Dir.Horiz
-        );
+      courseConfig.guides.forEach((guide) => {
+        if (!guide.enabled) {
+          return;
+        }
+        switch (guide.dir) {
+          case Dir.Vert:
+            {
+              const fromScaled = scalePoint(image.width / 2 + guide.pt1, 0);
+              const toScaled = scalePoint(
+                image.width / 2 + guide.pt2,
+                image.height - 1
+              );
+              drawLine(fromScaled, toScaled, 'red', Dir.Vert);
+            }
+            break;
+          case Dir.Horiz:
+            {
+              let fromScaled = scalePoint(0, guide.pt1);
+              let toScaled = scalePoint(image.width - 1, guide.pt2);
+              drawLine(fromScaled, toScaled, '#ffffff', Dir.Horiz);
+
+              // Compute text orgin based on zoom
+              fromScaled = scalePoint(
+                zoomWindow.x,
+                guide.pt1 +
+                  ((guide.pt2 - guide.pt1) * zoomWindow.x) / image.width
+              );
+              toScaled = scalePoint(
+                zoomWindow.x + zoomWindow.width - 1,
+                guide.pt1 +
+                  ((guide.pt2 - guide.pt1) *
+                    (zoomWindow.x + zoomWindow.width)) /
+                    image.width
+              );
+              drawText(
+                context,
+                `${guide.label}`,
+                destHeight / 50,
+                fromScaled.x,
+                fromScaled.y,
+                videoSettings.lane1Top ? 'below' : 'above',
+                'left'
+              );
+              drawText(
+                context,
+                `${guide.label}`,
+                destHeight / 50,
+                toScaled.x,
+                toScaled.y,
+                videoSettings.lane1Top ? 'below' : 'above',
+                'right'
+              );
+            }
+            break;
+        }
       });
     }
-  }, [courseConfig.finish, adjustingOverlay, width, height, zoomWindow]);
+  }, [
+    videoSettings,
+    courseConfig,
+    adjustingOverlay,
+    width,
+    height,
+    zoomWindow,
+  ]);
 
   const handleMouseDown = (event: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     const y = event.clientY - (rect?.top ?? 0);
-    const isTopHandle = y < 20;
-    const isBottomHandle = y > destHeight - 20;
+    const x = event.clientX - (rect?.left ?? 0);
 
-    if (isTopHandle || isBottomHandle) {
-      setDragging(true);
-      setDragHandle(isTopHandle ? 'top' : 'bottom');
+    if (y < 20 || y > destHeight - 20 || x < 20 || x > destWidth - 20) {
+      // find first guide within 20 px
+      const nearestGuide = courseConfig.guides.find((guide) => {
+        // Convert guide coordinates to screen coords and check for distance
+        const point1 =
+          guide.dir === Dir.Vert
+            ? scalePoint(image.width / 2 + guide.pt1, 0)
+            : scalePoint(0, guide.pt1);
+        const point2 =
+          guide.dir === Dir.Vert
+            ? scalePoint(image.width / 2 + guide.pt2, image.height)
+            : scalePoint(image.width, guide.pt2);
+        const dist1 = Math.sqrt(
+          (point1.x - x) * (point1.x - x) + (point1.y - y) * (point1.y - y)
+        );
+        const dist2 = Math.sqrt(
+          (point2.x - x) * (point2.x - x) + (point2.y - y) * (point2.y - y)
+        );
+        console.log(
+          JSON.stringify(
+            { x, y, point1, point2, dist1, dist2, h: image.height },
+            null,
+            2
+          )
+        );
+
+        return dist1 < 20 || dist2 < 20;
+      });
+      if (nearestGuide) {
+        setDragging(true);
+        setAdjustingOverlay(true);
+        event.preventDefault();
+        event.stopPropagation();
+        if (y < 20 || x < 20) {
+          setDragHandle({ pos: 'pt1', guide: nearestGuide });
+        } else {
+          setDragHandle({ pos: 'pt2', guide: nearestGuide });
+        }
+      }
     }
   };
 
@@ -179,29 +254,40 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
     if (dragging && dragHandle) {
       const rect = canvasRef.current?.getBoundingClientRect();
       const x = event.clientX - (rect?.left ?? 0) - rect?.width! / 2;
+      const y = event.clientY - (rect?.top ?? 0);
       const xpos = x / scale;
+      const ypos = y / scale;
 
-      if (dragHandle === 'top') {
-        setCourseConfig((prev) => ({
-          ...prev,
-          finish: {
-            ...prev.finish,
-            top: xpos,
-            bottom: prev.finish.bottom + xpos - prev.finish.top,
-          },
-        }));
+      if (dragHandle.guide.dir === Dir.Vert) {
+        if (dragHandle.pos === 'pt1') {
+          dragHandle.guide.pt1 = xpos;
+          dragHandle.guide.pt2 =
+            dragHandle.guide.pt2 + xpos - dragHandle.guide.pt1;
+        } else {
+          dragHandle.guide.pt2 = xpos;
+        }
       } else {
-        setCourseConfig((prev) => ({
-          ...prev,
-          finish: { ...prev.finish, [dragHandle]: xpos },
-        }));
+        if (dragHandle.pos === 'pt1') {
+          // dragging pt1, keep angle between pt1 and pt2
+          const delta = dragHandle.guide.pt2 - dragHandle.guide.pt1;
+          dragHandle.guide.pt1 = ypos;
+          dragHandle.guide.pt2 = ypos + delta;
+        } else {
+          dragHandle.guide.pt2 = ypos;
+        }
       }
+
+      setCourseConfig({ ...courseConfig });
     }
   };
 
   const handleMouseUp = () => {
+    if (dragging) {
+      setVideoSettings(courseConfig);
+    }
     setDragging(false);
     setDragHandle(null);
+    setAdjustingOverlay(false);
   };
 
   // TODO: Support touchscreens
@@ -209,14 +295,14 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   return (
     <canvas
       ref={canvasRef}
-      onMouseDown={adjustingOverlay ? handleMouseDown : undefined}
-      onMouseMove={adjustingOverlay ? handleMouseMove : undefined}
-      onMouseUp={adjustingOverlay ? handleMouseUp : undefined}
-      onMouseLeave={adjustingOverlay ? handleMouseUp : undefined}
+      onMouseDown={handleMouseDown}
+      onMouseMove={dragging ? handleMouseMove : undefined}
+      onMouseUp={dragging ? handleMouseUp : undefined}
+      onMouseLeave={dragging ? handleMouseUp : undefined}
       width={`${width}px`}
       height={`${height}px`}
       style={{
-        zIndex: adjustingOverlay ? 100 : undefined,
+        zIndex: dragging ? 300 : 100, // adjustingOverlay ? 100 : undefined,
         position: 'absolute', // keeps the size from influencing the parent size
       }}
     />

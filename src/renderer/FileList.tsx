@@ -37,7 +37,6 @@ const FileList: React.FC<FileListProps> = ({ files }) => {
   }, [files, videoFile]);
 
   React.useEffect(() => {
-    console.log(`Selected index=${selectedIndex}, files.leng=${files.length}`);
     if (files.length === 0) {
       return;
     }

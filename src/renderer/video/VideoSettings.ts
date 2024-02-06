@@ -36,6 +36,56 @@ export const [useVideoDir, setVideoDir, getVideoDir] = UseStoredDatum(
   '.'
 );
 
+export enum Dir {
+  Horiz,
+  Vert,
+}
+
+export interface GuideLine {
+  enabled: boolean;
+  dir: Dir;
+  label: string;
+  pt1: number; /// Vert: offset from center, H: Offset from top of video in video pixel units
+  pt2: number;
+}
+interface VideoSettings {
+  guides: GuideLine[];
+  lane1Top: boolean;
+  travelRtoL: boolean;
+}
+export const [useVideoSettings, , getVideoSettings] =
+  UseStoredDatum<VideoSettings>('videoSettings', {
+    lane1Top: false,
+    travelRtoL: false,
+    guides: [
+      { dir: Dir.Vert, pt1: 0, pt2: 0, label: 'Finish', enabled: true },
+      { dir: Dir.Horiz, pt1: 200, pt2: 200, label: 'Lane 0', enabled: false },
+      { dir: Dir.Horiz, pt1: 210, pt2: 210, label: 'Lane 1', enabled: false },
+      { dir: Dir.Horiz, pt1: 220, pt2: 220, label: 'Lane 2', enabled: false },
+      { dir: Dir.Horiz, pt1: 230, pt2: 230, label: 'Lane 3', enabled: false },
+      { dir: Dir.Horiz, pt1: 240, pt2: 240, label: 'Lane 4', enabled: false },
+      { dir: Dir.Horiz, pt1: 250, pt2: 250, label: 'Lane 5', enabled: false },
+      { dir: Dir.Horiz, pt1: 260, pt2: 260, label: 'Lane 6', enabled: false },
+      { dir: Dir.Horiz, pt1: 270, pt2: 270, label: 'Lane 7', enabled: false },
+      { dir: Dir.Horiz, pt1: 280, pt2: 280, label: 'Lane 8', enabled: false },
+      { dir: Dir.Horiz, pt1: 290, pt2: 290, label: 'Lane 9', enabled: false },
+      {
+        dir: Dir.Horiz,
+        pt1: 300,
+        pt2: 300,
+        label: 'Lane 10',
+        enabled: false,
+      },
+      {
+        dir: Dir.Horiz,
+        pt1: 310,
+        pt2: 310,
+        label: 'Lane 11',
+        enabled: false,
+      },
+    ],
+  });
+
 export const [useImage, setImage] = UseMemDatum<AppImage>(N_IMAGE, {
   height: 0,
   width: 0,

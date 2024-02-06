@@ -12,15 +12,25 @@ import { useResizeDetector } from 'react-resize-detector';
 import { useDebouncedCallback } from 'use-debounce';
 import makeStyles from '@mui/styles/makeStyles';
 import VideoSideBar from './VideoSideBar';
-import { setZoomWindow, useImage, useVideoPosition } from './VideoSettings';
-import VideoOverlay, {
-  getCourseConfig,
-  useAdjustingOverlay,
-} from './VideoOverlay';
+import {
+  getVideoSettings,
+  setZoomWindow,
+  useImage,
+  useVideoPosition,
+} from './VideoSettings';
+import VideoOverlay, { useAdjustingOverlay } from './VideoOverlay';
 import { Rect } from 'renderer/shared/AppTypes';
 
 const useStyles = makeStyles({
   text: {
+    zIndex: 200,
+    background: '#ffffffa0',
+    color: 'black',
+    border: '1px solid black',
+    height: 'fit-content',
+    padding: '0.2em',
+  },
+  tstext: {
     zIndex: 1,
     background: '#ffffffa0',
     color: 'black',
@@ -313,11 +323,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         )
       );
     }
-    // console.log(
-    //   `"${convertTimestampToString(calPoint.ts)}",${
-    //     mousePositionX / calPoint.scale
-    //   }`
-    // );
+
     drawContent();
     forceRender();
   };
@@ -360,13 +366,13 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         mouseTracking.current.zoomWindow.y + mousePositionY * yScale;
 
       // compute the x pos of the finish line in the frame before scalechanges
-      const { top, bottom } = getCourseConfig().finish;
-      const x1 = image.width / 2 + top;
-      const x2 = image.width / 2 + bottom;
+      let { pt1, pt2 } = getVideoSettings().guides[0];
+      pt1 += image.width / 2;
+      pt2 += image.width / 2;
 
       mouseTracking.current.mouseDownPositionX =
-        x1 +
-        (x2 - x1) * (mouseTracking.current.mouseDownPositionY / image.height);
+        pt1 +
+        (pt2 - pt1) * (mouseTracking.current.mouseDownPositionY / image.height);
     },
     [image, xPadding, destWidth]
   );
@@ -558,6 +564,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             width: `${width}px`,
             height: `${height}px`,
             alignItems: 'center',
+            paddingTop: '10px',
           }}
         >
           <Stack direction="row">
@@ -565,7 +572,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             <Typography onClick={moveLeft} className={classes.text}>
               &nbsp;&lt;&nbsp;
             </Typography>
-            <Typography className={classes.text}>
+            <Typography className={classes.tstext}>
               {convertTimestampToString(image.timestamp)}
             </Typography>
             <Typography onClick={moveRight} className={classes.text}>
