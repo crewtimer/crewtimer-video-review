@@ -13,13 +13,20 @@ import { useDebouncedCallback } from 'use-debounce';
 import makeStyles from '@mui/styles/makeStyles';
 import VideoSideBar from './VideoSideBar';
 import {
+  Dir,
   getVideoSettings,
+  setVideoBow,
+  setVideoTimestamp,
   setZoomWindow,
   useImage,
   useVideoPosition,
+  useVideoSettings,
 } from './VideoSettings';
 import VideoOverlay, { useAdjustingOverlay } from './VideoOverlay';
 import { Rect } from 'renderer/shared/AppTypes';
+import TimingSidebar from './TimingSidebar';
+import VideoSettingsView from './VideoSettingsView';
+import { findClosestLineAndPosition } from './VideoUtils';
 
 const useStyles = makeStyles({
   text: {
@@ -293,12 +300,42 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     setZoomWindow(mouseTracking.current.zoomWindow);
   }, [image]);
 
+  const selectLane = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    const yScale = mouseTracking.current.zoomWindow.width / destWidth;
+    const x =
+      mouseTracking.current.zoomWindow.x +
+      (event.clientX - event.currentTarget.getBoundingClientRect().left) *
+        yScale;
+    const y =
+      mouseTracking.current.zoomWindow.y +
+      (event.clientY - event.currentTarget.getBoundingClientRect().top) *
+        yScale;
+    const laneLines = getVideoSettings()
+      .guides.filter((lane) => lane.dir === Dir.Horiz && lane.enabled)
+      .map((lane) => ({
+        pt1: { x: 0, y: lane.pt1 },
+        pt2: { x: image.width, y: lane.pt2 },
+        lane,
+      }));
+    const result = findClosestLineAndPosition(
+      { x: x, y: y },
+      laneLines,
+      getVideoSettings().lane1Top ? 'below' : 'above'
+    );
+    if (result.closestLine >= 0) {
+      const lane = laneLines[result.closestLine].lane.label.split(' ')[1];
+      setVideoBow(lane);
+    }
+  };
   const handleSingleClick = (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>
   ) => {
+    if (!event.shiftKey) {
+      return;
+    }
     const mousePositionY =
       event.clientY - event.currentTarget.getBoundingClientRect().top;
-    if (mousePositionY < 30 || !event.shiftKey) {
+    if (mousePositionY < 30) {
       return;
     }
     event.preventDefault();
@@ -348,6 +385,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   const handleMouseDown = useCallback(
     (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+      selectLane(event);
       mouseTracking.current.mouseDownClientY = event.clientY;
       const mousePositionY = Math.min(
         destHeight,
@@ -515,6 +553,12 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     };
   }, [handleKeyDown]);
 
+  const videoTimestamp = convertTimestampToString(image.timestamp);
+
+  useEffect(() => {
+    setVideoTimestamp(videoTimestamp);
+  }, [image]);
+
   return (
     <Stack direction="column">
       {/* <Box
@@ -572,9 +616,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             <Typography onClick={moveLeft} className={classes.text}>
               &nbsp;&lt;&nbsp;
             </Typography>
-            <Typography className={classes.tstext}>
-              {convertTimestampToString(image.timestamp)}
-            </Typography>
+            <Typography className={classes.tstext}>{videoTimestamp}</Typography>
             <Typography onClick={moveRight} className={classes.text}>
               &nbsp;&gt;&nbsp;
             </Typography>
@@ -610,7 +652,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
 const Video = () => {
   const { width, height, ref } = useResizeDetector();
-  const sidebarWidth = 150;
+  const [videoSettings] = useVideoSettings();
+  const videoSidebarWidth = videoSettings.videoPanel ? 150 : 0;
+  const timingSidebarwidth = videoSettings.timingPanel ? 400 : 0;
+  const sidebarWidth = Math.max(60, videoSidebarWidth + timingSidebarwidth);
+
   return (
     <div
       style={{
@@ -631,7 +677,17 @@ const Video = () => {
             width={(width || sidebarWidth + 1) - sidebarWidth}
             height={height || 1}
           />
-          <VideoSideBar width={sidebarWidth} />
+          <Stack direction="column" sx={{ width: sidebarWidth }}>
+            <VideoSettingsView />
+            <Stack direction="row">
+              {videoSettings.timingPanel && (
+                <TimingSidebar sx={{ width: timingSidebarwidth }} />
+              )}
+              {videoSettings.videoPanel && (
+                <VideoSideBar sx={{ width: videoSidebarWidth }} />
+              )}
+            </Stack>
+          </Stack>
         </Stack>
       </div>
     </div>

@@ -28,7 +28,9 @@ export const [useVideoFile, setVideoFile, getVideoFile] = UseStoredDatum(
   N_VIDEO_FILE,
   ''
 );
-
+export const [useVideoTimestamp, setVideoTimestamp] = UseDatum('');
+export const [useVideoBow, setVideoBow] = UseDatum('');
+export const [useVideoEvent, setVideoEvent] = UseDatum('');
 export const [useSelectedIndex, setSelectedIndex] = UseDatum(0);
 
 export const [useVideoDir, setVideoDir, getVideoDir] = UseStoredDatum(
@@ -52,11 +54,15 @@ interface VideoSettings {
   guides: GuideLine[];
   lane1Top: boolean;
   travelRtoL: boolean;
+  videoPanel: boolean;
+  timingPanel: boolean;
 }
 export const [useVideoSettings, , getVideoSettings] =
   UseStoredDatum<VideoSettings>('videoSettings', {
     lane1Top: false,
     travelRtoL: false,
+    videoPanel: true,
+    timingPanel: true,
     guides: [
       { dir: Dir.Vert, pt1: 0, pt2: 0, label: 'Finish', enabled: true },
       { dir: Dir.Horiz, pt1: 200, pt2: 200, label: 'Lane 0', enabled: false },

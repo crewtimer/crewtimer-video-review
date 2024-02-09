@@ -9,7 +9,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
 import FormControl from '@mui/material/FormControl';
-import Select from '@mui/material/Select';
+import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Checkbox from '@mui/material/Checkbox';
 import { Info } from '@mui/icons-material';
@@ -202,27 +202,21 @@ export default function Setup() {
     setValidating(false);
   };
 
-  const onWaypointChange = (
-    event: React.ChangeEvent<{ name?: string | undefined; value: unknown }>
-  ) => {
+  const onWaypointChange = (event: SelectChangeEvent<string>) => {
     if (!event.target.value) {
       return;
     }
     setTimingWaypoint(String(event.target.value));
   };
 
-  const onFLWaypointChange = (
-    event: React.ChangeEvent<{ name?: string | undefined; value: unknown }>
-  ) => {
+  const onFLWaypointChange = (event: SelectChangeEvent<string>) => {
     if (!event.target.value) {
       return;
     }
     setFLStartWaypoint(String(event.target.value));
   };
 
-  const onDayChange = (
-    event: React.ChangeEvent<{ name?: string | undefined; value: unknown }>
-  ) => {
+  const onDayChange = (event: SelectChangeEvent<string>) => {
     if (!event.target.value) {
       return;
     }
@@ -379,7 +373,8 @@ export default function Setup() {
                     variant="standard"
                     value={timingWaypoint}
                     onChange={onWaypointChange}
-                    className={classes.vertSpace}>
+                    className={classes.vertSpace}
+                  >
                     {waypointList.map((waypoint) => (
                       <MenuItem key={waypoint} value={waypoint}>
                         {waypoint}
@@ -390,7 +385,10 @@ export default function Setup() {
               </Box>
               {dayList.length !== 0 && (
                 <Box className={classes.settings}>
-                  <FormControl variant="standard" className={classes.formControl}>
+                  <FormControl
+                    variant="standard"
+                    className={classes.formControl}
+                  >
                     <InputLabel shrink id="day-label">
                       Day
                     </InputLabel>
@@ -398,7 +396,8 @@ export default function Setup() {
                       variant="standard"
                       value={timingDay}
                       onChange={onDayChange}
-                      className={classes.vertSpace}>
+                      className={classes.vertSpace}
+                    >
                       {dayList.map((day) => (
                         <MenuItem key={day} value={day}>
                           {day}
@@ -425,7 +424,10 @@ export default function Setup() {
                   </Box>
                   {flStartWaypointEnable && flWaypointList.length > 1 && (
                     <Box className={classes.indentSettings}>
-                      <FormControl variant="standard" className={classes.formControl}>
+                      <FormControl
+                        variant="standard"
+                        className={classes.formControl}
+                      >
                         <InputLabel id="fl-start-waypoint-label">
                           FL Waypoint
                         </InputLabel>
@@ -433,7 +435,8 @@ export default function Setup() {
                           variant="standard"
                           value={flStartWaypoint}
                           onChange={onFLWaypointChange}
-                          className={classes.vertSpace}>
+                          className={classes.vertSpace}
+                        >
                           {flWaypointList.map((waypoint) => (
                             <MenuItem key={waypoint} value={waypoint}>
                               {waypoint}

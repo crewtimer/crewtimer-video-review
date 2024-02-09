@@ -8,12 +8,7 @@ import {
   useVideoSettings,
   useZoomWindow,
 } from './VideoSettings';
-import { drawText } from './VideoUtils';
-
-interface Point {
-  x: number;
-  y: number;
-}
+import { drawText, Point } from './VideoUtils';
 
 export const [useAdjustingOverlay] = UseDatum(false);
 
@@ -46,6 +41,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   const [zoomWindow] = useZoomWindow();
   const [image] = useImage();
   const [videoSettings, setVideoSettings] = useVideoSettings();
+  const mouseDownVideoCoordsRef = useRef<Point>({ x: 0, y: 0 });
 
   useEffect(() => {
     // init volatile copy used while moving the mouse
@@ -156,7 +152,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
             {
               let fromScaled = scalePoint(0, guide.pt1);
               let toScaled = scalePoint(image.width - 1, guide.pt2);
-              drawLine(fromScaled, toScaled, '#ffffff', Dir.Horiz);
+              drawLine(fromScaled, toScaled, '#000000a0', Dir.Horiz);
 
               // Compute text orgin based on zoom
               fromScaled = scalePoint(
@@ -207,6 +203,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
     const rect = canvasRef.current?.getBoundingClientRect();
     const y = event.clientY - (rect?.top ?? 0);
     const x = event.clientX - (rect?.left ?? 0);
+    mouseDownVideoCoordsRef.current = { x: x / scale, y: y / scale };
 
     if (y < 20 || y > destHeight - 20 || x < 20 || x > destWidth - 20) {
       // find first guide within 20 px
@@ -225,13 +222,6 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
         );
         const dist2 = Math.sqrt(
           (point2.x - x) * (point2.x - x) + (point2.y - y) * (point2.y - y)
-        );
-        console.log(
-          JSON.stringify(
-            { x, y, point1, point2, dist1, dist2, h: image.height },
-            null,
-            2
-          )
         );
 
         return dist1 < 20 || dist2 < 20;
@@ -282,6 +272,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   };
 
   const handleMouseUp = () => {
+    console.log('mouse up');
     if (dragging) {
       setVideoSettings(courseConfig);
     }
