@@ -2,7 +2,10 @@ import SQLite, { Database, RunResult } from 'sqlite3';
 import { app } from 'electron';
 import path from 'path';
 import { Lap } from 'crewtimer-common';
-import { LapDatumName } from '../../renderer/shared/Constants';
+import {
+  LapDatumName,
+  LapListInitCount,
+} from '../../renderer/shared/Constants';
 import Log from '../../renderer/util/Log';
 import { getMemValue, setMemValue } from '../store/store';
 import { timeToMilli } from '../../renderer/util/Util';
@@ -18,6 +21,11 @@ const UUID_COL = 'uuid';
 
 export const getLaps = () => getMemValue<Lap[]>(LapDatumName, []);
 const setLaps = (laps: Lap[]) => setMemValue(LapDatumName, laps);
+
+const incrementLapInitCount = () => {
+  const init = getMemValue<number>(LapListInitCount, 0);
+  setMemValue(LapListInitCount, init + 1);
+};
 
 const updateProgress = (message: string) => {
   Log.info('SQL', message);
@@ -134,6 +142,7 @@ class LapStorage {
   static truncateLapTable = async () => {
     updateProgress('Truncating Lap Table');
     setLaps([]);
+    incrementLapInitCount();
     if (LapStorage.dropping || !LapStorage.db) return; // drop in progress
     LapStorage.dropping = true;
     try {
@@ -306,6 +315,7 @@ export const startLapStorage = async (queueLapForTx: (lap: Lap) => void) => {
   await lapStorage.initDatabase();
   const laps = await lapStorage.getLaps();
   setLaps(laps);
+  incrementLapInitCount();
   startLapUpdater();
 };
 export const stopLapStorage = async () => {

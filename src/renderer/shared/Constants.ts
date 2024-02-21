@@ -1,5 +1,6 @@
 // eslint-disable-next-line import/prefer-default-export
 export const LapDatumName = 'lap-datum';
+export const LapListInitCount = 'lap-list-init-count';
 export const MobileConfigKey = 'mobileConfig';
 export const MobileConfigCountKey = 'mobileConfigCount';
 export const MobileConfigDateKey = 'mobileConfigDate';

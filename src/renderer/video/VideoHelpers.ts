@@ -1,47 +1,47 @@
-import {
-  setImage,
-  setVideoDir,
-  setVideoFile,
-  setVideoPosition,
-} from './VideoSettings';
+/**
+ * Asynchronously downsizes an image by a given factor.
+ *
+ * @param {string} src - The source URL of the image to be downsized.
+ * @param {number} factor - The factor by which to downsize the image.
+ *                          A factor of 2 would reduce both the width and height by half.
+ * @param {Function} callback - A callback function that will be called with the downsized image's data URL.
+ */
+export const downsizeImage = async (
+  src: string,
+  factor: number,
+  callback: (downsizedDataURL: string) => void
+): Promise<void> => {
+  // Create a new Image object
+  const img = new Image();
+  // Set the source of the image to the provided URL
+  img.src = src;
 
-const VideoUtils = window.VideoUtils;
+  // Handle the image load event
+  img.onload = () => {
+    // Create a canvas element to draw the downsized image
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      callback('');
+      return;
+    }
 
-function getDirectory(filePath: string): string {
-  const parts = filePath.split('/');
-  // Remove the last part (filename)
-  parts.pop();
-  // Rejoin the remaining parts to get the directory path
-  return parts.join('/');
-}
+    // Calculate the dimensions of the downsized image
+    const downsizedWidth = Math.ceil(img.width / factor);
+    const downsizedHeight = Math.ceil(img.height / factor);
 
-export const openSelectedFile = (videoFile: string) => {
-  if (videoFile) {
-    VideoUtils.openFile(videoFile)
-      .then((result) => {
-        if (result.status === 'OK') {
-          VideoUtils.getFrame(videoFile, 0)
-            .then((image) => {
-              setVideoFile(videoFile);
-              setVideoDir(getDirectory(videoFile));
-              setVideoPosition({ file: videoFile, frameNum: 0 });
-              setImage(image);
-            })
-            .catch((_reason) => {
-              console.log(
-                `1 error opening videoFile ${videoFile}`,
-                _reason instanceof Error ? _reason.message : String(_reason)
-              );
-            });
-        } else {
-          console.log(`2 error opening videoFile ${videoFile}`, result);
-        }
-      })
-      .catch((_reason) => {
-        console.log(
-          `3 error opening videoFile ${videoFile}`,
-          _reason instanceof Error ? _reason.message : String(_reason)
-        );
-      });
-  }
+    // Set the canvas size to the downsized dimensions
+    canvas.width = downsizedWidth;
+    canvas.height = downsizedHeight;
+
+    // Draw the original image onto the canvas at the downsized dimensions
+    // This effectively resizes the image
+    ctx.drawImage(img, 0, 0, downsizedWidth, downsizedHeight);
+
+    // Convert the canvas content to a data URL, which represents the downsized image
+    const downsizedDataURL = canvas.toDataURL();
+
+    // Call the provided callback function with the downsized image's data URL
+    callback(downsizedDataURL);
+  };
 };

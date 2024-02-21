@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -11,11 +11,9 @@ import Toolbar from '@mui/material/Toolbar';
 import FormControl from '@mui/material/FormControl';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-import Checkbox from '@mui/material/Checkbox';
 import { Info } from '@mui/icons-material';
-import path from 'path';
 import clsx from 'clsx';
-import { CircularProgress, FormControlLabel, InputLabel } from '@mui/material';
+import { CircularProgress, InputLabel } from '@mui/material';
 import Tooltip from '@mui/material/Tooltip';
 import {
   useAuthOK,
@@ -23,21 +21,15 @@ import {
   useDay,
   useDebugLevel,
   useFlightRaces,
-  useFLStartWaypoint,
-  useFLStartWaypointEnable,
-  useLynxFolder,
-  useLynxFolderOK,
   useMobileConfig,
-  useMobileConfigDate,
   useMobileID,
   useMobilePin,
   useWaypoint,
 } from './util/UseSettings';
 import { clearCredentials, validateCredentials } from './util/UseAuthState';
-import { setToast } from './Toast';
 import { useUserMessages } from './util/UserMessage';
 
-const { generateEvtFiles, chooseLynxFolder } = window.FinishLynx;
+const { generateEvtFiles } = window.FinishLynx;
 
 const useStyles = makeStyles((theme) => ({
   paper: {
@@ -129,18 +121,12 @@ export default function Setup() {
   const [mobileIDStored] = useMobileID();
   const [mobilePinStored] = useMobilePin();
   const [timingWaypoint, setTimingWaypoint] = useWaypoint();
-  const [flStartWaypoint, setFLStartWaypoint] = useFLStartWaypoint();
-  const [flStartWaypointEnable, setFLStartWaypointEnable] =
-    useFLStartWaypointEnable();
   const [timingDay, setTimingDay] = useDay();
   const [authStatus] = useAuthStatus();
   const authOK = useAuthOK();
-  const [lynxFolder] = useLynxFolder();
-  const [lynxFolderOK] = useLynxFolderOK();
   const [mc] = useMobileConfig();
   const [userMessages] = useUserMessages();
   const [debugLevel] = useDebugLevel();
-  const [configUpdatedDate] = useMobileConfigDate();
   const [flightRaces, setFlightRaces] = useFlightRaces();
 
   const [mobileID, setMobileID] = useState('');
@@ -159,21 +145,8 @@ export default function Setup() {
   waypointList = waypointList.map((waypoint) => waypoint.trim());
 
   const validWaypoint = !mc || waypointList.includes(timingWaypoint);
-  const isStartWaypoint = timingWaypoint.toLowerCase().includes('start');
-  const flWaypointList = waypointList.filter((waypoint) =>
-    waypoint.toLowerCase().includes('start')
-  );
 
   const dayList = mc?.info.DayList || [];
-
-  // Update flStart if it doesn't have a valid value
-  const flStartError = !waypointList.includes(flStartWaypoint);
-  const flStartFix = flStartError ? flWaypointList[0] || 'Start' : '';
-  useEffect(() => {
-    if (flStartFix) {
-      setFLStartWaypoint(flStartFix);
-    }
-  }, [flStartFix, setFLStartWaypoint]);
 
   useEffect(() => {
     if (!validWaypoint) {
@@ -209,23 +182,12 @@ export default function Setup() {
     setTimingWaypoint(String(event.target.value));
   };
 
-  const onFLWaypointChange = (event: SelectChangeEvent<string>) => {
-    if (!event.target.value) {
-      return;
-    }
-    setFLStartWaypoint(String(event.target.value));
-  };
-
   const onDayChange = (event: SelectChangeEvent<string>) => {
     if (!event.target.value) {
       return;
     }
     setTimingDay(String(event.target.value));
     generateEvtFiles();
-  };
-
-  const onFlStartChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setFLStartWaypointEnable(event.target.checked);
   };
 
   return (
@@ -407,136 +369,6 @@ export default function Setup() {
                   </FormControl>
                 </Box>
               )}
-              {!isStartWaypoint && (
-                <>
-                  <Box className={classes.settings}>
-                    <FormControlLabel
-                      className={classes.formControl}
-                      labelPlacement="end"
-                      label="Record FinishLynx Start Times"
-                      control={
-                        <Checkbox
-                          checked={flStartWaypointEnable}
-                          onChange={onFlStartChange}
-                        />
-                      }
-                    />
-                  </Box>
-                  {flStartWaypointEnable && flWaypointList.length > 1 && (
-                    <Box className={classes.indentSettings}>
-                      <FormControl
-                        variant="standard"
-                        className={classes.formControl}
-                      >
-                        <InputLabel id="fl-start-waypoint-label">
-                          FL Waypoint
-                        </InputLabel>
-                        <Select
-                          variant="standard"
-                          value={flStartWaypoint}
-                          onChange={onFLWaypointChange}
-                          className={classes.vertSpace}
-                        >
-                          {flWaypointList.map((waypoint) => (
-                            <MenuItem key={waypoint} value={waypoint}>
-                              {waypoint}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Box>
-                  )}
-                </>
-              )}
-              <Toolbar className={classes.header}>
-                <Typography
-                  variant="h6"
-                  display="inline"
-                  className={classes.smaller}
-                >
-                  FinishLynx Configuration
-                </Typography>
-                {lynxFolderOK ? (
-                  <CheckOK />
-                ) : (
-                  <Typography
-                    display="inline"
-                    color="error"
-                    className={classes.space}
-                  >
-                    Folder not found
-                  </Typography>
-                )}
-              </Toolbar>
-              <Box className={classes.settings}>
-                <Tooltip
-                  title="Specify where FinishLynx configuration files should be placed"
-                  aria-label="waypoint"
-                >
-                  <TextField
-                    className={classes.textfield}
-                    variant="outlined"
-                    margin="dense"
-                    fullWidth
-                    disabled
-                    name="inputFolder"
-                    label="FinishLynx Input Folder"
-                    id="inputFolder"
-                    value={lynxFolder}
-                    onClick={() => {
-                      chooseLynxFolder();
-                    }}
-                  />
-                </Tooltip>
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="primary"
-                  className={classes.button}
-                  onClick={() => {
-                    chooseLynxFolder();
-                  }}
-                >
-                  Choose Folder
-                </Button>
-              </Box>
-              <Toolbar className={classes.header}>
-                <Typography
-                  variant="h6"
-                  display="inline"
-                  className={classes.smaller}
-                >
-                  FinishLynx Configuration (autogenerated)
-                </Typography>
-              </Toolbar>
-              <Box className={classes.settings}>
-                <Typography className={classes.vertSpace}>
-                  {`Last updated: ${configUpdatedDate}`}
-                </Typography>
-                <Typography>{path.join(lynxFolder, 'Lynx.evt')}</Typography>
-                <Typography>{path.join(lynxFolder, 'Lynx.sch')}</Typography>
-                <Typography>
-                  {path.join(lynxFolder, 'CrewTimer.lss')}
-                </Typography>
-                <Typography>TCP Port: 5000</Typography>
-                {lynxFolderOK && (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="primary"
-                    className={classes.button}
-                    onClick={() => {
-                      generateEvtFiles();
-                      setToast({
-                        severity: 'info',
-                        msg: 'FinishLynx files exported',
-                      });
-                    }}
-                  >
-                    Refresh Export
-                  </Button>
-                )}
-              </Box>
             </>
           )}
         </Card>

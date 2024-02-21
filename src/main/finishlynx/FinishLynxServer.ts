@@ -180,6 +180,9 @@ const server = net.createServer((sock: Socket) => {
           Event: event,
           EventAbbrev: '',
           Gate: gate,
+          AdjTime: '',
+          Place: 0,
+          Stroke: '',
         };
 
         if (isSprint && flStartEnable && start) {

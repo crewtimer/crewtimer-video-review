@@ -9163,7 +9163,7 @@ react-transition-group@^4.4.5:
     loose-envify "^1.4.0"
     prop-types "^15.6.2"
 
-react-usedatum@^1.0.5:
+react-usedatum@^1.0.7:
   version "1.0.7"
   resolved "https://registry.yarnpkg.com/react-usedatum/-/react-usedatum-1.0.7.tgz#ccc4181e5a763899c103ad63c776d4c1d03eb993"
   integrity sha512-2tdCqVFcRhvsPejvv2C6QvaJ/CodRNLdkqR9QiQqqL0/icrRrIXDLu+ZxgPUQcKD+s8uHNyquHOVf/L0NPnRfw==

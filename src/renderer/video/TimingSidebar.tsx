@@ -12,8 +12,10 @@ import {
   SelectChangeEvent,
   Button,
   Stack,
+  IconButton,
+  Menu,
 } from '@mui/material';
-
+import MenuIcon from '@mui/icons-material/Menu';
 import DataGrid, {
   CellClickArgs,
   CellMouseEvent,
@@ -26,8 +28,23 @@ import {
   useVideoEvent,
   useVideoTimestamp,
 } from './VideoSettings';
-import { Event } from 'crewtimer-common';
-import { useDay, useMobileConfig } from 'renderer/util/UseSettings';
+import { Entry, Event, Lap } from 'crewtimer-common';
+import {
+  getWaypoint,
+  useDay,
+  useMobileConfig,
+  useWaypoint,
+} from 'renderer/util/UseSettings';
+import {
+  dumpEntryResults,
+  getEntryResult,
+  setEntryResult,
+  useEntryResult,
+} from 'renderer/util/LapStorageDatum';
+import { gateFromWaypoint } from 'renderer/util/Util';
+import uuidgen from 'short-uuid';
+import { UseDatum } from 'react-usedatum';
+import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 
 interface RowType {
   id: string;
@@ -36,12 +53,31 @@ interface RowType {
   label: string;
   Bow: string;
   event: Event;
+  entry?: Entry;
 }
+
+const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
+  element: Element;
+  row: RowType;
+} | null>(null);
+
+const TimestampCell = ({ row }: { row: RowType }) => {
+  const key = `${gateFromWaypoint(getWaypoint())}_${row.entry?.EventNum}_${
+    row.entry?.Bow
+  }`;
+  const [entry] = useEntryResult(key);
+  const time = entry?.State === 'Deleted' ? '' : entry?.Time || '';
+  return (
+    <Typography sx={{ paddingLeft: '0.5em', fontSize: 12, lineHeight: '24px' }}>
+      {time}
+    </Typography>
+  );
+};
 const columns: readonly Column<RowType>[] = [
   {
     key: 'label',
     name: 'Schedule',
-    width: 400 - 110 - 16,
+    width: 400 - 50 - 110 - 16,
     renderCell: ({ row }) => (
       <Typography
         sx={
@@ -68,13 +104,31 @@ const columns: readonly Column<RowType>[] = [
     key: 'ts',
     name: 'Timestamp',
     width: 110,
-    renderCell: ({ row }) => (
-      <Typography
-        sx={{ paddingLeft: '0.5em', fontSize: 12, lineHeight: '24px' }}
-      >
-        00:00:00.000
-      </Typography>
-    ),
+    renderCell: TimestampCell,
+  },
+  {
+    key: 'menu',
+    name: '',
+    width: 50,
+    renderCell: ({ row }) => {
+      const handleMenu = (
+        event: React.MouseEvent<HTMLButtonElement, MouseEvent>
+      ) => {
+        setContextMenuAnchor({ element: event.currentTarget, row });
+      };
+      return row.eventName ? (
+        <></>
+      ) : (
+        <IconButton
+          onClick={handleMenu}
+          color="inherit"
+          size="small"
+          sx={{ padding: 0 }}
+        >
+          <MenuIcon />
+        </IconButton>
+      );
+    },
   },
 ];
 
@@ -109,6 +163,103 @@ const VideoBow: React.FC = () => {
     />
   );
 };
+
+const AddSplitButton: React.FC = () => {
+  const [videoBow] = useVideoBow();
+  const [videoTimestamp] = useVideoTimestamp();
+  const [selectedEvent] = useVideoEvent();
+  const [waypoint] = useWaypoint();
+  const gate = gateFromWaypoint(waypoint);
+
+  const onAddSplit = () => {
+    // FIXME - convert waypoint to G_
+    const key = `${gate}_${selectedEvent}_${videoBow}`;
+    const bow = videoBow; // FIXME isSprintStart ? : '*' : videoBow;
+    const priorLap = getEntryResult(key);
+    const lap: Lap = {
+      keyid: key,
+      uuid: priorLap?.uuid || uuidgen.generate(),
+      SequenceNum: priorLap?.SequenceNum || 0,
+      Bow: bow,
+      Time: videoTimestamp,
+      EventNum: selectedEvent,
+      Gate: gate,
+      Crew: '',
+      CrewAbbrev: '',
+      Event: '',
+      EventAbbrev: '',
+      AdjTime: '',
+      Place: 0,
+      Stroke: '',
+    };
+    if (priorLap && priorLap.State !== 'Deleted') {
+      setDialogConfig({
+        title: `Time Already Recorded`,
+        message: `A time has already been recorded for bow ${videoBow}.  OK to replace?`,
+        button: 'Replace',
+        showCancel: true,
+        handleConfirm: () => {
+          delete lap.State;
+          setEntryResult(key, lap);
+        },
+      });
+      return;
+    }
+
+    setEntryResult(key, lap);
+  };
+  return (
+    <Button
+      disabled={!videoBow || !videoTimestamp || !selectedEvent}
+      size="small"
+      variant="contained"
+      color="success"
+      sx={{ margin: '0.5em' }}
+      onClick={onAddSplit}
+    >
+      Add Split
+    </Button>
+  );
+};
+
+const ContextMenu: React.FC = () => {
+  const [anchorEl] = useContextMenuAnchor();
+  const handleClose = () => {
+    setContextMenuAnchor(null);
+  };
+  const onDelete = () => {
+    dumpEntryResults();
+    handleClose();
+    const row = anchorEl?.row;
+    if (!row || !row.entry) {
+      return;
+    }
+    const lap = getEntryResult(row.id);
+    if (lap) {
+      lap.State = 'Deleted';
+      setEntryResult(lap.keyid, lap);
+    }
+  };
+  return (
+    <Menu
+      id="row-context-menu"
+      anchorEl={anchorEl?.element}
+      anchorOrigin={{
+        vertical: 'top',
+        horizontal: 'right',
+      }}
+      keepMounted
+      transformOrigin={{
+        vertical: 'top',
+        horizontal: 'right',
+      }}
+      open={anchorEl !== null}
+      onClose={handleClose}
+    >
+      <MenuItem onClick={onDelete}>Delete</MenuItem>
+    </Menu>
+  );
+};
 interface MyComponentProps {
   sx?: SxProps<Theme>;
 }
@@ -116,16 +267,17 @@ interface MyComponentProps {
 const TimingSidebar: React.FC<MyComponentProps> = ({ sx }) => {
   const [mobileConfig] = useMobileConfig();
   const [day] = useDay();
+  const [waypoint] = useWaypoint();
   const [selectedEvent, setSelectedEvent] = useVideoEvent();
   const datagridRef = useRef<DataGridHandle | null>(null);
 
+  const gate = gateFromWaypoint(waypoint);
   const { rows } = useMemo(() => {
     const rows: RowType[] = [];
     mobileConfig?.eventList.forEach((event) => {
       if (day && event.Day !== day) {
         return;
       }
-
       rows.push({
         id: event.EventNum,
         eventName: event.Event,
@@ -136,12 +288,13 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx }) => {
       });
       event.eventItems.forEach((entry) => {
         rows.push({
-          id: `${event.EventNum}-${entry.Bow}`,
+          id: `${gate}_${event.EventNum}_${entry.Bow}`,
           eventName: '',
           eventNum: event.EventNum,
           label: `${entry.Bow} ${entry.Crew}`,
           Bow: entry.Bow,
           event,
+          entry,
         });
       });
     });
@@ -221,14 +374,8 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx }) => {
           {/* Add more MenuItems here */}
         </Select>
       </FormControl>
-      <Button
-        size="small"
-        variant="contained"
-        color="success"
-        sx={{ margin: '0.5em' }}
-      >
-        Add Split
-      </Button>
+      <AddSplitButton />
+      <ContextMenu />
       <div style={{ flexGrow: 'auto' }}>
         <DataGrid
           ref={datagridRef}

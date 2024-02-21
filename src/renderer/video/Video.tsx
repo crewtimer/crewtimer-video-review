@@ -1,4 +1,13 @@
-import { Box, Slider, Typography, Stack } from '@mui/material';
+import {
+  Box,
+  Slider,
+  Typography,
+  Stack,
+  IconButton,
+  Button,
+} from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import React, {
   useCallback,
   useEffect,
@@ -6,7 +15,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-
 import { convertTimestampToString } from '../shared/Util';
 import { useResizeDetector } from 'react-resize-detector';
 import { useDebouncedCallback } from 'use-debounce';
@@ -14,8 +22,10 @@ import makeStyles from '@mui/styles/makeStyles';
 import VideoSideBar from './VideoSideBar';
 import {
   Dir,
+  getVideoPosition,
   getVideoSettings,
   setVideoBow,
+  setVideoPosition,
   setVideoTimestamp,
   setZoomWindow,
   useImage,
@@ -80,6 +90,38 @@ interface ZoomState {
   calPointRight: CalPoint;
 }
 
+const moveRight = () => {
+  const prev = getVideoPosition();
+  setVideoPosition({
+    ...prev,
+    frameNum: prev.frameNum + 1,
+  });
+};
+const moveLeft = () => {
+  const prev = getVideoPosition();
+  setVideoPosition({
+    ...prev,
+    frameNum: prev.frameNum - 1,
+  });
+};
+
+const handleKeyDown = (event: KeyboardEvent) => {
+  switch (event.key) {
+    case 'ArrowRight':
+    case '>':
+    case '.':
+      moveRight();
+      break;
+    case 'ArrowLeft':
+    case '<':
+    case ',':
+      moveLeft();
+      break;
+    default:
+      break; // ignore
+  }
+};
+
 const VideoScrubber = () => {
   const [videoPosition, setVideoPosition] = useVideoPosition();
   const [image] = useImage();
@@ -87,25 +129,81 @@ const VideoScrubber = () => {
 
   const handleSlider = (_event: Event, value: number | number[]) => {
     const newValue = value as number;
-    if (_event.type !== 'mousemove' || newValue < 0 || newValue >= numFrames) {
+    if (_event.type !== 'mousemove') {
       // extraneous events sometimes come into the slider.  Ignore them.
       return;
     }
     setVideoPosition({ ...videoPosition, frameNum: newValue });
   };
-  console.log(`frameNum: ${videoPosition.frameNum}/${numFrames}`);
 
+  const prevFile = () => {
+    setVideoPosition({
+      ...videoPosition,
+      frameNum: -1,
+    });
+  };
+
+  const nextFile = () => {
+    setVideoPosition({
+      ...videoPosition,
+      frameNum: image.numFrames,
+    });
+  };
   return (
-    <div style={{ paddingLeft: '1em', paddingRight: '1em', width: '100%' }}>
+    // <Stack
+    //   direction="row"
+    //   style={{
+    //     paddingLeft: '1em',
+    //     paddingRight: '1em',
+    //     width: '100%',
+    //     background: 'yellow',
+    //   }}
+    // >
+    //   <div style={{ height: '40px' }} />
+    // </Stack>
+    <Stack
+      direction="row"
+      style={{
+        alignItems: 'center',
+        width: '100%',
+        paddingLeft: '0.5em',
+        paddingRight: '0.5em',
+        display: 'flex',
+      }}
+    >
+      <Button
+        variant="contained"
+        onClick={prevFile}
+        size="small"
+        sx={{
+          height: 24,
+          m: 0,
+          minWidth: 24,
+        }}
+      >
+        <ArrowBackIcon fontSize={'small'} />
+      </Button>
       <Slider
         value={videoPosition.frameNum}
         min={0}
         max={numFrames - 1}
         onChange={handleSlider}
         aria-labelledby="video-scrubber"
-        sx={{ width: '100%' }}
+        sx={{ marginLeft: '1em', marginRight: '1em', flex: 1 }}
       />
-    </div>
+      <Button
+        variant="contained"
+        onClick={nextFile}
+        size="small"
+        sx={{
+          height: 24,
+          m: 0,
+          minWidth: 24,
+        }}
+      >
+        <ArrowForwardIcon fontSize={'small'} />
+      </Button>
+    </Stack>
   );
 };
 const VideoImage: React.FC<{ width: number; height: number }> = ({
@@ -116,7 +214,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const classes = useStyles();
   const [, forceRender] = useReducer((s) => s + 1, 0);
   const [computedTime, setComputedTime] = useState(0);
-  const [, setVideoPosition] = useVideoPosition();
   const [adjustingOverlay] = useAdjustingOverlay();
   const mouseTracking = useRef<ZoomState>({
     zoomWindow: { x: 0, y: 0, width: 0, height: 0 },
@@ -497,43 +594,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     };
   }, [handleMouseUp]);
 
-  const moveRight = useCallback(() => {
-    setVideoPosition((prev) => {
-      return {
-        ...prev,
-        frameNum: Math.min(image.numFrames - 1, prev.frameNum + 1),
-      };
-    });
-  }, [setVideoPosition, image]);
-  const moveLeft = useCallback(() => {
-    setVideoPosition((prev) => {
-      return {
-        ...prev,
-        frameNum: Math.max(0, prev.frameNum - 1),
-      };
-    });
-  }, [setVideoPosition, image]);
-
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      switch (event.key) {
-        case 'ArrowRight':
-        case '>':
-        case '.':
-          moveRight();
-          break;
-        case 'ArrowLeft':
-        case '<':
-        case ',':
-          moveLeft();
-          break;
-        default:
-          break; // ignore
-      }
-    },
-    [moveLeft, moveRight]
-  );
-
   const handleWheel = useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
       if (event.deltaY < 0) {
@@ -546,12 +606,13 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   );
 
   useEffect(() => {
+    window.removeEventListener('keydown', handleKeyDown);
     window.addEventListener('keydown', handleKeyDown);
     // Cleanup the keydown listener on unmount
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [handleKeyDown]);
+  }, []);
 
   const videoTimestamp = convertTimestampToString(image.timestamp);
 

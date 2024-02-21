@@ -1,23 +1,14 @@
 import Paper from '@mui/material/Paper';
 import { Button, SxProps, Theme } from '@mui/material';
-const { openFileDialog, getFilesInDirectory } = window.Util;
+const { openFileDialog } = window.Util;
 import makeStyles from '@mui/styles/makeStyles';
-import {
-  getVideoFile,
-  setImage,
-  useVideoPosition,
-  useVideoDir,
-} from './VideoSettings';
-import { useEffect, useState } from 'react';
 import FileList from '../FileList';
-import { openSelectedFile } from './VideoHelpers';
-const VideoUtils = window.VideoUtils;
+import { openSelectedFile } from './VideoFileUtils';
+import { useDirList } from './VideoFileUtils';
 
 const useStyles = makeStyles((_theme) => ({
   button: { margin: '0.5em' },
 }));
-
-const videoFileRegex = /\.(mp4|avi|mov|wmv|flv|mkv)$/i;
 
 // Define the types for the component's props
 interface CustomTableProps {
@@ -32,47 +23,7 @@ interface CustomTableProps {
  */
 const VideoSideBar: React.FC<CustomTableProps> = ({ sx }) => {
   const classes = useStyles();
-  const [videoPosition] = useVideoPosition();
-  const [videoDir] = useVideoDir();
-  const [dirList, setDirList] = useState<string[]>([]);
-
-  useEffect(() => {
-    // wait a second to ensure getVideoFile is initialized.
-    openSelectedFile(getVideoFile());
-    // setTimeout(() => openSelectedFile(getVideoFile()), 1000);
-  }, []);
-  useEffect(() => {
-    getFilesInDirectory(videoDir).then((result) => {
-      if (!result || result?.error) {
-        console.log('invalid response to getFilesInDirectory for ' + videoDir);
-      } else {
-        const files = result.files.filter((file) => videoFileRegex.test(file));
-        files.sort((a, b) => {
-          // Use localeCompare for natural alphanumeric sorting
-          return a.localeCompare(b, undefined, {
-            numeric: true,
-            sensitivity: 'base',
-          });
-        });
-        setDirList(files.map((file) => `${videoDir}/${file}`));
-        // console.log(files);
-      }
-    });
-  }, [videoDir]);
-
-  useEffect(() => {
-    // TODO: This useEffect could be in another component so this one didn't re-render too often
-    if (videoPosition.file) {
-      VideoUtils.getFrame(videoPosition.file, videoPosition.frameNum)
-        .then((image) => {
-          // console.log(image);
-          setImage(image);
-        })
-        .catch((_reason) => {
-          console.log('error getting frame', _reason);
-        });
-    }
-  }, [videoPosition]);
+  const [dirList] = useDirList();
 
   const chooseFile = () => {
     openFileDialog()

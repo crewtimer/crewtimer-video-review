@@ -7,6 +7,7 @@ import Nav from './Nav';
 import StatusMonitor from './StatusMonitor';
 import { ConfirmDialog } from './util/ConfirmDialog';
 import { setInitializing } from './util/UseSettings';
+import FileMonitor from './video/VideoFileUtils';
 
 const { startLapStorage } = window.LapStorage;
 const { stopLapStorage } = window.LapStorage;
@@ -49,6 +50,7 @@ export default function App() {
 
       <ConfirmDialog />
       <StatusMonitor />
+      <FileMonitor />
     </Router>
   );
 }

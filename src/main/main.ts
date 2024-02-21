@@ -82,6 +82,10 @@ const createWindow = async () => {
   });
   setMainWindow(mainWindow);
 
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools();
+  }
+
   mainWindow.loadURL(resolveHtmlPath('index.html'));
 
   mainWindow.on('ready-to-show', () => {

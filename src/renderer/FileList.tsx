@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useSelectedIndex, useVideoFile } from './video/VideoSettings';
-import { openSelectedFile } from './video/VideoHelpers';
+import { openSelectedFile } from './video/VideoFileUtils';
 import DataGrid, {
   CellClickArgs,
   CellMouseEvent,
@@ -48,7 +48,6 @@ const FileList: React.FC<FileListProps> = ({ files }) => {
       setSelectedIndex(files.length - 1);
       return;
     }
-    openSelectedFile(files[selectedIndex]);
     dataGridRef.current?.scrollToCell({ rowIdx: selectedIndex, idx: 0 });
   }, [selectedIndex]);
 
@@ -80,10 +79,10 @@ const FileList: React.FC<FileListProps> = ({ files }) => {
       event.preventGridDefault();
       const index = args.row.id;
       setSelectedIndex(index);
-      // openSelectedFile(files[index]);
+      openSelectedFile(dispItems[index]?.filename);
       // dataGridRef.current?.scrollToCell({ rowIdx: index, idx: 0 });
     },
-    []
+    [dispItems]
   );
 
   return (
