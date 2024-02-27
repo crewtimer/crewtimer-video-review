@@ -86,7 +86,9 @@ ipcMain.handle('video:getFrame', (_event, filePath, frameNum) => {
         timestamp = extractTimestampFromFrame(ret.data, 1, ret.width);
         ret.timestamp = timestamp;
       } else {
-        ret.timestamp = Math.trunc(0.5 + (frameNum * 1000) / (ret.fps ?? 30));
+        ret.timestamp = Math.trunc(
+          0.5 + ((frameNum - 1) * 1000) / (ret.fps ?? 30)
+        );
       }
       videoCache.set(uuid, ret);
       if (videoCache.size > 20) {

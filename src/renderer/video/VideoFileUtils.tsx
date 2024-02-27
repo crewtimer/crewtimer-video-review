@@ -22,13 +22,39 @@ interface OpenFileStatus {
 
 const FileCache = new Map<string, OpenFileStatus>();
 
-function getDirectory(filePath: string): string {
-  const parts = filePath.split('/');
-  // Remove the last part (filename)
-  parts.pop();
-  // Rejoin the remaining parts to get the directory path
-  return parts.join('/');
-}
+/**
+ * Extracts the directory path from a full filename across different operating systems.
+ *
+ * This function takes a full filename (including the path) as input and returns the directory
+ * path portion of the input, effectively removing the file name and extension. It is designed
+ * to work with both Windows-style paths (using backslashes) and POSIX-style paths (using forward slashes),
+ * making it versatile for cross-platform applications.
+ *
+ * @param {string} fullFilename - The full filename including its path.
+ * @returns {string} The directory path of the given filename. If the filename does not contain
+ * a directory path (i.e., it's in the current directory), an empty string is returned.
+ *
+ * @example
+ * // For a Windows path
+ * console.log(getDirectoryPath('C:\\Users\\Username\\Documents\\file.txt'));
+ * // Output: "C:\\Users\\Username\\Documents"
+ *
+ * @example
+ * // For a macOS/Linux path
+ * console.log(getDirectoryPath('/Users/Username/Documents/file.txt'));
+ * // Output: "/Users/Username/Documents"
+ */
+const getDirectory = (fullFilename: string): string => {
+  // Regex to match the last occurrence of a slash (either forward or backward)
+  const regex = /[/\\](?=[^/\\]*$)/;
+
+  // Find the last occurrence of a slash
+  const index = fullFilename.search(regex);
+
+  // If a slash is found, return the substring up to the slash
+  // If no slash is found, return an empty string indicating the file is in the current directory
+  return index >= 0 ? fullFilename.substring(0, index) : '';
+};
 
 export const openSelectedFile = async (
   videoFile: string,
@@ -47,12 +73,12 @@ export const openSelectedFile = async (
       if (openStatus.status !== 'OK') {
         return;
       }
-      image = await VideoUtils.getFrame(videoFile, 0);
+      image = await VideoUtils.getFrame(videoFile, 1);
       fileStatus = { open: true, numFrames: image.numFrames };
       FileCache.set(videoFile, fileStatus);
     }
 
-    const seekPos = seekToEnd ? fileStatus.numFrames - 1 : 0;
+    const seekPos = seekToEnd ? fileStatus.numFrames : 1;
     if (seekPos !== 0 || !image) {
       image = await VideoUtils.getFrame(videoFile, seekPos);
     }
@@ -113,20 +139,27 @@ const FileMonitor: React.FC = () => {
   }, [videoDir]);
 
   useEffect(() => {
+    if (!videoPosition.file) {
+      if (videoFile) {
+        openSelectedFile(videoFile);
+      }
+      return;
+    }
+
     if (videoPosition.file === getImage().file) {
       // Check position range
-      if (videoPosition.frameNum < 0) {
+      if (videoPosition.frameNum < 1) {
         const dirList = getDirList();
         const index = dirList.indexOf(videoPosition.file);
         if (index > 0) {
           // go to end of the previous file
           openSelectedFile(dirList[index - 1], true);
         } else {
-          // no prior files, stick with frameNum 0
-          setVideoPosition({ ...videoPosition, frameNum: 0 });
+          // no prior files, stick with frameNum 1
+          setVideoPosition({ ...videoPosition, frameNum: 1 });
         }
         return;
-      } else if (videoPosition.frameNum >= getImage().numFrames) {
+      } else if (videoPosition.frameNum > getImage().numFrames) {
         const dirList = getDirList();
         const index = dirList.indexOf(videoPosition.file);
         if (index >= 0 && index < dirList.length - 1) {
@@ -134,7 +167,7 @@ const FileMonitor: React.FC = () => {
         } else {
           setVideoPosition({
             ...videoPosition,
-            frameNum: getImage().numFrames - 1,
+            frameNum: getImage().numFrames,
           });
         }
         return;

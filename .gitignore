@@ -36,3 +36,4 @@ CrewTimer.db
 .env
 *.mp4
 *.mkv
+*.dSym

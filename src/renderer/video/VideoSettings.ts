@@ -21,7 +21,7 @@ export const [useZoomWindow, setZoomWindow] = UseDatum<Rect>({
 });
 export const [useVideoPosition, setVideoPosition, getVideoPosition] =
   UseDatum<VideoPosition>({
-    frameNum: 0,
+    frameNum: 1,
     file: '',
   });
 
@@ -96,7 +96,7 @@ export const [useVideoSettings, , getVideoSettings] =
 export const [useImage, setImage, getImage] = UseMemDatum<AppImage>(N_IMAGE, {
   height: 0,
   width: 0,
-  frameNum: 0,
+  frameNum: 1,
   timestamp: 0,
   fps: 30,
   numFrames: 0,

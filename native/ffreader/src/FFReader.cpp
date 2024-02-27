@@ -259,9 +259,11 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber) {
     }
   }
 
+  auto fps = getFps();
+
   for (;;) {
     int64_t _frame_number_temp = std::max(frameNumber - delta, (int64_t)0);
-    double sec = (double)_frame_number_temp / getFps();
+    double sec = (double)_frame_number_temp / fps;
     int64_t time_stamp = formatContext->streams[videoStreamIndex]->start_time;
     double time_base = r2d(formatContext->streams[videoStreamIndex]->time_base);
     time_stamp += (int64_t)(sec / time_base + 0.5);
@@ -352,7 +354,8 @@ const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame) {
 }
 
 const AVFrame *FFVideoReader::getRGBAFrame(int64_t frameNumber) {
-  if (frameNumber < 0 || frameNumber >= getTotalFrames())
+  // std::cout << "getRGBAFrame: " << frameNumber << std::endl;
+  if (frameNumber < 1 || frameNumber > getTotalFrames())
     return nullptr;
 
   auto frame = seekToFrame(frameNumber);

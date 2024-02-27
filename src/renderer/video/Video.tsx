@@ -139,14 +139,14 @@ const VideoScrubber = () => {
   const prevFile = () => {
     setVideoPosition({
       ...videoPosition,
-      frameNum: -1,
+      frameNum: 0, // move outside this file to trigger prev file
     });
   };
 
   const nextFile = () => {
     setVideoPosition({
       ...videoPosition,
-      frameNum: image.numFrames,
+      frameNum: image.numFrames + 1, // move outside this file to trigger prev file
     });
   };
   return (
@@ -185,8 +185,8 @@ const VideoScrubber = () => {
       </Button>
       <Slider
         value={videoPosition.frameNum}
-        min={0}
-        max={numFrames - 1}
+        min={1}
+        max={numFrames}
         onChange={handleSlider}
         aria-labelledby="video-scrubber"
         sx={{ marginLeft: '1em', marginRight: '1em', flex: 1 }}
