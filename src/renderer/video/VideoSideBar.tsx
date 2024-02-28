@@ -45,7 +45,7 @@ const VideoSideBar: React.FC<CustomTableProps> = ({ sx }) => {
       <Button
         size="small"
         variant="contained"
-        color="primary"
+        color="secondary"
         className={classes.button}
         onClick={() => {
           chooseFile();

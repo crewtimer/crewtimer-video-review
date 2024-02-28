@@ -20,12 +20,15 @@ import {
   useMobileID,
   useFirebaseConnected,
   useDebugLevel,
+  useEnableLynx,
+  useEnableVideo,
+  useEnableVideoTiming,
 } from './util/UseSettings';
 import { getConnectionProps } from './util/Util';
 import { setToast } from './Toast';
 import { useUserMessages } from './util/UserMessage';
 
-const AboutText = `CrewTimer Connect v1.0.12-beta.3`;
+const AboutText = `CrewTimer Connect v1.0.12-beta.4`;
 
 const { LapStorage } = window;
 
@@ -51,6 +54,10 @@ export default function Nav() {
   const [msg, setMsg] = useState('');
   const [debugLevel, setDebugLevel] = useDebugLevel();
   const [, setUserMessages] = useUserMessages();
+  const [enableLynx] = useEnableLynx();
+  const [enableVideo] = useEnableVideo();
+  const [enableVideoTiming] = useEnableVideoTiming();
+  const enableCrewTimer = enableLynx || (enableVideo && enableVideoTiming);
 
   const open = Boolean(anchorEl);
 
@@ -91,35 +98,39 @@ export default function Nav() {
             {mc?.info?.Title ? mc.info.Title : AboutText}
           </Typography>
           <div>
-            <Tooltip
-              title={
-                firebaseConnected
-                  ? 'CrewTimer Cloud Connected'
-                  : 'CrewTimer Cloud Disconnected'
-              }
-            >
-              {firebaseConnected ? (
-                <CloudOutlinedIcon />
-              ) : (
-                <CloudOffOutlinedIcon color="error" />
-              )}
-            </Tooltip>
-            <Tooltip
-              title={
-                lynxState.connected
-                  ? 'FinishLynx Connected'
-                  : 'FinishLynx Disconnected'
-              }
-            >
-              <img
-                width="25px"
-                alt="lynx state"
-                src={lynxState.connected ? lynxicon : lynxiconoff}
-                style={{ marginLeft: '1em' }}
-              />
-            </Tooltip>
+            {enableCrewTimer && (
+              <Tooltip
+                title={
+                  firebaseConnected
+                    ? 'CrewTimer Cloud Connected'
+                    : 'CrewTimer Cloud Disconnected'
+                }
+              >
+                {firebaseConnected ? (
+                  <CloudOutlinedIcon />
+                ) : (
+                  <CloudOffOutlinedIcon color="error" />
+                )}
+              </Tooltip>
+            )}
+            {enableLynx && (
+              <Tooltip
+                title={
+                  lynxState.connected
+                    ? 'FinishLynx Connected'
+                    : 'FinishLynx Disconnected'
+                }
+              >
+                <img
+                  width="25px"
+                  alt="lynx state"
+                  src={lynxState.connected ? lynxicon : lynxiconoff}
+                  style={{ marginLeft: '1em' }}
+                />
+              </Tooltip>
+            )}
           </div>
-          {mc && (
+          {
             <div>
               <IconButton
                 aria-label="account of current user"
@@ -146,11 +157,17 @@ export default function Nav() {
                 open={open}
                 onClose={handleClose}
               >
-                <MenuItem onClick={onViewResults}>View Results</MenuItem>
-                <MenuItem onClick={handleExport}>Export Lynx Config</MenuItem>
-                <MenuItem onClick={handleClearData}>
-                  Clear Local History
-                </MenuItem>
+                {enableCrewTimer && (
+                  <MenuItem onClick={onViewResults}>View Results</MenuItem>
+                )}
+                {enableLynx && (
+                  <MenuItem onClick={handleExport}>Export Lynx Config</MenuItem>
+                )}
+                {enableCrewTimer && (
+                  <MenuItem onClick={handleClearData}>
+                    Clear Local History
+                  </MenuItem>
+                )}
                 <MenuItem
                   onClick={() => {
                     handleClose();
@@ -188,7 +205,7 @@ export default function Nav() {
                 message={<span id="message-id">{msg}</span>}
               />
             </div>
-          )}
+          }
         </Toolbar>
       </AppBar>
       {/* Add space for 'fixed' Toolbar height */}

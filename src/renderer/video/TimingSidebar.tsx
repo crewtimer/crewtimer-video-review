@@ -15,12 +15,13 @@ import {
   IconButton,
   Menu,
 } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DataGrid, {
   CellClickArgs,
   CellMouseEvent,
   Column,
   DataGridHandle,
+  RenderHeaderCellProps,
 } from 'react-data-grid';
 import {
   setVideoBow,
@@ -45,6 +46,13 @@ import { gateFromWaypoint } from 'renderer/util/Util';
 import uuidgen from 'short-uuid';
 import { UseDatum } from 'react-usedatum';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
+import makeStyles from '@mui/styles/makeStyles';
+
+const useStyles = makeStyles((_theme) => ({
+  row: {
+    background: '#556cd6',
+  },
+}));
 
 interface RowType {
   id: string;
@@ -55,6 +63,8 @@ interface RowType {
   event: Event;
   entry?: Entry;
 }
+
+const timingFontSize = 12;
 
 const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
   element: Element;
@@ -67,9 +77,58 @@ const TimestampCell = ({ row }: { row: RowType }) => {
   }`;
   const [entry] = useEntryResult(key);
   const time = entry?.State === 'Deleted' ? '' : entry?.Time || '';
+  const handleMenu: React.MouseEventHandler<HTMLDivElement> = (event) => {
+    setContextMenuAnchor({ element: event.currentTarget, row });
+  };
   return (
-    <Typography sx={{ paddingLeft: '0.5em', fontSize: 12, lineHeight: '24px' }}>
-      {time}
+    <Stack direction="row" onClick={handleMenu}>
+      <Typography
+        sx={{
+          width: 80,
+          paddingLeft: '0.5em',
+          fontSize: timingFontSize,
+          lineHeight: '24px',
+        }}
+      >
+        {time}
+      </Typography>
+      {row.eventName || !time ? (
+        <></>
+      ) : (
+        <IconButton
+          color="inherit"
+          size="small"
+          sx={{
+            minWidth: 14,
+            width: 14,
+            padding: 0,
+            margin: 0,
+          }}
+        >
+          <MoreVertIcon
+            sx={{
+              fontSize: 14,
+              padding: 0,
+              margin: 0,
+            }}
+          />
+        </IconButton>
+      )}
+    </Stack>
+  );
+};
+export const RenderHeaderCell: React.FC<RenderHeaderCellProps<RowType>> = ({
+  column,
+}) => {
+  return (
+    <Typography
+      sx={{
+        paddingLeft: '0.5em',
+        fontSize: '14px',
+        fontWeight: 'bold',
+      }}
+    >
+      {column.name}
     </Typography>
   );
 };
@@ -77,58 +136,35 @@ const columns: readonly Column<RowType>[] = [
   {
     key: 'label',
     name: 'Schedule',
-    width: 400 - 50 - 110 - 16,
-    renderCell: ({ row }) => (
-      <Typography
-        sx={
-          row.eventName
-            ? {
-                background: '#556cd6', // '#2e7d32'
-                color: 'white',
-                paddingLeft: '0.5em',
-                fontSize: 12,
-                lineHeight: '24px',
-              }
-            : {
-                paddingLeft: '0.5em',
-                fontSize: 12,
-                lineHeight: '24px',
-              }
-        }
-      >
-        {row.label}
-      </Typography>
-    ),
+    renderHeaderCell: RenderHeaderCell,
+    renderCell: ({ row }) => {
+      return (
+        <Typography
+          sx={
+            row.eventName
+              ? {
+                  color: 'white',
+                  paddingLeft: '0.5em',
+                  fontSize: timingFontSize,
+                  lineHeight: '24px',
+                }
+              : {
+                  paddingLeft: '0.5em',
+                  fontSize: timingFontSize,
+                  lineHeight: '24px',
+                }
+          }
+        >
+          {row.label}
+        </Typography>
+      );
+    },
   },
   {
     key: 'ts',
     name: 'Timestamp',
-    width: 110,
+    width: 80 + 14 + 16,
     renderCell: TimestampCell,
-  },
-  {
-    key: 'menu',
-    name: '',
-    width: 50,
-    renderCell: ({ row }) => {
-      const handleMenu = (
-        event: React.MouseEvent<HTMLButtonElement, MouseEvent>
-      ) => {
-        setContextMenuAnchor({ element: event.currentTarget, row });
-      };
-      return row.eventName ? (
-        <></>
-      ) : (
-        <IconButton
-          onClick={handleMenu}
-          color="inherit"
-          size="small"
-          sx={{ padding: 0 }}
-        >
-          <MenuIcon />
-        </IconButton>
-      );
-    },
   },
 ];
 
@@ -143,7 +179,11 @@ const VideoTimestamp: React.FC = () => {
       onChange={(event) => {
         setVideoTimestamp(event.target.value);
       }}
-      sx={{ marginBottom: 2, fontSize: 12, lineHeight: 12 }}
+      sx={{
+        marginBottom: 2,
+        fontSize: timingFontSize,
+        lineHeight: timingFontSize,
+      }}
     />
   );
 };
@@ -159,7 +199,11 @@ const VideoBow: React.FC = () => {
       onChange={(event) => {
         setVideoBow(event.target.value);
       }}
-      sx={{ marginBottom: 2, fontSize: 12, lineHeight: 12 }}
+      sx={{
+        marginBottom: 2,
+        fontSize: timingFontSize,
+        lineHeight: timingFontSize,
+      }}
     />
   );
 };
@@ -169,6 +213,7 @@ const AddSplitButton: React.FC = () => {
   const [videoTimestamp] = useVideoTimestamp();
   const [selectedEvent] = useVideoEvent();
   const [waypoint] = useWaypoint();
+  const [mobileConfig] = useMobileConfig();
   const gate = gateFromWaypoint(waypoint);
 
   const onAddSplit = () => {
@@ -205,6 +250,31 @@ const AddSplitButton: React.FC = () => {
       });
       return;
     }
+    if (!mobileConfig) {
+      return;
+    }
+    for (let i = 0; i < mobileConfig.eventList.length; i++) {
+      if (mobileConfig.eventList[i].EventNum !== selectedEvent) {
+        continue;
+      }
+      const entry = mobileConfig.eventList[i].eventItems.find(
+        (item) => item.Bow === bow
+      );
+      if (!entry) {
+        setDialogConfig({
+          title: `Not in schedule`,
+          message: `Entry '${bow}' is not in schedule for event '${selectedEvent}'.  Add anyway??`,
+          button: 'Add',
+          showCancel: true,
+          handleConfirm: () => {
+            delete lap.State;
+            setEntryResult(key, lap);
+          },
+        });
+        return;
+      }
+      break;
+    }
 
     setEntryResult(key, lap);
   };
@@ -214,7 +284,7 @@ const AddSplitButton: React.FC = () => {
       size="small"
       variant="contained"
       color="success"
-      sx={{ margin: '0.5em' }}
+      sx={{ margin: '0.5em', marginTop: 0, marginBottom: '1em' }}
       onClick={onAddSplit}
     >
       Add Split
@@ -265,6 +335,7 @@ interface MyComponentProps {
 }
 
 const TimingSidebar: React.FC<MyComponentProps> = ({ sx }) => {
+  const classes = useStyles();
   const [mobileConfig] = useMobileConfig();
   const [day] = useDay();
   const [waypoint] = useWaypoint();
@@ -351,11 +422,11 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx }) => {
       </Stack>
       <FormControl
         fullWidth
-        sx={{ marginBottom: 2 }}
+        sx={{ marginTop: 0, marginBottom: '0.5em' }}
         margin="dense"
         size="small"
       >
-        <InputLabel id="event-select-label" sx={{ fontSize: 12 }}>
+        <InputLabel id="event-select-label" sx={{ fontSize: timingFontSize }}>
           Event
         </InputLabel>
         <Select
@@ -364,7 +435,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx }) => {
           label="Event"
           value={selectedEvent}
           onChange={onEventChange}
-          sx={{ fontSize: 12 }}
+          sx={{ fontSize: timingFontSize }}
         >
           {mobileConfig?.eventList.map((event) => (
             <MenuItem key={event.EventNum} value={event.EventNum}>
@@ -383,6 +454,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx }) => {
           rows={rows}
           onCellClick={onRowClick}
           rowHeight={24}
+          rowClass={(row) => (row.eventName ? classes.row : undefined)}
         />
       </div>
     </Paper>

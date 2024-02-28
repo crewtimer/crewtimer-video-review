@@ -1,11 +1,4 @@
-import {
-  Box,
-  Slider,
-  Typography,
-  Stack,
-  IconButton,
-  Button,
-} from '@mui/material';
+import { Box, Slider, Typography, Stack, Button } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import React, {
@@ -37,6 +30,8 @@ import { Rect } from 'renderer/shared/AppTypes';
 import TimingSidebar from './TimingSidebar';
 import VideoSettingsView from './VideoSettingsView';
 import { findClosestLineAndPosition } from './VideoUtils';
+import { useEnableVideoTiming } from 'renderer/util/UseSettings';
+import FileScrubber from './FileScrubber';
 
 const useStyles = makeStyles({
   text: {
@@ -92,16 +87,17 @@ interface ZoomState {
 
 const moveRight = () => {
   const prev = getVideoPosition();
+
   setVideoPosition({
     ...prev,
-    frameNum: prev.frameNum + 1,
+    frameNum: prev.frameNum + (getVideoSettings().travelRtoL ? -1 : 1),
   });
 };
 const moveLeft = () => {
   const prev = getVideoPosition();
   setVideoPosition({
     ...prev,
-    frameNum: prev.frameNum - 1,
+    frameNum: prev.frameNum - +(getVideoSettings().travelRtoL ? -1 : 1),
   });
 };
 
@@ -128,10 +124,9 @@ const VideoScrubber = () => {
   const numFrames = image.numFrames;
 
   const handleSlider = (_event: Event, value: number | number[]) => {
-    const newValue = value as number;
-    if (_event.type !== 'mousemove') {
-      // extraneous events sometimes come into the slider.  Ignore them.
-      return;
+    let newValue = value as number;
+    if (getVideoSettings().travelRtoL) {
+      newValue = numFrames - newValue + 1;
     }
     setVideoPosition({ ...videoPosition, frameNum: newValue });
   };
@@ -139,28 +134,20 @@ const VideoScrubber = () => {
   const prevFile = () => {
     setVideoPosition({
       ...videoPosition,
-      frameNum: 0, // move outside this file to trigger prev file
+      frameNum: getVideoSettings().travelRtoL ? image.numFrames + 1 : 0, // move outside this file to trigger prev file
     });
   };
 
   const nextFile = () => {
     setVideoPosition({
       ...videoPosition,
-      frameNum: image.numFrames + 1, // move outside this file to trigger prev file
+      frameNum: getVideoSettings().travelRtoL ? 0 : image.numFrames + 1, // move outside this file to trigger prev file
     });
   };
+  const sliderValue = getVideoSettings().travelRtoL
+    ? numFrames - videoPosition.frameNum + 1
+    : videoPosition.frameNum;
   return (
-    // <Stack
-    //   direction="row"
-    //   style={{
-    //     paddingLeft: '1em',
-    //     paddingRight: '1em',
-    //     width: '100%',
-    //     background: 'yellow',
-    //   }}
-    // >
-    //   <div style={{ height: '40px' }} />
-    // </Stack>
     <Stack
       direction="row"
       style={{
@@ -184,12 +171,13 @@ const VideoScrubber = () => {
         <ArrowBackIcon fontSize={'small'} />
       </Button>
       <Slider
-        value={videoPosition.frameNum}
+        value={sliderValue}
         min={1}
         max={numFrames}
         onChange={handleSlider}
         aria-labelledby="video-scrubber"
         sx={{ marginLeft: '1em', marginRight: '1em', flex: 1 }}
+        track={false}
       />
       <Button
         variant="contained"
@@ -714,8 +702,10 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 const Video = () => {
   const { width, height, ref } = useResizeDetector();
   const [videoSettings] = useVideoSettings();
+  const [enableVideoTiming] = useEnableVideoTiming();
   const videoSidebarWidth = videoSettings.videoPanel ? 150 : 0;
-  const timingSidebarwidth = videoSettings.timingPanel ? 400 : 0;
+  const timingSidebarwidth =
+    enableVideoTiming && videoSettings.timingPanel ? 300 : 0;
   const sidebarWidth = Math.max(60, videoSidebarWidth + timingSidebarwidth);
 
   return (
@@ -731,6 +721,7 @@ const Video = () => {
         flexDirection: 'column',
       }}
     >
+      <FileScrubber />
       <VideoScrubber />
       <div ref={ref} style={{ width: '100%', height: '100%' }}>
         <Stack direction="row">
@@ -741,7 +732,7 @@ const Video = () => {
           <Stack direction="column" sx={{ width: sidebarWidth }}>
             <VideoSettingsView />
             <Stack direction="row">
-              {videoSettings.timingPanel && (
+              {enableVideoTiming && videoSettings.timingPanel && (
                 <TimingSidebar sx={{ width: timingSidebarwidth }} />
               )}
               {videoSettings.videoPanel && (

@@ -4,11 +4,18 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Setup from './Setup';
 import Status from './Status';
-import { useInitializing, useTabPosition } from './util/UseSettings';
+import {
+  useEnableLynx,
+  useEnableVideo,
+  useEnableVideoTiming,
+  useInitializing,
+  useTabPosition,
+} from './util/UseSettings';
 import FinishLynxHelp from './FinishLynxHelp';
 import { Toast } from './Toast';
 import Video from './video/Video';
 import FLSetup from './FLSetup';
+import SystemConfig from './SystemConfig';
 
 const useStyles = makeStyles({
   root: {
@@ -21,9 +28,12 @@ const useStyles = makeStyles({
 export default function CenteredTabs() {
   const classes = useStyles();
   const [tabPosition, setTabPosition] = useTabPosition();
+  const [enableVideo] = useEnableVideo();
+  const [enableLynx] = useEnableLynx();
+  const [enableVideoTiming] = useEnableVideoTiming();
   const [initializing] = useInitializing();
 
-  const handleChange = (_event: unknown, newValue: number) => {
+  const handleChange = (_event: unknown, newValue: string) => {
     setTabPosition(newValue);
   };
 
@@ -31,7 +41,6 @@ export default function CenteredTabs() {
     return <></>;
   }
   return (
-    // <div style={{ display: 'flex', flexFlow: 'column' }}>
     <Paper className={classes.root} square>
       {/* Keeep Tabs from scrolling by surround with fixed */}
       <div>
@@ -49,19 +58,25 @@ export default function CenteredTabs() {
             marginBottom: '1em',
           }}
         >
-          <Tab label="Status" />
-          <Tab label="CrewTimer" />
-          <Tab label="Lynx" />
-          <Tab label="Video" />
-          <Tab label="Help" />
+          {(enableLynx || (enableVideo && enableVideoTiming)) && (
+            <Tab label="Journal" value="Journal" />
+          )}
+          {(enableLynx || (enableVideo && enableVideoTiming)) && (
+            <Tab label="CrewTimer" value="CrewTimer" />
+          )}
+          {enableLynx && <Tab label="Lynx" value="Lynx" />}
+          {enableLynx && <Tab label="Lynx Help" value="Help" />}
+          {enableVideo && <Tab label="Video" value="Video" />}
+          <Tab label="Configuration" value="Config" />
         </Tabs>
       </div>
       <Tabs style={{ zIndex: 0 }} />
-      {tabPosition === 0 && <Status />}
-      {tabPosition === 1 && <Setup />}
-      {tabPosition === 2 && <FLSetup />}
-      {tabPosition === 3 && <Video />}
-      {tabPosition === 4 && <FinishLynxHelp />}
+      {tabPosition === 'Config' && <SystemConfig />}
+      {tabPosition === 'Journal' && <Status />}
+      {tabPosition === 'CrewTimer' && <Setup />}
+      {tabPosition === 'Lynx' && <FLSetup />}
+      {tabPosition === 'Video' && <Video />}
+      {tabPosition === 'Help' && <FinishLynxHelp />}
       <Toast />
     </Paper>
     // </div>

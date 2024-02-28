@@ -1,6 +1,6 @@
 {
   "name": "crewtimer-fl-connector",
-  "version": "1.0.12-beta.3",
+  "version": "1.0.12-beta.4",
   "description": "Connector for FinishLynx to capture time events which are published to CrewTimer",
   "license": "MIT",
   "author": {

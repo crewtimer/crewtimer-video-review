@@ -16,6 +16,21 @@ import {
 
 const { LapStorage } = window;
 export const AUTH_OK = 'OK';
+
+export const [useEnableLynx, setEnableLynx, getEnableLynx] = UseStoredDatum(
+  'enableLynx',
+  false
+);
+export const [useEnableVideo, setEnableVideo, getEnableVideo] = UseStoredDatum(
+  'enableVideo',
+  false
+);
+export const [
+  useEnableVideoTiming,
+  setEnableVideoTiming,
+  getEnableVideoTiming,
+] = UseStoredDatum('enableVideoTiming', false);
+
 export const [useMobilePin, setMobilePin, getMobilePin] = UseStoredDatum(
   'MobileKey',
   ''
@@ -74,8 +89,10 @@ export const [useLynxFolder, setLynxFolder, getLynxFolder] = UseStoredDatum(
     window.FinishLynx.validateLynxFolder(folder);
   }
 );
-export const [useTabPosition, setTabPosition, getTabPosition] =
-  UseStoredDatum<number>('tabPosition', 2);
+export const [useTabPosition, setTabPosition, getTabPosition] = UseStoredDatum(
+  'systemTabPosition',
+  'Config'
+);
 
 export const [useFirebaseConnected, setFirebaseConnected] = UseMemDatum(
   FirebaseConnectedKey,

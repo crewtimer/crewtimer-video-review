@@ -10,27 +10,31 @@ import {
 import MenuIcon from '@mui/icons-material/Settings';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 import { useVideoSettings } from './VideoSettings';
+import { useEnableVideoTiming } from 'renderer/util/UseSettings';
 
 const VideoSettingsDialog: React.FC = () => {
   const [videoSettings, setVideoSettings] = useVideoSettings();
+  const [enableVideoTiming] = useEnableVideoTiming();
   return (
     <Box>
       <Typography>Visible Panels</Typography>
-      <FormControlLabel
-        labelPlacement="end"
-        label="Timing"
-        control={
-          <Checkbox
-            checked={videoSettings.timingPanel}
-            onChange={() => {
-              setVideoSettings(
-                { ...videoSettings, timingPanel: !videoSettings.timingPanel },
-                true
-              );
-            }}
-          />
-        }
-      />
+      {enableVideoTiming && (
+        <FormControlLabel
+          labelPlacement="end"
+          label="Timing"
+          control={
+            <Checkbox
+              checked={videoSettings.timingPanel}
+              onChange={() => {
+                setVideoSettings(
+                  { ...videoSettings, timingPanel: !videoSettings.timingPanel },
+                  true
+                );
+              }}
+            />
+          }
+        />
+      )}
       <FormControlLabel
         labelPlacement="end"
         label="Video"

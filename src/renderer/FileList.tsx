@@ -59,7 +59,7 @@ const FileList: React.FC<FileListProps> = ({ files }) => {
         <Box
           sx={
             rowIdx === selectedIndex
-              ? { background: '#556cd6', color: 'white', paddingLeft: '0.5em' }
+              ? { background: '#19857b', color: 'white', paddingLeft: '0.5em' }
               : { paddingLeft: '0.5em' }
           }
         >
