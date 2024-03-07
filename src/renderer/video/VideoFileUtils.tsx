@@ -3,6 +3,7 @@ import { UseDatum } from 'react-usedatum';
 import { AppImage } from 'renderer/shared/AppTypes';
 import {
   getImage,
+  getVideoFile,
   setImage,
   setVideoDir,
   setVideoFile,
@@ -119,6 +120,9 @@ const refreshDirList = (videoDir: string) => {
       });
       const dirList = files.map((file) => `${videoDir}/${file}`);
       setDirList(dirList);
+      if (dirList.length > 0 && !dirList.includes(getVideoFile())) {
+        openSelectedFile(dirList[0]);
+      }
       // console.log(files);
     }
   });

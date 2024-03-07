@@ -8,10 +8,11 @@ import DataGrid, {
   DataGridHandle,
 } from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
-import { Box } from '@mui/material';
+import { Box, Tooltip } from '@mui/material';
 import { useRef } from 'react';
 
 interface FileListProps {
+  height: number;
   files: string[];
 }
 
@@ -24,7 +25,18 @@ function rowKeyGetter(row: FileInfo) {
   return row.id;
 }
 
-const FileList: React.FC<FileListProps> = ({ files }) => {
+const HeaderRenderer: React.FC<{
+  column: Column<any>;
+  [key: string]: any;
+}> = ({ column, ...props }) => {
+  // Custom rendering logic here
+  return (
+    <div {...props} style={{ fontSize: 12 }}>
+      {column.name}
+    </div>
+  );
+};
+const FileList: React.FC<FileListProps> = ({ files, height }) => {
   const [selectedIndex, setSelectedIndex] = useSelectedIndex();
   const [videoFile] = useVideoFile();
   const dataGridRef = useRef<DataGridHandle | null>(null);
@@ -55,17 +67,28 @@ const FileList: React.FC<FileListProps> = ({ files }) => {
     {
       key: 'name',
       name: 'Filename',
-      renderCell: ({ row, rowIdx }: { row: FileInfo; rowIdx: number }) => (
-        <Box
-          sx={
-            rowIdx === selectedIndex
-              ? { background: '#19857b', color: 'white', paddingLeft: '0.5em' }
-              : { paddingLeft: '0.5em' }
-          }
-        >
-          {row.filename.replace(/.*\//, '')}
-        </Box>
-      ),
+      renderHeaderCell: HeaderRenderer,
+      renderCell: ({ row, rowIdx }: { row: FileInfo; rowIdx: number }) => {
+        const filename = row.filename.replace(/.*\//, '');
+        return (
+          <Box
+            sx={
+              rowIdx === selectedIndex
+                ? {
+                    fontSize: 12,
+                    background: '#19857b',
+                    color: 'white',
+                    paddingLeft: '0.5em',
+                  }
+                : { fontSize: 12, paddingLeft: '0.5em' }
+            }
+          >
+            <Tooltip title={filename}>
+              <Box>{filename}</Box>
+            </Tooltip>
+          </Box>
+        );
+      },
     },
   ];
 
@@ -88,7 +111,7 @@ const FileList: React.FC<FileListProps> = ({ files }) => {
   return (
     <DataGrid<FileInfo>
       ref={dataGridRef}
-      style={{ height: '300px' }}
+      style={{ height: height }}
       rowHeight={30}
       columns={columns}
       rows={dispItems}

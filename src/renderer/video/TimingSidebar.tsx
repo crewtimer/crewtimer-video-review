@@ -331,10 +331,11 @@ const ContextMenu: React.FC = () => {
   );
 };
 interface MyComponentProps {
+  height: number;
   sx?: SxProps<Theme>;
 }
 
-const TimingSidebar: React.FC<MyComponentProps> = ({ sx }) => {
+const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
   const classes = useStyles();
   const [mobileConfig] = useMobileConfig();
   const [day] = useDay();
@@ -455,6 +456,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx }) => {
           onCellClick={onRowClick}
           rowHeight={24}
           rowClass={(row) => (row.eventName ? classes.row : undefined)}
+          style={{ height: height - 150 }}
         />
       </div>
     </Paper>

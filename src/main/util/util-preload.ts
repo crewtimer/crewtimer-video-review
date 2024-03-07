@@ -9,6 +9,11 @@ export interface OpenFileReturn {
   filePath: string;
 }
 
+export interface OpenDirReturn {
+  cancelled: boolean;
+  path: string;
+}
+
 export interface DirListReturn {
   error: string;
   files: string[];
@@ -20,6 +25,18 @@ export function openFileDialog(): Promise<OpenFileReturn> {
       .invoke('open-file-dialog')
       .then((result) => resolve(result))
       .catch((_err) => resolve({ cancelled: true, filePath: '' }));
+  });
+}
+
+export function openDirDialog(
+  title: string,
+  defaultPath: string
+): Promise<OpenDirReturn> {
+  return new Promise((resolve, _reject) => {
+    ipcRenderer
+      .invoke('open-dir-dialog', title, defaultPath)
+      .then((result) => resolve(result))
+      .catch((_err) => resolve({ cancelled: true, path: defaultPath }));
   });
 }
 
@@ -43,4 +60,5 @@ contextBridge.exposeInMainWorld('Util', {
   ) => ipcRenderer.on('user-message', callback),
   getFilesInDirectory,
   openFileDialog,
+  openDirDialog,
 });

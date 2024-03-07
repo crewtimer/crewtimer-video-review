@@ -11,6 +11,7 @@ import {
 import { drawText, Point } from './VideoUtils';
 
 export const [useAdjustingOverlay] = UseDatum(false);
+export const [useNearEdge] = UseDatum(false);
 
 export interface VideoOverlayProps {
   width: number; /// Canas width
@@ -37,6 +38,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
     guide: GuideLine;
   } | null>(null);
   const [adjustingOverlay, setAdjustingOverlay] = useAdjustingOverlay();
+  const [nearEdge] = useNearEdge();
   const [courseConfig, setCourseConfig] = useState(getVideoSettings());
   const [zoomWindow] = useZoomWindow();
   const [image] = useImage();
@@ -72,20 +74,25 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   );
 
   const drawBox = useCallback(
-    (context: CanvasRenderingContext2D, posScaled: Point, dir: Dir) => {
+    (
+      context: CanvasRenderingContext2D,
+      posScaled: Point,
+      dir: Dir,
+      beginEdge: boolean
+    ) => {
       context.beginPath();
       context.strokeStyle = 'black';
       // const posScaled = scalePoint(pos.x, pos.y);
       if (dir === Dir.Horiz) {
         // horizontal
-        if (posScaled.x <= 0) {
-          context.strokeRect(1, posScaled.y - 7, 12, 12);
+        if (beginEdge) {
+          context.strokeRect(posScaled.x + 1, posScaled.y - 7, 12, 12);
           context.fillStyle = 'white';
-          context.fillRect(2, posScaled.y - 6, 10, 10);
+          context.fillRect(posScaled.x + 2, posScaled.y - 6, 10, 10);
         } else {
-          context.strokeRect(destWidth - 12, posScaled.y - 7, 12, 12);
+          context.strokeRect(posScaled.x - 12, posScaled.y - 7, 12, 12);
           context.fillStyle = 'white';
-          context.fillRect(destWidth - 11, posScaled.y - 6, 10, 10);
+          context.fillRect(posScaled.x - 11, posScaled.y - 6, 10, 10);
         }
       } else {
         // vertical
@@ -115,12 +122,12 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
       context.lineTo(to.x, to.y);
       context.stroke();
 
-      if (adjustingOverlay) {
-        drawBox(context, { x: from.x, y: from.y }, dir);
-        drawBox(context, { x: to.x, y: to.y }, dir);
+      if (adjustingOverlay || nearEdge) {
+        drawBox(context, { x: from.x, y: from.y }, dir, true);
+        drawBox(context, { x: to.x, y: to.y }, dir, false);
       }
     },
-    [scalePoint, adjustingOverlay]
+    [scalePoint, adjustingOverlay, nearEdge]
   );
 
   useEffect(() => {
@@ -194,6 +201,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
     videoSettings,
     courseConfig,
     adjustingOverlay,
+    nearEdge,
     width,
     height,
     zoomWindow,
@@ -202,10 +210,16 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   const handleMouseDown = (event: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     const y = event.clientY - (rect?.top ?? 0);
-    const x = event.clientX - (rect?.left ?? 0);
+    let x = event.clientX - (rect?.left ?? 0);
     mouseDownVideoCoordsRef.current = { x: x / scale, y: y / scale };
 
-    if (y < 20 || y > destHeight - 20 || x < 20 || x > destWidth - 20) {
+    if (
+      y < 20 ||
+      y > destHeight - 20 ||
+      x < 20 + xPadding ||
+      x > destWidth - 20 + xPadding
+    ) {
+      x = x;
       // find first guide within 20 px
       const nearestGuide = courseConfig.guides.find((guide) => {
         // Convert guide coordinates to screen coords and check for distance
@@ -223,6 +237,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
         const dist2 = Math.sqrt(
           (point2.x - x) * (point2.x - x) + (point2.y - y) * (point2.y - y)
         );
+        // console.log(`dist1: ${dist1}, dist2: ${dist2} x: ${x}, y: ${y}`);
 
         return dist1 < 20 || dist2 < 20;
       });
@@ -231,7 +246,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
         setAdjustingOverlay(true);
         event.preventDefault();
         event.stopPropagation();
-        if (y < 20 || x < 20) {
+        if (y < 20 || x < 20 + xPadding) {
           setDragHandle({ pos: 'pt1', guide: nearestGuide });
         } else {
           setDragHandle({ pos: 'pt2', guide: nearestGuide });
@@ -241,10 +256,19 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   };
 
   const handleMouseMove = (event: React.MouseEvent) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    let x = event.clientX - (rect?.left ?? 0);
+    const y = event.clientY - (rect?.top ?? 0);
+    // const nearEdge =
+    //   y < 20 ||
+    //   y > destHeight - 20 ||
+    //   x < 20 - xPadding ||
+    //   x > destWidth - 20 - xPadding;
+    // setNearEdge(nearEdge);
+
     if (dragging && dragHandle) {
       const rect = canvasRef.current?.getBoundingClientRect();
-      const x = event.clientX - (rect?.left ?? 0) - rect?.width! / 2;
-      const y = event.clientY - (rect?.top ?? 0);
+      x = x - rect?.width! / 2; // delta from center
       const xpos = x / scale;
       const ypos = y / scale;
 

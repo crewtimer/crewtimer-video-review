@@ -1,4 +1,5 @@
 import { IpcRendererEvent } from 'electron';
+import { OpenDirReturn } from 'main/util/util-preload';
 export interface OpenFileReturn {
   cancelled: boolean;
   filePath: string;
@@ -15,6 +16,7 @@ declare global {
         callback: (event: IpcRendererEvent, level: string, msg: string) => void
       ): void;
       openFileDialog(): Promise<OpenFileReturn>;
+      openDirDialog(title: string, defaultPath: string): Promise<OpenDirReturn>;
       getFilesInDirectory(dirPath: string): Promise<DirListReturn>;
     };
   }

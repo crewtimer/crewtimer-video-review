@@ -1,7 +1,7 @@
 {
   "name": "crewtimer-fl-connector",
-  "version": "1.0.12-beta.4",
-  "description": "Connector for FinishLynx to capture time events which are published to CrewTimer",
+  "version": "1.0.12-beta.5",
+  "description": "CrewTimer connector for video review and timing as well as FinishLynx integration for timing.",
   "license": "MIT",
   "author": {
     "name": "Glenn Engel",

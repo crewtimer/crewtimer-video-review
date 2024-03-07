@@ -1,17 +1,18 @@
 import Paper from '@mui/material/Paper';
-import { Button, SxProps, Theme } from '@mui/material';
-const { openFileDialog } = window.Util;
+import { Button, SxProps, Theme, Tooltip } from '@mui/material';
+const { openDirDialog } = window.Util;
 import makeStyles from '@mui/styles/makeStyles';
 import FileList from '../FileList';
-import { openSelectedFile } from './VideoFileUtils';
 import { useDirList } from './VideoFileUtils';
+import { useVideoDir } from './VideoSettings';
 
 const useStyles = makeStyles((_theme) => ({
-  button: { margin: '0.5em' },
+  button: { margin: '0.5em', fontSize: 10 },
 }));
 
 // Define the types for the component's props
 interface CustomTableProps {
+  height: number;
   sx?: SxProps<Theme>;
 }
 
@@ -21,15 +22,18 @@ interface CustomTableProps {
  * @param props The properties passed to the component, expects a width.
  * @returns A Material-UI Table containing the rows of data.
  */
-const VideoSideBar: React.FC<CustomTableProps> = ({ sx }) => {
+const VideoSideBar: React.FC<CustomTableProps> = ({ sx, height }) => {
   const classes = useStyles();
   const [dirList] = useDirList();
+  const [videoDir, setVideoDir] = useVideoDir();
 
-  const chooseFile = () => {
-    openFileDialog()
+  const chooseDir = () => {
+    openDirDialog('Choose Video Directory', videoDir)
       .then((result) => {
         if (!result.cancelled) {
-          openSelectedFile(result.filePath);
+          if (result.path !== videoDir) {
+            setVideoDir(result.path);
+          }
         }
       })
       .catch();
@@ -39,21 +43,24 @@ const VideoSideBar: React.FC<CustomTableProps> = ({ sx }) => {
     <Paper
       sx={{
         maxWidth: '100%',
+        height: height - 8,
         ...sx,
       }}
     >
-      <Button
-        size="small"
-        variant="contained"
-        color="secondary"
-        className={classes.button}
-        onClick={() => {
-          chooseFile();
-        }}
-      >
-        Choose Video
-      </Button>
-      <FileList files={dirList} />
+      <Tooltip title={videoDir}>
+        <Button
+          size="small"
+          variant="contained"
+          color="secondary"
+          className={classes.button}
+          onClick={() => {
+            chooseDir();
+          }}
+        >
+          Choose Folder
+        </Button>
+      </Tooltip>
+      <FileList files={dirList} height={height - 8 - 35} />
     </Paper>
   );
 };

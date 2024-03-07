@@ -9,7 +9,6 @@ import React, {
   useState,
 } from 'react';
 import { convertTimestampToString } from '../shared/Util';
-import { useResizeDetector } from 'react-resize-detector';
 import { useDebouncedCallback } from 'use-debounce';
 import makeStyles from '@mui/styles/makeStyles';
 import VideoSideBar from './VideoSideBar';
@@ -25,13 +24,15 @@ import {
   useVideoPosition,
   useVideoSettings,
 } from './VideoSettings';
-import VideoOverlay, { useAdjustingOverlay } from './VideoOverlay';
+import VideoOverlay, { useAdjustingOverlay, useNearEdge } from './VideoOverlay';
 import { Rect } from 'renderer/shared/AppTypes';
 import TimingSidebar from './TimingSidebar';
 import VideoSettingsView from './VideoSettingsView';
 import { findClosestLineAndPosition } from './VideoUtils';
 import { useEnableVideoTiming } from 'renderer/util/UseSettings';
 import FileScrubber from './FileScrubber';
+import Measure from 'react-measure';
+import { UseDatum } from 'react-usedatum';
 
 const useStyles = makeStyles({
   text: {
@@ -131,19 +132,19 @@ const VideoScrubber = () => {
     setVideoPosition({ ...videoPosition, frameNum: newValue });
   };
 
-  const prevFile = () => {
-    setVideoPosition({
-      ...videoPosition,
-      frameNum: getVideoSettings().travelRtoL ? image.numFrames + 1 : 0, // move outside this file to trigger prev file
-    });
-  };
+  // const prevFile = () => {
+  //   setVideoPosition({
+  //     ...videoPosition,
+  //     frameNum: getVideoSettings().travelRtoL ? image.numFrames + 1 : 0, // move outside this file to trigger prev file
+  //   });
+  // };
 
-  const nextFile = () => {
-    setVideoPosition({
-      ...videoPosition,
-      frameNum: getVideoSettings().travelRtoL ? 0 : image.numFrames + 1, // move outside this file to trigger prev file
-    });
-  };
+  // const nextFile = () => {
+  //   setVideoPosition({
+  //     ...videoPosition,
+  //     frameNum: getVideoSettings().travelRtoL ? 0 : image.numFrames + 1, // move outside this file to trigger prev file
+  //   });
+  // };
   const sliderValue = getVideoSettings().travelRtoL
     ? numFrames - videoPosition.frameNum + 1
     : videoPosition.frameNum;
@@ -160,7 +161,7 @@ const VideoScrubber = () => {
     >
       <Button
         variant="contained"
-        onClick={prevFile}
+        onClick={moveLeft}
         size="small"
         sx={{
           height: 24,
@@ -181,7 +182,7 @@ const VideoScrubber = () => {
       />
       <Button
         variant="contained"
-        onClick={nextFile}
+        onClick={moveRight}
         size="small"
         sx={{
           height: 24,
@@ -203,6 +204,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [, forceRender] = useReducer((s) => s + 1, 0);
   const [computedTime, setComputedTime] = useState(0);
   const [adjustingOverlay] = useAdjustingOverlay();
+  const [, setNearEdge] = useNearEdge();
   const mouseTracking = useRef<ZoomState>({
     zoomWindow: { x: 0, y: 0, width: 0, height: 0 },
     zoomStartWindow: { x: 0, y: 0, width: 0, height: 0 },
@@ -403,7 +405,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         lane,
       }));
     const result = findClosestLineAndPosition(
-      { x: x, y: y },
+      { x: x - xPadding, y: y },
       laneLines,
       getVideoSettings().lane1Top ? 'below' : 'above'
     );
@@ -551,6 +553,19 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         // handleSingleClick(event);
         return;
       }
+      const rect = canvasRef.current?.getBoundingClientRect();
+      let x = event.clientX - (rect?.left ?? 0);
+      const y = event.clientY - (rect?.top ?? 0);
+      const nearEdge =
+        y <= destHeight &&
+        x <= destWidth + xPadding &&
+        x > xPadding &&
+        (y < 20 ||
+          y > destHeight - 20 ||
+          x < 20 + xPadding ||
+          x > destWidth - 20 + xPadding);
+      setNearEdge(nearEdge && !mouseTracking.current.isZooming);
+      // console.log(`near edge: ${nearEdge} x: ${x} y: ${y}`);
       // dont trigger mouse down move actions until we have moved slightly. This avoids
       // accidental zooming on just a click
       const downMoveY = Math.abs(
@@ -567,7 +582,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         doZoom(newScale);
       }
     },
-    [image]
+    [image, destHeight, destWidth]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -637,6 +652,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         onMouseDown={adjustingOverlay ? undefined : handleMouseDown}
         onMouseMove={adjustingOverlay ? undefined : handleMouseMove}
         onMouseUp={adjustingOverlay ? undefined : handleMouseUp}
+        onMouseLeave={adjustingOverlay ? undefined : () => setNearEdge(false)}
         onDragStart={adjustingOverlay ? undefined : handleDragStart}
         onDoubleClick={handleDoubleClick}
         onClick={adjustingOverlay ? undefined : handleSingleClick}
@@ -655,7 +671,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           direction="column"
           sx={{
             width: `${width}px`,
-            height: `${height}px`,
             alignItems: 'center',
             paddingTop: '10px',
           }}
@@ -699,15 +714,43 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   );
 };
 
+const [useWindowSize] = UseDatum({ winWidth: 0, winHeight: 0 });
+
 const Video = () => {
-  const { width, height, ref } = useResizeDetector();
+  const [{ top }, setDimensions] = useState({ top: 170, width: 1, height: 1 });
   const [videoSettings] = useVideoSettings();
   const [enableVideoTiming] = useEnableVideoTiming();
   const videoSidebarWidth = videoSettings.videoPanel ? 150 : 0;
-  const timingSidebarwidth =
-    enableVideoTiming && videoSettings.timingPanel ? 300 : 0;
+  const timingSidebarwidth = enableVideoTiming ? 300 : 0;
   const sidebarWidth = Math.max(60, videoSidebarWidth + timingSidebarwidth);
+  const [{ winWidth, winHeight }, setWindowSize] = useWindowSize();
 
+  const onResize = () => {
+    setWindowSize({
+      winWidth: window.innerWidth,
+      winHeight: window.innerHeight,
+    });
+    // clearTimeout(updateTimer.current);
+    // updateTimer.current = setTimeout(
+    //   () => setTableWidth(window.innerWidth),
+    //   16
+    // );
+  };
+
+  useEffect(() => {
+    const win = window;
+    if (win.addEventListener) {
+      win.addEventListener('resize', onResize, false);
+      // } else if (win.attachEvent) {
+      //   win.attachEvent('onresize', onResize);
+    } else {
+      win.onresize = onResize;
+    }
+    onResize();
+  }, []);
+  const width = winWidth;
+  const height = Math.max(winHeight - top, 1);
+  // console.log(`width: ${width}x${height}`);
   return (
     <div
       style={{
@@ -723,25 +766,52 @@ const Video = () => {
     >
       <FileScrubber />
       <VideoScrubber />
-      <div ref={ref} style={{ width: '100%', height: '100%' }}>
-        <Stack direction="row">
-          <VideoImage
-            width={(width || sidebarWidth + 1) - sidebarWidth}
-            height={height || 1}
-          />
-          <Stack direction="column" sx={{ width: sidebarWidth }}>
-            <VideoSettingsView />
+      <Measure
+        bounds
+        onResize={(contentRect) => {
+          if (contentRect.bounds) {
+            setDimensions({
+              top: contentRect.bounds.top,
+              width: contentRect.bounds.width,
+              height: contentRect.bounds.height,
+            });
+          }
+          // console.log(JSON.stringify(contentRect.bounds));
+        }}
+      >
+        {({ measureRef }) => (
+          <div ref={measureRef} style={{ flexGrow: 1, width: '100%' }}>
             <Stack direction="row">
-              {enableVideoTiming && videoSettings.timingPanel && (
-                <TimingSidebar sx={{ width: timingSidebarwidth }} />
-              )}
-              {videoSettings.videoPanel && (
-                <VideoSideBar sx={{ width: videoSidebarWidth }} />
-              )}
+              <VideoImage
+                width={(width || sidebarWidth + 1) - sidebarWidth}
+                height={height || 1}
+              />
+              <Stack direction="column" sx={{ width: sidebarWidth }}>
+                <VideoSettingsView />
+                <Stack direction="row" sx={{ flexGrow: 1 }}>
+                  {enableVideoTiming && (
+                    <TimingSidebar
+                      height={height - 40}
+                      sx={{
+                        width: timingSidebarwidth,
+                        height: height - 40,
+                      }}
+                    />
+                  )}
+                  {videoSettings.videoPanel && (
+                    <VideoSideBar
+                      height={height - 40}
+                      sx={{
+                        width: videoSidebarWidth,
+                      }}
+                    />
+                  )}
+                </Stack>
+              </Stack>
             </Stack>
-          </Stack>
-        </Stack>
-      </div>
+          </div>
+        )}
+      </Measure>
     </div>
   );
 };
