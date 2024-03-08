@@ -25,6 +25,12 @@ yarn start
 
 If the build fails with a node-gyp error, be sure node-gyp is installed globally.
 
+The crewtimer_video_reader native module contains pre-built binaries for mac and win targets.  If this repo is private, a github token is required to retrieve the pre-built binaries.
+
+1. Obtain your [github token](https://github.com/prebuild/prebuild?tab=readme-ov-file#create-github-token)
+2. Add it to ~/.prebuild-installrc
+3. e.g. `token=ghp_8bh6rSO2EhGf3nVCgY4GrEvs1dqd324`
+
 ## Installation and Configuration Notes to self
 
 MacOS can build for all targets - mac, win, linux

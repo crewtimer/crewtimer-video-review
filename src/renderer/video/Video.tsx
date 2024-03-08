@@ -294,6 +294,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     destHeight = imgScale * image.height;
     destWidth = imgScale * image.width;
   }
+
   mouseTracking.current.imageScale = imgScale;
 
   const xPadding = (width - destWidth) / 2;

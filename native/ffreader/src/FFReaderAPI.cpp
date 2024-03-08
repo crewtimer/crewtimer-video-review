@@ -104,7 +104,20 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
           .ThrowAsJavaScriptException();
       return ret;
     }
-    auto totalBytes = rgbaFrame->width * rgbaFrame->height * 4;
+    auto totalBytes = rgbaFrame->height * rgbaFrame->width * 4;
+    auto linesize = rgbaFrame->linesize[0];
+    auto pixbytes = rgbaFrame->width * 4;
+    if (pixbytes != linesize) {
+      // remove extra bytes at the end of each frame line as
+      // the html canvas expects compacted data
+      uint8_t *destdata = rgbaFrame->data[0] + pixbytes;
+      uint8_t *srcdata = rgbaFrame->data[0] + linesize;
+      for (int i = 1; i < rgbaFrame->height; i++) {
+        memcpy(destdata, srcdata, pixbytes);
+        destdata += pixbytes;
+        srcdata += linesize;
+      }
+    }
     ret.Set("data",
             Napi::Buffer<uint8_t>::Copy(env, rgbaFrame->data[0], totalBytes));
     ret.Set("width", Napi::Number::New(env, rgbaFrame->width));

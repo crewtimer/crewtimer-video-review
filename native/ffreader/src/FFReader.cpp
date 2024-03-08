@@ -324,7 +324,12 @@ const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame) {
   }
 
   // Allocate memory for the output frame
-  if (!rgbaFrame) {
+  if (!rgbaFrame || frame->width != rgbaFrame->width ||
+      frame->height != rgbaFrame->height) {
+    if (rgbaFrame) {
+      av_frame_free(&rgbaFrame);
+      rgbaFrame = nullptr;
+    }
     rgbaFrame = av_frame_alloc();
     if (!rgbaFrame) {
       std::cerr << "Could not allocate memory for RGBA frame!" << std::endl;

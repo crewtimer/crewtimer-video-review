@@ -16,11 +16,11 @@
             ],
           "link_settings": {
             "libraries": [
-                "./src/ffmpeg-built-mac/lib/libavcodec.a",
-                "./src/ffmpeg-built-mac/lib/libavdevice.a",
-                "./src/ffmpeg-built-mac/lib/libavfilter.a",
-                "./src/ffmpeg-built-mac/lib/libavformat.a",
-                "./src/ffmpeg-built-mac/lib/libavutil.a",
+                "../src/ffmpeg-built-mac/lib/libavcodec.a",
+                "../src/ffmpeg-built-mac/lib/libavdevice.a",
+                "../src/ffmpeg-built-mac/lib/libavfilter.a",
+                "../src/ffmpeg-built-mac/lib/libavformat.a",
+                "../src/ffmpeg-built-mac/lib/libavutil.a",
                 "../src/ffmpeg-built-mac/lib/libswresample.a",
                 "../src/ffmpeg-built-mac/lib/libswscale.a"],
 

@@ -1,29 +1,12 @@
 # crewtimer_video_reader
 
-An example of how to define and use an Electron native module.
-
-## Description
-
-This project demonstrates the implementation and usage of a native module in Electron.
+An electron native module for processing video for use with CrewTimer.  The package uses 'prebuild' to build native versions and store them in github releases so projects which use this module do not have to build the module.
 
 ## Constraints
 
 The package name cannot have dashes like most npm packages.  This is because the package name gets used in a macro for the napi boilerplate.
 
-If using yarn to add this module locally, you must use yarn link or the .erb/scripts/check-native-dep.js script fails running `npm ls <modulename>`.
-
-## Installation in an Electron App
-
-To install the module in a react-native-boilerplate electron app, run the following command:
-
-```bash
-cd <your-electron-app-dir>
-yarn add -D crewtimer_video_reader
-cd release/app
-yarn add crewtimer_video_reader
-```
-
-This will add the types to the root build as a dev module and add the native module under release/app where it will get compiled as a native code module using `node-gyp`.
+If using yarn to add this module locally, you must use yarn link or the .erb/scripts/check-native-dep.js script fails running `npm ls <modulename>`.  Using yarn add file:../../native/ffreader from the release/app of an electron app also works.
 
 ## Building ffmpeg on Windows
 
@@ -47,35 +30,41 @@ cd crewtimer-connect/native/ffreader
 yarn build-ffmpeg-win
 ```
 
-Build prebuilt ffreader:
+## Making a new prebuilt on windows
+
+First, ensure that ffmpeg has been built by following the prior section instructions.
+
+Open a shell via C:\cygwin64\Cygwin.bat.  Alternatively, open a Visual Studio 2022 x64 Native Tools Command Prompt.
 
 ```bash
-yarn prebuild
+cd c:/Users/glenne/git/crewtimer-connect/native/ffreader
+rm -rf node_modules # start from scratch
+rm yarn.lock # removes an error about stringWidth libraries
+yarn install # The final step of the install will fail where it tries to get prebuilt binaries.  We'll build our own next
+yarn prebuild # This will likely fail on the final step where it tries to upload to github releases
 ```
+
+If you get an error about a stringWidth require, do the following: `rm -rf node_modules yarn.lock && yarn install`.  A conflict exists between two string packages and an install without a yarn.lock will succeed.
+
+The result is placed into a file such as prebuilds/crewtimer_video_reader-v1.0.2-napi-v6-win32-x64.tar.gz.  It will also attempt to upload it to github releases.  This file can also be copied to a similar directory on a mac and uploaded from there via `yarn uploadall`.  If it creates a file with something like v94 instead of v6, this is not what you want and a script got the wrong napi version.
+
+Uploading requires a GITHUB_TOKEN env variable to be set to grant permission.
 
 ## Usage
 
 Here's how to use the module in your Electron app:
 
-```javascript
-const { incrementByOne } = require('crewtimer_video_reader');
-
-console.log(incrementByOne(1)); // Outputs: 2
-```
-
-or
-
 ```ts
-import { incrementByOne } = from 'crewtimer_video_reader';
+import { someFunction } = from 'crewtimer_video_reader';
 
-console.log(incrementByOne(1)); // Outputs: 2
+console.log(someFunction());
 ```
 
 ## Requirements
 
-- Node.js
-- Electron
-- C++ toolchain
+* Node.js
+* Electron
+* C++ toolchain
 
 ## Building
 

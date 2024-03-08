@@ -471,9 +471,10 @@ create-require@^1.1.0:
   integrity sha512-dcKFX3jn0MpIaXjisoRvexIJVEKzaq7z2rZKxf+MSr9TkdmHmsU4m2lcLojrj/FHl8mk5VxMmYA+ftRkP/3oKQ==
 
 "crewtimer_video_reader@file:../../native/ffreader":
-  version "1.0.0"
+  version "1.0.1"
   dependencies:
     bindings "^1.5.0"
+    prebuild-install "^7.1.1"
     tar "^6.1.11"
 
 cross-spawn@^7.0.1, cross-spawn@^7.0.3:
