@@ -83,7 +83,7 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
                 : { fontSize: 12, paddingLeft: '0.5em' }
             }
           >
-            <Tooltip title={filename}>
+            <Tooltip title={filename} placement="left">
               <Box>{filename}</Box>
             </Tooltip>
           </Box>

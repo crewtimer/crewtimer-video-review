@@ -344,13 +344,13 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
   const datagridRef = useRef<DataGridHandle | null>(null);
 
   const gate = gateFromWaypoint(waypoint);
-  const { rows } = useMemo(() => {
-    const rows: RowType[] = [];
-    mobileConfig?.eventList.forEach((event) => {
-      if (day && event.Day !== day) {
-        return;
-      }
-      rows.push({
+  const { rows, filteredEvents } = useMemo(() => {
+    const filteredEvents =
+      mobileConfig?.eventList.filter((event) => day && event.Day === day) || [];
+
+    const filteredRows: RowType[] = [];
+    filteredEvents.forEach((event) => {
+      filteredRows.push({
         id: event.EventNum,
         eventName: event.Event,
         eventNum: event.EventNum,
@@ -359,7 +359,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
         event,
       });
       event.eventItems.forEach((entry) => {
-        rows.push({
+        filteredRows.push({
           id: `${gate}_${event.EventNum}_${entry.Bow}`,
           eventName: '',
           eventNum: event.EventNum,
@@ -370,7 +370,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
         });
       });
     });
-    return { rows };
+    return { rows: filteredRows, filteredEvents };
   }, [mobileConfig?.eventList, day]);
 
   const onRowClick = (
@@ -438,7 +438,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
           onChange={onEventChange}
           sx={{ fontSize: timingFontSize }}
         >
-          {mobileConfig?.eventList.map((event) => (
+          {filteredEvents.map((event) => (
             <MenuItem key={event.EventNum} value={event.EventNum}>
               {event.Event}
             </MenuItem>
