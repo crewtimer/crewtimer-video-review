@@ -2,7 +2,7 @@
   "targets": [
     {
       "target_name": "crewtimer_video_reader",
-      "sources": [ "src/FFReaderAPI.cpp", "src/FFReader.cpp" ],
+      "sources": [ "src/FFReaderAPI.cpp", "src/FFReader.cpp", "src/sendMulticast.cpp"],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",
       ],

@@ -105,7 +105,7 @@ int64_t FFVideoReader::getTotalFrames() const {
   return nbf;
 }
 double FFVideoReader::getFps(void) const {
-  double fps = r2d(formatContext->streams[videoStreamIndex]->avg_frame_rate);
+  double fps = r2d(formatContext->streams[videoStreamIndex]->r_frame_rate);
 
   if (fps < eps_zero) {
     fps = r2d(av_guess_frame_rate(
@@ -369,6 +369,8 @@ const AVFrame *FFVideoReader::getRGBAFrame(int64_t frameNumber) {
   }
   return ConvertFrameToRGBA(frame);
 }
+
+// ffmpeg -sseof -4 -i tmp-X22_00_55.mp4 -update 1 last.png
 
 #ifdef FFREADER_TEST
 #include <map>

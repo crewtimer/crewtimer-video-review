@@ -29,9 +29,10 @@ const HeaderRenderer: React.FC<{
   column: Column<any>;
   [key: string]: any;
 }> = ({ column, ...props }) => {
-  // Custom rendering logic here
+  // Strip the sortDirection prop as it is not supported by div.
+  const { sortDirection, ...restOfProps } = props;
   return (
-    <div {...props} style={{ fontSize: 12 }}>
+    <div {...restOfProps} style={{ fontSize: 12 }}>
       {column.name}
     </div>
   );

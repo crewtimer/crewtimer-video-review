@@ -59,7 +59,7 @@ export default function CenteredTabs() {
           }}
         >
           {(enableLynx || (enableVideo && enableVideoTiming)) && (
-            <Tab label="Journal" value="Journal" />
+            <Tab label="Timing History" value="Timing History" />
           )}
           {(enableLynx || (enableVideo && enableVideoTiming)) && (
             <Tab label="CrewTimer" value="CrewTimer" />
@@ -72,7 +72,7 @@ export default function CenteredTabs() {
       </div>
       <Tabs style={{ zIndex: 0 }} />
       {tabPosition === 'Config' && <SystemConfig />}
-      {tabPosition === 'Journal' && <Status />}
+      {tabPosition === 'Timing History' && <Status />}
       {tabPosition === 'CrewTimer' && <Setup />}
       {tabPosition === 'Lynx' && <FLSetup />}
       {tabPosition === 'Video' && <Video />}

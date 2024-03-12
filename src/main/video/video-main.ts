@@ -1,5 +1,5 @@
 import { AppImage } from '../../renderer/shared/AppTypes';
-import { nativeVideoExecutor } from 'crewtimer_video_reader';
+import { GrabFrameMessage, nativeVideoExecutor } from 'crewtimer_video_reader';
 import { ipcMain } from 'electron';
 
 // Cache of video frames
@@ -44,6 +44,15 @@ export function stopVideoServices(_name: string) {}
 
 export function startVideoServices() {}
 
+ipcMain.handle('video:sendMulticast', (_event, msg, dest, port) => {
+  try {
+    const ret = nativeVideoExecutor({ op: 'sendMulticast', msg, dest, port });
+    return ret;
+  } catch (err) {
+    return { status: `${err instanceof Error ? err.message : err}` };
+  }
+});
+
 ipcMain.handle('video:openFile', (_event, filePath) => {
   // Invoke native c++ handler
   try {
@@ -78,12 +87,13 @@ ipcMain.handle('video:getFrame', (_event, filePath, frameNum) => {
       op: 'grabFrameAt',
       frameNum: frameNum,
       file: filePath,
-    });
+    } as GrabFrameMessage);
     if (ret.status === 'OK') {
       // row 0 should be black
       let timestamp = extractTimestampFromFrame(ret.data, 0, ret.width);
       if (timestamp === 0) {
         timestamp = extractTimestampFromFrame(ret.data, 1, ret.width);
+        //console.log('extracted timestamp', timestamp);
         ret.timestamp = timestamp;
       } else {
         ret.timestamp = Math.trunc(

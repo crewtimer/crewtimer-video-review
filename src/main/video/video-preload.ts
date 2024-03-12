@@ -44,4 +44,20 @@ contextBridge.exposeInMainWorld('VideoUtils', {
       throw err;
     }
   },
+  sendMulticast: async (msg: string, dest: string, port: number) => {
+    try {
+      const result = await ipcRenderer.invoke(
+        'video:sendMulticast',
+        msg,
+        dest,
+        port
+      );
+      if (result.status !== 'OK') {
+        throw new Error(result.status);
+      }
+      return result;
+    } catch (err) {
+      throw err;
+    }
+  },
 });

@@ -123,6 +123,9 @@ const VideoScrubber = () => {
   const [videoPosition, setVideoPosition] = useVideoPosition();
   const [image] = useImage();
   const numFrames = image.numFrames;
+  // console.log(
+  //   `numFrames: ${numFrames} videoPosition: ${videoPosition.frameNum}`
+  // );
 
   const handleSlider = (_event: Event, value: number | number[]) => {
     let newValue = value as number;
@@ -177,7 +180,20 @@ const VideoScrubber = () => {
         max={numFrames}
         onChange={handleSlider}
         aria-labelledby="video-scrubber"
-        sx={{ marginLeft: '1em', marginRight: '1em', flex: 1 }}
+        sx={{
+          marginLeft: '1em',
+          marginRight: '1em',
+          flex: 1,
+          '& .MuiSlider-thumb': {
+            transition: 'none',
+          },
+          '& .MuiSlider-track': {
+            transition: 'none',
+          },
+          '& .MuiSlider-rail': {
+            transition: 'none',
+          },
+        }}
         track={false}
       />
       <Button

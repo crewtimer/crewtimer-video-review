@@ -13,6 +13,7 @@ extern "C" {
 }
 
 #include "FFReader.hpp"
+#include "sendMulticast.hpp"
 
 static std::map<std::string, std::unique_ptr<FFVideoReader>> videoReaders;
 
@@ -63,7 +64,7 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
     auto file = args.Get("file").As<Napi::String>().Utf8Value();
 
     if (videoReaders.count(file)) {
-      std::cerr << "File already open, using existing file" << std::endl;
+      // std::cerr << "File already open, using existing file" << std::endl;
       ret.Set("status", Napi::String::New(env, "OK"));
       return ret;
     }
@@ -132,6 +133,38 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
     ret.Set("timestamp", Napi::Number::New(env, 0));
     // std::cout << "Grabbed frame: " << frameNum << " WxH=" << rgbaFrame->width
     //           << "x" << rgbaFrame->height << std::endl;
+    return ret;
+  }
+
+  // "cmd" : "split-video",
+  //        "src" : "some-uuid-from-src",
+  //                "seqNum" : 25,
+  if (op == "sendMulticast") {
+    if (!args.Has("dest")) {
+      Napi::TypeError::New(env, "Missing dest ip field")
+          .ThrowAsJavaScriptException();
+      return ret;
+    }
+    if (!args.Has("port")) {
+      Napi::TypeError::New(env, "Missing port field")
+          .ThrowAsJavaScriptException();
+      return ret;
+    }
+    if (!args.Has("msg")) {
+      Napi::TypeError::New(env, "Missing msg field")
+          .ThrowAsJavaScriptException();
+      return ret;
+    }
+    auto dest = args.Get("dest").As<Napi::String>().Utf8Value();
+    auto port = args.Get("port").As<Napi::Number>().Uint32Value();
+    auto msg = args.Get("msg").As<Napi::String>().Utf8Value();
+
+    auto error = sendMulticast(msg, dest, port);
+    if (error == 0) {
+      ret.Set("status", Napi::String::New(env, "OK"));
+    } else {
+      ret.Set("status", Napi::String::New(env, "Failed"));
+    }
     return ret;
   }
 

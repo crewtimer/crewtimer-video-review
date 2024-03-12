@@ -8,6 +8,7 @@ import StatusMonitor from './StatusMonitor';
 import { ConfirmDialog } from './util/ConfirmDialog';
 import { setInitializing } from './util/UseSettings';
 import FileMonitor from './video/VideoFileUtils';
+import { triggerFileSplit } from './video/VideoUtils';
 
 const { startLapStorage } = window.LapStorage;
 const { stopLapStorage } = window.LapStorage;
@@ -39,6 +40,23 @@ export default function App() {
       window.Firebase.stopFirebase();
     };
   }, [setInitProgress]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === ' ') {
+        event.preventDefault();
+        triggerFileSplit();
+      }
+    };
+
+    // Add event listener to window
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Remove event listener on cleanup
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []); // Empty dependency array means this effect runs only on mount and unmount
 
   return (
     <Router>

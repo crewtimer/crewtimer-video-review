@@ -7,6 +7,11 @@ declare global {
       openFile(filePath: string): Promise<{ status: string }>;
       closeFile(filePath: string): Promise<{ status: string }>;
       getFrame(filePath: string, frameNum: number): Promise<AppImage>;
+      sendMulticast(
+        msg: string,
+        dest: string,
+        port: number
+      ): Promise<{ status: string }>;
     };
   }
 }

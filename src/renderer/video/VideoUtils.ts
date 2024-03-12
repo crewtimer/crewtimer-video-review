@@ -158,6 +158,14 @@ function pointPositionRelativeToLine(
   else return 'on';
 }
 
+export const triggerFileSplit = () => {
+  const msg = {
+    cmd: 'split-video',
+    src: 'crewtimer-connect',
+    ts: new Date().getTime(),
+  };
+  window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
+};
 // // Example usage
 // const lines: Line[] = [
 //     { pt1: { x: 0, y: 0 }, pt2: { x: 10, y: 10 } },

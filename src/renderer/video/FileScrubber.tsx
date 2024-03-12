@@ -8,8 +8,11 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { useSelectedIndex } from './VideoSettings';
+import FastForwardIcon from '@mui/icons-material/FastForward';
+import React from 'react';
 import { openSelectedFile, useDirList } from './VideoFileUtils';
+import { triggerFileSplit } from './VideoUtils';
+import { useSelectedIndex } from './VideoSettings';
 
 interface CustomThumbComponentProps extends React.HTMLAttributes<unknown> {}
 
@@ -48,6 +51,18 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   const nextFile = () => {
     moveToIndex(fileIndex + 1);
   };
+  const jumpToEnd = () => {
+    setFileIndex(numFiles - 1);
+    openSelectedFile(dirList[numFiles - 1], true);
+    //setVideoPosition({ file: dirList[numFiles - 1], frameNum: 0 });
+    // setTimeout(
+    //   () => setVideoPosition({ file: dirList[numFiles - 1], frameNum: 1e6 }),
+    //   100
+    // );
+    triggerFileSplit();
+  };
+
+  // console.log(`fileIndex: ${fileIndex} numFiles: ${numFiles}`);
 
   return (
     <Stack
@@ -61,6 +76,19 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
       }}
       sx={sx}
     >
+      {/* <Button
+        variant="contained"
+        onClick={prevFile}
+        size="small"
+        sx={{
+          height: 24,
+          m: 0,
+          minWidth: 24,
+          background: '#19857b',
+        }}
+      >
+        <FastRewindIcon fontSize={'small'} />
+      </Button> */}
       <Button
         variant="contained"
         onClick={prevFile}
@@ -84,6 +112,15 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           marginLeft: '1em',
           marginRight: '1em',
           flex: 1,
+          '& .MuiSlider-thumb': {
+            transition: 'none',
+          },
+          '& .MuiSlider-track': {
+            transition: 'none',
+          },
+          '& .MuiSlider-rail': {
+            transition: 'none',
+          },
         }}
         color="secondary"
         slots={{ thumb: CustomThumbComponent }}
@@ -103,6 +140,20 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
         }}
       >
         <ArrowForwardIcon fontSize={'small'} />
+      </Button>
+      <Button
+        variant="contained"
+        onClick={jumpToEnd}
+        size="small"
+        sx={{
+          height: 24,
+          m: 0,
+          minWidth: 24,
+          background: '#19857b',
+          marginLeft: '0.5em',
+        }}
+      >
+        <FastForwardIcon fontSize={'small'} />
       </Button>
     </Stack>
   );

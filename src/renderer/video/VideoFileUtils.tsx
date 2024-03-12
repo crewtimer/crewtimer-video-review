@@ -66,6 +66,9 @@ export const openSelectedFile = async (
   }
 
   try {
+    setVideoPosition({ file: videoFile, frameNum: seekToEnd ? 1e6 : 1 });
+    setVideoFile(videoFile);
+    setVideoDir(getDirectory(videoFile));
     let image: AppImage | undefined;
     // Check if the file is already open
     let fileStatus = FileCache.get(videoFile);
@@ -84,9 +87,6 @@ export const openSelectedFile = async (
       image = await VideoUtils.getFrame(videoFile, seekPos);
     }
 
-    setVideoPosition({ file: videoFile, frameNum: seekPos });
-    setVideoFile(videoFile);
-    setVideoDir(getDirectory(videoFile));
     setImage(image);
   } catch (e) {
     console.log(
@@ -110,7 +110,9 @@ const refreshDirList = (videoDir: string) => {
     if (!result || result?.error) {
       console.log('invalid response to getFilesInDirectory for ' + videoDir);
     } else {
-      const files = result.files.filter((file) => videoFileRegex.test(file));
+      const files = result.files
+        .filter((file) => videoFileRegex.test(file))
+        .filter((file) => !file.includes('xmp'));
       files.sort((a, b) => {
         // Use localeCompare for natural alphanumeric sorting
         return a.localeCompare(b, undefined, {
