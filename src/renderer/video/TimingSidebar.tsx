@@ -345,8 +345,10 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
 
   const gate = gateFromWaypoint(waypoint);
   const { rows, filteredEvents } = useMemo(() => {
-    const filteredEvents =
-      mobileConfig?.eventList.filter((event) => day && event.Day === day) || [];
+    let filteredEvents = mobileConfig?.eventList || [];
+    if (day) {
+      filteredEvents = filteredEvents.filter((event) => event.Day === day);
+    }
 
     const filteredRows: RowType[] = [];
     filteredEvents.forEach((event) => {
