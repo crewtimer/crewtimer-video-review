@@ -14,14 +14,16 @@ import makeStyles from '@mui/styles/makeStyles';
 import VideoSideBar from './VideoSideBar';
 import {
   Dir,
-  getVideoPosition,
+  getImage,
+  getVideoFrameNum,
   getVideoSettings,
   setVideoBow,
-  setVideoPosition,
+  setVideoFrameNum,
   setVideoTimestamp,
   setZoomWindow,
   useImage,
-  useVideoPosition,
+  useVideoFile,
+  useVideoFrameNum,
   useVideoSettings,
 } from './VideoSettings';
 import VideoOverlay, { useAdjustingOverlay, useNearEdge } from './VideoOverlay';
@@ -30,9 +32,10 @@ import TimingSidebar from './TimingSidebar';
 import VideoSettingsView from './VideoSettingsView';
 import { findClosestLineAndPosition } from './VideoUtils';
 import { useEnableVideoTiming } from 'renderer/util/UseSettings';
-import FileScrubber from './FileScrubber';
+import FileScrubber, { nextFile, prevFile } from './FileScrubber';
 import Measure from 'react-measure';
 import { UseDatum } from 'react-usedatum';
+import { requestVideoFrame } from './VideoFileUtils';
 
 const useStyles = makeStyles({
   text: {
@@ -86,20 +89,27 @@ interface ZoomState {
   calPointRight: CalPoint;
 }
 
-const moveRight = () => {
-  const prev = getVideoPosition();
+const moveToFrame = (frameNum: number) => {
+  const image = getImage();
+  if (frameNum < 1) {
+    prevFile();
+  } else if (frameNum > getImage().numFrames) {
+    nextFile();
+  } else {
+    setVideoFrameNum(frameNum);
+    requestVideoFrame({ videoFile: image.file, frameNum });
+  }
+};
 
-  setVideoPosition({
-    ...prev,
-    frameNum: prev.frameNum + (getVideoSettings().travelRtoL ? -1 : 1),
-  });
+const moveRight = () => {
+  const prev = getVideoFrameNum();
+  const frameNum = prev + (getVideoSettings().travelRtoL ? -1 : 1);
+  moveToFrame(frameNum);
 };
 const moveLeft = () => {
-  const prev = getVideoPosition();
-  setVideoPosition({
-    ...prev,
-    frameNum: prev.frameNum - +(getVideoSettings().travelRtoL ? -1 : 1),
-  });
+  const prev = getVideoFrameNum();
+  const frameNum = prev - +(getVideoSettings().travelRtoL ? -1 : 1);
+  moveToFrame(frameNum);
 };
 
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -120,37 +130,38 @@ const handleKeyDown = (event: KeyboardEvent) => {
 };
 
 const VideoScrubber = () => {
-  const [videoPosition, setVideoPosition] = useVideoPosition();
+  const [videoFrameNum, setVideoFrameNum] = useVideoFrameNum();
+  const [videoFile] = useVideoFile();
   const [image] = useImage();
+  const lastVideoFile = useRef('');
   const numFrames = image.numFrames;
+  const videoFileChanging = lastVideoFile.current !== image.file;
+  lastVideoFile.current = image.file;
+
   // console.log(
   //   `numFrames: ${numFrames} videoPosition: ${videoPosition.frameNum}`
   // );
+
+  // If the video file changes, reset the video position to match the frame received
+  useEffect(() => {
+    if (videoFileChanging) {
+      const newImage = getImage();
+      setVideoFrameNum(newImage.frameNum);
+    }
+  }, [videoFileChanging]);
 
   const handleSlider = (_event: Event, value: number | number[]) => {
     let newValue = value as number;
     if (getVideoSettings().travelRtoL) {
       newValue = numFrames - newValue + 1;
     }
-    setVideoPosition({ ...videoPosition, frameNum: newValue });
+    setVideoFrameNum(newValue);
+    requestVideoFrame({ videoFile, frameNum: newValue });
   };
 
-  // const prevFile = () => {
-  //   setVideoPosition({
-  //     ...videoPosition,
-  //     frameNum: getVideoSettings().travelRtoL ? image.numFrames + 1 : 0, // move outside this file to trigger prev file
-  //   });
-  // };
-
-  // const nextFile = () => {
-  //   setVideoPosition({
-  //     ...videoPosition,
-  //     frameNum: getVideoSettings().travelRtoL ? 0 : image.numFrames + 1, // move outside this file to trigger prev file
-  //   });
-  // };
   const sliderValue = getVideoSettings().travelRtoL
-    ? numFrames - videoPosition.frameNum + 1
-    : videoPosition.frameNum;
+    ? numFrames - videoFrameNum + 1
+    : videoFrameNum;
   return (
     <Stack
       direction="row"
@@ -221,6 +232,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [computedTime, setComputedTime] = useState(0);
   const [adjustingOverlay] = useAdjustingOverlay();
   const [, setNearEdge] = useNearEdge();
+  const [videoFile] = useVideoFile();
+  const holdoffChanges = useRef<boolean>(false);
   const mouseTracking = useRef<ZoomState>({
     zoomWindow: { x: 0, y: 0, width: 0, height: 0 },
     zoomStartWindow: { x: 0, y: 0, width: 0, height: 0 },
@@ -239,6 +252,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     calPointLeft: { ts: 0, px: 0, scale: 1 },
     calPointRight: { ts: 0, px: 0, scale: 1 },
   });
+
+  holdoffChanges.current = image.file !== videoFile; // || activeVideoFile.current !== videoFile;
 
   const infoRowHeight = 0; // 40;
   height = height - infoRowHeight;
@@ -616,6 +631,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   const handleWheel = useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
+      if (holdoffChanges.current) {
+        return;
+      }
       if (event.deltaY < 0) {
         moveRight();
       } else if (event.deltaY > 0) {
@@ -694,11 +712,17 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         >
           <Stack direction="row">
             <div />
-            <Typography onClick={moveLeft} className={classes.text}>
+            <Typography
+              onClick={holdoffChanges.current ? undefined : moveLeft}
+              className={classes.text}
+            >
               &nbsp;&lt;&nbsp;
             </Typography>
             <Typography className={classes.tstext}>{videoTimestamp}</Typography>
-            <Typography onClick={moveRight} className={classes.text}>
+            <Typography
+              onClick={holdoffChanges.current ? undefined : moveRight}
+              className={classes.text}
+            >
               &nbsp;&gt;&nbsp;
             </Typography>
             <div style={{ flex: 1 }} />

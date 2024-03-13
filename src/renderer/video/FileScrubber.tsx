@@ -10,9 +10,20 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import React from 'react';
-import { openSelectedFile, useDirList } from './VideoFileUtils';
+import {
+  getDirList,
+  refreshDirList,
+  requestVideoFrame,
+  useDirList,
+} from './VideoFileUtils';
 import { triggerFileSplit } from './VideoUtils';
-import { useSelectedIndex } from './VideoSettings';
+import {
+  getSelectedIndex,
+  getVideoDir,
+  setSelectedIndex,
+  setVideoFile,
+  useSelectedIndex,
+} from './VideoSettings';
 
 interface CustomThumbComponentProps extends React.HTMLAttributes<unknown> {}
 
@@ -25,6 +36,21 @@ function CustomThumbComponent(props: CustomThumbComponentProps) {
     </SliderThumb>
   );
 }
+
+const moveToIndex = (index: number, seekToEnd: boolean) => {
+  const dirList = getDirList();
+  index = Math.max(0, Math.min(index, dirList.length - 1));
+  const videoFile = dirList[index];
+  setSelectedIndex(index);
+  setVideoFile(videoFile);
+  requestVideoFrame({ videoFile, seekToEnd });
+};
+export const prevFile = () => {
+  moveToIndex(getSelectedIndex() - 1, true);
+};
+export const nextFile = () => {
+  moveToIndex(getSelectedIndex() + 1, false);
+};
 interface SxPropsArgs {
   sx?: SxProps<Theme>;
 }
@@ -34,35 +60,28 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   const [dirList] = useDirList();
   const numFiles = dirList.length;
 
-  const moveToIndex = (index: number) => {
-    index = Math.max(0, Math.min(index, numFiles - 1));
-    setFileIndex(index);
-    openSelectedFile(dirList[index]);
-  };
-
   const handleSlider = (_event: Event, value: number | number[]) => {
     let newValue = value as number;
-    moveToIndex(newValue);
+    moveToIndex(newValue, false);
   };
 
-  const prevFile = () => {
-    moveToIndex(fileIndex - 1);
-  };
-  const nextFile = () => {
-    moveToIndex(fileIndex + 1);
-  };
   const jumpToEnd = () => {
-    setFileIndex(numFiles - 1);
-    openSelectedFile(dirList[numFiles - 1], true);
-    //setVideoPosition({ file: dirList[numFiles - 1], frameNum: 0 });
-    // setTimeout(
-    //   () => setVideoPosition({ file: dirList[numFiles - 1], frameNum: 1e6 }),
-    //   100
-    // );
+    // Trigger a file split, then read the files and jump to the end
     triggerFileSplit();
+    setTimeout(async () => {
+      await refreshDirList(getVideoDir());
+      const dirs = getDirList();
+      if (dirs.length) {
+        setFileIndex(dirs.length - 1);
+        const videoFile = dirs[dirs.length - 1];
+        setVideoFile(videoFile);
+        requestVideoFrame({
+          videoFile: videoFile,
+          seekToEnd: true,
+        });
+      }
+    }, 400);
   };
-
-  // console.log(`fileIndex: ${fileIndex} numFiles: ${numFiles}`);
 
   return (
     <Stack

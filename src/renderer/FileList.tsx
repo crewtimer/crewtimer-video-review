@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useSelectedIndex, useVideoFile } from './video/VideoSettings';
-import { openSelectedFile } from './video/VideoFileUtils';
+import { requestVideoFrame } from './video/VideoFileUtils';
 import DataGrid, {
   CellClickArgs,
   CellMouseEvent,
@@ -39,7 +39,7 @@ const HeaderRenderer: React.FC<{
 };
 const FileList: React.FC<FileListProps> = ({ files, height }) => {
   const [selectedIndex, setSelectedIndex] = useSelectedIndex();
-  const [videoFile] = useVideoFile();
+  const [videoFile, setVideoFile] = useVideoFile();
   const dataGridRef = useRef<DataGridHandle | null>(null);
 
   React.useEffect(() => {
@@ -55,10 +55,11 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
     }
     if (selectedIndex < 0) {
       setSelectedIndex(0);
+      setVideoFile(files[0]);
       return;
-    }
-    if (selectedIndex > files.length - 1) {
+    } else if (selectedIndex > files.length - 1) {
       setSelectedIndex(files.length - 1);
+      setVideoFile(files[files.length - 1]);
       return;
     }
     dataGridRef.current?.scrollToCell({ rowIdx: selectedIndex, idx: 0 });
@@ -103,7 +104,8 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
       event.preventGridDefault();
       const index = args.row.id;
       setSelectedIndex(index);
-      openSelectedFile(dispItems[index]?.filename);
+      setVideoFile(dispItems[index]?.filename);
+      requestVideoFrame({ videoFile: dispItems[index]?.filename, frameNum: 1 });
       // dataGridRef.current?.scrollToCell({ rowIdx: index, idx: 0 });
     },
     [dispItems]

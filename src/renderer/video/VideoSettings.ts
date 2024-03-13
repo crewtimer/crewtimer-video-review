@@ -19,11 +19,9 @@ export const [useZoomWindow, setZoomWindow] = UseDatum<Rect>({
   width: 1,
   height: 1,
 });
-export const [useVideoPosition, setVideoPosition, getVideoPosition] =
-  UseDatum<VideoPosition>({
-    frameNum: 1,
-    file: '',
-  });
+
+export const [useVideoFrameNum, setVideoFrameNum, getVideoFrameNum] =
+  UseDatum<number>(1);
 
 export const [useVideoFile, setVideoFile, getVideoFile] = UseStoredDatum(
   N_VIDEO_FILE,
@@ -32,7 +30,8 @@ export const [useVideoFile, setVideoFile, getVideoFile] = UseStoredDatum(
 export const [useVideoTimestamp, setVideoTimestamp] = UseDatum('');
 export const [useVideoBow, setVideoBow] = UseDatum('');
 export const [useVideoEvent, setVideoEvent] = UseDatum('');
-export const [useSelectedIndex, setSelectedIndex] = UseDatum(0);
+export const [useSelectedIndex, setSelectedIndex, getSelectedIndex] =
+  UseDatum(0);
 
 export const [useVideoDir, setVideoDir, getVideoDir] = UseStoredDatum(
   N_VIDEO_DIR,
