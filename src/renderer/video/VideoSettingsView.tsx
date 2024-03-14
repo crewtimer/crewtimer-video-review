@@ -11,6 +11,7 @@ import MenuIcon from '@mui/icons-material/Settings';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 import { useVideoSettings } from './VideoSettings';
 import { useEnableVideoTiming } from 'renderer/util/UseSettings';
+import TimezoneSelector from 'renderer/util/TimezoneSelector';
 
 const VideoSettingsDialog: React.FC = () => {
   const [videoSettings, setVideoSettings] = useVideoSettings();
@@ -46,6 +47,8 @@ const VideoSettingsDialog: React.FC = () => {
           />
         }
       />
+      <Typography>Course Timezone</Typography>
+      <TimezoneSelector />
       <Typography>Course Configuration</Typography>
       <FormControlLabel
         labelPlacement="end"

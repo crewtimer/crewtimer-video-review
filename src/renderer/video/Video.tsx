@@ -22,6 +22,7 @@ import {
   setVideoTimestamp,
   setZoomWindow,
   useImage,
+  useTimezoneOffset,
   useVideoFile,
   useVideoFrameNum,
   useVideoSettings,
@@ -232,6 +233,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [computedTime, setComputedTime] = useState(0);
   const [adjustingOverlay] = useAdjustingOverlay();
   const [, setNearEdge] = useNearEdge();
+  const [timezoneOffset] = useTimezoneOffset();
   const [videoFile] = useVideoFile();
   const holdoffChanges = useRef<boolean>(false);
   const mouseTracking = useRef<ZoomState>({
@@ -652,7 +654,10 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     };
   }, []);
 
-  const videoTimestamp = convertTimestampToString(image.timestamp);
+  const videoTimestamp = convertTimestampToString(
+    image.timestamp,
+    timezoneOffset
+  );
 
   useEffect(() => {
     setVideoTimestamp(videoTimestamp);
@@ -674,7 +679,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             &nbsp;&lt;&nbsp;
           </Typography>
           <Typography className={classes.text}>
-            {convertTimestampToString(image.timestamp)}
+            {convertTimestampToString(image.timestamp, timezoneOffset)}
           </Typography>
           <Typography onClick={moveRight} className={classes.text}>
             &nbsp;&gt;&nbsp;
@@ -731,7 +736,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             ? mouseTracking.current.calPointLeft.ts &&
               mouseTracking.current.calPointRight.ts && (
                 <Typography className={classes.computedtext} align="center">
-                  {convertTimestampToString(computedTime)}
+                  {convertTimestampToString(computedTime, timezoneOffset)}
                 </Typography>
               )
             : null}

@@ -1,3 +1,4 @@
+import moment from 'moment';
 import { UseDatum } from 'react-usedatum';
 import { AppImage, Rect } from 'renderer/shared/AppTypes';
 import {
@@ -5,6 +6,7 @@ import {
   N_IMAGE_FRAMES,
   N_VIDEO_FILE,
   N_VIDEO_DIR,
+  N_TIMEZONE,
 } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
 
@@ -33,6 +35,28 @@ export const [useVideoEvent, setVideoEvent] = UseDatum('');
 export const [useSelectedIndex, setSelectedIndex, getSelectedIndex] =
   UseDatum(0);
 
+export const [useTimezoneOffset, setTimezoneOffset, getTimezoneOffset] =
+  UseDatum<number | undefined>(undefined);
+export const [useTimezone, setTimezone, getTimezone] = UseStoredDatum<string>(
+  N_TIMEZONE,
+  '',
+  (newValue) => {
+    let currentOffsetMinutes = undefined;
+    if (newValue) {
+      const tzDetails = moment.tz.zone(newValue);
+      // Get the current offset in minutes for the specified timezone
+      currentOffsetMinutes = tzDetails?.utcOffset(moment().valueOf());
+    }
+
+    if (currentOffsetMinutes === undefined) {
+      // If the timezone is not set, default to the local timezone
+      currentOffsetMinutes = new Date().getTimezoneOffset();
+    }
+
+    // Store as an offset that can be added to UTC to get local time
+    setTimezoneOffset(-currentOffsetMinutes);
+  }
+);
 export const [useVideoDir, setVideoDir, getVideoDir] = UseStoredDatum(
   N_VIDEO_DIR,
   '.'

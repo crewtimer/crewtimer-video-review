@@ -15,3 +15,4 @@ export const N_IMAGE = 'image';
 export const N_IMAGE_FRAMES = 'imageFrames';
 export const N_VIDEO_FILE = 'videoFile';
 export const N_VIDEO_DIR = 'videoDir';
+export const N_TIMEZONE = 'timezone';

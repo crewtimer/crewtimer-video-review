@@ -28,7 +28,7 @@ import { getConnectionProps } from './util/Util';
 import { setToast } from './Toast';
 import { useUserMessages } from './util/UserMessage';
 
-const AboutText = `CrewTimer Connect v1.0.12-beta.9`;
+const AboutText = `CrewTimer Connect v1.0.12-beta.10`;
 
 const { LapStorage } = window;
 
