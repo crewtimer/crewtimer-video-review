@@ -9,9 +9,14 @@ const { getFilesInDirectory } = window.Util;
 interface OpenFileStatus {
   open: boolean;
   numFrames: number;
+  filename: string;
 }
 
-const FileCache = new Map<string, OpenFileStatus>();
+let openFileStatus: OpenFileStatus = {
+  open: false,
+  numFrames: 0,
+  filename: '',
+};
 
 /**
  * Extracts the directory path from a full filename across different operating systems.
@@ -71,19 +76,28 @@ const doRequestVideoFrame = async ({
   try {
     let image: AppImage | undefined;
     // Check if the file is already open
-    let fileStatus = FileCache.get(videoFile);
-    if (!fileStatus) {
+    if (openFileStatus.open && openFileStatus.filename !== videoFile) {
+      // Changing files, close the old file
+      VideoUtils.closeFile(openFileStatus.filename);
+      openFileStatus.open = false;
+      openFileStatus.filename = '';
+    }
+
+    if (!openFileStatus.open) {
       let openStatus = await VideoUtils.openFile(videoFile);
       if (openStatus.status !== 'OK') {
         return;
       }
       image = await VideoUtils.getFrame(videoFile, 1);
-      fileStatus = { open: true, numFrames: image.numFrames };
-      FileCache.set(videoFile, fileStatus);
+      openFileStatus = {
+        filename: videoFile,
+        open: true,
+        numFrames: image.numFrames,
+      };
     }
 
     const seekPos = seekToEnd
-      ? fileStatus.numFrames
+      ? openFileStatus.numFrames
       : frameNum !== undefined
       ? frameNum
       : 1;
@@ -232,11 +246,12 @@ const FileMonitor: React.FC = () => {
   const [videoDir] = useVideoDir();
 
   useEffect(() => {
+    refreshDirList(videoDir);
     const timer = setInterval(() => {
       if (videoDir) {
         refreshDirList(videoDir);
       }
-    }, 1000);
+    }, 4000);
     return () => clearInterval(timer);
   }, [videoDir]);
 

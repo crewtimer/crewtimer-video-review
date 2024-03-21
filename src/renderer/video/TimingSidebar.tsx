@@ -29,7 +29,7 @@ import {
   useVideoEvent,
   useVideoTimestamp,
 } from './VideoSettings';
-import { Entry, Event, Lap } from 'crewtimer-common';
+import { Entry, Event, KeyMap, Lap } from 'crewtimer-common';
 import {
   getWaypoint,
   useDay,
@@ -76,10 +76,14 @@ const TimestampCell = ({ row }: { row: RowType }) => {
     row.entry?.Bow
   }`;
   const [entry] = useEntryResult(key);
+  // console.log(
+  //   `rendering timestamp cell for ${key} value=${JSON.stringify(entry)}`
+  // );
   const time = entry?.State === 'Deleted' ? '' : entry?.Time || '';
   const handleMenu: React.MouseEventHandler<HTMLDivElement> = (event) => {
     setContextMenuAnchor({ element: event.currentTarget, row });
   };
+
   return (
     <Stack direction="row" onClick={handleMenu}>
       <Typography
@@ -117,6 +121,23 @@ const TimestampCell = ({ row }: { row: RowType }) => {
     </Stack>
   );
 };
+const TimestampCol = ({ row }: { row: RowType }) => {
+  return row.eventName ? (
+    <Typography
+      sx={{
+        color: 'white',
+        paddingLeft: '0.5em',
+        fontSize: timingFontSize,
+        lineHeight: '24px',
+      }}
+    >
+      {row.event.Start || ''}
+    </Typography>
+  ) : (
+    <TimestampCell row={row} />
+  );
+};
+
 export const RenderHeaderCell: React.FC<RenderHeaderCellProps<RowType>> = ({
   column,
 }) => {
@@ -164,10 +185,11 @@ const columns: readonly Column<RowType>[] = [
     key: 'ts',
     name: 'Timestamp',
     width: 80 + 14 + 16,
-    renderCell: TimestampCell,
+    renderCell: TimestampCol,
   },
 ];
 
+//
 const VideoTimestamp: React.FC = () => {
   const [videoTimestamp, setVideoTimestamp] = useVideoTimestamp();
   return (
@@ -208,7 +230,9 @@ const VideoBow: React.FC = () => {
   );
 };
 
-const AddSplitButton: React.FC = () => {
+const AddSplitButton: React.FC<{ activeEvents: Event[] }> = ({
+  activeEvents,
+}) => {
   const [videoBow] = useVideoBow();
   const [videoTimestamp] = useVideoTimestamp();
   const [selectedEvent] = useVideoEvent();
@@ -218,8 +242,30 @@ const AddSplitButton: React.FC = () => {
 
   const onAddSplit = () => {
     // FIXME - convert waypoint to G_
-    const key = `${gate}_${selectedEvent}_${videoBow}`;
     const bow = videoBow; // FIXME isSprintStart ? : '*' : videoBow;
+    let entry: Entry | undefined;
+    for (const event of activeEvents) {
+      entry = event.eventItems.find((item) => item.Bow === bow);
+      if (entry) {
+        break;
+      }
+    }
+
+    if (!entry) {
+      setDialogConfig({
+        title: `Not in schedule`,
+        message: `Entry '${bow}' is not in schedule for event '${selectedEvent}'.  Add anyway??`,
+        button: 'Add',
+        showCancel: true,
+        handleConfirm: () => {
+          delete lap.State;
+          setEntryResult(key, lap);
+        },
+      });
+      return;
+    }
+
+    const key = `${gate}_${entry.EventNum}_${bow}`;
     const priorLap = getEntryResult(key);
     const lap: Lap = {
       keyid: key,
@@ -227,7 +273,7 @@ const AddSplitButton: React.FC = () => {
       SequenceNum: priorLap?.SequenceNum || 0,
       Bow: bow,
       Time: videoTimestamp,
-      EventNum: selectedEvent,
+      EventNum: entry.EventNum,
       Gate: gate,
       Crew: '',
       CrewAbbrev: '',
@@ -253,28 +299,10 @@ const AddSplitButton: React.FC = () => {
     if (!mobileConfig) {
       return;
     }
-    for (let i = 0; i < mobileConfig.eventList.length; i++) {
-      if (mobileConfig.eventList[i].EventNum !== selectedEvent) {
-        continue;
-      }
-      const entry = mobileConfig.eventList[i].eventItems.find(
-        (item) => item.Bow === bow
-      );
-      if (!entry) {
-        setDialogConfig({
-          title: `Not in schedule`,
-          message: `Entry '${bow}' is not in schedule for event '${selectedEvent}'.  Add anyway??`,
-          button: 'Add',
-          showCancel: true,
-          handleConfirm: () => {
-            delete lap.State;
-            setEntryResult(key, lap);
-          },
-        });
-        return;
-      }
-      break;
-    }
+
+    // if (entry.isSprintStart) {
+
+    // }
 
     setEntryResult(key, lap);
   };
@@ -330,6 +358,39 @@ const ContextMenu: React.FC = () => {
     </Menu>
   );
 };
+
+const generateEventRows = (
+  gate: string,
+  event: Event | undefined,
+  includeEntries: boolean
+) => {
+  const rows: RowType[] = [];
+  if (!event) {
+    return rows;
+  }
+  rows.push({
+    id: event.EventNum,
+    eventName: event.Event,
+    eventNum: event.EventNum,
+    label: `E${event.Event}`,
+    Bow: '',
+    event,
+  });
+  if (includeEntries) {
+    event.eventItems.forEach((entry) => {
+      rows.push({
+        id: `${gate}_${event.EventNum}_${entry.Bow}`,
+        eventName: '',
+        eventNum: event.EventNum,
+        label: `${entry.Bow} ${entry.Crew}`,
+        Bow: entry.Bow,
+        event,
+        entry,
+      });
+    });
+  }
+  return rows;
+};
 interface MyComponentProps {
   height: number;
   sx?: SxProps<Theme>;
@@ -340,7 +401,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
   const [mobileConfig] = useMobileConfig();
   const [day] = useDay();
   const [waypoint] = useWaypoint();
-  const [selectedEvent, setSelectedEvent] = useVideoEvent();
+  let [selectedEvent, setSelectedEvent] = useVideoEvent();
   const datagridRef = useRef<DataGridHandle | null>(null);
 
   const gate = gateFromWaypoint(waypoint);
@@ -352,28 +413,38 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
 
     const filteredRows: RowType[] = [];
     filteredEvents.forEach((event) => {
-      filteredRows.push({
-        id: event.EventNum,
-        eventName: event.Event,
-        eventNum: event.EventNum,
-        label: event.Event,
-        Bow: '',
-        event,
-      });
-      event.eventItems.forEach((entry) => {
-        filteredRows.push({
-          id: `${gate}_${event.EventNum}_${entry.Bow}`,
-          eventName: '',
-          eventNum: event.EventNum,
-          label: `${entry.Bow} ${entry.Crew}`,
-          Bow: entry.Bow,
-          event,
-          entry,
-        });
+      generateEventRows(gate, event, false).forEach((row) => {
+        filteredRows.push(row);
       });
     });
     return { rows: filteredRows, filteredEvents };
   }, [mobileConfig?.eventList, day]);
+
+  let activeEvent = filteredEvents.find(
+    (event) => event.EventNum === selectedEvent
+  );
+  if (activeEvent === undefined && filteredEvents.length > 0) {
+    activeEvent = filteredEvents[0];
+    if (activeEvent !== undefined) {
+      const newSelectedEvent = activeEvent;
+      setTimeout(() => setSelectedEvent(newSelectedEvent.EventNum), 10);
+    }
+  }
+
+  const combined = mobileConfig?.info?.CombinedRaces || '{}';
+  const combinedRaces = JSON.parse(combined) as KeyMap<string[]>;
+  const combinedList = combinedRaces[selectedEvent] || [selectedEvent];
+  const activeEvents: Event[] = [];
+  combinedList.forEach((eventNum) => {
+    const event = filteredEvents.find((event) => event.EventNum === eventNum);
+    if (event) {
+      activeEvents.push(event);
+    }
+  });
+
+  const activeEventRows = activeEvents
+    .map((event) => generateEventRows(gate, event, true))
+    .flat();
 
   const onRowClick = (
     args: CellClickArgs<RowType, unknown>,
@@ -442,19 +513,19 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
         >
           {filteredEvents.map((event) => (
             <MenuItem key={event.EventNum} value={event.EventNum}>
-              {event.Event}
+              {`${event.Event}${event.Start ? ` (${event.Start})` : ''}`}
             </MenuItem>
           ))}
           {/* Add more MenuItems here */}
         </Select>
       </FormControl>
-      <AddSplitButton />
+      <AddSplitButton activeEvents={activeEvents} />
       <ContextMenu />
       <div style={{ flexGrow: 'auto' }}>
+        {' '}
         <DataGrid
-          ref={datagridRef}
           columns={columns}
-          rows={rows}
+          rows={activeEventRows}
           onCellClick={onRowClick}
           rowHeight={24}
           rowClass={(row) => (row.eventName ? classes.row : undefined)}

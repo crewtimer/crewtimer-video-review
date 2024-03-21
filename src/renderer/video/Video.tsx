@@ -56,7 +56,7 @@ const useStyles = makeStyles({
     padding: '0.2em',
   },
   computedtext: {
-    zIndex: 1,
+    zIndex: 200,
     background: '#ffffffa0',
     color: 'black',
     border: '1px solid red',
@@ -448,20 +448,35 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       setVideoBow(lane);
     }
   };
+
+  const storeComputedTime = (t: number) => {
+    const ts = convertTimestampToString(t, timezoneOffset);
+    setVideoTimestamp(ts);
+  };
   const handleSingleClick = (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>
   ) => {
+    const mousePositionY =
+      event.clientY - event.currentTarget.getBoundingClientRect().top;
+    const mousePositionX =
+      event.clientX - event.currentTarget.getBoundingClientRect().width / 2;
+
+    // If we are near the edge, allow the VideoOverlay to interpret what is happening
+    if (
+      mousePositionY < 30 ||
+      mousePositionY > destHeight - 20 ||
+      mousePositionX < -destWidth / 2 + 20 ||
+      mousePositionX > destWidth / 2 - 20
+    ) {
+      return;
+    }
+
+    // Single click requires a shift key
     if (!event.shiftKey) {
       return;
     }
-    const mousePositionY =
-      event.clientY - event.currentTarget.getBoundingClientRect().top;
-    if (mousePositionY < 30) {
-      return;
-    }
+
     event.preventDefault();
-    const mousePositionX =
-      event.clientX - event.currentTarget.getBoundingClientRect().width / 2;
 
     const { calPointLeft, calPointRight } = mouseTracking.current;
     const calPoint = mousePositionX < 0 ? calPointLeft : calPointRight;
@@ -474,12 +489,12 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       const deltaPx =
         calPointRight.px * calPointRight.scale -
         calPointLeft.px * calPointLeft.scale;
-      setComputedTime(
-        Math.round(
-          calPointLeft.ts +
-            ((-calPointLeft.px * calPointLeft.scale) / deltaPx) * deltaT
-        )
+      const t = Math.round(
+        calPointLeft.ts +
+          ((-calPointLeft.px * calPointLeft.scale) / deltaPx) * deltaT
       );
+      setComputedTime(t);
+      storeComputedTime(t);
     }
 
     drawContent();
@@ -545,6 +560,10 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
      * @param zoomFactor New zoom factor
      */
     (zoomFactor: number) => {
+      if (zoomFactor < 1.01) {
+        initScaling();
+        return;
+      }
       // Compute new sizes.  X and Y are scaled equally to maintain aspect ratio
       const newWidth = image.width / zoomFactor;
       const newHeight = image.height / zoomFactor;
@@ -583,10 +602,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   const handleMouseMove = useCallback(
     (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-      if (event.shiftKey) {
-        // handleSingleClick(event);
-        return;
-      }
       const rect = canvasRef.current?.getBoundingClientRect();
       let x = event.clientX - (rect?.left ?? 0);
       const y = event.clientY - (rect?.top ?? 0);
@@ -735,7 +750,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           {computedTime
             ? mouseTracking.current.calPointLeft.ts &&
               mouseTracking.current.calPointRight.ts && (
-                <Typography className={classes.computedtext} align="center">
+                <Typography
+                  className={classes.computedtext}
+                  align="center"
+                  onClick={() => storeComputedTime(computedTime)}
+                >
                   {convertTimestampToString(computedTime, timezoneOffset)}
                 </Typography>
               )

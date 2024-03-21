@@ -159,7 +159,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
             {
               let fromScaled = scalePoint(0, guide.pt1);
               let toScaled = scalePoint(image.width - 1, guide.pt2);
-              drawLine(fromScaled, toScaled, '#000000a0', Dir.Horiz);
+              drawLine(fromScaled, toScaled, '#ff0000a0', Dir.Horiz);
 
               // Compute text orgin based on zoom
               fromScaled = scalePoint(
@@ -256,6 +256,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   };
 
   const handleMouseMove = (event: React.MouseEvent) => {
+    const shift = event.shiftKey;
     const rect = canvasRef.current?.getBoundingClientRect();
     let x = event.clientX - (rect?.left ?? 0);
     const y = event.clientY - (rect?.top ?? 0);
@@ -273,21 +274,31 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
       const ypos = y / scale;
 
       if (dragHandle.guide.dir === Dir.Vert) {
-        if (dragHandle.pos === 'pt1') {
+        if (shift) {
           dragHandle.guide.pt1 = xpos;
-          dragHandle.guide.pt2 =
-            dragHandle.guide.pt2 + xpos - dragHandle.guide.pt1;
-        } else {
           dragHandle.guide.pt2 = xpos;
+        } else {
+          if (dragHandle.pos === 'pt1') {
+            dragHandle.guide.pt2 =
+              dragHandle.guide.pt2 + xpos - dragHandle.guide.pt1;
+            dragHandle.guide.pt1 = xpos;
+          } else {
+            dragHandle.guide.pt2 = xpos;
+          }
         }
       } else {
-        if (dragHandle.pos === 'pt1') {
-          // dragging pt1, keep angle between pt1 and pt2
-          const delta = dragHandle.guide.pt2 - dragHandle.guide.pt1;
+        if (shift) {
           dragHandle.guide.pt1 = ypos;
-          dragHandle.guide.pt2 = ypos + delta;
-        } else {
           dragHandle.guide.pt2 = ypos;
+        } else {
+          if (dragHandle.pos === 'pt1') {
+            // dragging pt1, keep angle between pt1 and pt2
+            const delta = dragHandle.guide.pt2 - dragHandle.guide.pt1;
+            dragHandle.guide.pt1 = ypos;
+            dragHandle.guide.pt2 = ypos + delta;
+          } else {
+            dragHandle.guide.pt2 = ypos;
+          }
         }
       }
 
@@ -296,9 +307,8 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   };
 
   const handleMouseUp = () => {
-    console.log('mouse up');
     if (dragging) {
-      setVideoSettings(courseConfig);
+      setVideoSettings(courseConfig, true);
     }
     setDragging(false);
     setDragHandle(null);
