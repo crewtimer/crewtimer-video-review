@@ -27,8 +27,17 @@ import {
 import { getConnectionProps } from './util/Util';
 import { setToast } from './Toast';
 import { useUserMessages } from './util/UserMessage';
+import { showVideoSettings } from './video/VideoSettingsView';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import SettingsIcon from '@mui/icons-material/Settings';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import ExportIcon from '@mui/icons-material/ImportExport';
+import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
+import InfoIcon from '@mui/icons-material/Info';
+import DebugIcon from '@mui/icons-material/BugReport';
 
-const AboutText = `CrewTimer Connect v1.0.12-beta.12`;
+const AboutText = `CrewTimer Connect v1.0.12-beta.13`;
 
 const { LapStorage } = window;
 
@@ -157,25 +166,43 @@ export default function Nav() {
                 open={open}
                 onClose={handleClose}
               >
+                {enableVideoTiming && (
+                  <MenuItem
+                    onClick={() => {
+                      setAnchorEl(null);
+                      showVideoSettings();
+                    }}
+                  >
+                    <ListItemIcon>
+                      <SettingsIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="Video Timing" />
+                  </MenuItem>
+                )}
                 {enableCrewTimer && (
-                  <MenuItem onClick={onViewResults}>View Results</MenuItem>
+                  <MenuItem onClick={onViewResults}>
+                    <ListItemIcon>
+                      <VisibilityIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="View Results" />
+                  </MenuItem>
                 )}
                 {enableLynx && (
-                  <MenuItem onClick={handleExport}>Export Lynx Config</MenuItem>
+                  <MenuItem onClick={handleExport}>
+                    <ListItemIcon>
+                      <ExportIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="Export Lynx Config" />
+                  </MenuItem>
                 )}
                 {enableCrewTimer && (
                   <MenuItem onClick={handleClearData}>
-                    Clear Local History
+                    <ListItemIcon>
+                      <HistoryToggleOffIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="Clear Local History" />
                   </MenuItem>
                 )}
-                <MenuItem
-                  onClick={() => {
-                    handleClose();
-                    setToast({ severity: 'info', msg: AboutText });
-                  }}
-                >
-                  About
-                </MenuItem>
                 <MenuItem
                   onClick={() => {
                     handleClose();
@@ -191,7 +218,21 @@ export default function Nav() {
                     });
                   }}
                 >
-                  Toggle Debug
+                  <ListItemIcon>
+                    <DebugIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Toggle Debug" />
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleClose();
+                    setToast({ severity: 'info', msg: AboutText });
+                  }}
+                >
+                  <ListItemIcon>
+                    <InfoIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="About" />
                 </MenuItem>
               </Menu>
               <Snackbar

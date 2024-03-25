@@ -1,22 +1,18 @@
-import {
-  Button,
-  Slider,
-  SliderThumb,
-  Stack,
-  SxProps,
-  Theme,
-} from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import { Box, Button, Stack, SxProps, Theme } from '@mui/material';
 import FastForwardIcon from '@mui/icons-material/FastForward';
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   getDirList,
   refreshDirList,
   requestVideoFrame,
   useDirList,
 } from './VideoFileUtils';
-import { triggerFileSplit } from './VideoUtils';
+import {
+  extractTime,
+  formatSecondsAsTime,
+  parseTimeToSeconds,
+  triggerFileSplit,
+} from './VideoUtils';
 import {
   getSelectedIndex,
   getVideoDir,
@@ -24,18 +20,9 @@ import {
   setVideoFile,
   useSelectedIndex,
 } from './VideoSettings';
-
-interface CustomThumbComponentProps extends React.HTMLAttributes<unknown> {}
-
-function CustomThumbComponent(props: CustomThumbComponentProps) {
-  const { children, ...other } = props;
-  return (
-    <SliderThumb {...other}>
-      {children}
-      <div style={{ width: 24, height: 24, backgroundColor: 'green' }} />
-    </SliderThumb>
-  );
-}
+import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
+import TimeSegments from './TimeSegments';
+import { useClickerData } from './UseClickerData';
 
 const moveToIndex = (index: number, seekToEnd: boolean) => {
   const dirList = getDirList();
@@ -51,19 +38,17 @@ export const prevFile = () => {
 export const nextFile = () => {
   moveToIndex(getSelectedIndex() + 1, false);
 };
+
 interface SxPropsArgs {
   sx?: SxProps<Theme>;
 }
 
 const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
-  const [fileIndex, setFileIndex] = useSelectedIndex();
+  const [, setFileIndex] = useSelectedIndex();
   const [dirList] = useDirList();
-  const numFiles = dirList.length;
+  let lapdata = useClickerData() as TimeObject[];
 
-  const handleSlider = (_event: Event, value: number | number[]) => {
-    let newValue = value as number;
-    moveToIndex(newValue, false);
-  };
+  // console.log(`lapdata: ${Object.keys(lapdata || {}).length}`);
 
   const jumpToEnd = () => {
     // Trigger a file split, then read the files and jump to the end
@@ -83,6 +68,47 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
     }, 400);
   };
 
+  let prevStartTime = '00:00:00';
+  // Calc the time segment list
+  const segmentList = useMemo(() => {
+    const segments = dirList.map((item) => {
+      let startTime = extractTime(item);
+      // If not time in filename, bump prev start time by 120s
+      if (!startTime) {
+        startTime = formatSecondsAsTime(
+          parseTimeToSeconds(prevStartTime) + 120
+        );
+      }
+      prevStartTime = startTime;
+      return { startTime, endTime: '', label: item.replace(/.*\//, '') };
+    });
+    segments.forEach((item, index) => {
+      if (index < segments.length - 1) {
+        item.endTime = segments[index + 1].startTime;
+      }
+    });
+    if (segments.length > 0) {
+      segments[segments.length - 1].endTime = formatSecondsAsTime(
+        parseTimeToSeconds(segments[segments.length - 1]?.startTime) + 120
+      );
+    }
+    return segments;
+  }, [dirList]);
+
+  const startTime = segmentList[0]?.startTime || '12:00:00';
+  let endTime = segmentList[segmentList.length - 1]?.endTime || '17:00:00';
+
+  if (segmentList.length > 0) {
+    // we really dont know how long a segment is until it is read. estimate instead
+    let lastClick = Math.trunc(
+      parseTimeToSeconds(lapdata[lapdata.length - 1]?.Time || '00:00:00')
+    );
+    const clickPastEnd = lastClick - parseTimeToSeconds(endTime);
+    if (clickPastEnd > 0 && clickPastEnd < 60 * 60) {
+      endTime = formatSecondsAsTime(lastClick + 20);
+      segmentList[segmentList.length - 1].endTime = endTime;
+    }
+  }
   return (
     <Stack
       direction="row"
@@ -119,34 +145,38 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           background: '#19857b',
         }}
       >
-        <ArrowBackIcon fontSize={'small'} />
+        &lt;
       </Button>
-      <Slider
-        value={fileIndex}
-        min={0}
-        max={numFiles - 1}
-        onChange={handleSlider}
-        aria-labelledby="file-scrubber"
-        sx={{
-          marginLeft: '1em',
-          marginRight: '1em',
-          flex: 1,
-          '& .MuiSlider-thumb': {
-            transition: 'none',
-          },
-          '& .MuiSlider-track': {
-            transition: 'none',
-          },
-          '& .MuiSlider-rail': {
-            transition: 'none',
-          },
-        }}
-        color="secondary"
-        slots={{ thumb: CustomThumbComponent }}
-        track={false}
-        marks
-        valueLabelFormat={() => 'test'}
-      />
+      <Box sx={{ position: 'relative', width: '100%', height: '50px' }}>
+        <TimeRangeIcons
+          times={lapdata}
+          startTime={startTime}
+          endTime={endTime}
+        />
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.5)',
+          }}
+        >
+          <TimeSegments
+            segments={segmentList}
+            startTime={startTime}
+            endTime={endTime}
+            activeIndex={getSelectedIndex()}
+            onChange={(newValue) => {
+              moveToIndex(newValue, false);
+            }}
+          />
+        </Box>
+      </Box>
       <Button
         variant="contained"
         onClick={nextFile}
@@ -158,7 +188,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           background: '#19857b',
         }}
       >
-        <ArrowForwardIcon fontSize={'small'} />
+        &gt;
       </Button>
       <Button
         variant="contained"

@@ -7,6 +7,7 @@ import {
   N_VIDEO_FILE,
   N_VIDEO_DIR,
   N_TIMEZONE,
+  N_CLICKER_WAYPOINT,
 } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
 
@@ -75,14 +76,16 @@ export interface GuideLine {
   pt2: number;
 }
 interface VideoSettings {
+  timingHintSource: string;
   guides: GuideLine[];
-  lane1Top: boolean;
+  laneBelowGuide: boolean;
   travelRtoL: boolean;
   videoPanel: boolean;
 }
 export const [useVideoSettings, , getVideoSettings] =
   UseStoredDatum<VideoSettings>('videoSettings', {
-    lane1Top: false,
+    timingHintSource: 'F',
+    laneBelowGuide: false,
     travelRtoL: false,
     videoPanel: true,
     guides: [
@@ -123,6 +126,12 @@ export const [useImage, setImage, getImage] = UseMemDatum<AppImage>(N_IMAGE, {
   numFrames: 0,
   data: new Uint8Array(0),
   file: '',
+  fileStartTime: 0,
+  fileEndTime: 0,
 });
 
 export const [useNumFrames] = UseMemDatum(N_IMAGE_FRAMES, 1);
+export const [useClickerWaypoint, , getClickerWaypoint] = UseMemDatum(
+  N_CLICKER_WAYPOINT,
+  'Finish'
+);

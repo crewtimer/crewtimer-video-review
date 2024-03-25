@@ -1,9 +1,8 @@
 import { Box, Slider, Typography, Stack, Button } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useReducer,
   useRef,
   useState,
@@ -30,13 +29,14 @@ import {
 import VideoOverlay, { useAdjustingOverlay, useNearEdge } from './VideoOverlay';
 import { Rect } from 'renderer/shared/AppTypes';
 import TimingSidebar from './TimingSidebar';
-import VideoSettingsView from './VideoSettingsView';
 import { findClosestLineAndPosition } from './VideoUtils';
 import { useEnableVideoTiming } from 'renderer/util/UseSettings';
 import FileScrubber, { nextFile, prevFile } from './FileScrubber';
 import Measure from 'react-measure';
 import { UseDatum } from 'react-usedatum';
 import { requestVideoFrame } from './VideoFileUtils';
+import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
+import { useClickerData } from './UseClickerData';
 
 const useStyles = makeStyles({
   text: {
@@ -134,7 +134,9 @@ const VideoScrubber = () => {
   const [videoFrameNum, setVideoFrameNum] = useVideoFrameNum();
   const [videoFile] = useVideoFile();
   const [image] = useImage();
+  const lapdata = useClickerData() as TimeObject[];
   const lastVideoFile = useRef('');
+  const [timezoneOffset] = useTimezoneOffset();
   const numFrames = image.numFrames;
   const videoFileChanging = lastVideoFile.current !== image.file;
   lastVideoFile.current = image.file;
@@ -160,6 +162,15 @@ const VideoScrubber = () => {
     requestVideoFrame({ videoFile, frameNum: newValue });
   };
 
+  const { startTime, endTime } = useMemo(() => {
+    const startTime = convertTimestampToString(
+      image.fileStartTime,
+      timezoneOffset
+    );
+    const endTime = convertTimestampToString(image.fileEndTime, timezoneOffset);
+    return { startTime, endTime };
+  }, [image.fileStartTime, image.fileEndTime, timezoneOffset]);
+
   const sliderValue = getVideoSettings().travelRtoL
     ? numFrames - videoFrameNum + 1
     : videoFrameNum;
@@ -184,30 +195,59 @@ const VideoScrubber = () => {
           minWidth: 24,
         }}
       >
-        <ArrowBackIcon fontSize={'small'} />
+        &lt;
       </Button>
-      <Slider
-        value={sliderValue}
-        min={1}
-        max={numFrames}
-        onChange={handleSlider}
-        aria-labelledby="video-scrubber"
+      <Box
         sx={{
+          position: 'relative',
+          width: '100%',
+          height: '50px',
           marginLeft: '1em',
           marginRight: '1em',
-          flex: 1,
-          '& .MuiSlider-thumb': {
-            transition: 'none',
-          },
-          '& .MuiSlider-track': {
-            transition: 'none',
-          },
-          '& .MuiSlider-rail': {
-            transition: 'none',
-          },
         }}
-        track={false}
-      />
+      >
+        <TimeRangeIcons
+          times={lapdata}
+          startTime={startTime}
+          endTime={endTime}
+        />
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.5)',
+          }}
+        >
+          <Slider
+            value={sliderValue}
+            min={1}
+            max={numFrames}
+            onChange={handleSlider}
+            aria-labelledby="video-scrubber"
+            sx={{
+              // marginLeft: '1em',
+              // marginRight: '1em',
+              flex: 1,
+              '& .MuiSlider-thumb': {
+                transition: 'none',
+              },
+              '& .MuiSlider-track': {
+                transition: 'none',
+              },
+              '& .MuiSlider-rail': {
+                transition: 'none',
+              },
+            }}
+            track={false}
+          />
+        </Box>
+      </Box>
       <Button
         variant="contained"
         onClick={moveRight}
@@ -218,7 +258,7 @@ const VideoScrubber = () => {
           minWidth: 24,
         }}
       >
-        <ArrowForwardIcon fontSize={'small'} />
+        &gt;
       </Button>
     </Stack>
   );
@@ -441,7 +481,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     const result = findClosestLineAndPosition(
       { x: x - xPadding, y: y },
       laneLines,
-      getVideoSettings().lane1Top ? 'below' : 'above'
+      getVideoSettings().laneBelowGuide ? 'below' : 'above'
     );
     if (result.closestLine >= 0) {
       const lane = laneLines[result.closestLine].lane.label.split(' ')[1];
@@ -852,7 +892,6 @@ const Video = () => {
                 height={height || 1}
               />
               <Stack direction="column" sx={{ width: sidebarWidth }}>
-                <VideoSettingsView />
                 <Stack direction="row" sx={{ flexGrow: 1 }}>
                   {enableVideoTiming && (
                     <TimingSidebar

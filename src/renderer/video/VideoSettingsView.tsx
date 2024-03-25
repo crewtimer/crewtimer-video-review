@@ -1,8 +1,13 @@
 import {
   Box,
   Checkbox,
+  FormControl,
   FormControlLabel,
   IconButton,
+  InputLabel,
+  MenuItem,
+  Select,
+  SelectChangeEvent,
   SxProps,
   Theme,
   Typography,
@@ -10,14 +15,53 @@ import {
 import MenuIcon from '@mui/icons-material/Settings';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 import { useVideoSettings } from './VideoSettings';
-import { useEnableVideoTiming } from 'renderer/util/UseSettings';
+import {
+  useEnableVideoTiming,
+  useMobileConfig,
+} from 'renderer/util/UseSettings';
 import TimezoneSelector from 'renderer/util/TimezoneSelector';
 
 const VideoSettingsDialog: React.FC = () => {
   const [videoSettings, setVideoSettings] = useVideoSettings();
   const [enableVideoTiming, setEnableVideoTiming] = useEnableVideoTiming();
+  const [mc] = useMobileConfig();
+  const onTimingHintSourceChange = (event: SelectChangeEvent) => {
+    setVideoSettings(
+      { ...videoSettings, timingHintSource: event.target.value },
+      true
+    );
+  };
+  let waypointList = ['Start'];
+  const waypoints = mc?.info.Waypoints || '';
+  if (waypoints.length > 0) {
+    waypointList = waypointList.concat(waypoints.split(','));
+  }
+  waypointList = waypointList.concat(['Finish']);
+  waypointList = waypointList.map((waypoint) => waypoint.trim());
+
   return (
     <Box>
+      <Typography>Timing Hint Source</Typography>
+      <FormControl
+        sx={{ marginTop: '0.5em', marginBottom: '0.5em', minWidth: 200 }}
+        margin="dense"
+        size="small"
+      >
+        <InputLabel id="hint-select-label">Waypoint</InputLabel>
+        <Select
+          labelId="hint-select-label"
+          id="hint-select"
+          value={videoSettings.timingHintSource}
+          label="Waypoint"
+          onChange={onTimingHintSourceChange}
+        >
+          {waypointList.map((waypoint) => (
+            <MenuItem key={waypoint} value={waypoint}>
+              {waypoint}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
       <Typography>Visible Panels</Typography>
 
       <FormControlLabel
@@ -34,7 +78,7 @@ const VideoSettingsDialog: React.FC = () => {
       />
       <FormControlLabel
         labelPlacement="end"
-        label="Video"
+        label="Video Files"
         control={
           <Checkbox
             checked={videoSettings.videoPanel}
@@ -52,20 +96,23 @@ const VideoSettingsDialog: React.FC = () => {
       <Typography>Course Configuration</Typography>
       <FormControlLabel
         labelPlacement="end"
-        label="Lane 1 top"
+        label="Lane below guide line"
         control={
           <Checkbox
-            checked={videoSettings.lane1Top}
+            checked={videoSettings.laneBelowGuide}
             onChange={() => {
               setVideoSettings(
-                { ...videoSettings, lane1Top: !videoSettings.lane1Top },
+                {
+                  ...videoSettings,
+                  laneBelowGuide: !videoSettings.laneBelowGuide,
+                },
                 true
               );
             }}
           />
         }
       />
-      <FormControlLabel
+      {/* <FormControlLabel
         labelPlacement="end"
         label="Travel Right to Left"
         control={
@@ -82,7 +129,7 @@ const VideoSettingsDialog: React.FC = () => {
             }}
           />
         }
-      />
+      /> */}
       <Typography>Guide Visibility</Typography>
       <FormControlLabel
         labelPlacement="end"
@@ -126,19 +173,20 @@ interface VideoSettingsViewProps {
   sx?: SxProps<Theme>;
 }
 
+export const showVideoSettings = () => {
+  setDialogConfig({
+    title: `Video Settings`,
+    message: ``,
+    content: <VideoSettingsDialog />,
+    button: 'Done',
+    showCancel: false,
+  });
+};
+
 const VideoSettingsView: React.FC<VideoSettingsViewProps> = ({ sx }) => {
-  const handleSettings = () => {
-    setDialogConfig({
-      title: `Video Settings`,
-      message: ``,
-      content: <VideoSettingsDialog />,
-      button: 'Done',
-      showCancel: false,
-    });
-  };
   return (
-    <Box onClick={handleSettings} sx={sx}>
-      <IconButton onClick={handleSettings} color="inherit" size="medium">
+    <Box onClick={showVideoSettings} sx={sx}>
+      <IconButton onClick={showVideoSettings} color="inherit" size="medium">
         <MenuIcon />
       </IconButton>
       Settings

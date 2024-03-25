@@ -180,7 +180,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
                 destHeight / 50,
                 fromScaled.x,
                 fromScaled.y,
-                videoSettings.lane1Top ? 'below' : 'above',
+                videoSettings.laneBelowGuide ? 'below' : 'above',
                 'left'
               );
               drawText(
@@ -189,7 +189,7 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
                 destHeight / 50,
                 toScaled.x,
                 toScaled.y,
-                videoSettings.lane1Top ? 'below' : 'above',
+                videoSettings.laneBelowGuide ? 'below' : 'above',
                 'right'
               );
             }
@@ -221,7 +221,14 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
     ) {
       x = x;
       // find first guide within 20 px
-      const nearestGuide = courseConfig.guides.find((guide) => {
+      const nearest: { index: number; dist: number } = {
+        index: -1,
+        dist: 50000,
+      };
+      courseConfig.guides.forEach((guide, index) => {
+        if (!guide.enabled) {
+          return;
+        }
         // Convert guide coordinates to screen coords and check for distance
         const point1 =
           guide.dir === Dir.Vert
@@ -231,6 +238,9 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
           guide.dir === Dir.Vert
             ? scalePoint(image.width / 2 + guide.pt2, image.height)
             : scalePoint(image.width, guide.pt2);
+        if (guide.dir === Dir.Vert && point2.y > destHeight) {
+          point2.y = destHeight;
+        }
         const dist1 = Math.sqrt(
           (point1.x - x) * (point1.x - x) + (point1.y - y) * (point1.y - y)
         );
@@ -239,9 +249,15 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
         );
         // console.log(`dist1: ${dist1}, dist2: ${dist2} x: ${x}, y: ${y}`);
 
-        return dist1 < 20 || dist2 < 20;
+        if (dist1 < 20 || dist2 < 20) {
+          if (Math.min(dist1, dist2) < nearest.dist) {
+            nearest.dist = Math.min(dist1, dist2);
+            nearest.index = index;
+          }
+        }
       });
-      if (nearestGuide) {
+      if (nearest.index >= 0) {
+        const nearestGuide = courseConfig.guides[nearest.index];
         setDragging(true);
         setAdjustingOverlay(true);
         event.preventDefault();

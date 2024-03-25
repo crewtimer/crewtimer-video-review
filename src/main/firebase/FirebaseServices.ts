@@ -5,7 +5,7 @@ import {
   Unsubscribe,
   DataSnapshot,
 } from 'firebase/database';
-import firebasedb from './FirebaseConfig';
+import firebasedb from '../../renderer/shared/FirebaseConfig';
 import {
   getMobileConfigCount,
   getMobileID,

@@ -1,7 +1,14 @@
 import { useEffect } from 'react';
 import { UseDatum } from 'react-usedatum';
 import { AppImage } from 'renderer/shared/AppTypes';
-import { getVideoFile, setImage, useVideoDir } from './VideoSettings';
+import { useInitializing } from 'renderer/util/UseSettings';
+import {
+  getImage,
+  getVideoFile,
+  setImage,
+  setVideoFile,
+  useVideoDir,
+} from './VideoSettings';
 
 const VideoUtils = window.VideoUtils;
 const { getFilesInDirectory } = window.Util;
@@ -10,12 +17,18 @@ interface OpenFileStatus {
   open: boolean;
   numFrames: number;
   filename: string;
+  startTime: number;
+  fps: number;
+  endTime: number;
 }
 
 let openFileStatus: OpenFileStatus = {
   open: false,
   numFrames: 0,
   filename: '',
+  startTime: 0,
+  endTime: 0,
+  fps: 60,
 };
 
 /**
@@ -93,7 +106,13 @@ const doRequestVideoFrame = async ({
         filename: videoFile,
         open: true,
         numFrames: image.numFrames,
+        startTime: image.timestamp,
+        endTime: Math.trunc(
+          image.timestamp + (1000 * image.numFrames) / image.fps
+        ),
+        fps: image.fps,
       };
+      // console.log(JSON.stringify(openFileStatus, null, 2));
     }
 
     const seekPos = seekToEnd
@@ -109,6 +128,8 @@ const doRequestVideoFrame = async ({
       }
     }
 
+    image.fileStartTime = openFileStatus.startTime;
+    image.fileEndTime = openFileStatus.endTime;
     setImage(image);
   } catch (e) {
     console.log(
@@ -231,7 +252,13 @@ export const refreshDirList = async (videoDir: string) => {
           });
           const dirList = files.map((file) => `${videoDir}/${file}`);
           setDirList(dirList);
+          const needImage = getImage().file === '';
+          if (needImage && dirList.includes(getVideoFile())) {
+            setVideoFile(getVideoFile());
+            requestVideoFrame({ videoFile: getVideoFile(), frameNum: 0 });
+          }
           if (dirList.length > 0 && !dirList.includes(getVideoFile())) {
+            setVideoFile(dirList[0]);
             requestVideoFrame({ videoFile: dirList[0], frameNum: 0 });
           }
           // console.log(files);
@@ -242,10 +269,17 @@ export const refreshDirList = async (videoDir: string) => {
   });
 };
 
+/**
+ * The component that monitors the video directory for changes.
+ */
 const FileMonitor: React.FC = () => {
   const [videoDir] = useVideoDir();
+  const [initializing] = useInitializing();
 
   useEffect(() => {
+    if (initializing) {
+      return;
+    }
     refreshDirList(videoDir);
     const timer = setInterval(() => {
       if (videoDir) {
@@ -253,7 +287,7 @@ const FileMonitor: React.FC = () => {
       }
     }, 4000);
     return () => clearInterval(timer);
-  }, [videoDir]);
+  }, [videoDir, initializing]);
 
   return <></>;
 };

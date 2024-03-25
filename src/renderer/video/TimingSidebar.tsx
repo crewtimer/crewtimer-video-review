@@ -156,7 +156,7 @@ export const RenderHeaderCell: React.FC<RenderHeaderCellProps<RowType>> = ({
 const columns: readonly Column<RowType>[] = [
   {
     key: 'label',
-    name: 'Schedule',
+    name: 'Entry',
     renderHeaderCell: RenderHeaderCell,
     renderCell: ({ row }) => {
       return (
@@ -183,7 +183,7 @@ const columns: readonly Column<RowType>[] = [
   },
   {
     key: 'ts',
-    name: 'Timestamp',
+    name: 'Time',
     width: 80 + 14 + 16,
     renderCell: TimestampCol,
   },
@@ -202,7 +202,6 @@ const VideoTimestamp: React.FC = () => {
         setVideoTimestamp(event.target.value);
       }}
       sx={{
-        marginBottom: 2,
         fontSize: timingFontSize,
         lineHeight: timingFontSize,
       }}
@@ -222,7 +221,6 @@ const VideoBow: React.FC = () => {
         setVideoBow(event.target.value);
       }}
       sx={{
-        marginBottom: 2,
         fontSize: timingFontSize,
         lineHeight: timingFontSize,
       }}
@@ -362,20 +360,23 @@ const ContextMenu: React.FC = () => {
 const generateEventRows = (
   gate: string,
   event: Event | undefined,
+  includeEventName: boolean,
   includeEntries: boolean
 ) => {
   const rows: RowType[] = [];
   if (!event) {
     return rows;
   }
-  rows.push({
-    id: event.EventNum,
-    eventName: event.Event,
-    eventNum: event.EventNum,
-    label: `E${event.Event}`,
-    Bow: '',
-    event,
-  });
+  if (includeEventName) {
+    rows.push({
+      id: event.EventNum,
+      eventName: event.Event,
+      eventNum: event.EventNum,
+      label: `E${event.Event}`,
+      Bow: '',
+      event,
+    });
+  }
   if (includeEntries) {
     event.eventItems.forEach((entry) => {
       rows.push({
@@ -413,7 +414,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
 
     const filteredRows: RowType[] = [];
     filteredEvents.forEach((event) => {
-      generateEventRows(gate, event, false).forEach((row) => {
+      generateEventRows(gate, event, true, false).forEach((row) => {
         filteredRows.push(row);
       });
     });
@@ -443,7 +444,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
   });
 
   const activeEventRows = activeEvents
-    .map((event) => generateEventRows(gate, event, true))
+    .map((event) => generateEventRows(gate, event, false, true))
     .flat();
 
   const onRowClick = (
@@ -479,6 +480,31 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
     setSelectedEvent(event.target.value);
   };
 
+  const prevEvent = () => {
+    const index = filteredEvents.findIndex(
+      (event) => event.EventNum === selectedEvent
+    );
+    if (index > 0) {
+      setSelectedEvent(filteredEvents[index - 1].EventNum);
+    }
+  };
+
+  const nextEvent = () => {
+    const index = filteredEvents.findIndex(
+      (event) => event.EventNum === selectedEvent
+    );
+    if (index !== -1 && index < filteredEvents.length - 1) {
+      setSelectedEvent(filteredEvents[index + 1].EventNum);
+    }
+  };
+
+  let eventHeader = '';
+  if (activeEvent) {
+    eventHeader = `${activeEvent.Event}${
+      activeEvent.Start ? ` (${activeEvent.Start})` : ''
+    }`;
+  }
+
   return (
     <Paper
       sx={{
@@ -490,39 +516,77 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
         ...sx,
       }}
     >
-      <Stack direction="row">
+      <AddSplitButton activeEvents={activeEvents} />
+      <Stack direction="row" alignItems="center">
         <VideoBow />
         <VideoTimestamp />
       </Stack>
-      <FormControl
-        fullWidth
-        sx={{ marginTop: 0, marginBottom: '0.5em' }}
-        margin="dense"
-        size="small"
-      >
-        <InputLabel id="event-select-label" sx={{ fontSize: timingFontSize }}>
-          Event
-        </InputLabel>
-        <Select
-          labelId="event-select-label"
-          id="event-select"
-          label="Event"
-          value={selectedEvent}
-          onChange={onEventChange}
-          sx={{ fontSize: timingFontSize }}
+      <Stack direction="row" alignItems="center">
+        <Button
+          variant="contained"
+          onClick={prevEvent}
+          size="small"
+          sx={{
+            height: 24,
+            // m: 0,
+            minWidth: 24,
+          }}
         >
-          {filteredEvents.map((event) => (
-            <MenuItem key={event.EventNum} value={event.EventNum}>
-              {`${event.Event}${event.Start ? ` (${event.Start})` : ''}`}
-            </MenuItem>
-          ))}
-          {/* Add more MenuItems here */}
-        </Select>
-      </FormControl>
-      <AddSplitButton activeEvents={activeEvents} />
+          &lt;
+        </Button>
+        <FormControl
+          fullWidth
+          sx={{
+            marginLeft: '0.5em',
+            marginRight: '0.5em',
+          }}
+          margin="dense"
+          size="small"
+        >
+          <InputLabel id="event-select-label" sx={{ fontSize: timingFontSize }}>
+            Event
+          </InputLabel>
+          <Select
+            labelId="event-select-label"
+            id="event-select"
+            label="Event"
+            value={selectedEvent}
+            onChange={onEventChange}
+            sx={{ fontSize: timingFontSize }}
+          >
+            {filteredEvents.map((event) => (
+              <MenuItem key={event.EventNum} value={event.EventNum}>
+                {`${event.Event}${event.Start ? ` (${event.Start})` : ''}`}
+              </MenuItem>
+            ))}
+            {/* Add more MenuItems here */}
+          </Select>
+        </FormControl>
+        <Button
+          variant="contained"
+          onClick={nextEvent}
+          size="small"
+          sx={{
+            height: 24,
+            m: 0,
+            minWidth: 24,
+          }}
+        >
+          &gt;
+        </Button>
+      </Stack>
       <ContextMenu />
+      {/* <Typography
+        sx={{
+          paddingLeft: '0.5em',
+          fontSize: timingFontSize,
+          color: 'white',
+          backgroundColor: '#556cd6',
+        }}
+      >
+        {eventHeader}
+      </Typography> */}
       <div style={{ flexGrow: 'auto' }}>
-        {' '}
         <DataGrid
           columns={columns}
           rows={activeEventRows}

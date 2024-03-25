@@ -7,6 +7,8 @@ export interface AppImage {
   fps: number;
   numFrames: number;
   file: string;
+  fileStartTime: number;
+  fileEndTime: number;
 }
 
 export interface Rect {
