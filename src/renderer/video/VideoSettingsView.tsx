@@ -1,6 +1,7 @@
 import {
   Box,
   Checkbox,
+  Divider,
   FormControl,
   FormControlLabel,
   IconButton,
@@ -8,13 +9,14 @@ import {
   MenuItem,
   Select,
   SelectChangeEvent,
+  Slider,
   SxProps,
   Theme,
   Typography,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Settings';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
-import { useVideoSettings } from './VideoSettings';
+import { useMouseWheelFactor, useVideoSettings } from './VideoSettings';
 import {
   useEnableVideoTiming,
   useMobileConfig,
@@ -25,6 +27,13 @@ const VideoSettingsDialog: React.FC = () => {
   const [videoSettings, setVideoSettings] = useVideoSettings();
   const [enableVideoTiming, setEnableVideoTiming] = useEnableVideoTiming();
   const [mc] = useMobileConfig();
+  const [wheelFactor, setWheelFactor] = useMouseWheelFactor();
+
+  // Handler to update the wheelFactor state
+  const handleSliderChange = (_event: Event, newValue: number | number[]) => {
+    setWheelFactor(newValue as number);
+  };
+
   const onTimingHintSourceChange = (event: SelectChangeEvent) => {
     setVideoSettings(
       { ...videoSettings, timingHintSource: event.target.value },
@@ -62,6 +71,7 @@ const VideoSettingsDialog: React.FC = () => {
           ))}
         </Select>
       </FormControl>
+      <Divider />
       <Typography>Visible Panels</Typography>
 
       <FormControlLabel
@@ -91,8 +101,26 @@ const VideoSettingsDialog: React.FC = () => {
           />
         }
       />
+      <Divider />
       <Typography>Course Timezone</Typography>
       <TimezoneSelector />
+      <Divider />
+      <Typography>Mouse Wheel Factor</Typography>
+      <Box>
+        <Box display="flex" alignItems="center">
+          <Typography variant="body1" mr={2}>
+            {wheelFactor}
+          </Typography>
+          <Slider
+            min={1}
+            max={20}
+            value={wheelFactor}
+            onChange={handleSliderChange}
+            aria-labelledby="wheel-factor-slider"
+          />
+        </Box>
+      </Box>
+      <Divider />
       <Typography>Course Configuration</Typography>
       <FormControlLabel
         labelPlacement="end"
@@ -130,6 +158,7 @@ const VideoSettingsDialog: React.FC = () => {
           />
         }
       /> */}
+      <Divider />
       <Typography>Guide Visibility</Typography>
       <FormControlLabel
         labelPlacement="end"

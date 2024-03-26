@@ -14,6 +14,7 @@ import VideoSideBar from './VideoSideBar';
 import {
   Dir,
   getImage,
+  getMouseWheelFactor,
   getVideoFrameNum,
   getVideoSettings,
   setVideoBow,
@@ -272,6 +273,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [timezoneOffset] = useTimezoneOffset();
   const [videoFile] = useVideoFile();
   const holdoffChanges = useRef<boolean>(false);
+
   const mouseTracking = useRef<ZoomState>({
     zoomWindow: { x: 0, y: 0, width: 0, height: 0 },
     zoomStartWindow: { x: 0, y: 0, width: 0, height: 0 },
@@ -682,19 +684,16 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     };
   }, [handleMouseUp]);
 
-  const handleWheel = useCallback(
-    (event: React.WheelEvent<HTMLDivElement>) => {
-      if (holdoffChanges.current) {
-        return;
-      }
-      if (event.deltaY < 0) {
-        moveRight();
-      } else if (event.deltaY > 0) {
-        moveLeft();
-      }
-    },
-    [moveLeft, moveRight]
-  );
+  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    if (holdoffChanges.current) {
+      return;
+    }
+
+    const delta =
+      Math.sign(event.deltaY) *
+      Math.max(1, Math.trunc(Math.abs(event.deltaY / getMouseWheelFactor())));
+    moveToFrame(getVideoFrameNum() + delta);
+  }, []);
 
   useEffect(() => {
     window.removeEventListener('keydown', handleKeyDown);

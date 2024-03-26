@@ -56,6 +56,11 @@ export const [useTimezone, setTimezone, getTimezone] = UseStoredDatum<string>(
     setTimezoneOffset(-currentOffsetMinutes);
   }
 );
+
+/// Mouse wheel zoom factor
+export const [useMouseWheelFactor, setMouseWheelFactor, getMouseWheelFactor] =
+  UseStoredDatum<number>('wheelFactor', 4);
+
 export const [useVideoDir, setVideoDir, getVideoDir] = UseStoredDatum(
   N_VIDEO_DIR,
   '.'
