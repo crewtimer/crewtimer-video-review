@@ -73,7 +73,6 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
         width: '100%',
         display: 'flex',
         height: '15px',
-        backgroundColor: 'rgba(240, 240, 240, 0.5)',
       }}
     >
       {segments.map((segment, index) => {

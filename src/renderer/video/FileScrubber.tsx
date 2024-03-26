@@ -98,17 +98,17 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   const startTime = segmentList[0]?.startTime || '12:00:00';
   let endTime = segmentList[segmentList.length - 1]?.endTime || '17:00:00';
 
-  if (segmentList.length > 0) {
-    // we really dont know how long a segment is until it is read. estimate instead
-    let lastClick = Math.trunc(
-      parseTimeToSeconds(lapdata[lapdata.length - 1]?.Time || '00:00:00')
-    );
-    const clickPastEnd = lastClick - parseTimeToSeconds(endTime);
-    if (clickPastEnd > 0 && clickPastEnd < 60 * 60) {
-      endTime = formatSecondsAsTime(lastClick + 20);
-      segmentList[segmentList.length - 1].endTime = endTime;
-    }
-  }
+  // if (segmentList.length > 0) {
+  //   // we really dont know how long a segment is until it is read. estimate instead
+  //   let lastClick = Math.trunc(
+  //     parseTimeToSeconds(lapdata[lapdata.length - 1]?.Time || '00:00:00')
+  //   );
+  //   const clickPastEnd = lastClick - parseTimeToSeconds(endTime);
+  //   if (clickPastEnd > 0 && clickPastEnd < 60 * 60) {
+  //     endTime = formatSecondsAsTime(lastClick + 20);
+  //     segmentList[segmentList.length - 1].endTime = endTime;
+  //   }
+  // }
   return (
     <Stack
       direction="row"
@@ -147,11 +147,21 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
       >
         &lt;
       </Button>
-      <Box sx={{ position: 'relative', width: '100%', height: '50px' }}>
+      <Box
+        sx={{
+          position: 'relative',
+          width: '100%',
+          height: '40px',
+
+          marginLeft: '0.5em',
+          marginRight: '0.5em',
+        }}
+      >
         <TimeRangeIcons
           times={lapdata}
           startTime={startTime}
           endTime={endTime}
+          showBeyondRange={true}
         />
         <Box
           sx={{
@@ -163,7 +173,6 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            backgroundColor: 'rgba(255, 255, 255, 0.5)',
           }}
         >
           <TimeSegments

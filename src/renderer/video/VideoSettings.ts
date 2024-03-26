@@ -3,11 +3,9 @@ import { UseDatum } from 'react-usedatum';
 import { AppImage, Rect } from 'renderer/shared/AppTypes';
 import {
   N_IMAGE,
-  N_IMAGE_FRAMES,
   N_VIDEO_FILE,
   N_VIDEO_DIR,
   N_TIMEZONE,
-  N_CLICKER_WAYPOINT,
 } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
 
@@ -79,14 +77,12 @@ interface VideoSettings {
   timingHintSource: string;
   guides: GuideLine[];
   laneBelowGuide: boolean;
-  travelRtoL: boolean;
   videoPanel: boolean;
 }
 export const [useVideoSettings, , getVideoSettings] =
   UseStoredDatum<VideoSettings>('videoSettings', {
     timingHintSource: 'F',
     laneBelowGuide: false,
-    travelRtoL: false,
     videoPanel: true,
     guides: [
       { dir: Dir.Vert, pt1: 0, pt2: 0, label: 'Finish', enabled: true },
@@ -129,9 +125,3 @@ export const [useImage, setImage, getImage] = UseMemDatum<AppImage>(N_IMAGE, {
   fileStartTime: 0,
   fileEndTime: 0,
 });
-
-export const [useNumFrames] = UseMemDatum(N_IMAGE_FRAMES, 1);
-export const [useClickerWaypoint, , getClickerWaypoint] = UseMemDatum(
-  N_CLICKER_WAYPOINT,
-  'Finish'
-);

@@ -498,12 +498,9 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
     }
   };
 
-  let eventHeader = '';
-  if (activeEvent) {
-    eventHeader = `${activeEvent.Event}${
-      activeEvent.Start ? ` (${activeEvent.Start})` : ''
-    }`;
-  }
+  const activeEventIndex = filteredEvents.findIndex(
+    (event) => event.EventNum === selectedEvent
+  );
 
   return (
     <Paper
@@ -523,6 +520,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
       </Stack>
       <Stack direction="row" alignItems="center">
         <Button
+          disabled={activeEventIndex === 0}
           variant="contained"
           onClick={prevEvent}
           size="small"
@@ -563,6 +561,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
           </Select>
         </FormControl>
         <Button
+          disabled={activeEventIndex === filteredEvents.length - 1}
           variant="contained"
           onClick={nextEvent}
           size="small"
@@ -576,16 +575,6 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
         </Button>
       </Stack>
       <ContextMenu />
-      {/* <Typography
-        sx={{
-          paddingLeft: '0.5em',
-          fontSize: timingFontSize,
-          color: 'white',
-          backgroundColor: '#556cd6',
-        }}
-      >
-        {eventHeader}
-      </Typography> */}
       <div style={{ flexGrow: 'auto' }}>
         <DataGrid
           columns={columns}
@@ -593,7 +582,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
           onCellClick={onRowClick}
           rowHeight={24}
           rowClass={(row) => (row.eventName ? classes.row : undefined)}
-          style={{ height: height - 150 }}
+          style={{ height: height - 138 }}
         />
       </div>
     </Paper>

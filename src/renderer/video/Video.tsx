@@ -104,12 +104,12 @@ const moveToFrame = (frameNum: number) => {
 
 const moveRight = () => {
   const prev = getVideoFrameNum();
-  const frameNum = prev + (getVideoSettings().travelRtoL ? -1 : 1);
+  const frameNum = prev + 1;
   moveToFrame(frameNum);
 };
 const moveLeft = () => {
   const prev = getVideoFrameNum();
-  const frameNum = prev - +(getVideoSettings().travelRtoL ? -1 : 1);
+  const frameNum = prev - 1;
   moveToFrame(frameNum);
 };
 
@@ -155,9 +155,7 @@ const VideoScrubber = () => {
 
   const handleSlider = (_event: Event, value: number | number[]) => {
     let newValue = value as number;
-    if (getVideoSettings().travelRtoL) {
-      newValue = numFrames - newValue + 1;
-    }
+
     setVideoFrameNum(newValue);
     requestVideoFrame({ videoFile, frameNum: newValue });
   };
@@ -171,9 +169,7 @@ const VideoScrubber = () => {
     return { startTime, endTime };
   }, [image.fileStartTime, image.fileEndTime, timezoneOffset]);
 
-  const sliderValue = getVideoSettings().travelRtoL
-    ? numFrames - videoFrameNum + 1
-    : videoFrameNum;
+  const sliderValue = videoFrameNum;
   return (
     <Stack
       direction="row"
@@ -201,7 +197,7 @@ const VideoScrubber = () => {
         sx={{
           position: 'relative',
           width: '100%',
-          height: '50px',
+          height: '40px',
           marginLeft: '1em',
           marginRight: '1em',
         }}
@@ -895,16 +891,16 @@ const Video = () => {
                 <Stack direction="row" sx={{ flexGrow: 1 }}>
                   {enableVideoTiming && (
                     <TimingSidebar
-                      height={height - 40}
+                      height={height}
                       sx={{
                         width: timingSidebarwidth,
-                        height: height - 40,
+                        height: height,
                       }}
                     />
                   )}
                   {videoSettings.videoPanel && (
                     <VideoSideBar
-                      height={height - 40}
+                      height={height}
                       sx={{
                         width: videoSidebarWidth,
                       }}

@@ -7,6 +7,7 @@ import Nav from './Nav';
 import StatusMonitor from './StatusMonitor';
 import { ConfirmDialog } from './util/ConfirmDialog';
 import { setInitializing } from './util/UseSettings';
+import VideoDataMonitor from './video/VideoDataMonitor';
 import FileMonitor from './video/VideoFileUtils';
 import { triggerFileSplit } from './video/VideoUtils';
 
@@ -68,7 +69,9 @@ export default function App() {
 
       <ConfirmDialog />
       <StatusMonitor />
+
       <FileMonitor />
+      <VideoDataMonitor />
     </Router>
   );
 }

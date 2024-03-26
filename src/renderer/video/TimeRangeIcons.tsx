@@ -15,11 +15,13 @@ export type TimeObject = {
  * @param times - An array of time objects.
  * @param startTime - The start time in HH:MM:SS.sss format for the range.
  * @param endTime - The end time in HH:MM:SS.sss format for the range.
+ * @param showBeyondRange - Whether to show icons for times outside the start and end times.
  */
 type TimeRangeIconsProps = {
   times: TimeObject[];
   startTime: string;
   endTime: string;
+  showBeyondRange?: boolean;
 };
 
 /**
@@ -32,30 +34,45 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
   times,
   startTime,
   endTime,
+  showBeyondRange,
 }) => {
   const startSeconds = parseTimeToSeconds(startTime);
   const endSeconds = parseTimeToSeconds(endTime);
 
   // Filter times to only include those within the start and end times.
-  const validTimes = times.filter((timeObj) => {
-    const timeSeconds = parseTimeToSeconds(timeObj.Time);
-    return timeSeconds >= startSeconds && timeSeconds <= endSeconds;
-  });
+  const validTimes = showBeyondRange
+    ? times
+    : times.filter((timeObj) => {
+        const timeSeconds = parseTimeToSeconds(timeObj.Time);
+        return timeSeconds >= startSeconds && timeSeconds <= endSeconds;
+      });
 
   return (
     <Box
       sx={{
         width: '100%',
         position: 'relative',
-        height: '50px',
-        backgroundColor: '#f0f0f0',
+        height: '40px',
       }}
     >
       {validTimes.map((timeObj, index) => {
         const timeSeconds = parseTimeToSeconds(timeObj.Time);
         const totalDuration = endSeconds - startSeconds;
-        const relativePosition =
+        let relativePosition =
           ((timeSeconds - startSeconds) / totalDuration) * 100;
+
+        let color = '#d2122e';
+        if (showBeyondRange) {
+          color = '#d2122e80';
+        }
+
+        if (relativePosition < 0 || relativePosition > 100) {
+          if (!showBeyondRange) {
+            return <></>;
+          }
+          color = 'blue';
+          relativePosition = Math.max(0, Math.min(100, relativePosition));
+        }
 
         return (
           <Box
@@ -67,7 +84,7 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
               transform: 'translate(-50%, -50%)',
               fontSize: '10px',
               height: '10px',
-              color: 'red',
+              color: { color },
             }}
             onClick={() => console.log(`click at ${timeObj.Time}`)}
           >

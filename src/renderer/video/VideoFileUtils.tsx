@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { UseDatum } from 'react-usedatum';
 import { AppImage } from 'renderer/shared/AppTypes';
-import { useInitializing } from 'renderer/util/UseSettings';
+import { useEnableVideo, useInitializing } from 'renderer/util/UseSettings';
 import {
   getImage,
   getVideoFile,
@@ -275,9 +275,10 @@ export const refreshDirList = async (videoDir: string) => {
 const FileMonitor: React.FC = () => {
   const [videoDir] = useVideoDir();
   const [initializing] = useInitializing();
+  const [enableVideo] = useEnableVideo();
 
   useEffect(() => {
-    if (initializing) {
+    if (initializing || !enableVideo) {
       return;
     }
     refreshDirList(videoDir);

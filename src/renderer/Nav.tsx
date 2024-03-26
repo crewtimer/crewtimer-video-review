@@ -37,7 +37,7 @@ import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
 import InfoIcon from '@mui/icons-material/Info';
 import DebugIcon from '@mui/icons-material/BugReport';
 
-const AboutText = `CrewTimer Connect v1.0.12-beta.13`;
+const AboutText = `CrewTimer Connect v1.0.12-beta.14`;
 
 const { LapStorage } = window;
 
