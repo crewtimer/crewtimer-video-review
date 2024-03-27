@@ -38,6 +38,7 @@ import { UseDatum } from 'react-usedatum';
 import { requestVideoFrame } from './VideoFileUtils';
 import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
 import { useClickerData } from './UseClickerData';
+import { setToast } from 'renderer/Toast';
 
 const useStyles = makeStyles({
   text: {
@@ -87,8 +88,7 @@ interface ZoomState {
   imageScale: number;
   imageLoaded: boolean;
   scale: number;
-  calPointLeft: CalPoint;
-  calPointRight: CalPoint;
+  calPoints: CalPoint[];
 }
 
 const moveToFrame = (frameNum: number) => {
@@ -289,8 +289,10 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     isZooming: false,
     initialPinchDistance: 0,
     initialPinchRange: { min: 0, max: 100 },
-    calPointLeft: { ts: 0, px: 0, scale: 1 },
-    calPointRight: { ts: 0, px: 0, scale: 1 },
+    calPoints: [
+      { ts: 0, px: 0, scale: 1 },
+      { ts: 0, px: 0, scale: 1 },
+    ],
   });
 
   holdoffChanges.current = image.file !== videoFile; // || activeVideoFile.current !== videoFile;
@@ -310,8 +312,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     mouseTracking.current.mouseDown = false;
     mouseTracking.current.isPinching = false;
     mouseTracking.current.isZooming = false;
-    mouseTracking.current.calPointLeft.ts = 0;
-    mouseTracking.current.calPointRight.ts = 0;
+    mouseTracking.current.calPoints[0].ts = 0;
+    mouseTracking.current.calPoints[1].ts = 0;
 
     mouseTracking.current.zoomWindow = {
       x: 0,
@@ -408,12 +410,12 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           );
 
           // Draw measurement markers
-          if (mouseTracking.current.calPointLeft.ts !== 0) {
+          if (mouseTracking.current.calPoints[0].ts !== 0) {
             const x =
               canvas.width / 2 +
-              (mouseTracking.current.calPointLeft.px *
+              (mouseTracking.current.calPoints[0].px *
                 mouseTracking.current.scale) /
-                mouseTracking.current.calPointLeft.scale;
+                mouseTracking.current.calPoints[0].scale;
             ctx.beginPath();
             ctx.moveTo(x, 0);
             ctx.lineTo(x, destHeight);
@@ -421,12 +423,12 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             ctx.lineWidth = 1;
             ctx.stroke();
           }
-          if (mouseTracking.current.calPointRight.ts !== 0) {
+          if (mouseTracking.current.calPoints[1].ts !== 0) {
             const x =
               canvas.width / 2 +
-              (mouseTracking.current.calPointRight.px *
+              (mouseTracking.current.calPoints[1].px *
                 mouseTracking.current.scale) /
-                mouseTracking.current.calPointRight.scale;
+                mouseTracking.current.calPoints[1].scale;
             ctx.beginPath();
             ctx.moveTo(x, 0);
             ctx.lineTo(x, destHeight);
@@ -516,21 +518,35 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
     event.preventDefault();
 
-    const { calPointLeft, calPointRight } = mouseTracking.current;
-    const calPoint = mousePositionX < 0 ? calPointLeft : calPointRight;
+    const { calPoints } = mouseTracking.current;
+    let calPoint = calPoints[1];
+    if (Math.abs(mousePositionX - calPoints[1].px) < 30) {
+      // close to point 1, replace it
+    } else {
+      calPoints[0] = { ...calPoints[1] }; // shift and replace
+    }
 
     calPoint.ts = image.timestamp;
     calPoint.px = mousePositionX;
     calPoint.scale = mouseTracking.current.scale;
-    if (calPointLeft.ts && calPointRight.ts) {
-      const deltaT = calPointRight.ts - calPointLeft.ts;
+    if (calPoints[0].ts && calPoints[1].ts) {
+      let { pt1, pt2 } = getVideoSettings().guides[0];
+      const zoomWindow = mouseTracking.current.zoomWindow;
+      const finyPct = (zoomWindow.y + zoomWindow.height / 2) / image.height;
+      const finx = (destWidth / image.width) * (pt1 + (pt2 - pt1) * finyPct);
+      const deltaT = calPoints[1].ts - calPoints[0].ts;
       const deltaPx =
-        calPointRight.px * calPointRight.scale -
-        calPointLeft.px * calPointLeft.scale;
+        calPoints[1].px * calPoints[1].scale -
+        calPoints[0].px * calPoints[0].scale;
       const t = Math.round(
-        calPointLeft.ts +
-          ((-calPointLeft.px * calPointLeft.scale) / deltaPx) * deltaT
+        calPoints[0].ts +
+          ((-(calPoints[0].px - finx) * calPoints[0].scale) / deltaPx) * deltaT
       );
+
+      setToast({
+        severity: 'info',
+        msg: `px=${calPoints[1].px - calPoints[0].px}, dt=${deltaT}, t=${t}`,
+      });
       setComputedTime(t);
       storeComputedTime(t);
     }
@@ -630,6 +646,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         width: Math.min(image.width, newWidth),
         height: Math.min(image.height, newHeight),
       };
+      mouseTracking.current.calPoints[0].ts = 0;
+      mouseTracking.current.calPoints[1].ts = 0;
 
       setZoomWindow(mouseTracking.current.zoomWindow);
       // console.log(JSON.stringify(mouseTracking.current, null, 2));
@@ -691,7 +709,14 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
     const delta =
       Math.sign(event.deltaY) *
-      Math.max(1, Math.trunc(Math.abs(event.deltaY / getMouseWheelFactor())));
+      Math.max(
+        1,
+        Math.trunc(
+          Math.abs(
+            event.deltaY / getMouseWheelFactor() / mouseTracking.current.scale
+          )
+        )
+      );
     moveToFrame(getVideoFrameNum() + delta);
   }, []);
 
@@ -783,8 +808,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             <div style={{ flex: 1 }} />
           </Stack>
           {computedTime
-            ? mouseTracking.current.calPointLeft.ts &&
-              mouseTracking.current.calPointRight.ts && (
+            ? mouseTracking.current.calPoints[0].ts &&
+              mouseTracking.current.calPoints[1].ts && (
                 <Typography
                   className={classes.computedtext}
                   align="center"
