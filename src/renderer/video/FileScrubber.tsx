@@ -62,10 +62,10 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
         setVideoFile(videoFile);
         requestVideoFrame({
           videoFile: videoFile,
-          seekToEnd: true,
+          seekToEnd: false,
         });
       }
-    }, 400);
+    }, 1200);
   };
 
   let prevStartTime = '00:00:00';

@@ -543,10 +543,10 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           ((-(calPoints[0].px - finx) * calPoints[0].scale) / deltaPx) * deltaT
       );
 
-      setToast({
-        severity: 'info',
-        msg: `px=${calPoints[1].px - calPoints[0].px}, dt=${deltaT}, t=${t}`,
-      });
+      // setToast({
+      //   severity: 'info',
+      //   msg: `px=${calPoints[1].px - calPoints[0].px}, dt=${deltaT}, t=${t}`,
+      // });
       setComputedTime(t);
       storeComputedTime(t);
     }
@@ -845,7 +845,7 @@ const Video = () => {
   const [{ top }, setDimensions] = useState({ top: 170, width: 1, height: 1 });
   const [videoSettings] = useVideoSettings();
   const [enableVideoTiming] = useEnableVideoTiming();
-  const videoSidebarWidth = videoSettings.videoPanel ? 150 : 0;
+  const videoSidebarWidth = videoSettings.videoPanel ? 170 : 0; // enough for '20240308_123248.mp4'
   const timingSidebarwidth = enableVideoTiming ? 300 : 0;
   const sidebarWidth = Math.max(60, videoSidebarWidth + timingSidebarwidth);
   const [{ winWidth, winHeight }, setWindowSize] = useWindowSize();
@@ -916,6 +916,7 @@ const Video = () => {
                   {enableVideoTiming && (
                     <TimingSidebar
                       height={height}
+                      width={timingSidebarwidth}
                       sx={{
                         width: timingSidebarwidth,
                         height: height,

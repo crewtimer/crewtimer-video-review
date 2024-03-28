@@ -153,41 +153,46 @@ export const RenderHeaderCell: React.FC<RenderHeaderCellProps<RowType>> = ({
     </Typography>
   );
 };
-const columns: readonly Column<RowType>[] = [
-  {
-    key: 'label',
-    name: 'Entry',
-    renderHeaderCell: RenderHeaderCell,
-    renderCell: ({ row }) => {
-      return (
-        <Typography
-          sx={
-            row.eventName
-              ? {
-                  color: 'white',
-                  paddingLeft: '0.5em',
-                  fontSize: timingFontSize,
-                  lineHeight: '24px',
-                }
-              : {
-                  paddingLeft: '0.5em',
-                  fontSize: timingFontSize,
-                  lineHeight: '24px',
-                }
-          }
-        >
-          {row.label}
-        </Typography>
-      );
+const columns = (width: number): readonly Column<RowType>[] => {
+  const col2Width = 80 + 14 + 16;
+  const col1Width = width - col2Width - 20;
+  return [
+    {
+      key: 'label',
+      name: 'Entry',
+      width: col1Width,
+      renderHeaderCell: RenderHeaderCell,
+      renderCell: ({ row }: { row: RowType }) => {
+        return (
+          <Typography
+            sx={
+              row.eventName
+                ? {
+                    color: 'white',
+                    paddingLeft: '0.5em',
+                    fontSize: timingFontSize,
+                    lineHeight: '24px',
+                  }
+                : {
+                    paddingLeft: '0.5em',
+                    fontSize: timingFontSize,
+                    lineHeight: '24px',
+                  }
+            }
+          >
+            {row.label}
+          </Typography>
+        );
+      },
     },
-  },
-  {
-    key: 'ts',
-    name: 'Time',
-    width: 80 + 14 + 16,
-    renderCell: TimestampCol,
-  },
-];
+    {
+      key: 'ts',
+      name: 'Time',
+      width: col2Width,
+      renderCell: TimestampCol,
+    },
+  ];
+};
 
 //
 const VideoTimestamp: React.FC = () => {
@@ -393,11 +398,12 @@ const generateEventRows = (
   return rows;
 };
 interface MyComponentProps {
+  width: number;
   height: number;
   sx?: SxProps<Theme>;
 }
 
-const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
+const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   const classes = useStyles();
   const [mobileConfig] = useMobileConfig();
   const [day] = useDay();
@@ -435,6 +441,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
   const combined = mobileConfig?.info?.CombinedRaces || '{}';
   const combinedRaces = JSON.parse(combined) as KeyMap<string[]>;
   const combinedList = combinedRaces[selectedEvent] || [selectedEvent];
+  const columnConfig = useMemo(() => columns(width), []);
   const activeEvents: Event[] = [];
   combinedList.forEach((eventNum) => {
     const event = filteredEvents.find((event) => event.EventNum === eventNum);
@@ -577,7 +584,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height }) => {
       <ContextMenu />
       <div style={{ flexGrow: 'auto' }}>
         <DataGrid
-          columns={columns}
+          columns={columnConfig}
           rows={activeEventRows}
           onCellClick={onRowClick}
           rowHeight={24}

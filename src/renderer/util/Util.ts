@@ -1,6 +1,7 @@
 import { KeyMap } from 'crewtimer-common';
 
 export function gateFromWaypoint(waypoint: string) {
+  waypoint = waypoint || '';
   let gate = waypoint.replace(/^Start$/, 'S').replace(/^Finish$/, 'F');
   if (gate !== 'S' && gate !== 'F') {
     gate = `G_${gate}`;

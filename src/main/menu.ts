@@ -136,6 +136,20 @@ export default class MenuBuilder {
             this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
           },
         },
+        {
+          label: 'Toggle Developer Tools',
+          accelerator: 'Alt+Command+I',
+          click: () => {
+            this.mainWindow.webContents.toggleDevTools();
+          },
+        },
+        {
+          label: 'Reload',
+          accelerator: 'Command+R',
+          click: () => {
+            this.mainWindow.webContents.reload();
+          },
+        },
       ],
     };
     const subMenuWindow: DarwinMenuItemConstructorOptions = {
