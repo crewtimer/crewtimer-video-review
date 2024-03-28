@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { UseStoredDatum } from './store/UseElectronDatum';
+import { setToast } from './Toast';
 import {
   clearEntryResults,
   getLaps,
@@ -11,6 +13,9 @@ import {
   useMobileConfig,
   useMobileConfigCount,
 } from './util/UseSettings';
+const { LapStorage } = window;
+
+const [, setLastClearTS, getLastClearTS] = UseStoredDatum('LastClearTS', 0);
 
 export default function StatusMonitor() {
   const [mc] = useMobileConfig();
@@ -24,6 +29,19 @@ export default function StatusMonitor() {
       window.FinishLynx.generateEvtFiles();
     }
   }, [lynxFolder, lynxFolderOK, mc, mcChangeCount]);
+
+  useEffect(() => {
+    const clearTS = mc?.info.ClearTS || 0;
+    const lastClearTS = getLastClearTS();
+    if (lastClearTS && lastClearTS !== clearTS) {
+      if (lastClearTS !== -1) {
+        setToast({ severity: 'info', msg: 'Cloud reset of regatta data' });
+      }
+      LapStorage.truncateLapTable();
+    }
+    setLastClearTS(clearTS);
+    clearEntryResults(undefined);
+  }, [mc?.info.ClearTS || 0]);
 
   useEffect(() => {
     const laps = getLaps();

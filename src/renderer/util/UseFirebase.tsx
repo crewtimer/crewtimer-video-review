@@ -46,9 +46,7 @@ function firebaseSubscribe<T, P>(
   const database = firebasedb(mobileID);
   const rxResults = (snapshot: DataSnapshot) => {
     const val = snapshot.val();
-    if (val) {
-      onDataRx(val === null ? undefined : val);
-    }
+    onDataRx(val === null ? undefined : val);
   };
 
   const dataRef = ref(database, path);
