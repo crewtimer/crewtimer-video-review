@@ -9,7 +9,12 @@ import {
 import { gateFromWaypoint, getConnectionProps } from 'renderer/util/Util';
 import { useVideoSettings } from './VideoSettings';
 
-const onDataRx = (lapdata: KeyMap<Lap> | undefined): Lap[] => {
+/**
+ * This function transforms data received by firebase into a more easily usable format.
+ * @param lapdata
+ * @returns Lap[]
+ */
+const onDataRxTransformer = (lapdata: KeyMap<Lap> | undefined): Lap[] => {
   if (lapdata) {
     let filteredEvents = getMobileConfig()?.eventList || [];
 
@@ -50,7 +55,7 @@ export const useClickerData = () => {
 
   const lapdata = useFirebaseDatum<KeyMap<Lap>, Lap[]>(path, {
     filter: { key: 'Gate', value: gate },
-    dataTransformer: onDataRx,
+    dataTransformer: onDataRxTransformer,
     changeKey: day,
   });
 
