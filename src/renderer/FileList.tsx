@@ -8,8 +8,10 @@ import DataGrid, {
   DataGridHandle,
 } from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
-import { Box, Tooltip } from '@mui/material';
+import { Box, Menu, MenuItem, Tooltip } from '@mui/material';
 import { useRef } from 'react';
+import { setDialogConfig } from './util/ConfirmDialog';
+import { UseDatum } from 'react-usedatum';
 
 interface FileListProps {
   height: number;
@@ -35,6 +37,53 @@ const HeaderRenderer: React.FC<{
     <div {...restOfProps} style={{ fontSize: 12 }}>
       {column.name}
     </div>
+  );
+};
+const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
+  element: Element;
+  row: FileInfo;
+} | null>(null);
+
+const ContextMenu: React.FC = () => {
+  const [anchorEl] = useContextMenuAnchor();
+  const handleClose = () => {
+    setContextMenuAnchor(null);
+  };
+  const onDelete = () => {
+    handleClose();
+    const row = anchorEl?.row;
+    const filename = row?.filename;
+    if (!filename) {
+      return;
+    }
+    setDialogConfig({
+      title: 'Delete File',
+      message: `Permanently delete '${row.filename}'?`,
+      button: 'Delete',
+      showCancel: true,
+      handleConfirm: () => {
+        window.Util.deleteFile(row.filename);
+      },
+    });
+  };
+  return (
+    <Menu
+      id="row-context-menu"
+      anchorEl={anchorEl?.element}
+      anchorOrigin={{
+        vertical: 'top',
+        horizontal: 'right',
+      }}
+      keepMounted
+      transformOrigin={{
+        vertical: 'top',
+        horizontal: 'right',
+      }}
+      open={anchorEl !== null}
+      onClose={handleClose}
+    >
+      <MenuItem onClick={onDelete}>Delete</MenuItem>
+    </Menu>
   );
 };
 const FileList: React.FC<FileListProps> = ({ files, height }) => {
@@ -102,26 +151,42 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
   const handleClick = React.useCallback(
     (args: CellClickArgs<FileInfo, unknown>, event: CellMouseEvent) => {
       event.preventGridDefault();
+      event.preventDefault();
       const index = args.row.id;
       setSelectedIndex(index);
-      setVideoFile(dispItems[index]?.filename);
-      requestVideoFrame({ videoFile: dispItems[index]?.filename, frameNum: 1 });
+      const filename = dispItems[index]?.filename || 'Unkown';
+      setVideoFile(filename);
+      requestVideoFrame({ videoFile: filename, frameNum: 1 });
       // dataGridRef.current?.scrollToCell({ rowIdx: index, idx: 0 });
     },
     [dispItems]
   );
 
+  const handleContextMenu = React.useCallback(
+    (args: CellClickArgs<FileInfo, unknown>, event: CellMouseEvent) => {
+      console.log('context');
+      event.preventGridDefault();
+      event.preventDefault();
+      setContextMenuAnchor({ element: event.currentTarget, row: args.row });
+    },
+    []
+  );
+
   return (
-    <DataGrid<FileInfo>
-      ref={dataGridRef}
-      style={{ height: height }}
-      rowHeight={30}
-      columns={columns}
-      rows={dispItems}
-      rowKeyGetter={rowKeyGetter}
-      onCellClick={handleClick}
-      onCellDoubleClick={handleClick}
-    />
+    <>
+      <ContextMenu />
+      <DataGrid<FileInfo>
+        ref={dataGridRef}
+        style={{ height: height }}
+        rowHeight={30}
+        columns={columns}
+        rows={dispItems}
+        rowKeyGetter={rowKeyGetter}
+        onCellClick={handleClick}
+        onCellDoubleClick={handleClick}
+        onCellContextMenu={handleContextMenu}
+      />
+    </>
   );
 };
 

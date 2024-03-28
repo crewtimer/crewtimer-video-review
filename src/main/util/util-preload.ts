@@ -4,6 +4,11 @@
  * Add ```import './util/util-preload';``` to preload.ts to integrate with main
  */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
+
+export interface CloseFileReturn {
+  error: string;
+}
+
 export interface OpenFileReturn {
   cancelled: boolean;
   filePath: string;
@@ -25,6 +30,15 @@ export function openFileDialog(): Promise<OpenFileReturn> {
       .invoke('open-file-dialog')
       .then((result) => resolve(result))
       .catch((_err) => resolve({ cancelled: true, filePath: '' }));
+  });
+}
+
+export function deleteFile(filename: string): Promise<CloseFileReturn> {
+  return new Promise((resolve, _reject) => {
+    ipcRenderer
+      .invoke('delete-file', filename)
+      .then((result) => resolve(result))
+      .catch((err) => resolve({ error: String(err) }));
   });
 }
 
@@ -61,4 +75,5 @@ contextBridge.exposeInMainWorld('Util', {
   getFilesInDirectory,
   openFileDialog,
   openDirDialog,
+  deleteFile,
 });

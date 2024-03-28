@@ -3,6 +3,18 @@ import { BrowserWindow, dialog, ipcMain } from 'electron';
 
 const fs = require('fs');
 
+ipcMain.handle('delete-file', async (_event, filename) => {
+  return new Promise((resolve, _reject) => {
+    fs.unlink(filename, (err: NodeJS.ErrnoException | null) => {
+      if (err) {
+        resolve({ error: err.message });
+      } else {
+        resolve({ error: '' });
+      }
+    });
+  });
+});
+
 ipcMain.handle('open-file-dialog', async (_event) => {
   let result = await dialog.showOpenDialog(getMainWindow() as BrowserWindow, {
     properties: ['openFile'],
