@@ -81,7 +81,7 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
           startSeconds < rangeStartSeconds ||
           startSeconds > rangeEndSeconds
         ) {
-          return <></>;
+          return <div key={`${index}`}></div>;
         }
         const endSeconds = parseTimeToSeconds(segment.endTime);
         const segmentDuration = endSeconds - startSeconds;
@@ -91,29 +91,27 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
         lastEndSeconds = endSeconds;
 
         return (
-          <Box
+          <Tooltip
             key={`${index}`}
-            onClick={() => handleSegmentClick(index)}
-            sx={{
-              width: `${widthPercent}%`,
-              marginLeft: `${marginLeftPercent}%`,
-              backgroundColor:
-                index === activeIndex ? '#556cd680' : '#19857b40',
-              borderRight: '1px solid',
-              borderLeft: '1px solid',
-              paddingLeft: '-1px',
-              paddingRight: '-px',
-              minWidth: '2px',
-              cursor: 'pointer',
-            }}
+            title={`${segment.label} ${segment.startTime} - ${segment.endTime}`}
+            enterTouchDelay={0}
           >
-            <Tooltip
-              title={`${segment.label} ${segment.startTime} - ${segment.endTime}`}
-              enterTouchDelay={0}
-            >
-              <Box sx={{ width: '100%', height: '100%' }} />
-            </Tooltip>
-          </Box>
+            <Box
+              onClick={() => handleSegmentClick(index)}
+              sx={{
+                width: `${widthPercent}%`,
+                marginLeft: `${marginLeftPercent}%`,
+                backgroundColor:
+                  index === activeIndex ? '#556cd680' : '#19857b40',
+                borderRight: '1px solid',
+                borderLeft: '1px solid',
+                paddingLeft: '-1px',
+                paddingRight: '-px',
+                minWidth: '2px',
+                cursor: 'pointer',
+              }}
+            />
+          </Tooltip>
         );
       })}
     </Box>

@@ -37,7 +37,6 @@ import {
   useWaypoint,
 } from 'renderer/util/UseSettings';
 import {
-  dumpEntryResults,
   getEntryResult,
   setEntryResult,
   useEntryResult,
@@ -329,7 +328,6 @@ const ContextMenu: React.FC = () => {
     setContextMenuAnchor(null);
   };
   const onDelete = () => {
-    dumpEntryResults();
     handleClose();
     const row = anchorEl?.row;
     if (!row || !row.entry) {
