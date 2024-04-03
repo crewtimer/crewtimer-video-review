@@ -20,6 +20,11 @@ declare global {
       getFilesInDirectory(dirPath: string): Promise<DirListReturn>;
       deleteFile(filename: string): Promise<CloseFileReturn>;
     };
+    platform: {
+      platform: string;
+      pathSeparator: string;
+      appVersion: string;
+    };
   }
 }
 

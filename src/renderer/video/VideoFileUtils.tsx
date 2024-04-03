@@ -250,7 +250,9 @@ export const refreshDirList = async (videoDir: string) => {
               sensitivity: 'base',
             });
           });
-          const dirList = files.map((file) => `${videoDir}/${file}`);
+          const dirList = files.map(
+            (file) => `${videoDir}${window.platform.pathSeparator}${file}`
+          );
           setDirList(dirList);
           const needImage = getImage().file === '';
           if (needImage && dirList.includes(getVideoFile())) {

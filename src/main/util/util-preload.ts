@@ -4,6 +4,7 @@
  * Add ```import './util/util-preload';``` to preload.ts to integrate with main
  */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
+const path = require('path');
 
 export interface CloseFileReturn {
   error: string;
@@ -76,4 +77,10 @@ contextBridge.exposeInMainWorld('Util', {
   openFileDialog,
   openDirDialog,
   deleteFile,
+});
+
+contextBridge.exposeInMainWorld('platform', {
+  platform: process.platform,
+  pathSeparator: path.sep,
+  appVersion: require('../../../release/app/package.json').version,
 });

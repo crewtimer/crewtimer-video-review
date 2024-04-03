@@ -12,6 +12,7 @@ import { Box, Menu, MenuItem, Tooltip } from '@mui/material';
 import { useRef } from 'react';
 import { setDialogConfig } from './util/ConfirmDialog';
 import { UseDatum } from 'react-usedatum';
+import { showErrorDialog } from './util/ErrorDialog';
 
 interface FileListProps {
   height: number;
@@ -62,7 +63,9 @@ const ContextMenu: React.FC = () => {
       button: 'Delete',
       showCancel: true,
       handleConfirm: () => {
-        window.Util.deleteFile(row.filename);
+        window.Util.deleteFile(row.filename)
+          .then((result) => result.error && showErrorDialog(result.error))
+          .catch((e) => showErrorDialog(e));
       },
     });
   };
@@ -120,7 +123,7 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
       name: 'Filename',
       renderHeaderCell: HeaderRenderer,
       renderCell: ({ row, rowIdx }: { row: FileInfo; rowIdx: number }) => {
-        const filename = row.filename.replace(/.*\//, '');
+        const filename = row.filename.replace(/.*[\/\\]/, '');
         return (
           <Box
             sx={

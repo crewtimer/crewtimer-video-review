@@ -1,6 +1,6 @@
 {
   "name": "crewtimer-fl-connector",
-  "version": "1.0.12-beta.14",
+  "version": "1.0.12-beta.18",
   "description": "CrewTimer connector for video review and timing as well as FinishLynx integration for timing.",
   "license": "MIT",
   "author": {
