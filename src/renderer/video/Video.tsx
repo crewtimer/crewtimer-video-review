@@ -27,10 +27,17 @@ import {
   useVideoFrameNum,
   useVideoSettings,
 } from './VideoSettings';
-import VideoOverlay, { useAdjustingOverlay, useNearEdge } from './VideoOverlay';
+import VideoOverlay, {
+  useAdjustingOverlay,
+  useNearEdge,
+  VideoOverlayHandles,
+} from './VideoOverlay';
 import { Rect } from 'renderer/shared/AppTypes';
 import TimingSidebar from './TimingSidebar';
-import { findClosestLineAndPosition } from './VideoUtils';
+import {
+  downloadImageFromCanvasLayers,
+  findClosestLineAndPosition,
+} from './VideoUtils';
 import { useEnableVideoTiming } from 'renderer/util/UseSettings';
 import FileScrubber, { nextFile, prevFile } from './FileScrubber';
 import Measure from 'react-measure';
@@ -38,7 +45,7 @@ import { UseDatum } from 'react-usedatum';
 import { requestVideoFrame } from './VideoFileUtils';
 import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
 import { useClickerData } from './UseClickerData';
-import { setToast } from 'renderer/Toast';
+import ImageButton, { setGenerateImageSnapshotCallback } from './ImageButton';
 
 const useStyles = makeStyles({
   text: {
@@ -257,6 +264,7 @@ const VideoScrubber = () => {
       >
         &gt;
       </Button>
+      <ImageButton />
     </Stack>
   );
 };
@@ -300,6 +308,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const infoRowHeight = 0; // 40;
   height = height - infoRowHeight;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoOverlayRef = useRef<VideoOverlayHandles>(null);
   const offscreenCanvas = useRef(document.createElement('canvas'));
 
   const setScale = useCallback((scale: number) => {
@@ -370,7 +379,23 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   mouseTracking.current.imageScale = imgScale;
 
-  const xPadding = (width - destWidth) / 2;
+  const xPadding = Math.round((width - destWidth) / 2);
+
+  useEffect(() => {
+    // A bit of a hack but set a global callback function instead of passing it down the tree
+    setGenerateImageSnapshotCallback(() => {
+      downloadImageFromCanvasLayers(
+        // 'video-snapshot.png',
+        `Image_${videoTimestamp}.png`,
+        [canvasRef.current, videoOverlayRef.current?.getCanvas()],
+        xPadding,
+        0,
+        destWidth,
+        destHeight
+      );
+    });
+    return () => setGenerateImageSnapshotCallback(undefined);
+  }, [xPadding, destWidth, destHeight]);
 
   const drawContent = useDebouncedCallback(() => {
     if (mouseTracking.current.imageLoaded && canvasRef?.current) {
@@ -723,6 +748,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   useEffect(() => {
     window.removeEventListener('keydown', handleKeyDown);
     window.addEventListener('keydown', handleKeyDown);
+
     // Cleanup the keydown listener on unmount
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -829,6 +855,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           }}
         />
         <VideoOverlay
+          ref={videoOverlayRef}
           width={width}
           height={height}
           destHeight={destHeight}

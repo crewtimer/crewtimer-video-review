@@ -228,3 +228,77 @@ export function formatSecondsAsTime(secondsInput: number): string {
 
   return `${paddedHours}:${paddedMinutes}:${paddedSeconds}`;
 }
+
+function combineCanvasLayers(
+  layers: (HTMLCanvasElement | null | undefined)[],
+  xOffset: number,
+  yOffset: number,
+  width: number,
+  height: number
+): HTMLCanvasElement {
+  const combinedCanvas = document.createElement('canvas');
+  const context = combinedCanvas.getContext('2d');
+
+  if (!context) throw new Error('Failed to get canvas context');
+
+  // Set the dimensions of the combined canvas to match the specified width and height
+  combinedCanvas.width = width;
+  combinedCanvas.height = height;
+
+  // Draw the specified area of each layer onto the combined canvas
+  layers.forEach((layer) => {
+    // Adjusted to draw only the specified part of the source canvas
+    if (layer) {
+      context.drawImage(
+        layer,
+        xOffset,
+        yOffset,
+        width,
+        height,
+        0,
+        0,
+        width,
+        height
+      );
+      // context.drawImage(layer, 0, 0);
+    }
+  });
+
+  return combinedCanvas;
+}
+
+export function downloadCanvasImage(
+  combinedCanvas: HTMLCanvasElement,
+  filename: string = 'screenshot.png'
+): void {
+  // Create an 'a' element for the download
+  const link = document.createElement('a');
+  link.download = filename;
+
+  // Convert the canvas to a data URL and set it as the link's href
+  link.href = combinedCanvas.toDataURL('image/png');
+
+  // Trigger the download
+  document.body.appendChild(link); // Append link to body temporarily to make it work on Firefox
+  link.click();
+  document.body.removeChild(link); // Remove the link when done
+}
+
+export const downloadImageFromCanvasLayers = (
+  filename: string,
+  layers: (HTMLCanvasElement | null | undefined)[],
+  xOffset: number,
+  yOffset: number,
+  width: number,
+  height: number
+) => {
+  // Combine the layers and initiate the download
+  const combinedCanvas = combineCanvasLayers(
+    layers,
+    xOffset,
+    yOffset,
+    width,
+    height
+  );
+  downloadCanvasImage(combinedCanvas, filename);
+};
