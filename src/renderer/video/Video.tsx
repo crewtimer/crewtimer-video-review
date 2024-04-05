@@ -149,10 +149,6 @@ const VideoScrubber = () => {
   const videoFileChanging = lastVideoFile.current !== image.file;
   lastVideoFile.current = image.file;
 
-  // console.log(
-  //   `numFrames: ${numFrames} videoPosition: ${videoPosition.frameNum}`
-  // );
-
   // If the video file changes, reset the video position to match the frame received
   useEffect(() => {
     if (videoFileChanging) {

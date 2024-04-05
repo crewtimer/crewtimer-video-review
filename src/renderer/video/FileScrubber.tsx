@@ -24,19 +24,23 @@ import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
 import TimeSegments from './TimeSegments';
 import { useClickerData } from './UseClickerData';
 
-const moveToIndex = (index: number, seekToEnd: boolean) => {
+const moveToIndex = (
+  index: number,
+  seekPercent: number,
+  fromClick: boolean
+) => {
   const dirList = getDirList();
   index = Math.max(0, Math.min(index, dirList.length - 1));
   const videoFile = dirList[index];
   setSelectedIndex(index);
   setVideoFile(videoFile);
-  requestVideoFrame({ videoFile, seekToEnd });
+  requestVideoFrame({ videoFile, seekPercent, fromClick });
 };
 export const prevFile = () => {
-  moveToIndex(getSelectedIndex() - 1, true);
+  moveToIndex(getSelectedIndex() - 1, 1, true);
 };
 export const nextFile = () => {
-  moveToIndex(getSelectedIndex() + 1, false);
+  moveToIndex(getSelectedIndex() + 1, 0, true);
 };
 
 interface SxPropsArgs {
@@ -62,7 +66,8 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
         setVideoFile(videoFile);
         requestVideoFrame({
           videoFile: videoFile,
-          seekToEnd: false,
+          frameNum: 1,
+          fromClick: false,
         });
       }
     }, 1200);
@@ -180,8 +185,8 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
             startTime={startTime}
             endTime={endTime}
             activeIndex={getSelectedIndex()}
-            onChange={(newValue) => {
-              moveToIndex(newValue, false);
+            onChange={(newValue, pct, fromClick) => {
+              moveToIndex(newValue, pct, fromClick);
             }}
           />
         </Box>

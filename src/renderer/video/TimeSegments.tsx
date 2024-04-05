@@ -22,7 +22,7 @@ type TimeSegmentsProps = {
   /** The index of the active segment. */
   activeIndex: number;
   /** A callback function that is called when a segment is clicked. */
-  onChange: (index: number) => void;
+  onChange: (index: number, pct: number, fromClick: boolean) => void;
   /** The start time in HH:MM:SS.sss format for the range. */
   startTime: string;
   /** The end time in HH:MM:SS.sss format for the range. */
@@ -56,8 +56,16 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
    * Handles the click event on a segment, marking it as active.
    * @param index - The index of the clicked segment.
    */
-  const handleSegmentClick = (index: number) => {
-    onChange(index);
+  const handleSegmentClick = (event: React.MouseEvent, index: number) => {
+    // Ensure that event.target is an Element to access getBoundingClientRect
+    let pct = 0;
+    if (event.target instanceof Element) {
+      const { clientX } = event;
+      const elementLeft = event.target.getBoundingClientRect().left;
+      const xRelativeToElement = clientX - elementLeft;
+      pct = xRelativeToElement / (event.target.clientWidth - 1);
+    }
+    onChange(index, pct, true);
   };
 
   if (segments.length === 0) {
@@ -97,7 +105,7 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
             enterTouchDelay={0}
           >
             <Box
-              onClick={() => handleSegmentClick(index)}
+              onClick={(event) => handleSegmentClick(event, index)}
               sx={{
                 width: `${widthPercent}%`,
                 marginLeft: `${marginLeftPercent}%`,

@@ -7,6 +7,7 @@ import {
   getVideoFile,
   setImage,
   setVideoFile,
+  setVideoFrameNum,
   useVideoDir,
 } from './VideoSettings';
 
@@ -69,23 +70,19 @@ export const getDirectory = (fullFilename: string): string => {
 type VideoFrameRequest = {
   videoFile: string; // The path or identifier of the video file.
   frameNum?: number; // The frame number to extract. Optional.
-  seekToEnd?: boolean; // Whether to seek to the end of the video. Optional.
+  seekPercent?: number; // Where in file to seek as percentage, Optional.
+  fromClick?: boolean; // Whether the request is from a click.
 };
 
 const doRequestVideoFrame = async ({
   videoFile,
   frameNum,
-  seekToEnd,
+  seekPercent,
+  fromClick,
 }: VideoFrameRequest) => {
   if (!videoFile) {
     return;
   }
-  // console.log(
-  //   `requestVideoFrame: ${videoFile.replace(
-  //     /.*\//,
-  //     ''
-  //   )} ${frameNum} ${seekToEnd}`
-  // );
   try {
     let image: AppImage | undefined;
     // Check if the file is already open
@@ -115,11 +112,12 @@ const doRequestVideoFrame = async ({
       // console.log(JSON.stringify(openFileStatus, null, 2));
     }
 
-    const seekPos = seekToEnd
-      ? openFileStatus.numFrames
-      : frameNum !== undefined
-      ? frameNum
-      : 1;
+    const seekPos =
+      seekPercent !== undefined
+        ? Math.round(1 + (openFileStatus.numFrames - 1) * seekPercent)
+        : frameNum !== undefined
+        ? frameNum
+        : 1;
 
     if (seekPos !== 0 || !image) {
       image = await VideoUtils.getFrame(videoFile, seekPos);
@@ -131,6 +129,10 @@ const doRequestVideoFrame = async ({
     image.fileStartTime = openFileStatus.startTime;
     image.fileEndTime = openFileStatus.endTime;
     setImage(image);
+    if (fromClick) {
+      // force a jump in the VideoScrubber
+      setVideoFrameNum(image.frameNum);
+    }
   } catch (e) {
     console.log(
       `error opening videoFile ${videoFile}`,
@@ -165,21 +167,22 @@ function createRequestVideoFrameHandler() {
   const requestVideoFrame = async ({
     videoFile,
     frameNum,
-    seekToEnd,
+    seekPercent,
+    fromClick,
   }: VideoFrameRequest): Promise<void> => {
     // Check if there is an ongoing request.
     if (currentRequest) {
       // Defer the request by wrapping it in a new Promise.
       return new Promise((resolve, reject) => {
         nextRequest = () => {
-          handleRequest({ videoFile, frameNum, seekToEnd })
+          handleRequest({ videoFile, frameNum, seekPercent, fromClick })
             .then(resolve)
             .catch(reject);
         };
       });
     } else {
       // If no ongoing request, handle this request immediately.
-      return handleRequest({ videoFile, frameNum, seekToEnd });
+      return handleRequest({ videoFile, frameNum, seekPercent, fromClick });
     }
   };
 
@@ -194,11 +197,17 @@ function createRequestVideoFrameHandler() {
   const handleRequest = async ({
     videoFile,
     frameNum,
-    seekToEnd,
+    seekPercent,
+    fromClick,
   }: VideoFrameRequest): Promise<void> => {
     // Start processing the request
     currentRequest = (async () => {
-      await doRequestVideoFrame({ videoFile, frameNum, seekToEnd });
+      await doRequestVideoFrame({
+        videoFile,
+        frameNum,
+        seekPercent,
+        fromClick,
+      });
     })();
 
     // Ensure that the currentRequest is cleared and the next request is executed.
