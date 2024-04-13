@@ -1,6 +1,14 @@
 import * as React from 'react';
-import { useSelectedIndex, useVideoFile } from './video/VideoSettings';
-import { requestVideoFrame } from './video/VideoFileUtils';
+import {
+  getVideoDir,
+  useSelectedIndex,
+  useVideoFile,
+} from './video/VideoSettings';
+import {
+  getDirList,
+  refreshDirList,
+  requestVideoFrame,
+} from './video/VideoFileUtils';
 import DataGrid, {
   CellClickArgs,
   CellMouseEvent,
@@ -13,6 +21,7 @@ import { useRef } from 'react';
 import { setDialogConfig } from './util/ConfirmDialog';
 import { UseDatum } from 'react-usedatum';
 import { showErrorDialog } from './util/ErrorDialog';
+import { moveToFileIndex } from './video/FileScrubber';
 
 interface FileListProps {
   height: number;
@@ -47,6 +56,8 @@ const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
 
 const ContextMenu: React.FC = () => {
   const [anchorEl] = useContextMenuAnchor();
+
+  const [selectedIndex] = useSelectedIndex();
   const handleClose = () => {
     setContextMenuAnchor(null);
   };
@@ -63,9 +74,28 @@ const ContextMenu: React.FC = () => {
       button: 'Delete',
       showCancel: true,
       handleConfirm: () => {
-        window.Util.deleteFile(row.filename)
-          .then((result) => result.error && showErrorDialog(result.error))
-          .catch((e) => showErrorDialog(e));
+        console.log(
+          `delete ${filename} selectedIndex: ${selectedIndex} id: ${row.id}`
+        );
+        let delay = 10;
+        if (selectedIndex === row.id) {
+          moveToFileIndex(
+            row.id === getDirList().length - 1 ? row.id - 1 : row.id + 1,
+            0,
+            false
+          );
+          delay = 500; // wait for file switch to occur
+        }
+        setTimeout(async () => {
+          const result = await window.Util.deleteFile(row.filename).catch((e) =>
+            showErrorDialog(e)
+          );
+          if (result && result.error) {
+            showErrorDialog(result.error);
+          } else {
+            await refreshDirList(getVideoDir());
+          }
+        }, delay);
       },
     });
   };

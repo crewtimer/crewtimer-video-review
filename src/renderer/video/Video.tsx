@@ -187,12 +187,13 @@ const VideoScrubber = () => {
     >
       <Button
         variant="contained"
-        onClick={moveLeft}
+        onClick={prevFile}
         size="small"
         sx={{
           height: 24,
           m: 0,
           minWidth: 24,
+          background: '#19857b',
         }}
       >
         &lt;
@@ -250,12 +251,13 @@ const VideoScrubber = () => {
       </Box>
       <Button
         variant="contained"
-        onClick={moveRight}
+        onClick={nextFile}
         size="small"
         sx={{
           height: 24,
           m: 0,
           minWidth: 24,
+          background: '#19857b',
         }}
       >
         &gt;
