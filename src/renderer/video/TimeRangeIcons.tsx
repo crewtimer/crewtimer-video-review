@@ -24,6 +24,8 @@ type TimeRangeIconsProps = {
   startTime: string;
   endTime: string;
   showBeyondRange?: boolean;
+  iconColor?: string;
+  dir?: 'up' | 'down';
 };
 
 /**
@@ -37,6 +39,8 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
   startTime,
   endTime,
   showBeyondRange,
+  iconColor,
+  dir = 'down',
 }) => {
   const startSeconds = parseTimeToSeconds(startTime);
   const endSeconds = parseTimeToSeconds(endTime);
@@ -63,7 +67,7 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
         let relativePosition =
           ((timeSeconds - startSeconds) / totalDuration) * 100;
 
-        let color = '#d2122e';
+        let color = iconColor || '#d2122e';
         if (showBeyondRange) {
           color = '#d2122e80';
         }
@@ -82,7 +86,7 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
             sx={{
               position: 'absolute',
               left: `${relativePosition}%`,
-              top: '50%',
+              top: dir === 'down' ? '50%' : '-80%',
               transform: 'translate(-50%, -50%)',
               fontSize: '10px',
               height: '10px',

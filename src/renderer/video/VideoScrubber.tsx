@@ -1,6 +1,7 @@
 import { Stack, Button, Box, Slider, Tooltip } from '@mui/material';
 import { useRef, useEffect, useMemo, useState } from 'react';
 import { convertTimestampToString } from 'renderer/shared/Util';
+import { useWaypoint } from 'renderer/util/UseSettings';
 import { findClosestNumAndIndex, timeToMilli } from 'renderer/util/Util';
 import { prevFile, nextFile } from './FileScrubber';
 import ImageButton from './ImageButton';
@@ -21,7 +22,9 @@ const VideoScrubber = () => {
   const [videoFrameNum, setVideoFrameNum] = useVideoFrameNum();
   const [videoFile] = useVideoFile();
   const [image] = useImage();
+  const [scoredWaypoint] = useWaypoint();
   const lapdata = useClickerData() as TimeObject[];
+  const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
   const lastVideoFile = useRef('');
   const [timezoneOffset] = useTimezoneOffset();
   const sliderRef = useRef<HTMLSpanElement>(null);
@@ -55,28 +58,39 @@ const VideoScrubber = () => {
     return { startTime, endTime };
   }, [image.fileStartTime, image.fileEndTime, timezoneOffset]);
 
-  const [filteredTimes, relativePositions] = useMemo(() => {
-    const startSeconds = parseTimeToSeconds(startTime);
-    const endSeconds = parseTimeToSeconds(endTime);
-    const totalDuration = endSeconds - startSeconds;
+  const [filteredTimes, filteredScoredTimes, relativePositions] =
+    useMemo(() => {
+      const startSeconds = parseTimeToSeconds(startTime);
+      const endSeconds = parseTimeToSeconds(endTime);
+      const totalDuration = endSeconds - startSeconds;
 
-    const relativePositions: number[] = [];
-    // Filter times to only include those within the start and end times.
-    const filteredTimes = lapdata.filter((timeObj) => {
-      const timeSeconds = parseTimeToSeconds(timeObj.Time);
-
-      const valid = timeSeconds >= startSeconds && timeSeconds <= endSeconds;
-      if (valid) {
-        const relativePosition = (timeSeconds - startSeconds) / totalDuration;
-        relativePositions.push(relativePosition);
-      }
-      return valid;
-    });
-    return [filteredTimes, relativePositions] as [
-      typeof filteredTimes,
-      typeof relativePositions
-    ];
-  }, [lapdata, startTime, endTime]);
+      const relativePositions: { pos: number; data: TimeObject }[] = [];
+      // Filter times to only include those within the start and end times.
+      const filteredTimes = lapdata.filter((timeObj) => {
+        const timeSeconds = parseTimeToSeconds(timeObj.Time);
+        const valid = timeSeconds >= startSeconds && timeSeconds <= endSeconds;
+        if (valid) {
+          const relativePosition = (timeSeconds - startSeconds) / totalDuration;
+          relativePositions.push({ pos: relativePosition, data: timeObj });
+        }
+        return valid;
+      });
+      const filteredScoredTimes = scoredLapdata.filter((timeObj) => {
+        const timeSeconds = parseTimeToSeconds(timeObj.Time);
+        const valid = timeSeconds >= startSeconds && timeSeconds <= endSeconds;
+        if (valid) {
+          const relativePosition = (timeSeconds - startSeconds) / totalDuration;
+          relativePositions.push({ pos: relativePosition, data: timeObj });
+        }
+        return valid;
+      });
+      relativePositions.sort((a, b) => a.pos - b.pos);
+      return [filteredTimes, filteredScoredTimes, relativePositions] as [
+        typeof filteredTimes,
+        typeof filteredScoredTimes,
+        typeof relativePositions
+      ];
+    }, [lapdata, startTime, endTime]);
 
   /**
    * Given a mouse click, find the nearest click event.
@@ -89,10 +103,11 @@ const VideoScrubber = () => {
     const rect = sliderRef.current?.getBoundingClientRect();
     let x = event.clientX - (rect?.left ?? 0);
     const pos = x / (rect?.width ?? 1);
-    const [index, value] = findClosestNumAndIndex(relativePositions, pos);
+    const candidates = relativePositions.map(({ pos: p }) => p);
+    const [index, value] = findClosestNumAndIndex(candidates, pos);
     const dist = Math.abs(value - pos) * (rect?.width ?? 1);
     if (index >= 0 && dist < 10) {
-      const item = filteredTimes[index];
+      const item = relativePositions[index].data;
       return item;
     }
     return undefined;
@@ -163,6 +178,13 @@ const VideoScrubber = () => {
           times={filteredTimes}
           startTime={startTime}
           endTime={endTime}
+        />
+        <TimeRangeIcons
+          times={filteredScoredTimes}
+          startTime={startTime}
+          endTime={endTime}
+          iconColor="#2e7d32"
+          dir="up"
         />
         <Box
           sx={{

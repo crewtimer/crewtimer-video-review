@@ -43,15 +43,16 @@ const onDataRxTransformer = (lapdata: KeyMap<Lap> | undefined): Lap[] => {
   }
 };
 
-export const useClickerData = () => {
+export const useClickerData = (waypoint?: string) => {
   const mobileID = getMobileID();
   const [day] = useDay();
   const [videoSettings] = useVideoSettings();
-  const timingHintSource = videoSettings.timingHintSource;
 
   const { regattaID } = getConnectionProps(mobileID);
   const path = `regatta/${regattaID}/lapdata`;
-  const gate = gateFromWaypoint(timingHintSource);
+  const gate = gateFromWaypoint(
+    waypoint ? waypoint : videoSettings.timingHintSource
+  );
 
   const lapdata = useFirebaseDatum<KeyMap<Lap>, Lap[]>(path, {
     filter: { key: 'Gate', value: gate },
