@@ -203,7 +203,7 @@ export function extractTime(fileName: string) {
       6
     )}`;
   } else {
-    return null;
+    return '00:00:00';
   }
 }
 
@@ -214,7 +214,8 @@ export function extractTime(fileName: string) {
  */
 export const parseTimeToSeconds = (time: string): number => {
   const [hours, minutes, seconds] = time.split(':').map(parseFloat);
-  return hours * 3600 + minutes * 60 + seconds;
+  const secs = hours * 3600 + minutes * 60 + seconds;
+  return secs;
 };
 
 export function formatSecondsAsTime(secondsInput: number): string {

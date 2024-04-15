@@ -10,6 +10,7 @@ import {
   setVideoFrameNum,
   useVideoDir,
 } from './VideoSettings';
+import { extractTime } from './VideoUtils';
 
 const VideoUtils = window.VideoUtils;
 const { getFilesInDirectory } = window.Util;
@@ -128,6 +129,7 @@ const doRequestVideoFrame = async ({
 
     image.fileStartTime = openFileStatus.startTime;
     image.fileEndTime = openFileStatus.endTime;
+    console.log(JSON.stringify(openFileStatus, null, 2));
     setImage(image);
     if (fromClick) {
       // force a jump in the VideoScrubber
@@ -252,15 +254,21 @@ export const refreshDirList = async (videoDir: string) => {
           const files = result.files
             .filter((file) => videoFileRegex.test(file))
             .filter((file) => !file.includes('tmp'));
-          files.sort((a, b) => {
+
+          // Sort files by the embedded time in the filename
+          const fileInfo = files.map((file) => ({
+            name: file,
+            time: extractTime(file),
+          }));
+          fileInfo.sort((a, b) => {
             // Use localeCompare for natural alphanumeric sorting
-            return a.localeCompare(b, undefined, {
+            return a.time.localeCompare(b.time, undefined, {
               numeric: true,
               sensitivity: 'base',
             });
           });
-          const dirList = files.map(
-            (file) => `${videoDir}${window.platform.pathSeparator}${file}`
+          const dirList = fileInfo.map(
+            (file) => `${videoDir}${window.platform.pathSeparator}${file.name}`
           );
           setDirList(dirList);
           const needImage = getImage().file === '';
