@@ -1,8 +1,7 @@
-import { Box, Slider, Typography, Stack, Button } from '@mui/material';
+import { Box, Typography, Stack } from '@mui/material';
 import React, {
   useCallback,
   useEffect,
-  useMemo,
   useReducer,
   useRef,
   useState,
@@ -24,7 +23,6 @@ import {
   useImage,
   useTimezoneOffset,
   useVideoFile,
-  useVideoFrameNum,
   useVideoSettings,
 } from './VideoSettings';
 import VideoOverlay, {
@@ -43,9 +41,8 @@ import FileScrubber, { nextFile, prevFile } from './FileScrubber';
 import Measure from 'react-measure';
 import { UseDatum } from 'react-usedatum';
 import { requestVideoFrame } from './VideoFileUtils';
-import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
-import { useClickerData } from './UseClickerData';
-import ImageButton, { setGenerateImageSnapshotCallback } from './ImageButton';
+import { setGenerateImageSnapshotCallback } from './ImageButton';
+import VideoScrubber from './VideoScrubber';
 
 const useStyles = makeStyles({
   text: {
@@ -138,134 +135,6 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
 };
 
-const VideoScrubber = () => {
-  const [videoFrameNum, setVideoFrameNum] = useVideoFrameNum();
-  const [videoFile] = useVideoFile();
-  const [image] = useImage();
-  const lapdata = useClickerData() as TimeObject[];
-  const lastVideoFile = useRef('');
-  const [timezoneOffset] = useTimezoneOffset();
-  const numFrames = image.numFrames;
-  const videoFileChanging = lastVideoFile.current !== image.file;
-  lastVideoFile.current = image.file;
-
-  // If the video file changes, reset the video position to match the frame received
-  useEffect(() => {
-    if (videoFileChanging) {
-      const newImage = getImage();
-      setVideoFrameNum(newImage.frameNum);
-    }
-  }, [videoFileChanging]);
-
-  const handleSlider = (_event: Event, value: number | number[]) => {
-    let newValue = value as number;
-
-    setVideoFrameNum(newValue);
-    requestVideoFrame({ videoFile, frameNum: newValue });
-  };
-
-  const { startTime, endTime } = useMemo(() => {
-    const startTime = convertTimestampToString(
-      image.fileStartTime,
-      timezoneOffset
-    );
-    const endTime = convertTimestampToString(image.fileEndTime, timezoneOffset);
-    return { startTime, endTime };
-  }, [image.fileStartTime, image.fileEndTime, timezoneOffset]);
-
-  const sliderValue = videoFrameNum;
-  return (
-    <Stack
-      direction="row"
-      style={{
-        alignItems: 'center',
-        width: '100%',
-        paddingLeft: '0.5em',
-        paddingRight: '0.5em',
-        display: 'flex',
-      }}
-    >
-      <Button
-        variant="contained"
-        onClick={prevFile}
-        size="small"
-        sx={{
-          height: 24,
-          m: 0,
-          minWidth: 24,
-          background: '#19857b',
-        }}
-      >
-        &lt;
-      </Button>
-      <Box
-        sx={{
-          position: 'relative',
-          width: '100%',
-          height: '40px',
-          marginLeft: '1em',
-          marginRight: '1em',
-        }}
-      >
-        <TimeRangeIcons
-          times={lapdata}
-          startTime={startTime}
-          endTime={endTime}
-        />
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            backgroundColor: 'rgba(255, 255, 255, 0.5)',
-          }}
-        >
-          <Slider
-            value={sliderValue}
-            min={1}
-            max={numFrames}
-            onChange={handleSlider}
-            aria-labelledby="video-scrubber"
-            sx={{
-              // marginLeft: '1em',
-              // marginRight: '1em',
-              flex: 1,
-              '& .MuiSlider-thumb': {
-                transition: 'none',
-              },
-              '& .MuiSlider-track': {
-                transition: 'none',
-              },
-              '& .MuiSlider-rail': {
-                transition: 'none',
-              },
-            }}
-            track={false}
-          />
-        </Box>
-      </Box>
-      <Button
-        variant="contained"
-        onClick={nextFile}
-        size="small"
-        sx={{
-          height: 24,
-          m: 0,
-          minWidth: 24,
-          background: '#19857b',
-        }}
-      >
-        &gt;
-      </Button>
-      <ImageButton />
-    </Stack>
-  );
-};
 const VideoImage: React.FC<{ width: number; height: number }> = ({
   width,
   height,

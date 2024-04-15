@@ -8,6 +8,8 @@ import { parseTimeToSeconds } from './VideoUtils';
  */
 export type TimeObject = {
   Time: string;
+  Bow: string;
+  EventNum: string;
 };
 
 /**
@@ -85,6 +87,8 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
               fontSize: '10px',
               height: '10px',
               color: { color },
+              zIndex: 3,
+              pointerEvents: 'none',
             }}
             onClick={() => console.log(`click at ${timeObj.Time}`)}
           >

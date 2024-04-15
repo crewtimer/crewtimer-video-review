@@ -194,3 +194,53 @@ export const onPropertyChange = (
 ) => {
   changeHandlers.set(name, handler);
 };
+
+/**
+ * Finds the closest number and its index in a sorted array of numbers to a given target number.
+ *
+ * This function performs a binary search to efficiently locate the number closest to the target.
+ * If the array is empty, it returns -1 for the number and 0 for the index as a fallback.
+ * If an exact match is found during the search, the function returns immediately with that index and number.
+ *
+ * @param {number[]} numbers - The array of sorted numbers where the search is performed.
+ * @param {number} target - The target number to find the closest match to.
+ * @returns {[number, number]} A tuple where the first element is the index of the closest number
+ *                             in the array, and the second element is the closest number itself.
+ */
+export function findClosestNumAndIndex(
+  numbers: number[],
+  target: number
+): [number, number] {
+  if (numbers.length === 0) {
+    return [-1, 0]; // Return fallback if the array is empty
+  }
+
+  let left = 0;
+  let right = numbers.length - 1;
+  let mid: number;
+  let closestIndex = 0; // Initialize with the index of the first element
+
+  while (left <= right) {
+    mid = Math.floor((left + right) / 2);
+
+    // Update the closest index if the current mid element is closer to the target
+    if (
+      Math.abs(numbers[mid] - target) < Math.abs(numbers[closestIndex] - target)
+    ) {
+      closestIndex = mid;
+    }
+
+    // Adjust the binary search range based on comparison
+    if (numbers[mid] < target) {
+      left = mid + 1;
+    } else if (numbers[mid] > target) {
+      right = mid - 1;
+    } else {
+      // If an exact match is found, return immediately
+      return [mid, numbers[mid]];
+    }
+  }
+
+  // Return the index and number of the closest found
+  return [closestIndex, numbers[closestIndex]];
+}
