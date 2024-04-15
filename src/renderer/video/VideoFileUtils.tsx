@@ -85,7 +85,8 @@ const doRequestVideoFrame = async ({
     return;
   }
   try {
-    let image: AppImage | undefined;
+    let imageStart: AppImage | undefined;
+    let imageEnd: AppImage | undefined;
     // Check if the file is already open
     if (openFileStatus.open && openFileStatus.filename !== videoFile) {
       // Changing files, close the old file
@@ -99,16 +100,30 @@ const doRequestVideoFrame = async ({
       if (openStatus.status !== 'OK') {
         return;
       }
-      image = await VideoUtils.getFrame(videoFile, 1);
+      imageStart = await VideoUtils.getFrame(videoFile, 1);
+      try {
+        imageEnd = await VideoUtils.getFrame(videoFile, imageStart.numFrames);
+      } catch (e) {}
+      if (!imageEnd) {
+        // Sometimes the frame count is one too many (e.g. output.mp4 test file).  Try reducing count by one.
+        imageEnd = await VideoUtils.getFrame(
+          videoFile,
+          imageStart.numFrames - 1
+        );
+        imageStart.numFrames = imageStart.numFrames - 1;
+      }
       openFileStatus = {
         filename: videoFile,
         open: true,
-        numFrames: image.numFrames,
-        startTime: image.timestamp,
-        endTime: Math.trunc(
-          image.timestamp + (1000 * image.numFrames) / image.fps
-        ),
-        fps: image.fps,
+        numFrames: imageStart.numFrames,
+        startTime: imageStart.timestamp,
+        endTime: imageEnd.timestamp
+          ? imageEnd.timestamp
+          : Math.trunc(
+              imageStart.timestamp +
+                (1000 * imageStart.numFrames) / imageStart.fps
+            ),
+        fps: imageStart.fps,
       };
       // console.log(JSON.stringify(openFileStatus, null, 2));
     }
@@ -120,24 +135,23 @@ const doRequestVideoFrame = async ({
         ? frameNum
         : 1;
 
-    if (seekPos !== 0 || !image) {
-      image = await VideoUtils.getFrame(videoFile, seekPos);
-      if (!image) {
+    if (seekPos !== 0 || !imageStart) {
+      imageStart = await VideoUtils.getFrame(videoFile, seekPos);
+      if (!imageStart) {
         console.log(`failed to get frame for ${videoFile}@${seekPos}`);
       }
     }
 
-    image.fileStartTime = openFileStatus.startTime;
-    image.fileEndTime = openFileStatus.endTime;
-    console.log(JSON.stringify(openFileStatus, null, 2));
-    setImage(image);
+    imageStart.fileStartTime = openFileStatus.startTime;
+    imageStart.fileEndTime = openFileStatus.endTime;
+    setImage(imageStart);
     if (fromClick) {
       // force a jump in the VideoScrubber
-      setVideoFrameNum(image.frameNum);
+      setVideoFrameNum(imageStart.frameNum);
     }
   } catch (e) {
     console.log(
-      `error opening videoFile ${videoFile}`,
+      `error opening and reading videoFile ${videoFile}`,
       e instanceof Error ? e.message : String(e)
     );
   }
