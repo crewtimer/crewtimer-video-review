@@ -15,7 +15,7 @@
     "winbuild": "node-gyp rebuild --arch=x64 --target_platform=win32",
     "build-ffmpeg-mac": "git clone https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg && ./configure --prefix=../src/ffmpeg-built-mac --enable-static --enable-gpl --disable-network --disable-programs --disable-doc --disable-avdevice --disable-swresample --disable-postproc --disable-avfilter && make && make install",
     "build-ffmpeg-win": "git clone https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg && ./configure --prefix=../src/ffmpeg-built-win --enable-static --enable-gpl --disable-network --disable-programs --disable-doc --disable-avdevice --disable-swresample --disable-postproc --disable-avfilter --toolchain=msvc && make && make install",
-    "install-ffmpeg-win": "git clone https://github.com/FFmpeg/FFmpeg.git --config core.autocrlf=false && cd FFmpeg && ./configure --prefix=./ffmpeg-built-win--enable-gpl && make && make install",
+    "install-ffmpeg-win": "git clone https://github.com/FFmpeg/FFmpeg.git --config core.autocrlf=false && cd FFmpeg && ./configure --prefix=./ffmpeg-built-win --enable-gpl && make && make install",
     "install-ffmpeg-mac": "git clone https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg && ./configure --prefix=./ffmpeg-built-mac --enable-gpl && make && make install",
     "install-ffmpeg": "node -e \"require('os').platform() === 'darwin' ? require('child_process').execSync('npm run install-ffmpeg-mac') : require('os').platform() === 'win32' ? require('child_process').execSync('npm run install-ffmpeg-win') : console.log('Unsupported OS')\""
   },

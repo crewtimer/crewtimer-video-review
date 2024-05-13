@@ -114,3 +114,9 @@ scoreboard must be provided with the IP address where CrewTimer FL Connect is ru
 * Blank screen at startup? Check to make sure packagse were added top level package.json
 * [Speedsoft Time Sync](https://www.speed-soft.de/software/time_sync/index.php)
 * [Use Meinberg NTP](https://www.meinbergglobal.com/english/sw/ntp.htm)
+
+## Using opencv for frame interpolation
+
+* [Python opencv interpolation](https://github.com/satinder147/video-frame-interpolation)
+* [chatgpt conversion of xxx](https://chat.openai.com/share/42a74f77-a0ab-4b40-97ab-6b75b121f289)
+* [minimal opencv libs](https://github.com/nihui/opencv-mobile)

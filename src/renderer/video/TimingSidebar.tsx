@@ -38,7 +38,7 @@ import {
 } from 'renderer/util/UseSettings';
 import {
   getEntryResult,
-  setEntryResult,
+  setEntryResultAndPublish,
   useEntryResult,
 } from 'renderer/util/LapStorageDatum';
 import { gateFromWaypoint } from 'renderer/util/Util';
@@ -261,7 +261,7 @@ const AddSplitButton: React.FC<{ activeEvents: Event[] }> = ({
         showCancel: true,
         handleConfirm: () => {
           delete lap.State;
-          setEntryResult(key, lap);
+          setEntryResultAndPublish(key, lap);
         },
       });
       return;
@@ -293,7 +293,7 @@ const AddSplitButton: React.FC<{ activeEvents: Event[] }> = ({
         showCancel: true,
         handleConfirm: () => {
           delete lap.State;
-          setEntryResult(key, lap);
+          setEntryResultAndPublish(key, lap);
         },
       });
       return;
@@ -306,7 +306,7 @@ const AddSplitButton: React.FC<{ activeEvents: Event[] }> = ({
 
     // }
 
-    setEntryResult(key, lap);
+    setEntryResultAndPublish(key, lap);
   };
   return (
     <Button
@@ -336,7 +336,7 @@ const ContextMenu: React.FC = () => {
     const lap = getEntryResult(row.id);
     if (lap) {
       lap.State = 'Deleted';
-      setEntryResult(lap.keyid, lap);
+      setEntryResultAndPublish(lap.keyid, lap);
     }
   };
   return (

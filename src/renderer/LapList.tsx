@@ -6,7 +6,7 @@ import { Typography } from '@mui/material';
 import clsx from 'clsx';
 import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
 import { Lap } from 'crewtimer-common';
-import { setEntryResult, useLaps } from './util/LapStorageDatum';
+import { setEntryResultAndPublish, useLaps } from './util/LapStorageDatum';
 
 export const colors = {
   deleted: '#808081',
@@ -81,7 +81,7 @@ const Row = ({ data, index, style }: ListChildComponentProps) => {
     } else {
       lap.State = 'Deleted';
     }
-    setEntryResult(lap.keyid || lap.uuid, lap);
+    setEntryResultAndPublish(lap.keyid || lap.uuid, lap);
   };
 
   return (

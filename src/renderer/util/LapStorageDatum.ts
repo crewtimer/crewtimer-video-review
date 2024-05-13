@@ -8,15 +8,15 @@ export const [useLapListInitCount] = UseMemDatum(LapListInitCount, 0);
 
 export const [
   useEntryResult,
-  _setEntryResult,
+  setEntryResult,
   getEntryResult,
   clearEntryResults,
   getEntryResultKeys,
   dumpEntryResults,
 ] = UseKeyedDatum<Lap | undefined>();
 
-export const setEntryResult = (key: string, lap: Lap) => {
-  _setEntryResult(key, lap, true);
+export const setEntryResultAndPublish = (key: string, lap: Lap) => {
+  setEntryResult(key, lap, true);
   lap.SequenceNum = (lap.SequenceNum || 0) + 1;
   window.LapStorage.updateLap(lap);
 };
