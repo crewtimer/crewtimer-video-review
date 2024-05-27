@@ -15,7 +15,7 @@ import {
   useVideoSettings,
   useZoomWindow,
 } from './VideoSettings';
-import { drawText, Point } from './VideoUtils';
+import { drawText, notifiyGuideChanged, Point } from './VideoUtils';
 
 export const [useAdjustingOverlay] = UseDatum(false);
 export const [useNearEdge] = UseDatum(false);
@@ -338,6 +338,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
     const handleMouseUp = () => {
       if (dragging) {
         setVideoSettings(courseConfig, true);
+        notifiyGuideChanged();
       }
       setDragging(false);
       setDragHandle(null);

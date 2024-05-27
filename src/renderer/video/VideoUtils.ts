@@ -1,3 +1,5 @@
+import { Dir, getVideoSettings } from './VideoSettings';
+
 /**
  * Draws text on the canvas with specified alignment and position relative to a horizontal line.
  *
@@ -166,6 +168,22 @@ export const triggerFileSplit = () => {
   };
   window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
 };
+
+export const notifiyGuideChanged = () => {
+  const videoSettings = getVideoSettings();
+  const vert = videoSettings.guides.find((guide) => guide.dir === Dir.Vert);
+  if (!vert) {
+    return;
+  }
+  const msg = {
+    cmd: 'guide-config',
+    src: 'crewtimer-connect',
+    ts: new Date().getTime(),
+    guide: { pt1: vert.pt1, pt2: vert.pt2 },
+  };
+  window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
+};
+
 // // Example usage
 // const lines: Line[] = [
 //     { pt1: { x: 0, y: 0 }, pt2: { x: 10, y: 10 } },

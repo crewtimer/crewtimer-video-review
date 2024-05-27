@@ -50,7 +50,8 @@
     "start:renderer": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack serve --config ./.erb/configs/webpack.config.renderer.dev.ts",
     "test": "jest",
     "winbuild": "npm run build && node_modules/.bin/electron-builder --win",
-    "macbuild": "npm run build && node_modules/.bin/electron-builder --mac"
+    "macbuild": "npm run build && node_modules/.bin/electron-builder --mac",
+    "kill": "kill -9 `lsof -i:1212 -t`"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
