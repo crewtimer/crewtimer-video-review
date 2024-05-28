@@ -16,7 +16,7 @@
     "xpostinstall": "npm run electron-rebuild && npm run link-modules"
   },
   "dependencies": {
-    "crewtimer_video_reader": "file:../../native/ffreader",
+    "crewtimer_video_reader": "../../native/ffreader/",
     "patch-package": "^8.0.0",
     "sqlite3": "^5.1.7"
   },

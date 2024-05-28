@@ -1,3 +1,4 @@
+import { Lap } from 'crewtimer-common';
 import { useEffect } from 'react';
 import { UseStoredDatum } from './store/UseElectronDatum';
 import { setToast } from './Toast';
@@ -14,11 +15,25 @@ import {
   useLynxFolderOK,
   useMobileConfig,
   useMobileConfigCount,
+  useWaypoint,
 } from './util/UseSettings';
+import { useClickerData } from './video/UseClickerData';
 import { notifiyGuideChanged } from './video/VideoUtils';
 const { LapStorage } = window;
 
 const [, setLastClearTS, getLastClearTS] = UseStoredDatum('LastClearTS', 0);
+
+const timeSort = (a: Lap, b: Lap) => {
+  let t1 = a.Timestamp || 0;
+  let t2 = b.Timestamp || 0;
+  if (t1 < t2) {
+    return -1;
+  }
+  if (t1 > t2) {
+    return 1;
+  }
+  return 0;
+};
 
 export default function StatusMonitor() {
   const [mc] = useMobileConfig();
@@ -28,6 +43,8 @@ export default function StatusMonitor() {
   const [lapListInitCount] = useLapListInitCount();
   const [initializing] = useInitializing();
   const [enableVideo] = useEnableVideo();
+  const [timingWaypoint] = useWaypoint();
+  const timingLapdata = useClickerData(timingWaypoint) as Lap[];
 
   useEffect(() => {
     if (lynxFolderOK && mc) {
@@ -57,6 +74,18 @@ export default function StatusMonitor() {
       setEntryResult(key, lap);
     }
   }, [lapListInitCount]);
+
+  useEffect(() => {
+    timingLapdata.sort(timeSort);
+    for (const lap of timingLapdata) {
+      if (lap.State === 'Deleted') {
+        continue;
+      }
+      const key = `${lap.Gate}_${lap.EventNum}_${lap.Bow}`;
+      lap.keyid = key;
+      setEntryResult(key, lap);
+    }
+  }, [timingLapdata]);
 
   useEffect(() => {
     // Let recorder know the current guide settings periodically

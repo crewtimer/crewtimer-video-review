@@ -1,12 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import React, { FC, useEffect, useRef } from 'react';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
-import AutoSizer, { Size } from 'react-virtualized-auto-sizer';
+import _AutoSizer, { Size } from 'react-virtualized-auto-sizer';
 import makeStyles from '@mui/styles/makeStyles';
 import { Typography } from '@mui/material';
 import clsx from 'clsx';
 import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
 import { Lap } from 'crewtimer-common';
 import { setEntryResultAndPublish, useLaps } from './util/LapStorageDatum';
+
+// https://github.com/bvaughn/react-virtualized/issues/1739
+const AutoSizer = _AutoSizer as unknown as FC;
 
 export const colors = {
   deleted: '#808081',
@@ -128,7 +131,7 @@ const Row = ({ data, index, style }: ListChildComponentProps) => {
 };
 
 let renderCount = 0;
-const LapListImpl = ({ height, width }: Size) => {
+const LapListImpl = ({ height, width }: { height: number; width: number }) => {
   const classes = useStyles();
   const listRef = useRef<List>();
   const [laps] = useLaps();
@@ -195,7 +198,9 @@ const LapList = () => {
         <div className={classes.trash} />
       </div>
       <AutoSizer>
-        {({ width, height }) => <LapListImpl width={width} height={height} />}
+        {({ width, height }: Size) => (
+          <LapListImpl width={width} height={height} />
+        )}
       </AutoSizer>
     </div>
   );

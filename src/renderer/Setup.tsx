@@ -150,7 +150,7 @@ export default function Setup() {
 
   useEffect(() => {
     if (!validWaypoint) {
-      setTimingWaypoint('Start');
+      setTimingWaypoint('Finish');
     }
   }, [validWaypoint, setTimingWaypoint]);
 

@@ -51,7 +51,7 @@ export const [useMobileID, setMobileID, getMobileID] = UseStoredDatum(
 
 export const [useWaypoint, setWaypoint, getWaypoint] = UseStoredDatum(
   N_WAYPOINT,
-  'Start'
+  'Finish'
 );
 export const [useFLStartWaypoint, setFLStartWaypoint, getFLStartWaypoint] =
   UseStoredDatum(N_FL_START_WAYPOINT, 'Start');

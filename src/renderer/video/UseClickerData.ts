@@ -62,3 +62,13 @@ export const useClickerData = (waypoint?: string) => {
 
   return lapdata || [];
 };
+
+export const useResultData = () => {
+  const mobileID = getMobileID();
+
+  const { regattaID } = getConnectionProps(mobileID);
+  const path = `results/${regattaID}/results/entries`;
+
+  const entries = useFirebaseDatum<KeyMap[]>(path);
+  return entries || [];
+};

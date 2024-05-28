@@ -175,6 +175,9 @@ export async function generateEvtFiles() {
 
   const evtTypes = new Set<string>();
   let { eventList } = mobileConfig;
+  if (!eventList) {
+    eventList = [];
+  }
   if (day) {
     eventList = eventList.filter((event) => event.Day === day);
   }
@@ -210,7 +213,7 @@ export async function generateEvtFiles() {
   });
 
   userMessage.info(
-    `Orig events ${mobileConfig.eventList.length}, pruned=${eventList.length}, day='${day}'`
+    `Orig events ${mobileConfig.eventList?.length}, pruned=${eventList.length}, day='${day}'`
   );
 
   // Look thru races and get some info
