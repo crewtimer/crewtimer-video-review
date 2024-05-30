@@ -58,16 +58,16 @@ export default function CenteredTabs() {
             marginBottom: '1em',
           }}
         >
+          {enableVideo && <Tab label="Video" value="Video" />}
+          {enableLynx && <Tab label="Lynx" value="Lynx" />}
           {(enableLynx || (enableVideo && enableVideoTiming)) && (
             <Tab label="Timing History" value="Timing History" />
           )}
           {(enableLynx || (enableVideo && enableVideoTiming)) && (
             <Tab label="CrewTimer" value="CrewTimer" />
           )}
-          {enableLynx && <Tab label="Lynx" value="Lynx" />}
           {enableLynx && <Tab label="Lynx Help" value="Help" />}
-          {enableVideo && <Tab label="Video" value="Video" />}
-          <Tab label="Configuration" value="Config" />
+          <Tab label="System Config" value="Config" />
         </Tabs>
       </div>
       <Tabs style={{ zIndex: 0 }} />

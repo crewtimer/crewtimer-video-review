@@ -1,7 +1,7 @@
 import { UseDatum } from 'react-usedatum';
 import { MobileSettings } from 'crewtimer-common';
 import { UseMemDatum, UseStoredDatum } from '../store/UseElectronDatum';
-import { LynxFolderOK, N_LYNX_FOLDER } from '../shared/FinishLynx';
+import { LynxFolderOK, N_LYNX_FOLDER, N_LYNX_PORT } from '../shared/FinishLynx';
 import {
   FirebaseConnectedKey,
   MobileConfigCountKey,
@@ -89,6 +89,12 @@ export const [useLynxFolder, setLynxFolder, getLynxFolder] = UseStoredDatum(
     window.FinishLynx.validateLynxFolder(folder);
   }
 );
+
+export const [useLynxPort, setLynxPort, getLynxPort] = UseStoredDatum(
+  N_LYNX_PORT,
+  window.platform.platform === 'darwin' ? 6000 : 5000
+);
+
 export const [useTabPosition, setTabPosition, getTabPosition] = UseStoredDatum(
   'systemTabPosition',
   'Config'

@@ -1,6 +1,7 @@
 import { Container } from '@mui/material';
 import ReactMarkdown from 'react-markdown';
 import setup from '../assets/LynxSetup.png';
+import { getLynxPort } from './util/UseSettings';
 
 const txt = `
 # Integration with FinishLynx
@@ -20,7 +21,7 @@ This will place a CrewTimer.lss scoreboard file into the specified folder.
    - Create New Scoreboard
       - Script: CrewTimer.lss
       - Serial Port: Network(connect)
-      - Port: 5000
+      - Port: ${getLynxPort()}
       - IP Address: 127.0.0.1 if CrewTimer connect running on same machine
       - Running Time: Off
       - Results:

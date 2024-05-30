@@ -6,5 +6,6 @@ export const [useLynxState, setLynxState] = UseMemDatum<LynxState>(
   {
     connected: false,
     remoteAddress: '',
+    error: '',
   }
 );

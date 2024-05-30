@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -6,6 +6,7 @@ import makeStyles from '@mui/styles/makeStyles';
 import Container from '@mui/material/Container';
 import Card from '@mui/material/Card';
 import CheckIcon from '@mui/icons-material/Check';
+import InfoIcon from '@mui/icons-material/Info';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
 import FormControl from '@mui/material/FormControl';
@@ -20,6 +21,7 @@ import {
   useFLStartWaypointEnable,
   useLynxFolder,
   useLynxFolderOK,
+  useLynxPort,
   useMobileConfig,
   useMobileConfigDate,
   useMobileID,
@@ -124,6 +126,8 @@ export default function FLSetup() {
 
   const [lynxFolder] = useLynxFolder();
   const [lynxFolderOK] = useLynxFolderOK();
+  const [lynxPort, setLynxPort] = useLynxPort();
+  const [lynxPortEdit, setLynxPortEdit] = useState(lynxPort);
   const [mc] = useMobileConfig();
   const [configUpdatedDate] = useMobileConfigDate();
 
@@ -160,6 +164,13 @@ export default function FLSetup() {
     setFLStartWaypointEnable(event.target.checked);
   };
 
+  const setAndValidateLynxPort = (port: number) => {
+    if (port >= 1024 && port <= 65535) {
+      setLynxPort(port);
+    } else {
+      setLynxPortEdit(lynxPort);
+    }
+  };
   return (
     <Container maxWidth="sm">
       <div className={classes.paper}>
@@ -185,6 +196,25 @@ export default function FLSetup() {
                 </Typography>
               )}
             </Toolbar>
+            <Box className={classes.settings}>
+              <TextField
+                label="Lynx Scoreboard TCP Port"
+                variant="outlined"
+                size="small"
+                error={lynxPortEdit < 1024 || lynxPortEdit > 65535}
+                value={lynxPortEdit === 0 ? '' : lynxPortEdit}
+                onChange={(event) => {
+                  setLynxPortEdit(Number(event.target.value));
+                }}
+                onBlur={() => setAndValidateLynxPort(lynxPortEdit)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    setAndValidateLynxPort(lynxPortEdit);
+                  }
+                }}
+                sx={{ marginTop: '1em' }}
+              />
+            </Box>
             {!isStartWaypoint && (
               <>
                 <Box className={classes.settings}>
@@ -199,6 +229,12 @@ export default function FLSetup() {
                       />
                     }
                   />
+                  <Tooltip
+                    title="When used with RadioLynx start signals received by FinishLynx can be reported as a CrewTimer waypoint timestamp.  Select the CrewTimer waypoint here to report the time."
+                    aria-label="start waypoint"
+                  >
+                    <InfoIcon />
+                  </Tooltip>
                 </Box>
                 {flStartWaypointEnable && flWaypointList.length > 1 && (
                   <Box className={classes.indentSettings}>
@@ -207,7 +243,7 @@ export default function FLSetup() {
                       className={classes.formControl}
                     >
                       <InputLabel id="fl-start-waypoint-label">
-                        FL Waypoint
+                        FL Start Waypoint
                       </InputLabel>
                       <Select
                         variant="standard"
@@ -226,6 +262,7 @@ export default function FLSetup() {
                 )}
               </>
             )}
+
             <Box className={classes.settings}>
               <Tooltip
                 title="Specify where FinishLynx configuration files should be placed"
@@ -286,7 +323,7 @@ export default function FLSetup() {
                 <Typography>
                   {path.join(lynxFolder, 'CrewTimer.lss')}
                 </Typography>
-                <Typography>TCP Port: 5000</Typography>
+                <Typography>{`TCP Port: ${lynxPort}`}</Typography>
                 {lynxFolderOK && (
                   <Button
                     size="small"

@@ -85,7 +85,7 @@ const TimestampCell = ({ row }: { row: RowType }) => {
   };
 
   return (
-    <Stack direction="row" onClick={handleMenu}>
+    <Stack direction="row">
       <Typography
         sx={{
           width: 80,
@@ -99,24 +99,26 @@ const TimestampCell = ({ row }: { row: RowType }) => {
       {row.eventName || !time ? (
         <></>
       ) : (
-        <IconButton
-          color="inherit"
-          size="small"
-          sx={{
-            minWidth: 14,
-            width: 14,
-            padding: 0,
-            margin: 0,
-          }}
-        >
-          <MoreVertIcon
+        <div onClick={handleMenu}>
+          <IconButton
+            color="inherit"
+            size="small"
             sx={{
-              fontSize: 14,
+              minWidth: 14,
+              width: 14,
               padding: 0,
               margin: 0,
             }}
-          />
-        </IconButton>
+          >
+            <MoreVertIcon
+              sx={{
+                fontSize: 14,
+                padding: 0,
+                margin: 0,
+              }}
+            />
+          </IconButton>
+        </div>
       )}
     </Stack>
   );
@@ -336,8 +338,16 @@ const ContextMenu: React.FC = () => {
     }
     const lap = getEntryResult(row.id);
     if (lap) {
-      lap.State = 'Deleted';
-      setEntryResultAndPublish(lap.keyid, lap);
+      setDialogConfig({
+        title: `Delete Time`,
+        message: `OK to delete time ${lap.Time} for Bow ${lap.Bow}?`,
+        button: 'Delete',
+        showCancel: true,
+        handleConfirm: () => {
+          lap.State = 'Deleted';
+          setEntryResultAndPublish(lap.keyid, lap);
+        },
+      });
     }
   };
   return (

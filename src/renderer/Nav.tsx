@@ -98,6 +98,7 @@ export default function Nav() {
     const connectProps = getConnectionProps(mobileID);
     window.open(connectProps.resulturl, '_blank');
   };
+
   return (
     <div className={classes.root}>
       <AppBar position="fixed">
@@ -106,6 +107,11 @@ export default function Nav() {
           <Typography variant="h6" className={classes.title}>
             {mc?.info?.Title ? mc.info.Title : AboutText}
           </Typography>
+          {!!lynxState.error && (
+            <Typography sx={{ border: '1px solid red', marginRight: '1em' }}>
+              {lynxState.error}
+            </Typography>
+          )}
           <div>
             {enableCrewTimer && (
               <Tooltip
@@ -176,7 +182,7 @@ export default function Nav() {
                     <ListItemIcon>
                       <SettingsIcon />
                     </ListItemIcon>
-                    <ListItemText primary="Video Timing" />
+                    <ListItemText primary="Video Settings" />
                   </MenuItem>
                 )}
                 {enableCrewTimer && (

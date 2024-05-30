@@ -7,6 +7,7 @@ import {
   getDebugLevel,
   getFLStartWaypoint,
   getFLStartWaypointEnable,
+  getLynxPort,
   getMobileConfig,
   getWaypoint,
   setLynxState,
@@ -39,7 +40,6 @@ interface FLPub {
 const HOST = '127.0.0.1';
 // On a mac, 5000 is used by the 'airplay receiver'.  To allow use of 5000,
 // go to System Preferences, search for airplay, and turn off Airplay Receiver.
-const PORT = 5000;
 const penalties = ['DNS', 'DNF', 'Scratch', 'DQ'];
 
 const sockets = new Set<Socket>();
@@ -47,14 +47,18 @@ const sockets = new Set<Socket>();
 let inputQueue = '';
 const server = net.createServer((sock: Socket) => {
   inputQueue = '';
-  setLynxState({ connected: true, remoteAddress: sock.remoteAddress || '' });
+  setLynxState({
+    connected: true,
+    remoteAddress: sock.remoteAddress || '',
+    error: '',
+  });
   Log.info('FL', `CONNECTED: ${sock.remoteAddress}:${sock.remotePort}`);
   sockets.add(sock);
 
   // Add a 'close' event handler to this instance of socket
   sock.on('close', (had_error: boolean) => {
     inputQueue = '';
-    setLynxState({ connected: false, remoteAddress: '' });
+    setLynxState({ connected: false, remoteAddress: '', error: '' });
     sockets.delete(sock);
     Log.info(
       'FL',
@@ -253,14 +257,37 @@ const server = net.createServer((sock: Socket) => {
   });
 });
 
+server.on('error', (err) => {
+  let msg = err.message;
+  if (err.message.includes('EADDRINUSE')) {
+    msg = `Port ${getLynxPort()} is already in use.`;
+  }
+  Log.error('FL', msg);
+  setLynxState({ connected: false, remoteAddress: '', error: msg });
+});
+
 export const stopLynxServer = () => {
-  server.close();
-  sockets.forEach((sock) => sock.end());
-  sockets.clear();
+  try {
+    server.close();
+    sockets.forEach((sock) => sock.end());
+    sockets.clear();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    Log.error('FL', msg);
+    setLynxState({ connected: false, remoteAddress: '', error: msg });
+  }
 };
 
 export const startLynxServer = () => {
-  stopLynxServer();
-  server.listen(PORT);
-  Log.info('FL', `Server listening on ${HOST}:${PORT}`);
+  try {
+    stopLynxServer();
+
+    setLynxState({ connected: false, remoteAddress: '', error: '' });
+    server.listen(getLynxPort());
+    Log.info('FL', `Server listening on ${HOST}:${getLynxPort()}`);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    Log.error('FL', msg);
+    setLynxState({ connected: false, remoteAddress: '', error: msg });
+  }
 };

@@ -16,7 +16,7 @@ import DataGrid, {
   DataGridHandle,
 } from 'react-data-grid';
 import 'react-data-grid/lib/styles.css';
-import { Box, Menu, MenuItem, Tooltip } from '@mui/material';
+import { Box, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
 import { useRef } from 'react';
 import { setDialogConfig } from './util/ConfirmDialog';
 import { UseDatum } from 'react-usedatum';
@@ -208,17 +208,21 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
   return (
     <>
       <ContextMenu />
-      <DataGrid<FileInfo>
-        ref={dataGridRef}
-        style={{ height: height }}
-        rowHeight={30}
-        columns={columns}
-        rows={dispItems}
-        rowKeyGetter={rowKeyGetter}
-        onCellClick={handleClick}
-        onCellDoubleClick={handleClick}
-        onCellContextMenu={handleContextMenu}
-      />
+      {dispItems.length === 0 ? (
+        <Typography>No video files</Typography>
+      ) : (
+        <DataGrid<FileInfo>
+          ref={dataGridRef}
+          style={{ height: height }}
+          rowHeight={30}
+          columns={columns}
+          rows={dispItems}
+          rowKeyGetter={rowKeyGetter}
+          onCellClick={handleClick}
+          onCellDoubleClick={handleClick}
+          onCellContextMenu={handleContextMenu}
+        />
+      )}
     </>
   );
 };
