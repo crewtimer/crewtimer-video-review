@@ -476,7 +476,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
         args.row.entry?.EventNum
       }_${args.row.entry?.Bow}`;
       const entry = getEntryResult(key);
-      if (entry?.Time) {
+      if (entry?.Time && entry?.State !== 'Deleted') {
         seekToTimestamp(entry.Time, true);
       }
     }

@@ -22,6 +22,7 @@ import { setDialogConfig } from './util/ConfirmDialog';
 import { UseDatum } from 'react-usedatum';
 import { showErrorDialog } from './util/ErrorDialog';
 import { moveToFileIndex } from './video/FileScrubber';
+import { replaceFileSuffix } from './util/Util';
 
 interface FileListProps {
   height: number;
@@ -87,9 +88,15 @@ const ContextMenu: React.FC = () => {
           delay = 500; // wait for file switch to occur
         }
         setTimeout(async () => {
-          const result = await window.Util.deleteFile(row.filename).catch((e) =>
+          let result = await window.Util.deleteFile(
+            replaceFileSuffix(row.filename, 'json')
+          ).catch((_e) => {
+            /* ignore */
+          });
+          result = await window.Util.deleteFile(row.filename).catch((e) =>
             showErrorDialog(e)
           );
+
           if (result && result.error) {
             showErrorDialog(result.error);
           } else {

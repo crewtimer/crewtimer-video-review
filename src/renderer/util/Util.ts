@@ -244,3 +244,20 @@ export function findClosestNumAndIndex(
   // Return the index and number of the closest found
   return [closestIndex, numbers[closestIndex]];
 }
+
+/**
+ * Replaces the file suffix of a given file path with a new suffix.
+ *
+ * @param filePath The file path to replace the suffix of
+ * @param newSuffix The new suffix
+ * @returns
+ */
+export function replaceFileSuffix(filePath: string, newSuffix: string): string {
+  const lastDotIndex = filePath.lastIndexOf('.');
+  if (lastDotIndex === -1) {
+    throw new Error('The provided file path does not have a suffix.');
+  }
+
+  const newPath = `${filePath.substring(0, lastDotIndex)}.${newSuffix}`;
+  return newPath;
+}

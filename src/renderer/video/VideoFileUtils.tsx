@@ -308,9 +308,6 @@ export const refreshDirList = async (videoDir: string) => {
     getFilesInDirectory(videoDir)
       .then((result) => {
         if (!result || result?.error) {
-          console.log(
-            'invalid response to getFilesInDirectory for ' + videoDir
-          );
           setDirList([]);
         } else {
           const files = result.files

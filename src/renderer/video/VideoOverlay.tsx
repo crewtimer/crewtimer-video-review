@@ -7,15 +7,22 @@ import React, {
   useImperativeHandle,
 } from 'react';
 import { UseDatum } from 'react-usedatum';
+import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import {
   Dir,
+  getVideoFile,
   getVideoSettings,
   GuideLine,
   useImage,
   useVideoSettings,
   useZoomWindow,
 } from './VideoSettings';
-import { drawText, notifiyGuideChanged, Point } from './VideoUtils';
+import {
+  drawText,
+  notifiyGuideChanged,
+  Point,
+  saveVideoSidecar,
+} from './VideoUtils';
 
 export const [useAdjustingOverlay] = UseDatum(false);
 export const [useNearEdge] = UseDatum(false);
@@ -337,8 +344,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
 
     const handleMouseUp = () => {
       if (dragging) {
+        courseConfig.sidecarSource = getVideoFile();
         setVideoSettings(courseConfig, true);
         notifiyGuideChanged();
+        saveVideoSidecar().catch(showErrorDialog);
       }
       setDragging(false);
       setDragHandle(null);

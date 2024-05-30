@@ -8,6 +8,7 @@ import {
   N_TIMEZONE,
 } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
+import { loadVideoSidecar } from './VideoUtils';
 
 export interface VideoPosition {
   frameNum: number;
@@ -29,7 +30,11 @@ export const [useVideoFrameNum, setVideoFrameNum, getVideoFrameNum] =
 
 export const [useVideoFile, setVideoFile, getVideoFile] = UseStoredDatum(
   N_VIDEO_FILE,
-  ''
+  '',
+  (current) => {
+    loadVideoSidecar(current);
+    return;
+  }
 );
 export const [useVideoTimestamp, setVideoTimestamp] = UseDatum('');
 export const [useVideoBow, setVideoBow] = UseDatum('');
@@ -81,13 +86,25 @@ export interface GuideLine {
   pt1: number; /// Vert: offset from center, H: Offset from top of video in video pixel units
   pt2: number;
 }
-interface VideoSettings {
-  timingHintSource: string;
+
+/**
+ * Video props stored with each video file as a .json file
+ */
+export interface VideoGuides {
   guides: GuideLine[];
   laneBelowGuide: boolean;
-  videoPanel: boolean;
 }
-export const [useVideoSettings, , getVideoSettings] =
+
+/**
+ * Global video setting defaults
+ */
+interface VideoSettings extends VideoGuides {
+  timingHintSource: string;
+
+  videoPanel: boolean;
+  sidecarSource?: string;
+}
+export const [useVideoSettings, setVideoSettings, getVideoSettings] =
   UseStoredDatum<VideoSettings>('videoSettings', {
     timingHintSource: 'F',
     laneBelowGuide: false,
