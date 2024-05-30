@@ -1,3 +1,4 @@
+import { KeyMap } from 'crewtimer-common';
 import { IpcRendererEvent } from 'electron';
 import { CloseFileReturn, OpenDirReturn } from 'main/util/util-preload';
 export interface OpenFileReturn {
@@ -19,6 +20,13 @@ declare global {
       openDirDialog(title: string, defaultPath: string): Promise<OpenDirReturn>;
       getFilesInDirectory(dirPath: string): Promise<DirListReturn>;
       deleteFile(filename: string): Promise<CloseFileReturn>;
+      readJsonFile<T = KeyMap>(
+        filePath: string
+      ): Promise<{ status: string; error?: string; json?: T }>;
+      storeJsonFile<T = KeyMap>(
+        filePath: string,
+        json: T
+      ): Promise<{ status: string; error?: string }>;
     };
     platform: {
       platform: string;

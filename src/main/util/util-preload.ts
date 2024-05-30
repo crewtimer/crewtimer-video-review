@@ -3,6 +3,7 @@
  *
  * Add ```import './util/util-preload';``` to preload.ts to integrate with main
  */
+import { KeyMap } from 'crewtimer-common';
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 const path = require('path');
 
@@ -69,6 +70,31 @@ export function getFilesInDirectory(dirPath: string): Promise<DirListReturn> {
   });
 }
 
+export function readJsonFile<T = KeyMap>(
+  filePath: string
+): Promise<{ status: string; error?: string; json?: T }> {
+  // send message to main
+  return new Promise((resolve, _reject) => {
+    ipcRenderer
+      .invoke('read-json-file', filePath)
+      .then((result) => resolve(result))
+      .catch((err) => resolve({ status: 'Fail', error: String(err) }));
+  });
+}
+
+export function storeJsonFile<T = KeyMap>(
+  filePath: string,
+  json: T
+): Promise<{ status: string; error?: string }> {
+  return new Promise((resolve, _reject) => {
+    // send message to main
+    ipcRenderer
+      .invoke('store-json-file', filePath, json)
+      .then((result) => resolve(result))
+      .catch((err) => resolve({ status: 'Fail', error: String(err) }));
+  });
+}
+
 contextBridge.exposeInMainWorld('Util', {
   onUserMessage: (
     callback: (_event: IpcRendererEvent, level: string, msg: string) => void
@@ -77,6 +103,8 @@ contextBridge.exposeInMainWorld('Util', {
   openFileDialog,
   openDirDialog,
   deleteFile,
+  readJsonFile,
+  storeJsonFile,
 });
 
 contextBridge.exposeInMainWorld('platform', {

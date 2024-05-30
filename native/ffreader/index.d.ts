@@ -43,6 +43,8 @@ declare module 'crewtimer_video_reader' {
     fps: number;
     file: string;
     timestamp: number;
+    fileStartTime: number;
+    fileEndTime: number;
   }
 
   export function nativeVideoExecutor(

@@ -87,7 +87,7 @@ ipcMain.handle('video:getFrame', (_event, filePath, frameNum) => {
       op: 'grabFrameAt',
       frameNum: frameNum,
       file: filePath,
-    } as GrabFrameMessage);
+    } as unknown as GrabFrameMessage);
     if (ret.status === 'OK') {
       // row 0 should be black
       let timestamp = extractTimestampFromFrame(ret.data, 0, ret.width);

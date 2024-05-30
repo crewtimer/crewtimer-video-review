@@ -63,3 +63,24 @@ ipcMain.handle('get-files-in-directory', (_event, dirPath) => {
     );
   });
 });
+
+ipcMain.handle('read-json-file', (_event, filePath) => {
+  try {
+    //
+    const fileContents = fs.readFileSync(filePath, 'utf8');
+    return { status: 'OK', json: JSON.parse(fileContents) };
+  } catch (err) {
+    return { status: `${err instanceof Error ? err.message : err}` };
+  }
+});
+
+ipcMain.handle('store-json-file', (_event, filePath, json) => {
+  try {
+    //
+    const fileContents = JSON.stringify(json, null, 2);
+    fs.writeFileSync(filePath, fileContents, 'utf8');
+    return { status: 'OK' };
+  } catch (err) {
+    return { status: `${err instanceof Error ? err.message : err}` };
+  }
+});
