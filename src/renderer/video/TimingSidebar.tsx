@@ -46,6 +46,7 @@ import uuidgen from 'short-uuid';
 import { UseDatum } from 'react-usedatum';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 import makeStyles from '@mui/styles/makeStyles';
+import { seekToTimestamp } from './VideoFileUtils';
 
 const useStyles = makeStyles((_theme) => ({
   row: {
@@ -459,6 +460,15 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
     setSelectedEvent(args.row.eventNum);
     if (args.row.Bow) {
       setVideoBow(args.row.Bow);
+
+      // if we have a time for this entry, try and seek there
+      const key = `${gateFromWaypoint(getWaypoint())}_${
+        args.row.entry?.EventNum
+      }_${args.row.entry?.Bow}`;
+      const entry = getEntryResult(key);
+      if (entry?.Time) {
+        seekToTimestamp(entry.Time, true);
+      }
     }
   };
 

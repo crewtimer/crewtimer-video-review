@@ -1,16 +1,20 @@
 import { useEffect } from 'react';
 import { UseDatum } from 'react-usedatum';
 import { AppImage } from 'renderer/shared/AppTypes';
+import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { useEnableVideo, useInitializing } from 'renderer/util/UseSettings';
+import { timeToMilli } from 'renderer/util/Util';
 import {
   getImage,
+  getTimezoneOffset,
   getVideoFile,
   setImage,
+  setSelectedIndex,
   setVideoFile,
   setVideoFrameNum,
   useVideoDir,
 } from './VideoSettings';
-import { extractTime } from './VideoUtils';
+import { extractTime, parseTimeToSeconds } from './VideoUtils';
 
 const VideoUtils = window.VideoUtils;
 const { getFilesInDirectory } = window.Util;
@@ -73,6 +77,7 @@ type VideoFrameRequest = {
   frameNum?: number; // The frame number to extract. Optional.
   seekPercent?: number; // Where in file to seek as percentage, Optional.
   fromClick?: boolean; // Whether the request is from a click.
+  toTimestamp?: string; // The timestamp to seek to (HHMMSS.sss), Optional.
 };
 
 const doRequestVideoFrame = async ({
@@ -80,6 +85,7 @@ const doRequestVideoFrame = async ({
   frameNum,
   seekPercent,
   fromClick,
+  toTimestamp,
 }: VideoFrameRequest) => {
   if (!videoFile) {
     return;
@@ -112,30 +118,52 @@ const doRequestVideoFrame = async ({
         );
         imageStart.numFrames = imageStart.numFrames - 1;
       }
+      const imageEndTime = imageEnd.timestamp
+        ? imageEnd.timestamp
+        : Math.trunc(
+            imageStart.timestamp +
+              (1000 * imageStart.numFrames) / imageStart.fps
+          );
+
       openFileStatus = {
         filename: videoFile,
         open: true,
         numFrames: imageStart.numFrames,
         startTime: imageStart.timestamp,
-        endTime: imageEnd.timestamp
-          ? imageEnd.timestamp
-          : Math.trunc(
-              imageStart.timestamp +
-                (1000 * imageStart.numFrames) / imageStart.fps
-            ),
+        endTime: imageEndTime,
         fps: imageStart.fps,
       };
       // console.log(JSON.stringify(openFileStatus, null, 2));
     }
 
-    const seekPos =
+    let seekPos =
       seekPercent !== undefined
         ? Math.round(1 + (openFileStatus.numFrames - 1) * seekPercent)
         : frameNum !== undefined
         ? frameNum
         : 1;
 
+    if (toTimestamp) {
+      // seek one more time to get the requested frame
+      const secs = timeToMilli(toTimestamp);
+      const delta = openFileStatus.endTime - openFileStatus.startTime;
+      const tzOffsetMinutes = getTimezoneOffset();
+      const offset =
+        tzOffsetMinutes !== undefined
+          ? tzOffsetMinutes
+          : -new Date().getTimezoneOffset();
+      const startTime =
+        (openFileStatus.startTime + offset * 60 * 1000) % (24 * 60 * 60 * 1000);
+      const frameNum =
+        1 +
+        Math.trunc(
+          0.5 + ((secs - startTime) / delta) * (openFileStatus.numFrames - 1)
+        );
+      seekPos = frameNum;
+    }
+
     if (seekPos !== 0 || !imageStart) {
+      seekPos = Math.max(1, Math.min(openFileStatus.numFrames, seekPos));
       imageStart = await VideoUtils.getFrame(videoFile, seekPos);
       if (!imageStart) {
         console.log(`failed to get frame for ${videoFile}@${seekPos}`);
@@ -185,20 +213,33 @@ function createRequestVideoFrameHandler() {
     frameNum,
     seekPercent,
     fromClick,
+    toTimestamp,
   }: VideoFrameRequest): Promise<void> => {
     // Check if there is an ongoing request.
     if (currentRequest) {
       // Defer the request by wrapping it in a new Promise.
       return new Promise((resolve, reject) => {
         nextRequest = () => {
-          handleRequest({ videoFile, frameNum, seekPercent, fromClick })
+          handleRequest({
+            videoFile,
+            frameNum,
+            seekPercent,
+            fromClick,
+            toTimestamp,
+          })
             .then(resolve)
             .catch(reject);
         };
       });
     } else {
       // If no ongoing request, handle this request immediately.
-      return handleRequest({ videoFile, frameNum, seekPercent, fromClick });
+      return handleRequest({
+        videoFile,
+        frameNum,
+        seekPercent,
+        fromClick,
+        toTimestamp,
+      });
     }
   };
 
@@ -215,6 +256,7 @@ function createRequestVideoFrameHandler() {
     frameNum,
     seekPercent,
     fromClick,
+    toTimestamp,
   }: VideoFrameRequest): Promise<void> => {
     // Start processing the request
     currentRequest = (async () => {
@@ -223,6 +265,7 @@ function createRequestVideoFrameHandler() {
         frameNum,
         seekPercent,
         fromClick,
+        toTimestamp,
       });
     })();
 
@@ -264,6 +307,7 @@ export const refreshDirList = async (videoDir: string) => {
           console.log(
             'invalid response to getFilesInDirectory for ' + videoDir
           );
+          setDirList([]);
         } else {
           const files = result.files
             .filter((file) => videoFileRegex.test(file))
@@ -300,6 +344,30 @@ export const refreshDirList = async (videoDir: string) => {
       })
       .catch(reject);
   });
+};
+
+export const seekToTimestamp = (timestamp: string, fromClick?: boolean) => {
+  const jumpTime = parseTimeToSeconds(timestamp);
+  const dirs = getDirList();
+  // search files till time is > file timestamp
+  let fileIndex = -1;
+  for (let i = 0; i < dirs.length; i++) {
+    const time = parseTimeToSeconds(extractTime(dirs[i]));
+    if (time > jumpTime) {
+      break;
+    }
+    fileIndex = i;
+  }
+  if (fileIndex >= 0) {
+    setSelectedIndex(fileIndex);
+    setVideoFile(dirs[fileIndex]);
+    requestVideoFrame({
+      videoFile: dirs[fileIndex],
+      frameNum: 1,
+      fromClick,
+      toTimestamp: timestamp,
+    }).catch(showErrorDialog);
+  }
 };
 
 /**
