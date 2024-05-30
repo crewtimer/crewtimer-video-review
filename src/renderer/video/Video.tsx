@@ -22,6 +22,7 @@ import {
   setZoomWindow,
   useImage,
   useTimezoneOffset,
+  useVideoError,
   useVideoFile,
   useVideoSettings,
 } from './VideoSettings';
@@ -148,6 +149,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [timezoneOffset] = useTimezoneOffset();
   const [videoFile] = useVideoFile();
   const holdoffChanges = useRef<boolean>(false);
+  const [videoError] = useVideoError();
 
   const mouseTracking = useRef<ZoomState>({
     zoomWindow: { x: 0, y: 0, width: 0, height: 0 },
@@ -712,6 +714,15 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
                 </Typography>
               )
             : null}
+          {!!videoError && (
+            <Typography
+              className={classes.computedtext}
+              align="center"
+              sx={{ marginTop: '24px' }}
+            >
+              {videoError}
+            </Typography>
+          )}
         </Stack>
         <canvas
           ref={canvasRef}

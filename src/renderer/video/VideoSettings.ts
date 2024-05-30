@@ -14,6 +14,9 @@ export interface VideoPosition {
   file: string;
 }
 
+export const [useVideoError, setVideoError] = UseDatum<string | undefined>(
+  undefined
+);
 export const [useZoomWindow, setZoomWindow] = UseDatum<Rect>({
   x: 0,
   y: 0,

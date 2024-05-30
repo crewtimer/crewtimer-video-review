@@ -10,6 +10,7 @@ import {
   getVideoFile,
   setImage,
   setSelectedIndex,
+  setVideoError,
   setVideoFile,
   setVideoFrameNum,
   useVideoDir,
@@ -104,6 +105,7 @@ const doRequestVideoFrame = async ({
     if (!openFileStatus.open) {
       let openStatus = await VideoUtils.openFile(videoFile);
       if (openStatus.status !== 'OK') {
+        setVideoError(`Unable to open file: ${videoFile}`);
         return;
       }
       imageStart = await VideoUtils.getFrame(videoFile, 1);
@@ -177,11 +179,13 @@ const doRequestVideoFrame = async ({
       // force a jump in the VideoScrubber
       setVideoFrameNum(imageStart.frameNum);
     }
+    setVideoError(undefined);
   } catch (e) {
     console.log(
       `error opening and reading videoFile ${videoFile}`,
       e instanceof Error ? e.message : String(e)
     );
+    setVideoError(e instanceof Error ? e.message : String(e));
   }
 };
 
