@@ -1,5 +1,6 @@
 import {
   Box,
+  Button,
   Checkbox,
   Divider,
   FormControl,
@@ -10,6 +11,7 @@ import {
   Select,
   SelectChangeEvent,
   Slider,
+  Stack,
   SxProps,
   Theme,
   Typography,
@@ -22,6 +24,7 @@ import {
   useMobileConfig,
 } from 'renderer/util/UseSettings';
 import TimezoneSelector from 'renderer/util/TimezoneSelector';
+import { saveVideoSidecar } from './VideoUtils';
 
 const VideoSettingsDialog: React.FC = () => {
   const [videoSettings, setVideoSettings] = useVideoSettings();
@@ -48,6 +51,15 @@ const VideoSettingsDialog: React.FC = () => {
   waypointList = waypointList.concat(['Finish']);
   waypointList = waypointList.map((waypoint) => waypoint.trim());
 
+  const resetGuides = () => {
+    const newSetting = { ...videoSettings };
+    const finishGuide = newSetting.guides.find((g) => g.label === 'Finish');
+    if (finishGuide) {
+      finishGuide.pt1 = finishGuide.pt2 = 0;
+      setVideoSettings(newSetting, true);
+      saveVideoSidecar();
+    }
+  };
   return (
     <Box>
       <Typography>Timing Hint Source</Typography>
@@ -136,6 +148,7 @@ const VideoSettingsDialog: React.FC = () => {
                 },
                 true
               );
+              saveVideoSidecar();
             }}
           />
         }
@@ -160,20 +173,25 @@ const VideoSettingsDialog: React.FC = () => {
       /> */}
       <Divider />
       <Typography>Guide Visibility</Typography>
-      <FormControlLabel
-        labelPlacement="end"
-        label="Finish"
-        control={
-          <Checkbox
-            checked={videoSettings.guides[0].enabled}
-            onChange={() => {
-              const guides = [...videoSettings.guides];
-              guides[0].enabled = !guides[0].enabled;
-              setVideoSettings({ ...videoSettings, guides }, true);
-            }}
-          />
-        }
-      />
+      <Stack direction="row">
+        <FormControlLabel
+          labelPlacement="end"
+          label="Finish"
+          control={
+            <Checkbox
+              checked={videoSettings.guides[0].enabled}
+              onChange={() => {
+                const guides = [...videoSettings.guides];
+                guides[0].enabled = !guides[0].enabled;
+                setVideoSettings({ ...videoSettings, guides }, true);
+              }}
+            />
+          }
+        />
+        <Button variant="outlined" size="small" onClick={() => resetGuides()}>
+          Reset Finish
+        </Button>
+      </Stack>
       <Box>
         {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lane) => (
           <FormControlLabel
