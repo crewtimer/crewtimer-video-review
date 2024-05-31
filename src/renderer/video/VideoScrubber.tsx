@@ -15,6 +15,7 @@ import {
   useTimezoneOffset,
   getImage,
   useVideoEvent,
+  useVideoBow,
 } from './VideoSettings';
 import { parseTimeToSeconds } from './VideoUtils';
 
@@ -28,7 +29,8 @@ const VideoScrubber = () => {
   const lastVideoFile = useRef('');
   const [timezoneOffset] = useTimezoneOffset();
   const sliderRef = useRef<HTMLSpanElement>(null);
-  let [, setSelectedEvent] = useVideoEvent();
+  const [, setSelectedEvent] = useVideoEvent();
+  const [, setSelectedBow] = useVideoBow();
 
   const [tooltip, setTooltip] = useState<TimeObject | undefined>();
   const numFrames = image.numFrames;
@@ -137,6 +139,9 @@ const VideoScrubber = () => {
     requestVideoFrame({ videoFile, frameNum: frame });
     if (click.EventNum !== '?') {
       setSelectedEvent(click.EventNum);
+    }
+    if (click.Bow && click.Bow !== '*') {
+      setSelectedBow(click.Bow);
     }
   };
 
