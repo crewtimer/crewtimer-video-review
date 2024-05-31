@@ -24,7 +24,9 @@ import DataGrid, {
   RenderHeaderCellProps,
 } from 'react-data-grid';
 import {
+  getSortPlace,
   setVideoBow,
+  usePlaceSort,
   useVideoBow,
   useVideoEvent,
   useVideoTimestamp,
@@ -60,9 +62,12 @@ interface RowType {
   eventNum: string;
   label: string;
   Bow: string;
+  Time: string;
   event: Event;
   entry?: Entry;
 }
+
+const [useRenderRequired, setRenderRequired, getRenderRequired] = UseDatum(0);
 
 const timingFontSize = 12;
 
@@ -72,14 +77,17 @@ const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
 } | null>(null);
 
 const TimestampCell = ({ row }: { row: RowType }) => {
-  const key = `${gateFromWaypoint(getWaypoint())}_${row.entry?.EventNum}_${
-    row.entry?.Bow
-  }`;
-  const [entry] = useEntryResult(key);
-  // console.log(
-  //   `rendering timestamp cell for ${key} value=${JSON.stringify(entry)}`
-  // );
-  const time = entry?.State === 'Deleted' ? '' : entry?.Time || '';
+  const [lap] = useEntryResult(row.id);
+  const time = lap?.State === 'Deleted' ? '' : lap?.Time || '';
+  const timeChange = time !== row.Time;
+
+  // Re-render the parent component if the time changes
+  useEffect(() => {
+    if (timeChange && getSortPlace()) {
+      setRenderRequired(getRenderRequired() + 1);
+    }
+  }, [timeChange && getSortPlace()]);
+
   const handleMenu: React.MouseEventHandler<HTMLDivElement> = (event) => {
     setContextMenuAnchor({ element: event.currentTarget, row });
   };
@@ -143,6 +151,34 @@ const TimestampCol = ({ row }: { row: RowType }) => {
 export const RenderHeaderCell: React.FC<RenderHeaderCellProps<RowType>> = ({
   column,
 }) => {
+  const [placeSort, setPlaceSort] = usePlaceSort();
+  return (
+    <Stack direction="row" onClick={() => setPlaceSort(!placeSort)}>
+      <Typography
+        sx={{
+          paddingLeft: '0.5em',
+          fontSize: '14px',
+          fontWeight: 'bold',
+        }}
+      >
+        {column.name}
+      </Typography>
+      <Typography
+        sx={{
+          paddingLeft: '0.5em',
+          fontSize: '12px',
+          marginTop: '2px',
+        }}
+      >
+        {placeSort ? 'time ▲' : '▲'}
+      </Typography>
+    </Stack>
+  );
+};
+
+export const RenderTimeHeaderCell: React.FC<RenderHeaderCellProps<RowType>> = ({
+  column,
+}) => {
   return (
     <Typography
       sx={{
@@ -192,6 +228,7 @@ const columns = (width: number): readonly Column<RowType>[] => {
       name: 'Time',
       width: col2Width,
       renderCell: TimestampCol,
+      renderHeaderCell: RenderTimeHeaderCell,
     },
   ];
 };
@@ -388,17 +425,26 @@ const generateEventRows = (
       eventNum: event.EventNum,
       label: `E${event.Event}`,
       Bow: '',
+      Time: '',
       event,
     });
   }
   if (includeEntries) {
     event.eventItems.forEach((entry) => {
+      const key = `${gate}_${event.EventNum}_${entry?.Bow}`;
+      const lap = getEntryResult(key);
+      // console.log(
+      //   `rendering timestamp cell for ${key} value=${JSON.stringify(entry)}`
+      // );
+      const Time = lap?.State === 'Deleted' ? '' : lap?.Time || '';
+
       rows.push({
-        id: `${gate}_${event.EventNum}_${entry.Bow}`,
+        id: `${key}`,
         eventName: '',
         eventNum: event.EventNum,
         label: `${entry.Bow} ${entry.Crew}`,
         Bow: entry.Bow,
+        Time,
         event,
         entry,
       });
@@ -417,8 +463,10 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   const [mobileConfig] = useMobileConfig();
   const [day] = useDay();
   const [waypoint] = useWaypoint();
+  const [placeSort] = usePlaceSort();
   let [selectedEvent, setSelectedEvent] = useVideoEvent();
   const datagridRef = useRef<DataGridHandle | null>(null);
+  useRenderRequired();
 
   const gate = gateFromWaypoint(waypoint);
   const { rows, filteredEvents } = useMemo(() => {
@@ -462,6 +510,18 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   const activeEventRows = activeEvents
     .map((event) => generateEventRows(gate, event, false, true))
     .flat();
+  if (placeSort) {
+    activeEventRows.sort((a, b) =>
+      (a.Time || '99:99:99.999').localeCompare(
+        b.Time || '99:99:99.999',
+        undefined,
+        {
+          numeric: true,
+          sensitivity: 'base',
+        }
+      )
+    );
+  }
 
   const onRowClick = (
     args: CellClickArgs<RowType, unknown>,

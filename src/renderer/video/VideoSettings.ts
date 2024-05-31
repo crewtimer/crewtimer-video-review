@@ -39,6 +39,7 @@ export const [useVideoFile, setVideoFile, getVideoFile] = UseStoredDatum(
 export const [useVideoTimestamp, setVideoTimestamp] = UseDatum('');
 export const [useVideoBow, setVideoBow] = UseDatum('');
 export const [useVideoEvent, setVideoEvent] = UseDatum('');
+export const [usePlaceSort, setPlaceSort, getSortPlace] = UseDatum(false);
 export const [useSelectedIndex, setSelectedIndex, getSelectedIndex] =
   UseDatum(0);
 
