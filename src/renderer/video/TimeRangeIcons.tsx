@@ -1,6 +1,7 @@
 import React from 'react';
 import Box from '@mui/material/Box';
 import SouthIcon from '@mui/icons-material/South';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { parseTimeToSeconds } from './VideoUtils';
 
 /**
@@ -25,7 +26,7 @@ type TimeRangeIconsProps = {
   endTime: string;
   showBeyondRange?: boolean;
   iconColor?: string;
-  dir?: 'up' | 'down';
+  iconType?: 'caret' | 'down';
 };
 
 /**
@@ -40,7 +41,7 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
   endTime,
   showBeyondRange,
   iconColor,
-  dir = 'down',
+  iconType = 'down',
 }) => {
   const startSeconds = parseTimeToSeconds(startTime);
   const endSeconds = parseTimeToSeconds(endTime);
@@ -86,7 +87,7 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
             sx={{
               position: 'absolute',
               left: `${relativePosition}%`,
-              top: dir === 'down' ? '50%' : '-80%',
+              top: iconType === 'down' ? '50%' : '-80%',
               transform: 'translate(-50%, -50%)',
               fontSize: '10px',
               height: '10px',
@@ -96,7 +97,7 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
             }}
             onClick={() => console.log(`click at ${timeObj.Time}`)}
           >
-            <SouthIcon />
+            {iconType === 'caret' ? <ArrowDropDownIcon /> : <SouthIcon />}
           </Box>
         );
       })}

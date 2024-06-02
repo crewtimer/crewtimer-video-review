@@ -23,8 +23,8 @@ const VideoScrubber = () => {
   const [videoFrameNum, setVideoFrameNum] = useVideoFrameNum();
   const [videoFile] = useVideoFile();
   const [image] = useImage();
-  const [scoredWaypoint] = useWaypoint();
   const lapdata = useClickerData() as TimeObject[];
+  const [scoredWaypoint] = useWaypoint();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
   const lastVideoFile = useRef('');
   const [timezoneOffset] = useTimezoneOffset();
@@ -190,7 +190,7 @@ const VideoScrubber = () => {
           startTime={startTime}
           endTime={endTime}
           iconColor="#2e7d32"
-          dir="up"
+          iconType="caret"
         />
         <Box
           sx={{

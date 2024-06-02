@@ -23,6 +23,7 @@ import {
 import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
 import TimeSegments from './TimeSegments';
 import { useClickerData } from './UseClickerData';
+import { useWaypoint } from 'renderer/util/UseSettings';
 
 export const moveToFileIndex = (
   index: number,
@@ -51,6 +52,8 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   const [, setFileIndex] = useSelectedIndex();
   const [dirList] = useDirList();
   let lapdata = useClickerData() as TimeObject[];
+  const [scoredWaypoint] = useWaypoint();
+  const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
 
   // console.log(`lapdata: ${Object.keys(lapdata || {}).length}`);
 
@@ -103,17 +106,6 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   const startTime = segmentList[0]?.startTime || '12:00:00';
   let endTime = segmentList[segmentList.length - 1]?.endTime || '17:00:00';
 
-  // if (segmentList.length > 0) {
-  //   // we really dont know how long a segment is until it is read. estimate instead
-  //   let lastClick = Math.trunc(
-  //     parseTimeToSeconds(lapdata[lapdata.length - 1]?.Time || '00:00:00')
-  //   );
-  //   const clickPastEnd = lastClick - parseTimeToSeconds(endTime);
-  //   if (clickPastEnd > 0 && clickPastEnd < 60 * 60) {
-  //     endTime = formatSecondsAsTime(lastClick + 20);
-  //     segmentList[segmentList.length - 1].endTime = endTime;
-  //   }
-  // }
   return (
     <Stack
       direction="row"
@@ -126,19 +118,6 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
       }}
       sx={sx}
     >
-      {/* <Button
-        variant="contained"
-        onClick={prevFile}
-        size="small"
-        sx={{
-          height: 24,
-          m: 0,
-          minWidth: 24,
-          background: '#19857b',
-        }}
-      >
-        <FastRewindIcon fontSize={'small'} />
-      </Button> */}
       <Button
         variant="contained"
         onClick={prevFile}
@@ -167,6 +146,13 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           startTime={startTime}
           endTime={endTime}
           showBeyondRange={true}
+        />
+        <TimeRangeIcons
+          times={scoredLapdata}
+          startTime={startTime}
+          endTime={endTime}
+          iconColor="#2e7d32"
+          iconType="caret"
         />
         <Box
           sx={{
