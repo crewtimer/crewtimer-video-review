@@ -14,6 +14,7 @@ import {
   Stack,
   IconButton,
   Menu,
+  Tooltip,
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DataGrid, {
@@ -36,6 +37,7 @@ import {
   getWaypoint,
   useDay,
   useMobileConfig,
+  useTabPosition,
   useWaypoint,
 } from 'renderer/util/UseSettings';
 import {
@@ -466,6 +468,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   const [placeSort] = usePlaceSort();
   let [selectedEvent, setSelectedEvent] = useVideoEvent();
   const datagridRef = useRef<DataGridHandle | null>(null);
+  const [, setTabPosition] = useTabPosition();
   useRenderRequired();
 
   const gate = gateFromWaypoint(waypoint);
@@ -586,6 +589,26 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   const activeEventIndex = filteredEvents.findIndex(
     (event) => event.EventNum === selectedEvent
   );
+
+  if (!mobileConfig) {
+    return (
+      <Tooltip title="A CrewTimer regatta must be configured to use timing features.">
+        <Button
+          size="small"
+          variant="contained"
+          sx={{
+            margin: '0.5em',
+            marginTop: 0,
+            marginBottom: '1em',
+            height: '36px',
+          }}
+          onClick={() => setTabPosition('System Config')}
+        >
+          Connect CrewTimer
+        </Button>
+      </Tooltip>
+    );
+  }
 
   return (
     <Paper

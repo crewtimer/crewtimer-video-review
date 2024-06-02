@@ -1,6 +1,6 @@
-# CrewTimer FinishLynx Connect
+# CrewTimer Video Review
 
-CrewTimer FinishLynx Connect is built using Electron, and specificlly
+CrewTimer Video Review is built using Electron, and specificlly
 the [Electron React Boilerplate Project](https://electron-react-boilerplate.js.org/docs/installation/).
 
 See the [VSCode plugins suggested here](https://electron-react-boilerplate.js.org/docs/editor-configuration).
@@ -77,29 +77,13 @@ See also [the Electron React Boilerplate page](https://electron-react-boilerplat
 
 * CrewTimer.db No longer correct: C:\\Users\\glenne\\AppData\\Local\\Programs\\crewtimer-fl-connector\\CrewTimer.db
 * Images and assets C:\\Users\\glenne\\AppData\\Local\\Programs\\crewtimer-fl-connector\\resources\assets
-* config.json C:\\Users\\glenne\\AppData\Roaming\\CrewTimer FinishLynx Connector\\config.json
+* config.json C:\\Users\\glenne\\AppData\Roaming\\CrewTimer Video Reviewor\\config.json
 
 ### MacOS
 
 * CrewTimer.db '/Users/glenne/Library/Application Support/Electron/CrewTimer.db'
 * config.json debug: '/Users/glenne//Library/Application Support/Electron/config.json'
 * config.json installed: '/Users/glenne//Library/Application Support/crewtimer-fl-connector/config.json'
-
-## Debugging with Parallels and MacOS
-
-FL connects via TCP/IP to the CrewTimer FL Connect app. When running with parallels the
-scoreboard must be provided with the IP address where CrewTimer FL Connect is running.
-
-1. Find the macOS IP Address for the Parallels container. Issue `ifconfig` and look for the IP address associated with the vnic1 interface. E.g. 10.37.129.2. This will be used within FinishLynx.
-2. Run FinishLynx within Parallels and configure a scoreboard with the IP address found in the prior step.
-3. Run CrewTimer FL Connect on macOS: `npm start`
-
-## Using Manual Start on FL
-
-1. Go to File|Options|General and set the Hardware Type = None.
-2. Set Camera Settings -> Input -> Wired Sensor = Open if not using a start sensor.
-3. Go to LapTime options and click New.
-4. Restart FL
 
 ## Releasing new versions
 

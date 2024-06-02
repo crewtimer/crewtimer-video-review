@@ -1,7 +1,7 @@
 import SQLite, { Database, RunResult } from 'sqlite3';
 import { app } from 'electron';
 import path from 'path';
-import { Lap } from 'crewtimer-common';
+import { KeyMap, Lap } from 'crewtimer-common';
 import {
   LapDatumName,
   LapListInitCount,
@@ -245,7 +245,7 @@ class LapStorage {
             const len = rows.length;
             updateProgress(`Query completed with ${len} rows`);
             for (let i = 0; i < len; i += 1) {
-              const row = rows[i];
+              const row = rows[i] as KeyMap;
               // console.log(`restored ${JSON.stringify(row)}`);
               laps.push(JSON.parse(row[DATUM_COL]));
             }

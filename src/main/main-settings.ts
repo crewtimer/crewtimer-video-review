@@ -1,11 +1,5 @@
 import { MobileSettings } from 'crewtimer-common';
-import {
-  LynxFolderOK,
-  LynxState,
-  LynxStateKey,
-  N_LYNX_FOLDER,
-  N_LYNX_PORT,
-} from '../renderer/shared/FinishLynx';
+
 import {
   FirebaseConnectedKey,
   MobileConfigCountKey,
@@ -23,9 +17,6 @@ import {
   setMemValue,
   setStoredValue,
 } from './store/store';
-
-export const setLynxState = (state: LynxState) =>
-  setMemValue(LynxStateKey, state);
 
 export const getWaypoint = () => getStoredValue(N_WAYPOINT, '');
 export const getFLStartWaypoint = () => getStoredValue(N_FL_START_WAYPOINT, '');
@@ -48,18 +39,7 @@ export const getFirebaseConnected = () =>
 export const setFirebaseConnected = (connected: boolean) =>
   setMemValue(FirebaseConnectedKey, connected);
 
-export const getLynxFolderOK = () => getMemValue(LynxFolderOK, false);
-export const setLynxFolderOK = (ok: boolean) => setMemValue(LynxFolderOK, ok);
-export const getLynxPort = () =>
-  getStoredValue<number>(
-    N_LYNX_PORT,
-    process.platform === 'darwin' ? 6000 : 5000
-  );
 export const getDebugLevel = () => getMemValue<number>(N_DEBUG_LEVEL, 0);
-
-export const getLynxFolder = () => getStoredValue(N_LYNX_FOLDER, 'C:\\Lynx');
-export const setLynxFolder = (folder: string) =>
-  setStoredValue(N_LYNX_FOLDER, folder);
 
 export const getMobileConfig = () =>
   getStoredValue<MobileSettings | undefined>(MobileConfigKey, undefined);

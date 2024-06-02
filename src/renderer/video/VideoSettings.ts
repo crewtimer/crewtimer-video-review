@@ -101,15 +101,12 @@ export interface VideoGuides {
  */
 interface VideoSettings extends VideoGuides {
   timingHintSource: string;
-
-  videoPanel: boolean;
   sidecarSource?: string;
 }
 export const [useVideoSettings, setVideoSettings, getVideoSettings] =
   UseStoredDatum<VideoSettings>('videoSettings', {
     timingHintSource: 'F',
     laneBelowGuide: false,
-    videoPanel: true,
     guides: [
       { dir: Dir.Vert, pt1: 0, pt2: 0, label: 'Finish', enabled: true },
       { dir: Dir.Horiz, pt1: 200, pt2: 200, label: 'Lane 0', enabled: false },

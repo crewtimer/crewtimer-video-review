@@ -1,4 +1,3 @@
-import { useEnableVideoTiming } from 'renderer/util/UseSettings';
 import { useClickerData } from './UseClickerData';
 
 const ClickerDataKeepAlive: React.FC = () => {
@@ -12,8 +11,7 @@ const ClickerDataKeepAlive: React.FC = () => {
  * @returns a component that keeps the clicker data alive
  */
 const VideoDataMonitor: React.FC = () => {
-  const [enableVideoTiming] = useEnableVideoTiming();
-  return enableVideoTiming ? <ClickerDataKeepAlive /> : <></>;
+  return <ClickerDataKeepAlive />;
 };
 
 export default VideoDataMonitor;

@@ -9,12 +9,8 @@ import {
   useLapListInitCount,
 } from './util/LapStorageDatum';
 import {
-  useEnableVideo,
   useInitializing,
-  useLynxFolder,
-  useLynxFolderOK,
   useMobileConfig,
-  useMobileConfigCount,
   useWaypoint,
 } from './util/UseSettings';
 import { useClickerData } from './video/UseClickerData';
@@ -37,20 +33,10 @@ const timeSort = (a: Lap, b: Lap) => {
 
 export default function StatusMonitor() {
   const [mc] = useMobileConfig();
-  const [mcChangeCount] = useMobileConfigCount();
-  const [lynxFolderOK] = useLynxFolderOK();
-  const [lynxFolder] = useLynxFolder();
   const [lapListInitCount] = useLapListInitCount();
   const [initializing] = useInitializing();
-  const [enableVideo] = useEnableVideo();
   const [timingWaypoint] = useWaypoint();
   const timingLapdata = useClickerData(timingWaypoint) as Lap[];
-
-  useEffect(() => {
-    if (lynxFolderOK && mc) {
-      window.FinishLynx.generateEvtFiles();
-    }
-  }, [lynxFolder, lynxFolderOK, mc, mcChangeCount]);
 
   useEffect(() => {
     const clearTS = mc?.info.ClearTS || 0;
@@ -90,7 +76,7 @@ export default function StatusMonitor() {
   useEffect(() => {
     // Let recorder know the current guide settings periodically
     // It's also notified if it changes
-    if (initializing || !enableVideo) {
+    if (initializing) {
       return;
     }
     notifiyGuideChanged();
@@ -98,6 +84,6 @@ export default function StatusMonitor() {
       notifiyGuideChanged();
     }, 60000);
     return () => clearInterval(timer);
-  }, [enableVideo, initializing]);
+  }, [initializing]);
   return <></>;
 }

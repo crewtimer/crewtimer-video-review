@@ -6,11 +6,7 @@ import InitProgress, { useInitProgress } from './InitProgress';
 import Nav from './Nav';
 import StatusMonitor from './StatusMonitor';
 import { ConfirmDialog } from './util/ConfirmDialog';
-import {
-  setInitializing,
-  useEnableLynx,
-  useLynxPort,
-} from './util/UseSettings';
+import { setInitializing } from './util/UseSettings';
 import VideoDataMonitor from './video/VideoDataMonitor';
 import FileMonitor from './video/VideoFileUtils';
 import { triggerFileSplit } from './video/VideoUtils';
@@ -18,9 +14,7 @@ import { triggerFileSplit } from './video/VideoUtils';
 const { startLapStorage } = window.LapStorage;
 const { stopLapStorage } = window.LapStorage;
 export default function App() {
-  const [initProgress, setInitProgress] = useInitProgress();
-  const [enableLynx] = useEnableLynx();
-  const [lynxPort] = useLynxPort();
+  const [, setInitProgress] = useInitProgress();
   useEffect(() => {
     setInitializing(true);
     const doInit = async () => {
@@ -41,19 +35,10 @@ export default function App() {
     };
     doInit();
     return () => {
-      window.FinishLynx.stopLynxServer();
       stopLapStorage();
       window.Firebase.stopFirebase();
     };
   }, [setInitProgress]);
-
-  useEffect(() => {
-    if (enableLynx) {
-      window.FinishLynx.startLynxServer();
-    } else {
-      window.FinishLynx.stopLynxServer();
-    }
-  }, [enableLynx && initProgress >= 50, lynxPort]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

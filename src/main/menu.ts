@@ -57,14 +57,14 @@ export default class MenuBuilder {
       label: 'Electron',
       submenu: [
         {
-          label: 'About CrewTimer Connect',
+          label: 'About CrewTimer Video Recorder',
           selector: 'orderFrontStandardAboutPanel:',
         },
         { type: 'separator' },
         { label: 'Services', submenu: [] },
         { type: 'separator' },
         {
-          label: 'Hide CrewTimer Connect',
+          label: 'Hide CrewTimer Video Recorder',
           accelerator: 'Command+H',
           selector: 'hide:',
         },

@@ -2,33 +2,48 @@ import {
   Box,
   Button,
   Checkbox,
-  Divider,
-  FormControl,
+  Container,
   FormControlLabel,
   IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
-  SelectChangeEvent,
   Slider,
   Stack,
   SxProps,
   Theme,
+  Toolbar,
   Typography,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Settings';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 import { useMouseWheelFactor, useVideoSettings } from './VideoSettings';
-import {
-  useEnableVideoTiming,
-  useMobileConfig,
-} from 'renderer/util/UseSettings';
+import { useMobileConfig } from 'renderer/util/UseSettings';
 import TimezoneSelector from 'renderer/util/TimezoneSelector';
 import { saveVideoSidecar } from './VideoUtils';
+import makeStyles from '@mui/styles/makeStyles';
 
-const VideoSettingsDialog: React.FC = () => {
+const useStyles = makeStyles((theme) => ({
+  header: {
+    height: '40px',
+    minHeight: '40px',
+    color: '#000000',
+    backgroundColor: '#e8e8e8',
+    paddingLeft: theme.spacing(2),
+    marginBottom: '0.5em',
+  },
+  smaller: {
+    transform: 'scale(0.8)',
+    transformOrigin: 'left',
+  },
+
+  settings: {
+    marginLeft: theme.spacing(2),
+    marginBottom: theme.spacing(1),
+    marginRight: theme.spacing(2),
+  },
+}));
+
+export const VideoSettingsDialog: React.FC = () => {
+  const classes = useStyles();
   const [videoSettings, setVideoSettings] = useVideoSettings();
-  const [enableVideoTiming, setEnableVideoTiming] = useEnableVideoTiming();
   const [mc] = useMobileConfig();
   const [wheelFactor, setWheelFactor] = useMouseWheelFactor();
 
@@ -37,12 +52,6 @@ const VideoSettingsDialog: React.FC = () => {
     setWheelFactor(newValue as number);
   };
 
-  const onTimingHintSourceChange = (event: SelectChangeEvent) => {
-    setVideoSettings(
-      { ...videoSettings, timingHintSource: event.target.value },
-      true
-    );
-  };
   let waypointList = ['Start'];
   const waypoints = mc?.info.Waypoints || '';
   if (waypoints.length > 0) {
@@ -61,64 +70,31 @@ const VideoSettingsDialog: React.FC = () => {
     }
   };
   return (
-    <Box>
-      <Typography>Timing Hint Source</Typography>
-      <FormControl
-        sx={{ marginTop: '0.5em', marginBottom: '0.5em', minWidth: 200 }}
-        margin="dense"
-        size="small"
-      >
-        <InputLabel id="hint-select-label">Waypoint</InputLabel>
-        <Select
-          labelId="hint-select-label"
-          id="hint-select"
-          value={videoSettings.timingHintSource}
-          label="Waypoint"
-          onChange={onTimingHintSourceChange}
-        >
-          {waypointList.map((waypoint) => (
-            <MenuItem key={waypoint} value={waypoint}>
-              {waypoint}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      <Divider />
-      <Typography>Visible Panels</Typography>
-
-      <FormControlLabel
-        labelPlacement="end"
-        label="Timing"
-        control={
-          <Checkbox
-            checked={enableVideoTiming}
-            onChange={() => {
-              setEnableVideoTiming((current) => !current);
-            }}
-          />
-        }
-      />
-      <FormControlLabel
-        labelPlacement="end"
-        label="Video Files"
-        control={
-          <Checkbox
-            checked={videoSettings.videoPanel}
-            onChange={() => {
-              setVideoSettings(
-                { ...videoSettings, videoPanel: !videoSettings.videoPanel },
-                true
-              );
-            }}
-          />
-        }
-      />
-      <Divider />
-      <Typography>Course Timezone</Typography>
-      <TimezoneSelector />
-      <Divider />
-      <Typography>Mouse Wheel Factor</Typography>
-      <Box>
+    <Container
+      maxWidth="xl"
+      style={{
+        flexGrow: 1,
+        display: 'flex',
+        flexFlow: 'column',
+        flex: 1,
+        paddingBottom: '2em',
+        paddingTop: '1em',
+      }}
+    >
+      <Toolbar className={classes.header}>
+        <Typography variant="h6" display="inline" className={classes.smaller}>
+          Course Timezone
+        </Typography>
+      </Toolbar>
+      <Box className={classes.settings}>
+        <TimezoneSelector />
+      </Box>
+      <Toolbar className={classes.header}>
+        <Typography variant="h6" display="inline" className={classes.smaller}>
+          Mouse Wheel Factor
+        </Typography>
+      </Toolbar>
+      <Box className={classes.settings}>
         <Box display="flex" alignItems="center">
           <Typography variant="body1" mr={2}>
             {wheelFactor}
@@ -132,87 +108,79 @@ const VideoSettingsDialog: React.FC = () => {
           />
         </Box>
       </Box>
-      <Divider />
-      <Typography>Course Configuration</Typography>
-      <FormControlLabel
-        labelPlacement="end"
-        label="Lane below guide line"
-        control={
-          <Checkbox
-            checked={videoSettings.laneBelowGuide}
-            onChange={() => {
-              setVideoSettings(
-                {
-                  ...videoSettings,
-                  laneBelowGuide: !videoSettings.laneBelowGuide,
-                },
-                true
-              );
-              saveVideoSidecar();
-            }}
-          />
-        }
-      />
-      {/* <FormControlLabel
-        labelPlacement="end"
-        label="Travel Right to Left"
-        control={
-          <Checkbox
-            checked={videoSettings.travelRtoL}
-            onChange={() => {
-              setVideoSettings(
-                {
-                  ...videoSettings,
-                  travelRtoL: !videoSettings.travelRtoL,
-                },
-                true
-              );
-            }}
-          />
-        }
-      /> */}
-      <Divider />
-      <Typography>Guide Visibility</Typography>
-      <Stack direction="row">
+      <Toolbar className={classes.header}>
+        <Typography variant="h6" display="inline" className={classes.smaller}>
+          Course Configuration
+        </Typography>
+      </Toolbar>
+      <Box className={classes.settings}>
         <FormControlLabel
           labelPlacement="end"
-          label="Finish"
+          label="Lane is below guide line"
           control={
             <Checkbox
-              checked={videoSettings.guides[0].enabled}
+              checked={videoSettings.laneBelowGuide}
               onChange={() => {
-                const guides = [...videoSettings.guides];
-                guides[0].enabled = !guides[0].enabled;
-                setVideoSettings({ ...videoSettings, guides }, true);
+                setVideoSettings(
+                  {
+                    ...videoSettings,
+                    laneBelowGuide: !videoSettings.laneBelowGuide,
+                  },
+                  true
+                );
+                saveVideoSidecar();
               }}
             />
           }
         />
-        <Button variant="outlined" size="small" onClick={() => resetGuides()}>
-          Reset Finish
-        </Button>
-      </Stack>
-      <Box>
-        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lane) => (
+      </Box>
+      <Toolbar className={classes.header}>
+        <Typography variant="h6" display="inline" className={classes.smaller}>
+          Guide Visibility
+        </Typography>
+      </Toolbar>
+      <Box className={classes.settings}>
+        <Stack direction="row">
           <FormControlLabel
-            key={lane}
             labelPlacement="end"
-            label={`Lane ${lane}`}
+            label="Finish"
             control={
               <Checkbox
-                checked={videoSettings.guides[lane + 1].enabled}
+                checked={videoSettings.guides[0].enabled}
                 onChange={() => {
-                  const guides = [...videoSettings.guides]; // force 'diff'
-                  videoSettings.guides[lane + 1].enabled =
-                    !videoSettings.guides[lane + 1].enabled;
+                  const guides = [...videoSettings.guides];
+                  guides[0].enabled = !guides[0].enabled;
                   setVideoSettings({ ...videoSettings, guides }, true);
                 }}
               />
             }
           />
-        ))}
+          <Button variant="outlined" size="small" onClick={() => resetGuides()}>
+            Reset Finish
+          </Button>
+        </Stack>
+        <Box>
+          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lane) => (
+            <FormControlLabel
+              key={lane}
+              labelPlacement="end"
+              label={`Lane ${lane}`}
+              control={
+                <Checkbox
+                  checked={videoSettings.guides[lane + 1].enabled}
+                  onChange={() => {
+                    const guides = [...videoSettings.guides]; // force 'diff'
+                    videoSettings.guides[lane + 1].enabled =
+                      !videoSettings.guides[lane + 1].enabled;
+                    setVideoSettings({ ...videoSettings, guides }, true);
+                  }}
+                />
+              }
+            />
+          ))}
+        </Box>
       </Box>
-    </Box>
+    </Container>
   );
 };
 

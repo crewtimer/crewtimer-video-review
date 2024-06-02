@@ -15,7 +15,6 @@ import { resolveHtmlPath } from './util';
 import './lapstorage/lapstorage-ipc-handler';
 import './store/store';
 import './util/fileops-handler';
-import './finishlynx/finishlynx-ipc-handler';
 import './firebase/firebase-ipc-handler';
 import { startVideoServices } from './video/video-main';
 import { getMainWindow, setMainWindow } from './mainWindow';

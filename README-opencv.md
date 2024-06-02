@@ -32,4 +32,4 @@ npm run macbuild
 
 The build output can be found in release/build.
 
-To test the build without installing, use `open release/build/mac/CrewTimer\ FinishLynx\ Connect.app/`
+To test the build without installing, use `open release/build/mac/CrewTimer\ Video\ Review.app/`

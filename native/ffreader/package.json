@@ -1,7 +1,7 @@
 {
   "name": "crewtimer_video_reader",
   "version": "1.0.3",
-  "description": "A node electron utility to read mp4 files for CrewTimer Connect",
+  "description": "A node electron utility to read mp4 files for CrewTimer Video Review",
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { UseDatum } from 'react-usedatum';
 import { AppImage } from 'renderer/shared/AppTypes';
 import { showErrorDialog } from 'renderer/util/ErrorDialog';
-import { useEnableVideo, useInitializing } from 'renderer/util/UseSettings';
+import { useInitializing } from 'renderer/util/UseSettings';
 import { timeToMilli } from 'renderer/util/Util';
 import {
   getImage,
@@ -377,10 +377,9 @@ export const seekToTimestamp = (timestamp: string, fromClick?: boolean) => {
 const FileMonitor: React.FC = () => {
   const [videoDir] = useVideoDir();
   const [initializing] = useInitializing();
-  const [enableVideo] = useEnableVideo();
 
   useEffect(() => {
-    if (initializing || !enableVideo) {
+    if (initializing) {
       return;
     }
     refreshDirList(videoDir);

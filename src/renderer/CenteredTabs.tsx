@@ -4,18 +4,17 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Setup from './Setup';
 import Status from './Status';
-import {
-  useEnableLynx,
-  useEnableVideo,
-  useEnableVideoTiming,
-  useInitializing,
-  useTabPosition,
-} from './util/UseSettings';
-import FinishLynxHelp from './FinishLynxHelp';
+import { useInitializing, useTabPosition } from './util/UseSettings';
 import { Toast } from './Toast';
 import Video from './video/Video';
-import FLSetup from './FLSetup';
-import SystemConfig from './SystemConfig';
+import {
+  HistoryTwoTone,
+  VideoSettings,
+  Settings,
+  OndemandVideo,
+} from '@mui/icons-material';
+import { Tooltip } from '@mui/material';
+import { VideoSettingsDialog } from './video/VideoSettingsView';
 
 const useStyles = makeStyles({
   root: {
@@ -28,9 +27,6 @@ const useStyles = makeStyles({
 export default function CenteredTabs() {
   const classes = useStyles();
   const [tabPosition, setTabPosition] = useTabPosition();
-  const [enableVideo] = useEnableVideo();
-  const [enableLynx] = useEnableLynx();
-  const [enableVideoTiming] = useEnableVideoTiming();
   const [initializing] = useInitializing();
 
   const handleChange = (_event: unknown, newValue: string) => {
@@ -58,25 +54,45 @@ export default function CenteredTabs() {
             marginBottom: '1em',
           }}
         >
-          {enableVideo && <Tab label="Video" value="Video" />}
-          {enableLynx && <Tab label="Lynx" value="Lynx" />}
-          {(enableLynx || (enableVideo && enableVideoTiming)) && (
-            <Tab label="Timing History" value="Timing History" />
-          )}
-          {(enableLynx || (enableVideo && enableVideoTiming)) && (
-            <Tab label="CrewTimer" value="CrewTimer" />
-          )}
-          {enableLynx && <Tab label="Lynx Help" value="Help" />}
-          <Tab label="System Config" value="Config" />
+          <Tab
+            icon={
+              <Tooltip title="Video Review">
+                <OndemandVideo />
+              </Tooltip>
+            }
+            value="Video"
+          />
+          <Tab
+            icon={
+              <Tooltip title="Video Settings">
+                <VideoSettings />
+              </Tooltip>
+            }
+            value="Video Settings"
+          />
+          <Tab
+            icon={
+              <Tooltip title="Timing History">
+                <HistoryTwoTone />
+              </Tooltip>
+            }
+            value="Timing History"
+          />
+          <Tab
+            icon={
+              <Tooltip title="CrewTimer Settings">
+                <Settings />
+              </Tooltip>
+            }
+            value="System Config"
+          />
         </Tabs>
       </div>
       <Tabs style={{ zIndex: 0 }} />
-      {tabPosition === 'Config' && <SystemConfig />}
       {tabPosition === 'Timing History' && <Status />}
-      {tabPosition === 'CrewTimer' && <Setup />}
-      {tabPosition === 'Lynx' && <FLSetup />}
+      {tabPosition === 'System Config' && <Setup />}
       {tabPosition === 'Video' && <Video />}
-      {tabPosition === 'Help' && <FinishLynxHelp />}
+      {tabPosition === 'Video Settings' && <VideoSettingsDialog />}
       <Toast />
     </Paper>
     // </div>

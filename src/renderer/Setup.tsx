@@ -28,8 +28,7 @@ import {
 } from './util/UseSettings';
 import { clearCredentials, validateCredentials } from './util/UseAuthState';
 import { useUserMessages } from './util/UserMessage';
-
-const { generateEvtFiles } = window.FinishLynx;
+import { useVideoSettings } from './video/VideoSettings';
 
 const useStyles = makeStyles((theme) => ({
   paper: {
@@ -132,6 +131,7 @@ export default function Setup() {
   const [mobileID, setMobileID] = useState('');
   const [mobilePin, setMobilePin] = useState('');
   const [validating, setValidating] = useState(false);
+  const [videoSettings, setVideoSettings] = useVideoSettings();
   const authError = !authOK && authStatus ? authStatus : '';
 
   const title = mc?.info.Title || '';
@@ -169,6 +169,13 @@ export default function Setup() {
     setMobilePin(mobilePinStored);
   }, [mobilePinStored, mobileIDStored]);
 
+  const onTimingHintSourceChange = (event: SelectChangeEvent) => {
+    setVideoSettings(
+      { ...videoSettings, timingHintSource: event.target.value },
+      true
+    );
+  };
+
   const onLoginClicked = async () => {
     setValidating(true);
     await validateCredentials({ mobileID, mobilePin });
@@ -187,7 +194,6 @@ export default function Setup() {
       return;
     }
     setTimingDay(String(event.target.value));
-    generateEvtFiles();
   };
 
   return (
@@ -291,8 +297,8 @@ export default function Setup() {
                   className={classes.smaller}
                 >
                   {dayList.length
-                    ? 'Waypoint and Day Selection'
-                    : 'Waypoint Selection'}
+                    ? 'Timing Waypoint and Day Selection'
+                    : 'Timing Waypoint Selection'}
                 </Typography>
               </Toolbar>
               <Box
@@ -369,6 +375,43 @@ export default function Setup() {
                   </FormControl>
                 </Box>
               )}
+              <Toolbar className={classes.header}>
+                <Typography
+                  variant="h6"
+                  display="inline"
+                  className={classes.smaller}
+                >
+                  Timing Hint Waypoint
+                </Typography>
+              </Toolbar>
+              <Box className={classes.settings}>
+                <Tooltip title="Select the waypoint to use for timing hints.">
+                  <FormControl
+                    sx={{
+                      marginTop: '1em',
+                      marginBottom: '0.5em',
+                      minWidth: 200,
+                    }}
+                    margin="dense"
+                    size="small"
+                  >
+                    <InputLabel id="hint-select-label">Waypoint</InputLabel>
+                    <Select
+                      labelId="hint-select-label"
+                      id="hint-select"
+                      value={videoSettings.timingHintSource}
+                      label="Waypoint"
+                      onChange={onTimingHintSourceChange}
+                    >
+                      {waypointList.map((waypoint) => (
+                        <MenuItem key={waypoint} value={waypoint}>
+                          {waypoint}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Tooltip>
+              </Box>
             </>
           )}
         </Card>

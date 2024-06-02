@@ -1,7 +1,6 @@
 import { UseDatum } from 'react-usedatum';
 import { MobileSettings } from 'crewtimer-common';
 import { UseMemDatum, UseStoredDatum } from '../store/UseElectronDatum';
-import { LynxFolderOK, N_LYNX_FOLDER, N_LYNX_PORT } from '../shared/FinishLynx';
 import {
   FirebaseConnectedKey,
   MobileConfigCountKey,
@@ -16,20 +15,6 @@ import {
 
 const { LapStorage } = window;
 export const AUTH_OK = 'OK';
-
-export const [useEnableLynx, setEnableLynx, getEnableLynx] = UseStoredDatum(
-  'enableLynx',
-  false
-);
-export const [useEnableVideo, setEnableVideo, getEnableVideo] = UseStoredDatum(
-  'enableVideo',
-  false
-);
-export const [
-  useEnableVideoTiming,
-  setEnableVideoTiming,
-  getEnableVideoTiming,
-] = UseStoredDatum('enableVideoTiming', false);
 
 export const [useMobilePin, setMobilePin, getMobilePin] = UseStoredDatum(
   'MobileKey',
@@ -76,24 +61,8 @@ export const useAuthOK = () => {
   return authStatus === 'OK';
 };
 
-export const [useLynxFolderOK, setLynxFolderOK, getLynxFolderOK] =
-  UseMemDatum<boolean>(LynxFolderOK, false);
-
 export const [useDebugLevel, setDebugLevel, getDebugLevel] =
   UseMemDatum<number>(N_DEBUG_LEVEL, 0);
-
-export const [useLynxFolder, setLynxFolder, getLynxFolder] = UseStoredDatum(
-  N_LYNX_FOLDER,
-  'c:\\Lynx',
-  (folder) => {
-    window.FinishLynx.validateLynxFolder(folder);
-  }
-);
-
-export const [useLynxPort, setLynxPort, getLynxPort] = UseStoredDatum(
-  N_LYNX_PORT,
-  window.platform.platform === 'darwin' ? 6000 : 5000
-);
 
 export const [useTabPosition, setTabPosition, getTabPosition] = UseStoredDatum(
   'systemTabPosition',
@@ -116,7 +85,3 @@ export const [useMobileConfigDate] = UseMemDatum<string>(
   ''
 );
 export const [useInitializing, setInitializing] = UseDatum(true);
-
-setTimeout(() => {
-  window.FinishLynx.validateLynxFolder(getLynxFolder());
-}, 10);

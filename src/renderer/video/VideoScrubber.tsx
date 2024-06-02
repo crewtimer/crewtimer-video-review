@@ -92,7 +92,7 @@ const VideoScrubber = () => {
         typeof filteredScoredTimes,
         typeof relativePositions
       ];
-    }, [lapdata, startTime, endTime]);
+    }, [lapdata, startTime, endTime, scoredLapdata]);
 
   /**
    * Given a mouse click, find the nearest click event.

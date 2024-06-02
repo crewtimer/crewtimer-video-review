@@ -1,5 +1,5 @@
 {
-  "description": "Connector for FinishLynx to capture time events which are published to CrewTimer",
+  "description": "Review finish line video and post timing data to CrewTimer",
   "keywords": [
     "electron",
     "boilerplate",
@@ -213,8 +213,8 @@
     "webpack-merge": "^5.8.0"
   },
   "build": {
-    "productName": "CrewTimer Connect",
-    "appId": "net.entazza.CrewTimerConnect",
+    "productName": "CrewTimer Video Review",
+    "appId": "net.entazza.CrewTimerVideoReview",
     "asar": true,
     "asarUnpack": "**\\*.{node,dll,dylib}",
     "files": [

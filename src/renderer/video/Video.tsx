@@ -24,7 +24,6 @@ import {
   useTimezoneOffset,
   useVideoError,
   useVideoFile,
-  useVideoSettings,
 } from './VideoSettings';
 import VideoOverlay, {
   useAdjustingOverlay,
@@ -37,7 +36,6 @@ import {
   downloadImageFromCanvasLayers,
   findClosestLineAndPosition,
 } from './VideoUtils';
-import { useEnableVideoTiming } from 'renderer/util/UseSettings';
 import FileScrubber, { nextFile, prevFile } from './FileScrubber';
 import Measure from 'react-measure';
 import { UseDatum } from 'react-usedatum';
@@ -748,10 +746,8 @@ const [useWindowSize] = UseDatum({ winWidth: 0, winHeight: 0 });
 
 const Video = () => {
   const [{ top }, setDimensions] = useState({ top: 170, width: 1, height: 1 });
-  const [videoSettings] = useVideoSettings();
-  const [enableVideoTiming] = useEnableVideoTiming();
-  const videoSidebarWidth = videoSettings.videoPanel ? 170 : 0; // enough for '20240308_123248.mp4'
-  const timingSidebarwidth = enableVideoTiming ? 300 : 0;
+  const videoSidebarWidth = 170; // enough for '20240308_123248.mp4'
+  const timingSidebarwidth = 300;
   const sidebarWidth = Math.max(60, videoSidebarWidth + timingSidebarwidth);
   const [{ winWidth, winHeight }, setWindowSize] = useWindowSize();
 
@@ -818,24 +814,20 @@ const Video = () => {
               />
               <Stack direction="column" sx={{ width: sidebarWidth }}>
                 <Stack direction="row" sx={{ flexGrow: 1 }}>
-                  {enableVideoTiming && (
-                    <TimingSidebar
-                      height={height}
-                      width={timingSidebarwidth}
-                      sx={{
-                        width: timingSidebarwidth,
-                        height: height,
-                      }}
-                    />
-                  )}
-                  {videoSettings.videoPanel && (
-                    <VideoSideBar
-                      height={height}
-                      sx={{
-                        width: videoSidebarWidth,
-                      }}
-                    />
-                  )}
+                  <TimingSidebar
+                    height={height}
+                    width={timingSidebarwidth}
+                    sx={{
+                      width: timingSidebarwidth,
+                      height: height,
+                    }}
+                  />
+                  <VideoSideBar
+                    height={height}
+                    sx={{
+                      width: videoSidebarWidth,
+                    }}
+                  />
                 </Stack>
               </Stack>
             </Stack>
