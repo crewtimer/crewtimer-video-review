@@ -20,10 +20,6 @@ export const [useMobilePin, setMobilePin, getMobilePin] = UseStoredDatum(
   'MobileKey',
   ''
 );
-export const [useFlightRaces, setFlightRaces, getFlightRaces] = UseStoredDatum(
-  'FlightRaces',
-  ''
-);
 export const [useMobileID, setMobileID, getMobileID] = UseStoredDatum(
   N_MOBILE_ID,
   '',
@@ -64,9 +60,10 @@ export const useAuthOK = () => {
 export const [useDebugLevel, setDebugLevel, getDebugLevel] =
   UseMemDatum<number>(N_DEBUG_LEVEL, 0);
 
+// Tab position of the CenteredTabs component
 export const [useTabPosition, setTabPosition, getTabPosition] = UseStoredDatum(
   'systemTabPosition',
-  'Config'
+  'System Config'
 );
 
 export const [useFirebaseConnected, setFirebaseConnected] = UseMemDatum(

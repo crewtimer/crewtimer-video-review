@@ -1,7 +1,7 @@
 import React from 'react';
 import Box from '@mui/material/Box';
-import SouthIcon from '@mui/icons-material/South';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import { parseTimeToSeconds } from './VideoUtils';
 
 /**
@@ -26,7 +26,7 @@ type TimeRangeIconsProps = {
   endTime: string;
   showBeyondRange?: boolean;
   iconColor?: string;
-  iconType?: 'caret' | 'down';
+  iconType?: 'upper' | 'lower';
 };
 
 /**
@@ -41,7 +41,7 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
   endTime,
   showBeyondRange,
   iconColor,
-  iconType = 'down',
+  iconType = 'lower',
 }) => {
   const startSeconds = parseTimeToSeconds(startTime);
   const endSeconds = parseTimeToSeconds(endTime);
@@ -87,7 +87,7 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
             sx={{
               position: 'absolute',
               left: `${relativePosition}%`,
-              top: iconType === 'down' ? '50%' : '-80%',
+              top: iconType === 'lower' ? '50%' : '-85%',
               transform: 'translate(-50%, -50%)',
               fontSize: '10px',
               height: '10px',
@@ -97,7 +97,7 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
             }}
             onClick={() => console.log(`click at ${timeObj.Time}`)}
           >
-            {iconType === 'caret' ? <ArrowDropDownIcon /> : <SouthIcon />}
+            {iconType === 'lower' ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
           </Box>
         );
       })}

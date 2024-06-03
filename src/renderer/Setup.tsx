@@ -11,7 +11,6 @@ import Toolbar from '@mui/material/Toolbar';
 import FormControl from '@mui/material/FormControl';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-import { Info } from '@mui/icons-material';
 import clsx from 'clsx';
 import { CircularProgress, InputLabel } from '@mui/material';
 import Tooltip from '@mui/material/Tooltip';
@@ -20,7 +19,6 @@ import {
   useAuthStatus,
   useDay,
   useDebugLevel,
-  useFlightRaces,
   useMobileConfig,
   useMobileID,
   useMobilePin,
@@ -126,7 +124,6 @@ export default function Setup() {
   const [mc] = useMobileConfig();
   const [userMessages] = useUserMessages();
   const [debugLevel] = useDebugLevel();
-  const [flightRaces, setFlightRaces] = useFlightRaces();
 
   const [mobileID, setMobileID] = useState('');
   const [mobilePin, setMobilePin] = useState('');
@@ -170,10 +167,8 @@ export default function Setup() {
   }, [mobilePinStored, mobileIDStored]);
 
   const onTimingHintSourceChange = (event: SelectChangeEvent) => {
-    setVideoSettings(
-      { ...videoSettings, timingHintSource: event.target.value },
-      true
-    );
+    const newValue = event.target.value === '---' ? '' : event.target.value;
+    setVideoSettings({ ...videoSettings, timingHintSource: newValue }, true);
   };
 
   const onLoginClicked = async () => {
@@ -301,37 +296,6 @@ export default function Setup() {
                     : 'Timing Waypoint Selection'}
                 </Typography>
               </Toolbar>
-              <Box
-                className={classes.settings}
-                style={{ display: 'flex', flexDirection: 'row' }}
-              >
-                <TextField
-                  className={classes.textfield}
-                  variant="outlined"
-                  margin="dense"
-                  fullWidth
-                  name="FlightRaces"
-                  label="Flight Races EventNum Regex"
-                  id="FlightRaces"
-                  value={flightRaces}
-                  onChange={(event) => {
-                    setFlightRaces(event.target.value);
-                  }}
-                  style={{ display: 'inline-flex' }}
-                />
-                <Tooltip title="Specify regex pattern to create a flight.  e.g. 1[0-9][0-9] for events 100-199">
-                  <Box
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      paddingLeft: '1em',
-                    }}
-                  >
-                    <Info />
-                  </Box>
-                </Tooltip>
-              </Box>
               <Box className={classes.settings}>
                 <FormControl variant="standard" className={classes.formControl}>
                   <InputLabel shrink id="waypoint-label">
@@ -399,10 +363,12 @@ export default function Setup() {
                     <Select
                       labelId="hint-select-label"
                       id="hint-select"
-                      value={videoSettings.timingHintSource}
+                      value={videoSettings.timingHintSource || '---'}
                       label="Waypoint"
                       onChange={onTimingHintSourceChange}
+                      displayEmpty
                     >
+                      <MenuItem value="---">None</MenuItem>
                       {waypointList.map((waypoint) => (
                         <MenuItem key={waypoint} value={waypoint}>
                           {waypoint}

@@ -15,6 +15,7 @@ import {
   IconButton,
   Menu,
   Tooltip,
+  Box,
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DataGrid, {
@@ -592,21 +593,32 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
 
   if (!mobileConfig) {
     return (
-      <Tooltip title="A CrewTimer regatta must be configured to use timing features.">
-        <Button
-          size="small"
-          variant="contained"
-          sx={{
-            margin: '0.5em',
-            marginTop: 0,
-            marginBottom: '1em',
-            height: '36px',
-          }}
-          onClick={() => setTabPosition('System Config')}
-        >
-          Connect CrewTimer
-        </Button>
-      </Tooltip>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          paddingLeft: '8px',
+          paddingRight: '8px',
+          maxWidth: '100%',
+          ...sx,
+        }}
+      >
+        <Tooltip title="A CrewTimer regatta must be configured to use timing features.">
+          <Button
+            size="small"
+            variant="contained"
+            sx={{
+              margin: '0.5em',
+              marginTop: 0,
+              marginBottom: '1em',
+              height: '36px',
+            }}
+            onClick={() => setTabPosition('System Config')}
+          >
+            Connect CrewTimer
+          </Button>
+        </Tooltip>
+      </Box>
     );
   }
 

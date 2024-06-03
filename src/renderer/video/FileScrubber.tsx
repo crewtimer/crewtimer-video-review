@@ -146,13 +146,14 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           startTime={startTime}
           endTime={endTime}
           showBeyondRange={true}
+          iconType="lower"
         />
         <TimeRangeIcons
           times={scoredLapdata}
           startTime={startTime}
           endTime={endTime}
           iconColor="#2e7d32"
-          iconType="caret"
+          iconType="upper"
         />
         <Box
           sx={{

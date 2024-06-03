@@ -633,28 +633,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   return (
     <Stack direction="column">
-      {/* <Box
-        sx={{
-          height: infoRowHeight,
-          width: '100%',
-          display: 'flex',
-          padding: '2px',
-        }}
-      >
-        <div style={{ flex: 1 }} />
-        <Stack direction="row">
-          <Typography onClick={moveLeft} className={classes.text}>
-            &nbsp;&lt;&nbsp;
-          </Typography>
-          <Typography className={classes.text}>
-            {convertTimestampToString(image.timestamp, timezoneOffset)}
-          </Typography>
-          <Typography onClick={moveRight} className={classes.text}>
-            &nbsp;&gt;&nbsp;
-          </Typography>
-        </Stack>
-        <div style={{ flex: 1 }} />
-      </Box> */}
       <Box
         onWheel={adjustingOverlay ? undefined : handleWheel}
         onMouseDown={adjustingOverlay ? undefined : handleMouseDown}

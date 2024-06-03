@@ -8,6 +8,7 @@ import {
   N_TIMEZONE,
 } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
+import generateTestPattern from '../util/ImageUtils';
 import { loadVideoSidecar } from './VideoUtils';
 
 export interface VideoPosition {
@@ -105,7 +106,7 @@ interface VideoSettings extends VideoGuides {
 }
 export const [useVideoSettings, setVideoSettings, getVideoSettings] =
   UseStoredDatum<VideoSettings>('videoSettings', {
-    timingHintSource: 'F',
+    timingHintSource: '',
     laneBelowGuide: false,
     guides: [
       { dir: Dir.Vert, pt1: 0, pt2: 0, label: 'Finish', enabled: true },
@@ -136,15 +137,7 @@ export const [useVideoSettings, setVideoSettings, getVideoSettings] =
     ],
   });
 
-export const [useImage, setImage, getImage] = UseMemDatum<AppImage>(N_IMAGE, {
-  height: 0,
-  width: 0,
-  frameNum: 1,
-  timestamp: 0,
-  fps: 30,
-  numFrames: 0,
-  data: new Uint8Array(0),
-  file: '',
-  fileStartTime: 0,
-  fileEndTime: 0,
-});
+export const [useImage, setImage, getImage] = UseMemDatum<AppImage>(
+  N_IMAGE,
+  generateTestPattern()
+);

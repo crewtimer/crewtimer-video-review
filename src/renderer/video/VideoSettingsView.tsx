@@ -101,7 +101,7 @@ export const VideoSettingsDialog: React.FC = () => {
           </Typography>
           <Slider
             min={1}
-            max={20}
+            max={200}
             value={wheelFactor}
             onChange={handleSliderChange}
             aria-labelledby="wheel-factor-slider"

@@ -184,13 +184,14 @@ const VideoScrubber = () => {
           times={filteredTimes}
           startTime={startTime}
           endTime={endTime}
+          iconType="lower"
         />
         <TimeRangeIcons
           times={filteredScoredTimes}
           startTime={startTime}
           endTime={endTime}
           iconColor="#2e7d32"
-          iconType="caret"
+          iconType="upper"
         />
         <Box
           sx={{
@@ -231,6 +232,8 @@ const VideoScrubber = () => {
                 flex: 1,
                 '& .MuiSlider-thumb': {
                   transition: 'none',
+                  width: 16, // Set the width of the thumb
+                  height: 16, // Set the height of the thumb
                 },
                 '& .MuiSlider-track': {
                   transition: 'none',

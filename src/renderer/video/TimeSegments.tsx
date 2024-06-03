@@ -68,9 +68,17 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
     onChange(index, pct, true);
   };
 
-  if (segments.length === 0) {
-    return <></>;
-  }
+  const displaySegments =
+    segments.length === 0
+      ? [
+          {
+            startTime,
+            endTime,
+            label: 'No Data Available',
+          },
+        ]
+      : segments;
+
   const rangeStartSeconds = parseTimeToSeconds(startTime);
   const rangeEndSeconds = parseTimeToSeconds(endTime);
   const totalDuration = rangeEndSeconds - rangeStartSeconds;
@@ -80,10 +88,11 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
       sx={{
         width: '100%',
         display: 'flex',
-        height: '15px',
+        height: '20px',
+        border: '1px solid #bbbbbb',
       }}
     >
-      {segments.map((segment, index) => {
+      {displaySegments.map((segment, index) => {
         const startSeconds = parseTimeToSeconds(segment.startTime);
         if (
           startSeconds < rangeStartSeconds ||
@@ -109,10 +118,9 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
               sx={{
                 width: `${widthPercent}%`,
                 marginLeft: `${marginLeftPercent}%`,
-                backgroundColor:
-                  index === activeIndex ? '#556cd680' : '#19857b40',
-                borderRight: '1px solid',
-                borderLeft: '1px solid',
+                backgroundColor: index === activeIndex ? '#00ffff' : '#f0f0f0',
+                borderRight: '1px solid #888',
+                borderLeft: '1px solid #888',
                 paddingLeft: '-1px',
                 paddingRight: '-px',
                 minWidth: '2px',

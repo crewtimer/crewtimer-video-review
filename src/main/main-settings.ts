@@ -50,7 +50,5 @@ export const setBowToEvent = (newBowToEvent: Map<string, string>) => {
 };
 export const getBowToEvent = () => bowToEvent;
 
-export const getFlightRaces = () => getStoredValue('FlightRaces', '');
-
 export const getVideoFile = () => getStoredValue('videoFile', 'test.mp4');
 export const setVideoFile = (file: string) => setStoredValue('videoFile', file);
