@@ -177,6 +177,15 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
               break;
             case Dir.Horiz:
               {
+                // Range check the guides
+                guide.pt1 = Math.max(
+                  10,
+                  Math.min(image.height - 10, guide.pt1)
+                );
+                guide.pt2 = Math.max(
+                  10,
+                  Math.min(image.height - 10, guide.pt2)
+                );
                 let fromScaled = scalePoint(0, guide.pt1);
                 let toScaled = scalePoint(image.width - 1, guide.pt2);
                 drawLine(fromScaled, toScaled, '#ff0000a0', Dir.Horiz);
