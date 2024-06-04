@@ -474,7 +474,9 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
 
   const gate = gateFromWaypoint(waypoint);
   const { rows, filteredEvents } = useMemo(() => {
-    let filteredEvents = mobileConfig?.eventList || [];
+    let filteredEvents = (mobileConfig?.eventList || []).filter(
+      (evt) => evt.RaceType !== 'Info'
+    );
     if (day) {
       filteredEvents = filteredEvents.filter((event) => event.Day === day);
     }
