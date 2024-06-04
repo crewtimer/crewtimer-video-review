@@ -315,10 +315,11 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       if (dragging && dragHandle) {
         const rect = canvasRef.current?.getBoundingClientRect();
         x = x - rect?.width! / 2; // delta from center
-        const xpos = x / scale;
+        let xpos = x / scale;
         const ypos = y / scale;
 
         if (dragHandle.guide.dir === Dir.Vert) {
+          xpos = Math.round(xpos);
           if (shift) {
             dragHandle.guide.pt1 = xpos;
             dragHandle.guide.pt2 = xpos;
