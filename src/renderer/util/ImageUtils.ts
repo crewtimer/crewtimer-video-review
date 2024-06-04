@@ -45,7 +45,7 @@ function generateTestPattern(): AppImage {
     numFrames: 1,
     timestamp: 1704124800000,
     fps: 60,
-    file: 'test.mp4',
+    file: '', // empty file will trigger a load of last selected file at startup
     fileStartTime: 1704124800000,
     fileEndTime: 1704124800000,
   };
