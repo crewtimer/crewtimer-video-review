@@ -1,9 +1,16 @@
 import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { replaceFileSuffix } from 'renderer/util/Util';
+import { getDirList, requestVideoFrame } from './VideoFileUtils';
 import {
   Dir,
+  getImage,
+  getSelectedIndex,
   getVideoFile,
+  getVideoFrameNum,
   getVideoSettings,
+  setSelectedIndex,
+  setVideoFile,
+  setVideoFrameNum,
   setVideoSettings,
   VideoGuides,
 } from './VideoSettings';
@@ -370,4 +377,45 @@ export const loadVideoSidecar = (videoFile: string) => {
       }
     })
     .catch(showErrorDialog);
+};
+
+export const moveToFileIndex = (
+  index: number,
+  seekPercent: number,
+  fromClick: boolean
+) => {
+  const dirList = getDirList();
+  index = Math.max(0, Math.min(index, dirList.length - 1));
+  const videoFile = dirList[index];
+  setSelectedIndex(index);
+  setVideoFile(videoFile);
+  requestVideoFrame({ videoFile, seekPercent, fromClick });
+};
+export const prevFile = () => {
+  moveToFileIndex(getSelectedIndex() - 1, 1, true);
+};
+export const nextFile = () => {
+  moveToFileIndex(getSelectedIndex() + 1, 0, true);
+};
+export const moveToFrame = (frameNum: number) => {
+  const image = getImage();
+  if (frameNum < 1) {
+    prevFile();
+  } else if (frameNum > getImage().numFrames) {
+    nextFile();
+  } else {
+    setVideoFrameNum(frameNum);
+    requestVideoFrame({ videoFile: image.file, frameNum });
+  }
+};
+
+export const moveRight = () => {
+  const prev = getVideoFrameNum();
+  const frameNum = prev + 1;
+  moveToFrame(frameNum);
+};
+export const moveLeft = () => {
+  const prev = getVideoFrameNum();
+  const frameNum = prev - 1;
+  moveToFrame(frameNum);
 };

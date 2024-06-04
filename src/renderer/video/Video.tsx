@@ -12,12 +12,10 @@ import makeStyles from '@mui/styles/makeStyles';
 import VideoSideBar from './VideoSideBar';
 import {
   Dir,
-  getImage,
   getMouseWheelFactor,
   getVideoFrameNum,
   getVideoSettings,
   setVideoBow,
-  setVideoFrameNum,
   setVideoTimestamp,
   setZoomWindow,
   useImage,
@@ -35,11 +33,13 @@ import TimingSidebar from './TimingSidebar';
 import {
   downloadImageFromCanvasLayers,
   findClosestLineAndPosition,
+  moveLeft,
+  moveRight,
+  moveToFrame,
 } from './VideoUtils';
-import FileScrubber, { nextFile, prevFile } from './FileScrubber';
+import FileScrubber from './FileScrubber';
 import Measure from 'react-measure';
 import { UseDatum } from 'react-usedatum';
-import { requestVideoFrame } from './VideoFileUtils';
 import { setGenerateImageSnapshotCallback } from './ImageButton';
 import VideoScrubber from './VideoScrubber';
 
@@ -93,29 +93,6 @@ interface ZoomState {
   scale: number;
   calPoints: CalPoint[];
 }
-
-const moveToFrame = (frameNum: number) => {
-  const image = getImage();
-  if (frameNum < 1) {
-    prevFile();
-  } else if (frameNum > getImage().numFrames) {
-    nextFile();
-  } else {
-    setVideoFrameNum(frameNum);
-    requestVideoFrame({ videoFile: image.file, frameNum });
-  }
-};
-
-const moveRight = () => {
-  const prev = getVideoFrameNum();
-  const frameNum = prev + 1;
-  moveToFrame(frameNum);
-};
-const moveLeft = () => {
-  const prev = getVideoFrameNum();
-  const frameNum = prev - 1;
-  moveToFrame(frameNum);
-};
 
 const handleKeyDown = (event: KeyboardEvent) => {
   switch (event.key) {

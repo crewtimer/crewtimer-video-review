@@ -3,7 +3,6 @@ import { useRef, useEffect, useMemo, useState } from 'react';
 import { convertTimestampToString } from 'renderer/shared/Util';
 import { useWaypoint } from 'renderer/util/UseSettings';
 import { findClosestNumAndIndex, timeToMilli } from 'renderer/util/Util';
-import { prevFile, nextFile } from './FileScrubber';
 import ImageButton from './ImageButton';
 import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
 import { useClickerData } from './UseClickerData';
@@ -17,7 +16,7 @@ import {
   useVideoEvent,
   useVideoBow,
 } from './VideoSettings';
-import { parseTimeToSeconds } from './VideoUtils';
+import { moveLeft, moveRight, parseTimeToSeconds } from './VideoUtils';
 
 const VideoScrubber = () => {
   const [videoFrameNum, setVideoFrameNum] = useVideoFrameNum();
@@ -160,7 +159,7 @@ const VideoScrubber = () => {
     >
       <Button
         variant="contained"
-        onClick={prevFile}
+        onClick={moveLeft}
         size="small"
         sx={{
           height: 24,
@@ -249,7 +248,7 @@ const VideoScrubber = () => {
       </Box>
       <Button
         variant="contained"
-        onClick={nextFile}
+        onClick={moveRight}
         size="small"
         sx={{
           height: 24,

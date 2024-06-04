@@ -19,21 +19,20 @@ function generateTestPattern(): AppImage {
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       // Determine which color to use based on the current cell
-      const isRed =
+      const isWhite =
         Math.floor(y / cellSize) % 2 === Math.floor(x / cellSize) % 2;
       const offset = (y * width + x) * 4;
 
-      if (isRed) {
+      if (isWhite) {
         buffer[offset] = 255; // Red channel
         buffer[offset + 1] = 255; // Green channel
         buffer[offset + 2] = 255; // Blue channel
         buffer[offset + 3] = 255; // Alpha channel (fully opaque)
       } else {
-        // Blue square
-        buffer[offset] = 0; // Red channel
-        buffer[offset + 1] = 0; // Green channel
-        buffer[offset + 2] = 0; // Blue channel
-        buffer[offset + 3] = 128; // Alpha channel (fully opaque)
+        buffer[offset] = 200; // Red channel
+        buffer[offset + 1] = 200; // Green channel
+        buffer[offset + 2] = 200; // Blue channel
+        buffer[offset + 3] = 255; // Alpha channel (fully opaque)
       }
     }
   }

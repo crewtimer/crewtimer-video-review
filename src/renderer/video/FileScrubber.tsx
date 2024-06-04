@@ -10,13 +10,15 @@ import {
 import {
   extractTime,
   formatSecondsAsTime,
+  moveToFileIndex,
+  nextFile,
   parseTimeToSeconds,
+  prevFile,
   triggerFileSplit,
 } from './VideoUtils';
 import {
   getSelectedIndex,
   getVideoDir,
-  setSelectedIndex,
   setVideoFile,
   useSelectedIndex,
 } from './VideoSettings';
@@ -24,25 +26,6 @@ import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
 import TimeSegments from './TimeSegments';
 import { useClickerData } from './UseClickerData';
 import { useWaypoint } from 'renderer/util/UseSettings';
-
-export const moveToFileIndex = (
-  index: number,
-  seekPercent: number,
-  fromClick: boolean
-) => {
-  const dirList = getDirList();
-  index = Math.max(0, Math.min(index, dirList.length - 1));
-  const videoFile = dirList[index];
-  setSelectedIndex(index);
-  setVideoFile(videoFile);
-  requestVideoFrame({ videoFile, seekPercent, fromClick });
-};
-export const prevFile = () => {
-  moveToFileIndex(getSelectedIndex() - 1, 1, true);
-};
-export const nextFile = () => {
-  moveToFileIndex(getSelectedIndex() + 1, 0, true);
-};
 
 interface SxPropsArgs {
   sx?: SxProps<Theme>;
