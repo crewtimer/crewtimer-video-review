@@ -11,7 +11,8 @@ import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
 import CloudOffOutlinedIcon from '@mui/icons-material/CloudOffOutlined';
 import Snackbar from '@mui/material/Snackbar';
 import Tooltip from '@mui/material/Tooltip';
-import icon from '../assets/icons/crewtimer.svg';
+// import icon from '../assets/icons/crewtimer-review-white.svg';
+import icon from '../assets/icons/crewtimer-review2-white.svg';
 import {
   useMobileConfig,
   useMobileID,
