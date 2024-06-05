@@ -36,6 +36,17 @@ export default function CenteredTabs() {
   if (initializing) {
     return <></>;
   }
+
+  let Page = Setup;
+  if (tabPosition === 'Video') {
+    Page = Video;
+  } else if (tabPosition === 'Video Settings') {
+    Page = VideoSettingsDialog;
+  } else if (tabPosition === 'Timing History') {
+    Page = Status;
+  } else if (tabPosition === 'System Config') {
+    Page = Setup;
+  }
   return (
     <Paper className={classes.root} square>
       {/* Keeep Tabs from scrolling by surround with fixed */}
@@ -89,10 +100,7 @@ export default function CenteredTabs() {
         </Tabs>
       </div>
       <Tabs style={{ zIndex: 0 }} />
-      {tabPosition === 'Timing History' && <Status />}
-      {tabPosition === 'System Config' && <Setup />}
-      {tabPosition === 'Video' && <Video />}
-      {tabPosition === 'Video Settings' && <VideoSettingsDialog />}
+      <Page />
       <Toast />
     </Paper>
     // </div>

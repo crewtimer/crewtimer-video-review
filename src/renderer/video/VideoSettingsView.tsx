@@ -41,7 +41,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-export const VideoSettingsDialog: React.FC = () => {
+export const VideoSettingsDialog = () => {
   const classes = useStyles();
   const [videoSettings, setVideoSettings] = useVideoSettings();
   const [mc] = useMobileConfig();

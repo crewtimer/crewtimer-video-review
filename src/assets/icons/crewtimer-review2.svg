@@ -20,6 +20,18 @@
   <defs
      id="defs4">
     <linearGradient
+       id="linearGradient8"
+       inkscape:swatch="gradient">
+      <stop
+         style="stop-color:#ff4450;stop-opacity:1;"
+         offset="0"
+         id="stop9" />
+      <stop
+         style="stop-color:#ff4450;stop-opacity:0;"
+         offset="1"
+         id="stop10" />
+    </linearGradient>
+    <linearGradient
        id="linearGradient3902">
       <stop
          id="stop3904"
@@ -83,10 +95,10 @@
      borderlayer="true"
      inkscape:showpageshadow="false"
      inkscape:window-maximized="0"
-     inkscape:window-y="25"
-     inkscape:window-x="308"
-     inkscape:window-height="1124"
-     inkscape:window-width="1936"
+     inkscape:window-y="53"
+     inkscape:window-x="301"
+     inkscape:window-height="997"
+     inkscape:window-width="1680"
      fit-margin-bottom="0"
      fit-margin-right="0"
      fit-margin-left="0"
@@ -94,10 +106,10 @@
      inkscape:guide-bbox="true"
      showguides="true"
      showgrid="false"
-     inkscape:current-layer="svg2"
+     inkscape:current-layer="layer7"
      inkscape:document-units="px"
-     inkscape:cy="486.90196"
-     inkscape:cx="467.54062"
+     inkscape:cy="486.18488"
+     inkscape:cx="468.97479"
      inkscape:zoom="0.69726562"
      inkscape:pageshadow="2"
      inkscape:pageopacity="0"
@@ -256,7 +268,7 @@
        height="1024"
        width="1024"
        id="rect3764"
-       style="fill:#1b4488;fill-opacity:1;stroke:none" />
+       style="fill:#2f5592&#10;;fill-opacity:1;stroke:none" />
     <rect
        y="724"
        x="0"
