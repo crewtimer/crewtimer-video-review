@@ -26,7 +26,7 @@ ffmpeg needs configure which requires bash.  One recipe follows:
 Build the ffmpeg libraries
 
 ```bash
-cd crewtimer-connect/native/ffreader
+cd crewtimer-video-review/native/ffreader
 yarn build-ffmpeg-win
 ```
 
@@ -37,7 +37,7 @@ First, ensure that ffmpeg has been built by following the prior section instruct
 Open a shell via C:\cygwin64\Cygwin.bat.  Alternatively, open a Visual Studio 2022 x64 Native Tools Command Prompt.
 
 ```bash
-cd c:/Users/glenne/git/crewtimer-connect/native/ffreader
+cd c:/Users/glenne/git/crewtimer-video-review/native/ffreader
 rm -rf node_modules # start from scratch
 rm yarn.lock # removes an error about stringWidth libraries
 yarn install # The final step of the install will fail where it tries to get prebuilt binaries.  We'll build our own next

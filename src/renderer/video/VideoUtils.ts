@@ -180,7 +180,7 @@ function pointPositionRelativeToLine(
 export const triggerFileSplit = () => {
   const msg = {
     cmd: 'split-video',
-    src: 'crewtimer-connect',
+    src: 'crewtimer-video-review',
     ts: new Date().getTime(),
   };
   window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
@@ -194,7 +194,7 @@ export const notifiyGuideChanged = () => {
   }
   const msg = {
     cmd: 'guide-config',
-    src: 'crewtimer-connect',
+    src: 'crewtimer-video-review',
     ts: new Date().getTime(),
     guide: { pt1: vert.pt1, pt2: vert.pt2 },
   };

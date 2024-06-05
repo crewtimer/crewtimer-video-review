@@ -26,7 +26,7 @@ const useStyles = makeStyles({
 
 export default function CenteredTabs() {
   const classes = useStyles();
-  const [tabPosition, setTabPosition] = useTabPosition();
+  let [tabPosition, setTabPosition] = useTabPosition();
   const [initializing] = useInitializing();
 
   const handleChange = (_event: unknown, newValue: string) => {
@@ -46,6 +46,8 @@ export default function CenteredTabs() {
     Page = Status;
   } else if (tabPosition === 'System Config') {
     Page = Setup;
+  } else {
+    tabPosition = 'System Config';
   }
   return (
     <Paper className={classes.root} square>

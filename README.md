@@ -18,7 +18,7 @@ Node version 16 or later is recommended.
 ```bash
 nvm install 16
 nvm use 16
-git clone git@github.com:crewtimer/crewtimer-connect.git
+git clone git@github.com:crewtimer/crewtimer-video-review.git
 yarn install
 yarn start
 ```
