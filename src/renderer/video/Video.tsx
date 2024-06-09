@@ -19,6 +19,7 @@ import {
   setVideoTimestamp,
   setZoomWindow,
   useImage,
+  useMouseWheelInverted,
   useTimezoneOffset,
   useVideoError,
   useVideoFile,
@@ -94,7 +95,14 @@ interface ZoomState {
   calPoints: CalPoint[];
 }
 
-const handleKeyDown = (event: KeyboardEvent) => {
+// Setting the window.removeEventListener in a useEffect for some reason ended up
+// with multiple callback calls.  As a workaround, try using a global variable to
+// gate the functions actions.
+let videoVisible = false;
+window.addEventListener('keydown', (event: KeyboardEvent) => {
+  if (!videoVisible) {
+    return;
+  }
   switch (event.key) {
     case 'ArrowRight':
     case '>':
@@ -109,7 +117,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
     default:
       break; // ignore
   }
-};
+});
 
 const VideoImage: React.FC<{ width: number; height: number }> = ({
   width,
@@ -125,6 +133,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [videoFile] = useVideoFile();
   const holdoffChanges = useRef<boolean>(false);
   const [videoError] = useVideoError();
+  const [wheelInverted] = useMouseWheelInverted();
 
   const mouseTracking = useRef<ZoomState>({
     zoomWindow: { x: 0, y: 0, width: 0, height: 0 },
@@ -577,6 +586,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     }
 
     const delta =
+      (wheelInverted ? -1 : 1) *
       Math.sign(event.deltaY) *
       Math.max(
         1,
@@ -590,12 +600,10 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   }, []);
 
   useEffect(() => {
-    window.removeEventListener('keydown', handleKeyDown);
-    window.addEventListener('keydown', handleKeyDown);
-
+    videoVisible = true;
     // Cleanup the keydown listener on unmount
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      videoVisible = false;
     };
   }, []);
 

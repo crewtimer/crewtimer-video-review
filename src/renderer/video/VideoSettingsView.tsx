@@ -14,7 +14,11 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Settings';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
-import { useMouseWheelFactor, useVideoSettings } from './VideoSettings';
+import {
+  useMouseWheelFactor,
+  useMouseWheelInverted,
+  useVideoSettings,
+} from './VideoSettings';
 import { useMobileConfig } from 'renderer/util/UseSettings';
 import TimezoneSelector from 'renderer/util/TimezoneSelector';
 import { saveVideoSidecar } from './VideoUtils';
@@ -46,6 +50,7 @@ export const VideoSettingsDialog = () => {
   const [videoSettings, setVideoSettings] = useVideoSettings();
   const [mc] = useMobileConfig();
   const [wheelFactor, setWheelFactor] = useMouseWheelFactor();
+  const [wheelInverted, setWheelInverted] = useMouseWheelInverted();
 
   // Handler to update the wheelFactor state
   const handleSliderChange = (_event: Event, newValue: number | number[]) => {
@@ -91,10 +96,24 @@ export const VideoSettingsDialog = () => {
       </Box>
       <Toolbar className={classes.header}>
         <Typography variant="h6" display="inline" className={classes.smaller}>
-          Mouse Wheel Factor
+          Mouse Wheel Settings
         </Typography>
       </Toolbar>
+
       <Box className={classes.settings}>
+        <FormControlLabel
+          labelPlacement="end"
+          label="Invert wheel direction"
+          control={
+            <Checkbox
+              checked={wheelInverted}
+              onChange={() => setWheelInverted(!wheelInverted)}
+            />
+          }
+        />
+        <Typography variant="body1" mr={2}>
+          Wheel Factor
+        </Typography>
         <Box display="flex" alignItems="center">
           <Typography variant="body1" mr={2}>
             {wheelFactor}
