@@ -10,11 +10,11 @@ import Video from './video/Video';
 import {
   HistoryTwoTone,
   VideoSettings,
-  Settings,
   OndemandVideo,
 } from '@mui/icons-material';
 import { Tooltip } from '@mui/material';
 import { VideoSettingsDialog } from './video/VideoSettingsView';
+import CrewTimerIcon from '../assets/icons/CrewTimerIcon';
 
 const useStyles = makeStyles({
   root: {
@@ -94,7 +94,7 @@ export default function CenteredTabs() {
           <Tab
             icon={
               <Tooltip title="CrewTimer Settings">
-                <Settings />
+                <CrewTimerIcon />
               </Tooltip>
             }
             value="System Config"
