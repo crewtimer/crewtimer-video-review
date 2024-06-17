@@ -38,6 +38,7 @@ function generateTestPattern(): AppImage {
   }
 
   return {
+    status: 'OK',
     data: buffer,
     width,
     height,

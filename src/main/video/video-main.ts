@@ -1,9 +1,5 @@
-import { AppImage } from '../../renderer/shared/AppTypes';
 import { GrabFrameMessage, nativeVideoExecutor } from 'crewtimer_video_reader';
 import { ipcMain } from 'electron';
-
-// Cache of video frames
-const videoCache = new Map<string, AppImage>();
 
 /**
  * Extract a 64 bit 100ns UTC timestamp from the video frame.  The timestamp
@@ -75,13 +71,6 @@ ipcMain.handle('video:closeFile', (_event, filePath) => {
 
 ipcMain.handle('video:getFrame', (_event, filePath, frameNum) => {
   try {
-    const uuid = `${filePath}-${frameNum}`;
-    const cached = videoCache.get(uuid);
-    if (cached) {
-      videoCache.delete(uuid);
-      videoCache.set(uuid, cached); // make this entry the last added
-      return cached;
-    }
     // console.log('Grabbing frame', filePath, frameNum);
     const ret = nativeVideoExecutor({
       op: 'grabFrameAt',
@@ -99,13 +88,6 @@ ipcMain.handle('video:getFrame', (_event, filePath, frameNum) => {
         ret.timestamp = Math.trunc(
           0.5 + ((frameNum - 1) * 1000) / (ret.fps ?? 30)
         );
-      }
-      videoCache.set(uuid, ret);
-      if (videoCache.size > 20) {
-        // Remove the oldest items if the cache size exceeds the maximum
-        // By default the map keys iterator returns the keys in the insertion order
-        const oldestUuid = videoCache.keys().next().value;
-        videoCache.delete(oldestUuid);
       }
     }
     return ret;

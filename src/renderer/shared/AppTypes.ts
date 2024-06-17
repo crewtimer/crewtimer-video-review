@@ -1,4 +1,5 @@
 export interface AppImage {
+  status: string;
   width: number;
   height: number;
   frameNum: number;
