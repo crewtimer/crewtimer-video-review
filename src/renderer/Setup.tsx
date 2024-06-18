@@ -349,7 +349,10 @@ export default function Setup() {
                 </Typography>
               </Toolbar>
               <Box className={classes.settings}>
-                <Tooltip title="Select the waypoint to use for timing hints.">
+                <Tooltip
+                  title="Select the waypoint to use for timing hints."
+                  placement="right"
+                >
                   <FormControl
                     sx={{
                       marginTop: '1em',
