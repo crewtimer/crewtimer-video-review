@@ -19,7 +19,7 @@ export interface VideoPosition {
 export const [useVideoError, setVideoError] = UseDatum<string | undefined>(
   undefined
 );
-export const [useZoomWindow, setZoomWindow] = UseDatum<Rect>({
+export const [useZoomWindow, setZoomWindow, getZoomWindow] = UseDatum<Rect>({
   x: 0,
   y: 0,
   width: 1,
@@ -37,9 +37,10 @@ export const [useVideoFile, setVideoFile, getVideoFile] = UseStoredDatum(
     return;
   }
 );
-export const [useVideoTimestamp, setVideoTimestamp] = UseDatum('');
-export const [useVideoBow, setVideoBow] = UseDatum('');
-export const [useVideoEvent, setVideoEvent] = UseDatum('');
+export const [useVideoTimestamp, setVideoTimestamp, getVideoTimestamp] =
+  UseDatum('');
+export const [useVideoBow, setVideoBow, getVideoBow] = UseDatum('');
+export const [useVideoEvent, setVideoEvent, getVideoEvent] = UseDatum('');
 export const [usePlaceSort, setPlaceSort, getSortPlace] = UseDatum(false);
 export const [useSelectedIndex, setSelectedIndex, getSelectedIndex] =
   UseDatum(0);

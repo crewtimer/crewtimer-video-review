@@ -1,11 +1,11 @@
 {
   "name": "crewtimer_video_reader",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A node electron utility to read mp4 files for CrewTimer Video Review",
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "install": "prebuild-install --verbose -r napi",
+    "install": "prebuild-install --verbose -r napi || yarn rebuild",
     "install-prebuild": "prebuild-install --verbose -r napi",
     "prebuild": "prebuild --runtime napi --all --verbose",
     "rebuild": "node-gyp rebuild",

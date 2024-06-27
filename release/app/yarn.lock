@@ -470,8 +470,8 @@ create-require@^1.1.0:
   resolved "https://registry.yarnpkg.com/create-require/-/create-require-1.1.1.tgz#c1d7e8f1e5f6cfc9ff65f9cd352d37348756c333"
   integrity sha512-dcKFX3jn0MpIaXjisoRvexIJVEKzaq7z2rZKxf+MSr9TkdmHmsU4m2lcLojrj/FHl8mk5VxMmYA+ftRkP/3oKQ==
 
-crewtimer_video_reader@../../native/ffreader/:
-  version "1.0.3"
+crewtimer_video_reader@../../native/ffreader:
+  version "1.0.4"
   dependencies:
     bindings "^1.5.0"
     prebuild-install "^7.1.1"

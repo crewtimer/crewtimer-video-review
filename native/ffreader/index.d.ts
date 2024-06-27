@@ -16,6 +16,7 @@ declare module 'crewtimer_video_reader' {
     op: 'grabFrameAt';
     frameNum: number;
     file: string;
+    zoom?: { x: number; y: number; width: number; height: number };
   }
 
   interface CloseFileMessage extends MessageBase {
@@ -45,6 +46,7 @@ declare module 'crewtimer_video_reader' {
     timestamp: number;
     fileStartTime: number;
     fileEndTime: number;
+    motion: { x: number; y: number; dt: number; valid: boolean };
   }
 
   export function nativeVideoExecutor(

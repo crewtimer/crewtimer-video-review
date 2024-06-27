@@ -33,7 +33,7 @@ import {
   useVideoEvent,
   useVideoTimestamp,
 } from './VideoSettings';
-import { Entry, Event, KeyMap, Lap } from 'crewtimer-common';
+import { Entry, Event, KeyMap } from 'crewtimer-common';
 import {
   getWaypoint,
   useDay,
@@ -47,11 +47,11 @@ import {
   useEntryResult,
 } from 'renderer/util/LapStorageDatum';
 import { gateFromWaypoint } from 'renderer/util/Util';
-import uuidgen from 'short-uuid';
 import { UseDatum } from 'react-usedatum';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 import makeStyles from '@mui/styles/makeStyles';
 import { seekToTimestamp } from './VideoFileUtils';
+import { performAddSplit } from './AddSplitUtil';
 
 const useStyles = makeStyles((_theme) => ({
   row: {
@@ -275,82 +275,11 @@ const VideoBow: React.FC = () => {
   );
 };
 
-const AddSplitButton: React.FC<{ activeEvents: Event[] }> = ({
-  activeEvents,
-}) => {
+const AddSplitButton: React.FC = () => {
   const [videoBow] = useVideoBow();
   const [videoTimestamp] = useVideoTimestamp();
   const [selectedEvent] = useVideoEvent();
-  const [waypoint] = useWaypoint();
-  const [mobileConfig] = useMobileConfig();
-  const gate = gateFromWaypoint(waypoint);
 
-  const onAddSplit = () => {
-    // FIXME - convert waypoint to G_
-    const bow = videoBow; // FIXME isSprintStart ? : '*' : videoBow;
-    let entry: Entry | undefined;
-    for (const event of activeEvents) {
-      entry = event.eventItems.find((item) => item.Bow === bow);
-      if (entry) {
-        break;
-      }
-    }
-
-    if (!entry) {
-      setDialogConfig({
-        title: `Not in schedule`,
-        message: `Entry '${bow}' is not in schedule for event '${selectedEvent}'.  Add anyway??`,
-        button: 'Add',
-        showCancel: true,
-        handleConfirm: () => {
-          delete lap.State;
-          setEntryResultAndPublish(key, lap);
-        },
-      });
-      return;
-    }
-
-    const key = `${gate}_${entry.EventNum}_${bow}`;
-    const priorLap = getEntryResult(key);
-    const lap: Lap = {
-      keyid: key,
-      uuid: priorLap?.uuid || uuidgen.generate(),
-      SequenceNum: priorLap?.SequenceNum || 0,
-      Bow: bow,
-      Time: videoTimestamp,
-      EventNum: entry.EventNum,
-      Gate: gate,
-      Crew: '',
-      CrewAbbrev: '',
-      Event: '',
-      EventAbbrev: '',
-      AdjTime: '',
-      Place: 0,
-      Stroke: '',
-    };
-    if (priorLap && priorLap.State !== 'Deleted') {
-      setDialogConfig({
-        title: `Time Already Recorded`,
-        message: `A time has already been recorded for bow ${videoBow}.  OK to replace?`,
-        button: 'Replace',
-        showCancel: true,
-        handleConfirm: () => {
-          delete lap.State;
-          setEntryResultAndPublish(key, lap);
-        },
-      });
-      return;
-    }
-    if (!mobileConfig) {
-      return;
-    }
-
-    // if (entry.isSprintStart) {
-
-    // }
-
-    setEntryResultAndPublish(key, lap);
-  };
   return (
     <Button
       disabled={!videoBow || !videoTimestamp || !selectedEvent}
@@ -358,7 +287,7 @@ const AddSplitButton: React.FC<{ activeEvents: Event[] }> = ({
       variant="contained"
       color="success"
       sx={{ margin: '0.5em', marginTop: 0, marginBottom: '1em' }}
-      onClick={onAddSplit}
+      onClick={performAddSplit}
     >
       Add Split
     </Button>
@@ -635,7 +564,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
         ...sx,
       }}
     >
-      <AddSplitButton activeEvents={activeEvents} />
+      <AddSplitButton />
       <Stack direction="row" alignItems="center">
         <VideoBow />
         <VideoTimestamp />

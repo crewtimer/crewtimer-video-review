@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { UseDatum } from 'react-usedatum';
-import { AppImage } from 'renderer/shared/AppTypes';
+import { AppImage, Rect } from 'renderer/shared/AppTypes';
 import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { useInitializing } from 'renderer/util/UseSettings';
 import { timeToMilli } from 'renderer/util/Util';
@@ -79,6 +79,7 @@ type VideoFrameRequest = {
   seekPercent?: number; // Where in file to seek as percentage, Optional.
   fromClick?: boolean; // Whether the request is from a click.
   toTimestamp?: string; // The timestamp to seek to (HHMMSS.sss), Optional.
+  zoom?: Rect; // The zoom window, Optional.
 };
 
 const doRequestVideoFrame = async ({
@@ -87,10 +88,14 @@ const doRequestVideoFrame = async ({
   seekPercent,
   fromClick,
   toTimestamp,
+  zoom,
 }: VideoFrameRequest) => {
   if (!videoFile) {
     return;
   }
+  console.log(
+    JSON.stringify({ videoFile, frameNum, seekPercent, fromClick, toTimestamp })
+  );
   try {
     let imageStart: AppImage | undefined;
     let imageEnd: AppImage | undefined;
@@ -157,16 +162,27 @@ const doRequestVideoFrame = async ({
       const startTime =
         (openFileStatus.startTime + offset * 60 * 1000) % (24 * 60 * 60 * 1000);
       const frameNum =
-        1 +
-        Math.trunc(
-          0.5 + ((secs - startTime) / delta) * (openFileStatus.numFrames - 1)
-        );
+        1 + ((secs - startTime) / delta) * (openFileStatus.numFrames - 1);
+      // 1 +
+      // Math.trunc(
+      //   0.5 + ((secs - startTime) / delta) * (openFileStatus.numFrames - 1)
+      // );
+      console.log('seeking to ' + frameNum);
       seekPos = frameNum;
     }
 
     if (seekPos !== 0 || !imageStart) {
       seekPos = Math.max(1, Math.min(openFileStatus.numFrames, seekPos));
-      imageStart = await VideoUtils.getFrame(videoFile, seekPos);
+      imageStart = await VideoUtils.getFrame(
+        videoFile,
+        seekPos,
+        zoom || {
+          x: 0,
+          y: 0,
+          width: 0,
+          height: 0,
+        }
+      );
       if (!imageStart) {
         console.log(`failed to get frame for ${videoFile}@${seekPos}`);
       }
@@ -218,6 +234,7 @@ function createRequestVideoFrameHandler() {
     seekPercent,
     fromClick,
     toTimestamp,
+    zoom,
   }: VideoFrameRequest): Promise<void> => {
     // Check if there is an ongoing request.
     if (currentRequest) {
@@ -230,6 +247,7 @@ function createRequestVideoFrameHandler() {
             seekPercent,
             fromClick,
             toTimestamp,
+            zoom,
           })
             .then(resolve)
             .catch(reject);
@@ -243,6 +261,7 @@ function createRequestVideoFrameHandler() {
         seekPercent,
         fromClick,
         toTimestamp,
+        zoom,
       });
     }
   };
@@ -250,7 +269,6 @@ function createRequestVideoFrameHandler() {
   /**
    * The internal function that performs the actual processing of a request.
    * This is where the logic for video frame extraction should be implemented.
-   * Currently, it simulates processing with a console log and a timeout.
    *
    * @param {VideoFrameRequest} The parameters for the video frame request.
    * @returns {Promise<void>} A promise that resolves when the processing is done.
@@ -261,6 +279,7 @@ function createRequestVideoFrameHandler() {
     seekPercent,
     fromClick,
     toTimestamp,
+    zoom,
   }: VideoFrameRequest): Promise<void> => {
     // Start processing the request
     currentRequest = (async () => {
@@ -270,6 +289,7 @@ function createRequestVideoFrameHandler() {
         seekPercent,
         fromClick,
         toTimestamp,
+        zoom,
       });
     })();
 
@@ -294,12 +314,6 @@ function createRequestVideoFrameHandler() {
 // Create a handler for video frame requests.
 export const requestVideoFrame = createRequestVideoFrameHandler();
 
-interface FileInfo {
-  filename: string;
-  numFrames?: number;
-  thumbnail?: string;
-}
-export const [useFileList] = UseDatum<FileInfo[]>([]);
 export const [useDirList, setDirList, getDirList] = UseDatum<string[]>([]);
 
 const videoFileRegex = /\.(mp4|avi|mov|wmv|flv|mkv)$/i;

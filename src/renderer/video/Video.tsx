@@ -43,6 +43,7 @@ import Measure from 'react-measure';
 import { UseDatum } from 'react-usedatum';
 import { setGenerateImageSnapshotCallback } from './ImageButton';
 import VideoScrubber from './VideoScrubber';
+import { performAddSplit } from './AddSplitUtil';
 
 const useStyles = makeStyles({
   text: {
@@ -79,6 +80,7 @@ interface CalPoint {
 
 interface ZoomState {
   mouseMove: number;
+  mouseDownClientX: number;
   mouseDownClientY: number;
   mouseDownPositionY: number;
   mouseDownPositionX: number;
@@ -141,6 +143,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     imageScale: 1,
     scale: 1,
     imageLoaded: false,
+    mouseDownClientX: 0,
     mouseDownClientY: 0,
     mouseDownPositionY: 0,
     mouseDownPositionX: 0,
@@ -205,6 +208,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         0,
         0
       );
+
       mouseTracking.current.imageLoaded = true;
       drawContent();
     } else {
@@ -263,7 +267,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         const { zoomWindow } = mouseTracking.current;
         if (image.width) {
           ctx.drawImage(
-            // imageFrame.current,
             offscreenCanvas.current,
             zoomWindow.x,
             zoomWindow.y,
@@ -453,8 +456,13 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   const handleMouseDown = useCallback(
     (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+      if (event.button != 0) {
+        return;
+      }
+      console.log(`alt: ${event.altKey}, shift: ${event.shiftKey}`);
       selectLane(event);
       mouseTracking.current.mouseDownClientY = event.clientY;
+      mouseTracking.current.mouseDownClientX = event.clientX;
       const mousePositionY = Math.min(
         destHeight,
         Math.max(
@@ -479,6 +487,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       mouseTracking.current.mouseDownPositionX =
         pt1 +
         (pt2 - pt1) * (mouseTracking.current.mouseDownPositionY / image.height);
+      doZoom(5);
     },
     [image, xPadding, destWidth]
   );
@@ -526,6 +535,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       };
       mouseTracking.current.calPoints[0].ts = 0;
       mouseTracking.current.calPoints[1].ts = 0;
+      mouseTracking.current.isZooming = true;
 
       setZoomWindow(mouseTracking.current.zoomWindow);
       // console.log(JSON.stringify(mouseTracking.current, null, 2));
@@ -564,21 +574,42 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         // Adjust the scale based on the mouse movement
         doZoom(newScale);
       }
+
+      const downMoveX = mouseTracking.current.mouseDownClientX - event.clientX;
+      if (mouseTracking.current.isZooming && Math.abs(downMoveX) > 5) {
+        const delta = Math.trunc(downMoveX / 5);
+        mouseTracking.current.mouseDownClientX = event.clientX;
+        moveToFrame(getVideoFrameNum(), delta);
+      }
     },
     [image, destHeight, destWidth]
   );
+  console.log(
+    `frame: ${getVideoFrameNum()}, motion: ${JSON.stringify(image.motion)}`
+  );
 
-  const handleMouseUp = useCallback(() => {
-    mouseTracking.current.mouseDown = false;
-  }, []);
+  const handleMouseUp = useCallback(
+    (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+      if (event.button != 0) {
+        return;
+      }
+      event.preventDefault();
+      doZoom(1);
+      // Trigger a reload of this frame as we exit zoom
+      const frameNum = getVideoFrameNum();
+      const intFrame = Math.trunc(frameNum);
+      moveToFrame(intFrame, frameNum - intFrame);
+    },
+    [image]
+  );
 
-  useEffect(() => {
-    window.addEventListener('mouseup', handleMouseUp);
-    // Cleanup the mouseup listener on unmount
-    return () => {
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [handleMouseUp]);
+  // useEffect(() => {
+  //   window.addEventListener('mouseup', handleMouseUp);
+  //   // Cleanup the mouseup listener on unmount
+  //   return () => {
+  //     window.removeEventListener('mouseup', handleMouseUp);
+  //   };
+  // }, [handleMouseUp]);
 
   const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
     if (holdoffChanges.current) {
@@ -596,8 +627,13 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           )
         )
       );
-    moveToFrame(getVideoFrameNum() + delta);
+    moveToFrame(getVideoFrameNum(), delta);
   }, []);
+
+  const handleRightClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    performAddSplit();
+  };
 
   useEffect(() => {
     videoVisible = true;
@@ -626,6 +662,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         onMouseLeave={adjustingOverlay ? undefined : () => setNearEdge(false)}
         onDragStart={adjustingOverlay ? undefined : handleDragStart}
         onDoubleClick={handleDoubleClick}
+        onContextMenu={handleRightClick}
         onClick={adjustingOverlay ? undefined : handleSingleClick}
         sx={{
           // margin: '16px', // Use state variable for padding

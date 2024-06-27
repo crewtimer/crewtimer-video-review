@@ -4,7 +4,7 @@
  * Add ```import './video/video-preload';``` to preload.ts to integrate with main
  */
 import { contextBridge, ipcRenderer } from 'electron';
-import { AppImage } from 'renderer/shared/AppTypes';
+import { AppImage, Rect } from 'renderer/shared/AppTypes';
 
 // Cache of video frames
 const videoCache = new Map<string, AppImage>();
@@ -33,21 +33,23 @@ contextBridge.exposeInMainWorld('VideoUtils', {
       throw err;
     }
   },
-  getFrame: async (filePath: string, frameNum: number) => {
+  getFrame: async (filePath: string, frameNum: number, zoom?: Rect) => {
     try {
       if (cacheFilename !== filePath) {
         videoCache.clear();
         cacheFilename = filePath;
       }
-      const uuid = `${filePath}-${frameNum}`;
-      const cached = videoCache.get(uuid);
-      if (cached) {
-        return cached;
-      }
+      const zooming = zoom && zoom.x != 0 && zoom.y != 0;
+      const uuid = `${filePath}-${zooming ? frameNum : Math.trunc(frameNum)}`;
+      // const cached = videoCache.get(uuid);
+      // if (cached) {
+      //   return cached;
+      // }
       const result = (await ipcRenderer.invoke(
         'video:getFrame',
         filePath,
-        frameNum
+        frameNum,
+        zoom
       )) as AppImage;
       if (result.status !== 'OK') {
         throw new Error(result.status);

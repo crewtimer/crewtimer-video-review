@@ -8,6 +8,7 @@ import {
   getVideoFile,
   getVideoFrameNum,
   getVideoSettings,
+  getZoomWindow,
   setSelectedIndex,
   setVideoFile,
   setVideoFrameNum,
@@ -397,25 +398,35 @@ export const prevFile = () => {
 export const nextFile = () => {
   moveToFileIndex(getSelectedIndex() + 1, 0, true);
 };
-export const moveToFrame = (frameNum: number) => {
+export const moveToFrame = (frameNum: number, offset?: number) => {
+  if (offset === undefined) {
+    offset = 0;
+  }
   const image = getImage();
   if (frameNum < 1) {
     prevFile();
   } else if (frameNum > getImage().numFrames) {
     nextFile();
   } else {
+    const zoomFactor = image.height / getZoomWindow().height;
+    if (zoomFactor < 3) {
+      frameNum = Math.trunc(frameNum) + offset; //Math.round(frameNum + offset);
+    } else {
+      frameNum = frameNum + offset / 8;
+    }
+
     setVideoFrameNum(frameNum);
-    requestVideoFrame({ videoFile: image.file, frameNum });
+    requestVideoFrame({
+      videoFile: image.file,
+      frameNum,
+      zoom: getZoomWindow(),
+    });
   }
 };
 
 export const moveRight = () => {
-  const prev = getVideoFrameNum();
-  const frameNum = prev + 1;
-  moveToFrame(frameNum);
+  moveToFrame(getVideoFrameNum(), 1);
 };
 export const moveLeft = () => {
-  const prev = getVideoFrameNum();
-  const frameNum = prev - 1;
-  moveToFrame(frameNum);
+  moveToFrame(getVideoFrameNum(), -1);
 };

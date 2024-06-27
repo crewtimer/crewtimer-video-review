@@ -132,8 +132,9 @@ const VideoScrubber = () => {
     }
     const secs = timeToMilli(click.Time);
     const delta = image.fileEndTime - image.fileStartTime;
-    const frame =
-      1 + ((secs - timeToMilli(startTime)) / delta) * (image.numFrames - 1);
+    const frame = Math.round(
+      1 + ((secs - timeToMilli(startTime)) / delta) * (image.numFrames - 1)
+    );
     setVideoFrameNum(frame);
     requestVideoFrame({ videoFile, frameNum: frame });
     if (click.EventNum !== '?') {

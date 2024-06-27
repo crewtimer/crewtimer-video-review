@@ -2,7 +2,7 @@
   "targets": [
     {
       "target_name": "crewtimer_video_reader",
-      "sources": [ "src/FFReaderAPI.cpp", "src/FFReader.cpp", "src/sendMulticast.cpp"],
+      "sources": [ "src/FFReaderAPI.cpp", "src/FFReader.cpp", "src/sendMulticast.cpp", "src/FrameUtils.cpp"],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",
       ],
@@ -11,8 +11,22 @@
       ],
       "conditions": [
         ['OS=="mac"', {
+           "cflags": [ "-frtti"],
+          "cflags_cc!": [ "-frtti" ],
+          "xcode_settings": {
+            "OTHER_CFLAGS": [
+              "-frtti"
+            ],
+            "OTHER_CPLUSPLUSFLAGS": [
+              "-frtti"
+            ],
+            "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
+            "CLANG_CXX_LIBRARY" : "libc++"
+
+          },
           "include_dirs": [
               "./src/ffmpeg-built-mac/include",
+              "/usr/local/Cellar/opencv/4.9.0_7/include/opencv4"
             ],
           "link_settings": {
             "libraries": [
@@ -22,7 +36,10 @@
                 "../src/ffmpeg-built-mac/lib/libavformat.a",
                 "../src/ffmpeg-built-mac/lib/libavutil.a",
                 "../src/ffmpeg-built-mac/lib/libswresample.a",
-                "../src/ffmpeg-built-mac/lib/libswscale.a"],
+                "../src/ffmpeg-built-mac/lib/libswscale.a",
+                 "-lopencv_core",
+        "-lopencv_imgproc",
+        "-lopencv_video"],
 
             'library_dirs': ['../src/ffmpeg-built-mac/lib']
           }

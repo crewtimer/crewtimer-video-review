@@ -10,6 +10,7 @@ export interface AppImage {
   file: string;
   fileStartTime: number;
   fileEndTime: number;
+  motion: { x: number; y: number; dt: number; valid: boolean };
 }
 
 export interface Rect {
