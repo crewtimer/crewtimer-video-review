@@ -74,6 +74,12 @@ The `install` script in `package.json` is configured to build the native module:
 yarn install
 ```
 
+## Problems
+
+On windows, running the Electron App you might see the error *The specified module could not be found*.  This usually indicates missing dll files.  Copy dll files into the same folder as the exe to see if you can figure out which dlls are missing.
+
+Lacking that, try running the [Dependency Walker](https://www.dependencywalker.com/) tool 'depends' to see what libraries are required by the .node file. It takes many minutes to run so be patient.  Once it finally opens, scan down the list of external dlls looking for ones that might be related to the native module like opencv or ffmpeg.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a pull request.

@@ -11,6 +11,7 @@
     "rebuild": "node-gyp rebuild",
     "uploadall": "prebuild --upload-all $GITHUB_TOKEN",
     "upload": "prebuild --upload $GITHUB_TOKEN",
+    "uploadwin": "prebuild --verbose --runtime napi",
     "build": "node-gyp rebuild",
     "winbuild": "node-gyp rebuild --arch=x64 --target_platform=win32",
     "build-ffmpeg-mac": "git clone https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg && ./configure --prefix=../src/ffmpeg-built-mac --enable-static --enable-gpl --disable-network --disable-programs --disable-doc --disable-avdevice --disable-swresample --disable-postproc --disable-avfilter && make && make install",

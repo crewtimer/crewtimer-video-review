@@ -106,7 +106,8 @@
       "url": "http://localhost/"
     },
     "testPathIgnorePatterns": [
-      "release/app/dist"
+      "release/app/dist",
+      "*node_modules"
     ],
     "transform": {
       "\\.(ts|tsx|js|jsx)$": "ts-jest"
@@ -253,6 +254,12 @@
     "win": {
       "target": [
         "nsis"
+      ],
+      "extraFiles": [
+        {
+          "from": "resources/win-x64/opencv_world490.dll",
+          "to": "opencv_world490.dll"
+        }
       ]
     },
     "linux": {

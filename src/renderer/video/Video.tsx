@@ -1,4 +1,4 @@
-import { Box, Typography, Stack } from '@mui/material';
+import { Box, Typography, Stack, Tooltip } from '@mui/material';
 import React, {
   useCallback,
   useEffect,
@@ -13,16 +13,20 @@ import VideoSideBar from './VideoSideBar';
 import {
   Dir,
   getMouseWheelFactor,
+  getTravelRightToLeft,
   getVideoFrameNum,
   getVideoSettings,
   setVideoBow,
   setVideoTimestamp,
   setZoomWindow,
+  useResetZoomCounter,
   useImage,
   useMouseWheelInverted,
   useTimezoneOffset,
+  useTravelRightToLeft,
   useVideoError,
   useVideoFile,
+  resetVideoZoom,
 } from './VideoSettings';
 import VideoOverlay, {
   useAdjustingOverlay,
@@ -44,6 +48,7 @@ import { UseDatum } from 'react-usedatum';
 import { setGenerateImageSnapshotCallback } from './ImageButton';
 import VideoScrubber from './VideoScrubber';
 import { performAddSplit } from './AddSplitUtil';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
 
 const useStyles = makeStyles({
   text: {
@@ -51,7 +56,7 @@ const useStyles = makeStyles({
     background: '#ffffffa0',
     color: 'black',
     border: '1px solid black',
-    height: 'fit-content',
+    height: '32px',
     padding: '0.2em',
   },
   tstext: {
@@ -59,7 +64,7 @@ const useStyles = makeStyles({
     background: '#ffffffa0',
     color: 'black',
     border: '1px solid black',
-    height: 'fit-content',
+    height: '32px',
     padding: '0.2em',
   },
   computedtext: {
@@ -69,6 +74,19 @@ const useStyles = makeStyles({
     border: '1px solid red',
     height: 'fit-content',
     padding: '0.2em',
+  },
+  hyperzoom: {
+    zIndex: 200,
+    background: '#ffffffa0',
+    color: 'black',
+    height: '32px',
+    width: '24px',
+    border: '1px solid black',
+  },
+  hyperpadding: {
+    height: '32px',
+    width: '24px',
+    border: '1px solid transparent',
   },
 });
 
@@ -109,12 +127,12 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
     case 'ArrowRight':
     case '>':
     case '.':
-      moveRight();
+      getTravelRightToLeft() ? moveLeft() : moveRight();
       break;
     case 'ArrowLeft':
     case '<':
     case ',':
-      moveLeft();
+      getTravelRightToLeft() ? moveRight() : moveLeft();
       break;
     default:
       break; // ignore
@@ -136,6 +154,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const holdoffChanges = useRef<boolean>(false);
   const [videoError] = useVideoError();
   const [wheelInverted] = useMouseWheelInverted();
+  const [travelRightToLeft] = useTravelRightToLeft();
+  const [resetZoomCount] = useResetZoomCounter();
 
   const mouseTracking = useRef<ZoomState>({
     zoomWindow: { x: 0, y: 0, width: 0, height: 0 },
@@ -451,7 +471,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       event.preventDefault();
       return;
     }
-    initScaling();
+    resetVideoZoom();
   };
 
   const handleMouseDown = useCallback(
@@ -487,7 +507,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       mouseTracking.current.mouseDownPositionX =
         pt1 +
         (pt2 - pt1) * (mouseTracking.current.mouseDownPositionY / image.height);
-      doZoom(5);
+      if (!mouseTracking.current.isZooming) {
+        doZoom(5);
+      }
     },
     [image, xPadding, destWidth]
   );
@@ -558,6 +580,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           x < 20 + xPadding ||
           x > destWidth - 20 + xPadding);
       setNearEdge(nearEdge && !mouseTracking.current.isZooming);
+
       // console.log(`near edge: ${nearEdge} x: ${x} y: ${y}`);
       // dont trigger mouse down move actions until we have moved slightly. This avoids
       // accidental zooming on just a click
@@ -574,12 +597,14 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         // Adjust the scale based on the mouse movement
         doZoom(newScale);
       }
-
-      const downMoveX = mouseTracking.current.mouseDownClientX - event.clientX;
-      if (mouseTracking.current.isZooming && Math.abs(downMoveX) > 5) {
-        const delta = Math.trunc(downMoveX / 5);
-        mouseTracking.current.mouseDownClientX = event.clientX;
-        moveToFrame(getVideoFrameNum(), delta);
+      if (mouseTracking.current.mouseDown) {
+        let downMoveX = mouseTracking.current.mouseDownClientX - event.clientX;
+        // Only start tracking if we have moved a significant amount
+        if (mouseTracking.current.isZooming && Math.abs(downMoveX) > 10) {
+          const delta = Math.sign(downMoveX);
+          mouseTracking.current.mouseDownClientX = event.clientX;
+          moveToFrame(getVideoFrameNum(), travelRightToLeft ? delta : -delta);
+        }
       }
     },
     [image, destHeight, destWidth]
@@ -588,17 +613,28 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     `frame: ${getVideoFrameNum()}, motion: ${JSON.stringify(image.motion)}`
   );
 
+  useEffect(() => {
+    doZoom(1);
+    console.log('triggering post zoom');
+    // Trigger a reload of this frame as we exit zoom
+    const frameNum = getVideoFrameNum();
+    const intFrame = Math.trunc(frameNum);
+    moveToFrame(intFrame, frameNum - intFrame);
+  }, [resetZoomCount]);
+
   const handleMouseUp = useCallback(
-    (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-      if (event.button != 0) {
-        return;
-      }
-      event.preventDefault();
-      doZoom(1);
-      // Trigger a reload of this frame as we exit zoom
-      const frameNum = getVideoFrameNum();
-      const intFrame = Math.trunc(frameNum);
-      moveToFrame(intFrame, frameNum - intFrame);
+    (_event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+      mouseTracking.current.mouseDown = false;
+
+      // if (event.button != 0) {
+      //   return;
+      // }
+      // event.preventDefault();
+      // doZoom(1);
+      // // Trigger a reload of this frame as we exit zoom
+      // const frameNum = getVideoFrameNum();
+      // const intFrame = Math.trunc(frameNum);
+      // moveToFrame(intFrame, frameNum - intFrame);
     },
     [image]
   );
@@ -652,6 +688,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     setVideoTimestamp(videoTimestamp);
   }, [image]);
 
+  const frameNum = getVideoFrameNum();
+  const fracFrame = frameNum - Math.trunc(frameNum);
+  const hyperZoom = fracFrame > 0.001 && fracFrame < 0.999;
   return (
     <Stack direction="column">
       <Box
@@ -685,19 +724,37 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         >
           <Stack direction="row">
             <div />
-            <Typography
-              onClick={holdoffChanges.current ? undefined : moveLeft}
+            {/* <Typography
+              onClick={
+                holdoffChanges.current
+                  ? undefined
+                  : travelRightToLeft
+                  ? moveRight
+                  : moveLeft
+              }
               className={classes.text}
             >
               &nbsp;&lt;&nbsp;
-            </Typography>
+            </Typography> */}
+            {hyperZoom && <Box className={classes.hyperpadding} />}
             <Typography className={classes.tstext}>{videoTimestamp}</Typography>
-            <Typography
-              onClick={holdoffChanges.current ? undefined : moveRight}
+            {hyperZoom && (
+              <Tooltip title="Hyperzoom generated timestamp">
+                <ZoomInIcon className={classes.hyperzoom} />
+              </Tooltip>
+            )}
+            {/* <Typography
+              onClick={
+                holdoffChanges.current
+                  ? undefined
+                  : travelRightToLeft
+                  ? moveLeft
+                  : moveRight
+              }
               className={classes.text}
             >
               &nbsp;&gt;&nbsp;
-            </Typography>
+            </Typography> */}
             <div style={{ flex: 1 }} />
           </Stack>
           {computedTime

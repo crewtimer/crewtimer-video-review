@@ -41,7 +41,7 @@ export const [useVideoTimestamp, setVideoTimestamp, getVideoTimestamp] =
   UseDatum('');
 export const [useVideoBow, setVideoBow, getVideoBow] = UseDatum('');
 export const [useVideoEvent, setVideoEvent, getVideoEvent] = UseDatum('');
-export const [usePlaceSort, setPlaceSort, getSortPlace] = UseDatum(false);
+export const [usePlaceSort, setPlaceSort, getSortPlace] = UseDatum(true);
 export const [useSelectedIndex, setSelectedIndex, getSelectedIndex] =
   UseDatum(0);
 
@@ -67,6 +67,20 @@ export const [useTimezone, setTimezone, getTimezone] = UseStoredDatum<string>(
     setTimezoneOffset(-currentOffsetMinutes);
   }
 );
+export const [useTravelRightToLeft, , getTravelRightToLeft] = UseStoredDatum(
+  'travelRightToLeft',
+  false
+);
+
+export const [useHyperZoomFactor, , getHyperZoomFactor] = UseStoredDatum(
+  'hyperZoomFactor',
+  2
+);
+export const [useResetZoomCounter, setResetZoomCounter, getResetZoomCounter] =
+  UseDatum(0);
+export const resetVideoZoom = () => {
+  setResetZoomCounter((c) => c + 1);
+};
 
 /// Mouse wheel zoom factor
 export const [useMouseWheelFactor, setMouseWheelFactor, getMouseWheelFactor] =

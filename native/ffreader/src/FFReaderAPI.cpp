@@ -252,9 +252,9 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
           return ret;
         }
       }
-      if (hasZoom) {
-        sharpenFrame(frameInfo);
-      }
+      // if (hasZoom) {
+      //   sharpenFrame(frameInfo);
+      // }
     }
 
     ret.Set("data", Napi::Buffer<uint8_t>::Copy(env, frameInfo->data->data(),

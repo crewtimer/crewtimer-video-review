@@ -41,6 +41,28 @@ if (isDebug) {
   require('electron-debug')();
 }
 
+// Create a write stream (in append mode)
+const logFilePath = path.join(app.getPath('userData'), 'applog.txt');
+console.log(`Logging to ${logFilePath}`);
+const logStream = require('fs').createWriteStream(logFilePath);
+
+// Redirect console.log to the log file
+console.log = (...args) => {
+  const msg = `${args.map((x) => String(x)).join(' ')}\n`;
+  logStream.write(msg);
+  process.stdout.write(msg);
+};
+
+// Redirect console.error to the log file
+console.error = (...args) => {
+  const msg = `${args.map((x) => String(x)).join(' ')}\n`;
+  logStream.write(msg);
+  process.stderr.write(msg);
+};
+
+// setLogFile(logFilePath);
+console.log('Starting app...');
+
 const installExtensions = async () => {
   const installer = require('electron-devtools-installer');
   const forceDownload = !!process.env.UPGRADE_EXTENSIONS;

@@ -5,7 +5,12 @@ import {
   getEntryResult,
 } from 'renderer/util/LapStorageDatum';
 import { gateFromWaypoint } from 'renderer/util/Util';
-import { getVideoBow, getVideoEvent, getVideoTimestamp } from './VideoSettings';
+import {
+  getVideoBow,
+  getVideoEvent,
+  getVideoTimestamp,
+  setResetZoomCounter,
+} from './VideoSettings';
 import uuidgen from 'short-uuid';
 import { setToast } from 'renderer/Toast';
 import { getMobileConfig, getWaypoint } from 'renderer/util/UseSettings';
@@ -73,12 +78,18 @@ export const performAddSplit = () => {
       handleConfirm: () => {
         delete lap.State;
         setEntryResultAndPublish(key, lap);
+        setResetZoomCounter((c) => c + 1);
+        setToast({
+          severity: 'info',
+          msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,
+        });
       },
     });
     return;
   }
 
   setEntryResultAndPublish(key, lap);
+  setResetZoomCounter((c) => c + 1);
   setToast({
     severity: 'info',
     msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,

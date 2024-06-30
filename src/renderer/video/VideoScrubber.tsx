@@ -15,6 +15,7 @@ import {
   getImage,
   useVideoEvent,
   useVideoBow,
+  resetVideoZoom,
 } from './VideoSettings';
 import { moveLeft, moveRight, parseTimeToSeconds } from './VideoUtils';
 
@@ -136,6 +137,7 @@ const VideoScrubber = () => {
       1 + ((secs - timeToMilli(startTime)) / delta) * (image.numFrames - 1)
     );
     setVideoFrameNum(frame);
+    resetVideoZoom();
     requestVideoFrame({ videoFile, frameNum: frame });
     if (click.EventNum !== '?') {
       setSelectedEvent(click.EventNum);

@@ -27,6 +27,7 @@ import DataGrid, {
 } from 'react-data-grid';
 import {
   getSortPlace,
+  resetVideoZoom,
   setVideoBow,
   usePlaceSort,
   useVideoBow,
@@ -472,7 +473,9 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       }_${args.row.entry?.Bow}`;
       const entry = getEntryResult(key);
       if (entry?.Time && entry?.State !== 'Deleted') {
-        seekToTimestamp(entry.Time, true);
+        resetVideoZoom();
+        const seekTime = entry.Time;
+        setTimeout(() => seekToTimestamp(seekTime, true), 100);
       }
     }
   };

@@ -25,7 +25,7 @@ import {
 } from './VideoUtils';
 
 export const [useAdjustingOverlay] = UseDatum(false);
-export const [useNearEdge] = UseDatum(false);
+export const [useNearEdge, , getNearEdge] = UseDatum(false);
 
 export interface VideoOverlayProps {
   width: number; /// Canas width

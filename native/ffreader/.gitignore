@@ -67,3 +67,4 @@ src/ffmpeg*
 FFMpeg/
 ffmpeg-built-*
 prebuilds
+*node_modules

@@ -1,29 +1,38 @@
+import React from 'react';
 import {
   Box,
   Button,
   Checkbox,
   Container,
   FormControlLabel,
+  Grid,
   IconButton,
   Slider,
   Stack,
   SxProps,
   Theme,
   Toolbar,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Settings';
-import { setDialogConfig } from 'renderer/util/ConfirmDialog';
+import { setDialogConfig } from '../util/ConfirmDialog';
 import {
   useMouseWheelFactor,
   useMouseWheelInverted,
+  useTravelRightToLeft,
   useVideoSettings,
 } from './VideoSettings';
-import { useMobileConfig } from 'renderer/util/UseSettings';
-import TimezoneSelector from 'renderer/util/TimezoneSelector';
+import { useMobileConfig } from '../util/UseSettings';
+import TimezoneSelector from '../util/TimezoneSelector';
+import HyperZoomSelector from '../util/HyperZoomSelector';
 import { saveVideoSidecar } from './VideoUtils';
 import makeStyles from '@mui/styles/makeStyles';
 
+declare module '@mui/styles/defaultTheme' {
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface (remove this line if you don't have the rule enabled)
+  interface DefaultTheme extends Theme {}
+}
 const useStyles = makeStyles((theme) => ({
   header: {
     height: '40px',
@@ -37,7 +46,6 @@ const useStyles = makeStyles((theme) => ({
     transform: 'scale(0.8)',
     transformOrigin: 'left',
   },
-
   settings: {
     marginLeft: theme.spacing(2),
     marginBottom: theme.spacing(1),
@@ -51,6 +59,7 @@ export const VideoSettingsDialog = () => {
   const [mc] = useMobileConfig();
   const [wheelFactor, setWheelFactor] = useMouseWheelFactor();
   const [wheelInverted, setWheelInverted] = useMouseWheelInverted();
+  const [rightToLeft, setRightToLeft] = useTravelRightToLeft();
 
   // Handler to update the wheelFactor state
   const handleSliderChange = (_event: Event, newValue: number | number[]) => {
@@ -74,6 +83,7 @@ export const VideoSettingsDialog = () => {
       saveVideoSidecar();
     }
   };
+
   return (
     <Container
       maxWidth="xl"
@@ -86,119 +96,156 @@ export const VideoSettingsDialog = () => {
         paddingTop: '1em',
       }}
     >
-      <Toolbar className={classes.header}>
-        <Typography variant="h6" display="inline" className={classes.smaller}>
-          Course Timezone
-        </Typography>
-      </Toolbar>
-      <Box className={classes.settings}>
-        <TimezoneSelector />
-      </Box>
-      <Toolbar className={classes.header}>
-        <Typography variant="h6" display="inline" className={classes.smaller}>
-          Mouse Wheel Settings
-        </Typography>
-      </Toolbar>
-
-      <Box className={classes.settings}>
-        <FormControlLabel
-          labelPlacement="end"
-          label="Invert wheel direction"
-          control={
-            <Checkbox
-              checked={wheelInverted}
-              onChange={() => setWheelInverted(!wheelInverted)}
-            />
-          }
-        />
-        <Typography variant="body1" mr={2}>
-          Wheel Factor
-        </Typography>
-        <Box display="flex" alignItems="center">
-          <Typography variant="body1" mr={2}>
-            {wheelFactor}
-          </Typography>
-          <Slider
-            min={1}
-            max={200}
-            value={wheelFactor}
-            onChange={handleSliderChange}
-            aria-labelledby="wheel-factor-slider"
-          />
-        </Box>
-      </Box>
-      <Toolbar className={classes.header}>
-        <Typography variant="h6" display="inline" className={classes.smaller}>
-          Course Configuration
-        </Typography>
-      </Toolbar>
-      <Box className={classes.settings}>
-        <FormControlLabel
-          labelPlacement="end"
-          label="Lane is below guide line"
-          control={
-            <Checkbox
-              checked={videoSettings.laneBelowGuide}
-              onChange={() => {
-                setVideoSettings(
-                  {
-                    ...videoSettings,
-                    laneBelowGuide: !videoSettings.laneBelowGuide,
-                  },
-                  true
-                );
-                saveVideoSidecar();
-              }}
-            />
-          }
-        />
-      </Box>
-      <Toolbar className={classes.header}>
-        <Typography variant="h6" display="inline" className={classes.smaller}>
-          Guide Visibility
-        </Typography>
-      </Toolbar>
-      <Box className={classes.settings}>
-        <Stack direction="row">
-          <FormControlLabel
-            labelPlacement="end"
-            label="Finish"
-            control={
-              <Checkbox
-                checked={videoSettings.guides[0].enabled}
-                onChange={() => {
-                  const guides = [...videoSettings.guides];
-                  guides[0].enabled = !guides[0].enabled;
-                  setVideoSettings({ ...videoSettings, guides }, true);
-                }}
-              />
-            }
-          />
-          <Button variant="outlined" size="small" onClick={() => resetGuides()}>
-            Reset Finish
-          </Button>
-        </Stack>
-        <Box>
-          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lane) => (
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6}>
+          <Toolbar className={classes.header}>
+            <Typography
+              variant="h6"
+              display="inline"
+              className={classes.smaller}
+            >
+              Course Configuration
+            </Typography>
+          </Toolbar>
+          <Box className={classes.settings}>
+            <TimezoneSelector />
+          </Box>
+          <Box className={classes.settings}>
             <FormControlLabel
-              key={lane}
               labelPlacement="end"
-              label={`Lane ${lane}`}
+              label="Lane is below guide line"
               control={
                 <Checkbox
-                  checked={videoSettings.guides[lane + 1].enabled}
+                  checked={videoSettings.laneBelowGuide}
                   onChange={() => {
-                    const guides = [...videoSettings.guides]; // force 'diff'
-                    videoSettings.guides[lane + 1].enabled =
-                      !videoSettings.guides[lane + 1].enabled;
-                    setVideoSettings({ ...videoSettings, guides }, true);
+                    setVideoSettings(
+                      {
+                        ...videoSettings,
+                        laneBelowGuide: !videoSettings.laneBelowGuide,
+                      },
+                      true
+                    );
+                    saveVideoSidecar();
                   }}
                 />
               }
             />
-          ))}
-        </Box>
-      </Box>
+          </Box>
+          <Box className={classes.settings}>
+            <FormControlLabel
+              labelPlacement="end"
+              label="Travel Right to Left"
+              control={
+                <Checkbox
+                  checked={rightToLeft}
+                  onChange={() => setRightToLeft(!rightToLeft)}
+                />
+              }
+            />
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <Toolbar className={classes.header}>
+            <Typography
+              variant="h6"
+              display="inline"
+              className={classes.smaller}
+            >
+              Interface Settings
+            </Typography>
+          </Toolbar>
+          <Box className={classes.settings}>
+            <HyperZoomSelector />
+          </Box>
+          <Box className={classes.settings}>
+            <Tooltip title="Invert wheel direction" placement="right">
+              <FormControlLabel
+                labelPlacement="end"
+                label="Invert wheel direction"
+                control={
+                  <Checkbox
+                    checked={wheelInverted}
+                    onChange={() => setWheelInverted(!wheelInverted)}
+                  />
+                }
+              />
+            </Tooltip>
+            <Typography variant="body1" mr={2}>
+              Wheel Factor
+            </Typography>
+            <Box display="flex" alignItems="center">
+              <Typography variant="body1" mr={2}>
+                {wheelFactor}
+              </Typography>
+              <Tooltip title="Adjust wheel sensitivity">
+                <Slider
+                  min={1}
+                  max={200}
+                  value={wheelFactor}
+                  onChange={handleSliderChange}
+                  aria-labelledby="wheel-factor-slider"
+                />
+              </Tooltip>
+            </Box>
+          </Box>
+        </Grid>
+        <Grid item xs={12} sm={12}>
+          <Toolbar className={classes.header}>
+            <Typography
+              variant="h6"
+              display="inline"
+              className={classes.smaller}
+            >
+              Guide Visibility
+            </Typography>
+          </Toolbar>
+          <Box className={classes.settings}>
+            <Stack direction="row">
+              <FormControlLabel
+                labelPlacement="end"
+                label="Finish"
+                control={
+                  <Checkbox
+                    checked={videoSettings.guides[0].enabled}
+                    onChange={() => {
+                      const guides = [...videoSettings.guides];
+                      guides[0].enabled = !guides[0].enabled;
+                      setVideoSettings({ ...videoSettings, guides }, true);
+                    }}
+                  />
+                }
+              />
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => resetGuides()}
+              >
+                Reset Finish
+              </Button>
+            </Stack>
+            <Box>
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lane) => (
+                <FormControlLabel
+                  key={lane}
+                  labelPlacement="end"
+                  label={`Lane ${lane}`}
+                  control={
+                    <Checkbox
+                      checked={videoSettings.guides[lane + 1].enabled}
+                      onChange={() => {
+                        const guides = [...videoSettings.guides]; // force 'diff'
+                        videoSettings.guides[lane + 1].enabled =
+                          !videoSettings.guides[lane + 1].enabled;
+                        setVideoSettings({ ...videoSettings, guides }, true);
+                      }}
+                    />
+                  }
+                />
+              ))}
+            </Box>
+          </Box>
+        </Grid>
+      </Grid>
     </Container>
   );
 };

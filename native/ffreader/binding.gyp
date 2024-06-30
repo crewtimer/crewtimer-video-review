@@ -47,14 +47,17 @@
 
       ['OS=="win"', {
         "include_dirs": [
-          "./src/ffmpeg-built-win/include",
+          "y:/ffmpeg-built-win/include",
+          "C:/OpenCV/opencv/build/include"
         ],
         "link_settings": {
             "libraries": [
-                "../src/ffmpeg-built-win/lib/libavcodec.a",
-                "../src/ffmpeg-built-win/lib/libavformat.a",
-                "../src/ffmpeg-built-win/lib/libavutil.a",
-                "../src/ffmpeg-built-win/lib/libswscale.a",
+                "y:/ffmpeg-built-win/lib/libavcodec.a",
+                "y:/ffmpeg-built-win/lib/libavformat.a",
+                "y:/ffmpeg-built-win/lib/libavutil.a",
+                "y:/ffmpeg-built-win/lib/libswscale.a",
+                "y:/ffmpeg-built-win/lib/libswresample.a",
+                "C:/OpenCV/opencv/build/x64/vc16/lib/opencv_world490.lib",
                 "Bcrypt.lib", "Mfuuid.lib", "Strmiids.lib"
             ],
           'library_dirs': ['../src/ffmpeg-built-win/lib']

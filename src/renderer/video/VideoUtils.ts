@@ -3,6 +3,7 @@ import { replaceFileSuffix } from 'renderer/util/Util';
 import { getDirList, requestVideoFrame } from './VideoFileUtils';
 import {
   Dir,
+  getHyperZoomFactor,
   getImage,
   getSelectedIndex,
   getVideoFile,
@@ -409,10 +410,11 @@ export const moveToFrame = (frameNum: number, offset?: number) => {
     nextFile();
   } else {
     const zoomFactor = image.height / getZoomWindow().height;
-    if (zoomFactor < 3) {
+    const hyperZoomFactor = getHyperZoomFactor();
+    if (zoomFactor < 3 || hyperZoomFactor === 0) {
       frameNum = Math.trunc(frameNum) + offset; //Math.round(frameNum + offset);
     } else {
-      frameNum = frameNum + offset / 8;
+      frameNum = frameNum + (offset * image.fps * hyperZoomFactor) / 1000;
     }
 
     setVideoFrameNum(frameNum);
