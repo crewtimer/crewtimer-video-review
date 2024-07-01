@@ -6,38 +6,36 @@ import {
   Typography,
   TextField,
   DialogActions,
+  styled,
 } from '@mui/material';
-import makeStyles from '@mui/styles/makeStyles';
-import { useEffect, useState } from 'react';
+import { ChangeEventHandler, ReactNode, useEffect, useState } from 'react';
 import { UseDatum } from 'react-usedatum';
 
-const useStyles = makeStyles((theme) => ({
-  confirmBox: {
-    marginLeft: theme.spacing(2),
-  },
-  confirmPrompt: {
-    marginTop: theme.spacing(2),
-    display: 'flex',
-  },
+// Styled components using MUI's styled API
+const ConfirmBox = styled(TextField)(({ theme }) => ({
+  marginLeft: theme.spacing(2),
+}));
+
+const ConfirmPrompt = styled('div')(({ theme }) => ({
+  marginTop: theme.spacing(2),
+  display: 'flex',
 }));
 
 export interface ConfirmDialogProps {
   title: string;
-  message: string;
-  content?: React.ReactNode;
+  message?: string;
+  body?: ReactNode;
   confirmText?: string;
-  button: string;
+  button?: string;
   showCancel: boolean;
   handleConfirm?: () => void;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const [useConfirmDialog, setDialogConfig] = UseDatum<
   ConfirmDialogProps | undefined
 >(undefined);
 
-export const ConfirmDialog = () => {
-  const classes = useStyles();
+export function ConfirmDialog() {
   const [config, setConfig] = useConfirmDialog();
   const [okToConfirm, setOkToConfirm] = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -52,17 +50,17 @@ export const ConfirmDialog = () => {
     setConfig(undefined);
   };
 
-  const onConfirmTextChange: React.ChangeEventHandler<
+  const onConfirmTextChange: ChangeEventHandler<
     HTMLInputElement | HTMLTextAreaElement
   > = (event) => {
-    const value = event.target.value;
+    const { value } = event.target;
     const ok = value.toLowerCase() === config?.confirmText?.toLowerCase();
     setOkToConfirm(ok);
     setConfirmText(value);
   };
 
   if (!config) {
-    return <></>;
+    return undefined;
   }
   const actions = [
     config.showCancel ? (
@@ -75,23 +73,25 @@ export const ConfirmDialog = () => {
         Cancel
       </Button>
     ) : null,
-    <Button
-      key={config.button}
-      variant="outlined"
-      size="small"
-      disabled={!!config.confirmText && !okToConfirm && config.showCancel}
-      onClick={() => {
-        setConfig(undefined);
-        config.handleConfirm?.();
-      }}
-    >
-      {config.button}
-    </Button>,
+    config.button ? (
+      <Button
+        key={config.button}
+        variant="outlined"
+        size="small"
+        disabled={!!config.confirmText && !okToConfirm && config.showCancel}
+        onClick={() => {
+          setConfig(undefined);
+          config.handleConfirm?.();
+        }}
+      >
+        {config.button}
+      </Button>
+    ) : null,
   ];
 
   return (
     <Dialog
-      open={true}
+      open
       onClose={handleClose}
       aria-labelledby="alert-dialog-title"
       aria-describedby="alert-dialog-description"
@@ -101,27 +101,26 @@ export const ConfirmDialog = () => {
         {!!config.message && (
           <Typography color="secondary">{config.message}</Typography>
         )}
-        {config.content}
+        {config.body}
         {config.showCancel && config.confirmText && (
-          <div className={classes.confirmPrompt}>
-            <Typography className={classes.confirmPrompt}>
+          <ConfirmPrompt>
+            <Typography>
               To confirm this action, type &apos;{config.confirmText}&apos; in
               the box:
             </Typography>
-            <TextField
-              className={classes.confirmBox}
+            <ConfirmBox
               variant="outlined"
               margin="dense"
               name="confirmText"
               autoComplete="off"
-              autoFocus={true}
+              autoFocus
               value={confirmText}
               onChange={onConfirmTextChange}
             />
-          </div>
+          </ConfirmPrompt>
         )}
       </DialogContent>
       <DialogActions>{actions}</DialogActions>
     </Dialog>
   );
-};
+}

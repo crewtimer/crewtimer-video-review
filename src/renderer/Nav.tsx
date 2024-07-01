@@ -25,8 +25,16 @@ import ListItemText from '@mui/material/ListItemText';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
 import InfoIcon from '@mui/icons-material/Info';
+import { useFirebaseDatum } from './util/UseFirebase';
+import { Button, Stack, Link } from '@mui/material';
+import { setDialogConfig } from './util/ConfirmDialog';
 
 const AboutText = `CrewTimer Video Review ${window.platform.appVersion}`;
+
+const versionAsNumber = (version: string) => {
+  const parts = version.split(/[\.\-]/);
+  return Number(parts[0]) * 100 + Number(parts[1]) * 10 + Number(parts[2]);
+};
 
 const { LapStorage } = window;
 
@@ -49,6 +57,20 @@ export default function Nav() {
   const [firebaseConnected] = useFirebaseConnected();
   const [msgOpen, setMsgOpen] = useState(false);
   const [msg, setMsg] = useState('');
+  const latestVersion =
+    useFirebaseDatum<string, string>(
+      '/global/config/video-review/latestVersion'
+    ) || '0.0.0';
+  const latestText =
+    useFirebaseDatum<string, string>(
+      '/global/config/video-review/latestText'
+    ) || '';
+  const updateAvailable =
+    versionAsNumber(latestVersion) >
+    versionAsNumber(window.platform.appVersion);
+  console.log(
+    `updateAvailable: ${updateAvailable} latestVersion: ${latestVersion} appVersion: ${window.platform.appVersion}`
+  );
 
   const open = Boolean(anchorEl);
 
@@ -82,6 +104,36 @@ export default function Nav() {
           <Typography variant="h6" className={classes.title}>
             {mc?.info?.Title ? mc.info.Title : AboutText}
           </Typography>
+          {updateAvailable && (
+            <Button
+              variant="outlined"
+              color="inherit"
+              sx={{ marginRight: '1em' }}
+              size="small"
+              onClick={() =>
+                setDialogConfig({
+                  title: 'Software Update Available',
+                  body: (
+                    <Stack>
+                      <Typography>
+                        Version: {latestVersion}: {latestText}.
+                      </Typography>
+                      <Link
+                        href="https://crewtimer.com/help/downloads"
+                        target="_blank"
+                      >
+                        https://crewtimer.com/help/downloads
+                      </Link>
+                    </Stack>
+                  ),
+                  button: 'OK',
+                  showCancel: false,
+                })
+              }
+            >
+              Update
+            </Button>
+          )}
           <div>
             <Tooltip
               title={
