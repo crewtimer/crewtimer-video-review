@@ -479,7 +479,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       if (event.button != 0) {
         return;
       }
-      console.log(`alt: ${event.altKey}, shift: ${event.shiftKey}`);
       selectLane(event);
       mouseTracking.current.mouseDownClientY = event.clientY;
       mouseTracking.current.mouseDownClientX = event.clientX;
@@ -615,7 +614,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   useEffect(() => {
     doZoom(1);
-    console.log('triggering post zoom');
     // Trigger a reload of this frame as we exit zoom
     const frameNum = getVideoFrameNum();
     const intFrame = Math.trunc(frameNum);
@@ -652,7 +650,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       return;
     }
 
-    const delta =
+    let delta =
       (wheelInverted ? -1 : 1) *
       Math.sign(event.deltaY) *
       Math.max(
@@ -663,6 +661,10 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           )
         )
       );
+    if (!mouseTracking.current.isZooming && Math.abs(delta) > 3) {
+      delta = Math.sign(delta) * 3;
+    }
+    console.log('delta', delta);
     moveToFrame(getVideoFrameNum(), delta);
   }, []);
 

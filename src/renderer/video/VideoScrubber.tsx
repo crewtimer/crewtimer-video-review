@@ -6,7 +6,7 @@ import { findClosestNumAndIndex, timeToMilli } from 'renderer/util/Util';
 import ImageButton from './ImageButton';
 import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
 import { useClickerData } from './UseClickerData';
-import { requestVideoFrame } from './VideoFileUtils';
+import { requestVideoFrame, seekToTimestamp } from './VideoFileUtils';
 import {
   useVideoFrameNum,
   useVideoFile,
@@ -31,6 +31,7 @@ const VideoScrubber = () => {
   const sliderRef = useRef<HTMLSpanElement>(null);
   const [, setSelectedEvent] = useVideoEvent();
   const [, setSelectedBow] = useVideoBow();
+  const ignoreNextChange = useRef(false);
 
   const [tooltip, setTooltip] = useState<TimeObject | undefined>();
   const numFrames = image.numFrames;
@@ -47,6 +48,10 @@ const VideoScrubber = () => {
 
   const handleSlider = (_event: Event, value: number | number[]) => {
     let newValue = value as number;
+    if (ignoreNextChange.current) {
+      ignoreNextChange.current = false;
+      return;
+    }
     setVideoFrameNum(newValue);
     requestVideoFrame({ videoFile, frameNum: newValue });
   };
@@ -124,6 +129,13 @@ const VideoScrubber = () => {
     }
   };
 
+  const onMouseDown = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    ignoreNextChange.current = true;
+  };
+  const onMouseUp = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    ignoreNextChange.current = false;
+  };
+
   const onSliderClick = (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>
   ) => {
@@ -131,14 +143,8 @@ const VideoScrubber = () => {
     if (!click) {
       return;
     }
-    const secs = timeToMilli(click.Time);
-    const delta = image.fileEndTime - image.fileStartTime;
-    const frame = Math.round(
-      1 + ((secs - timeToMilli(startTime)) / delta) * (image.numFrames - 1)
-    );
-    setVideoFrameNum(frame);
     resetVideoZoom();
-    requestVideoFrame({ videoFile, frameNum: frame });
+    setTimeout(() => seekToTimestamp(click.Time, true), 100);
     if (click.EventNum !== '?') {
       setSelectedEvent(click.EventNum);
     }
@@ -226,6 +232,8 @@ const VideoScrubber = () => {
               max={numFrames}
               onClick={onSliderClick}
               onChange={handleSlider}
+              onMouseDown={onMouseDown}
+              onMouseUp={onMouseUp}
               onMouseMove={onMouseMove}
               aria-labelledby="video-scrubber"
               sx={{

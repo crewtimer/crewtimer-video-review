@@ -45,10 +45,11 @@ function generateTestPattern(): AppImage {
     frameNum: 1,
     numFrames: 1,
     timestamp: 1704124800000,
+    tsMicro: 1704124800000000,
     fps: 60,
     file: '', // empty file will trigger a load of last selected file at startup
-    fileStartTime: 1704124800000,
-    fileEndTime: 1704124800000,
+    fileStartTime: 1704124800000000,
+    fileEndTime: 1704124800000000,
     motion: { x: 0, y: 0, dt: 0, valid: false },
   };
 }

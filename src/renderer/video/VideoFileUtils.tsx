@@ -93,9 +93,9 @@ const doRequestVideoFrame = async ({
   if (!videoFile) {
     return;
   }
-  console.log(
-    JSON.stringify({ videoFile, frameNum, seekPercent, fromClick, toTimestamp })
-  );
+  // console.log(
+  //   JSON.stringify({ videoFile, frameNum, seekPercent, fromClick, toTimestamp })
+  // );
   try {
     let imageStart: AppImage | undefined;
     let imageEnd: AppImage | undefined;
@@ -113,30 +113,46 @@ const doRequestVideoFrame = async ({
         setVideoError(`Unable to open file: ${videoFile}`);
         return;
       }
-      imageStart = await VideoUtils.getFrame(videoFile, 1);
+      imageStart = await VideoUtils.getFrame(videoFile, 1, 0);
+      if (!imageStart) {
+        setVideoError(`Unable to get frame 1: ${videoFile}`);
+        return;
+      }
       try {
-        imageEnd = await VideoUtils.getFrame(videoFile, imageStart.numFrames);
+        imageEnd = await VideoUtils.getFrame(
+          videoFile,
+          imageStart.numFrames,
+          0
+        );
       } catch (e) {}
       if (!imageEnd) {
         // Sometimes the frame count is one too many (e.g. output.mp4 test file).  Try reducing count by one.
         imageEnd = await VideoUtils.getFrame(
           videoFile,
-          imageStart.numFrames - 1
+          imageStart.numFrames - 1,
+          0
         );
         imageStart.numFrames = imageStart.numFrames - 1;
+        if (!imageEnd) {
+          // Still not found
+          setVideoError(
+            `Unable to get frame ${imageStart.numFrames}: ${videoFile}`
+          );
+          return;
+        }
       }
-      const imageEndTime = imageEnd.timestamp
-        ? imageEnd.timestamp
+      const imageEndTime = imageEnd.tsMicro
+        ? imageEnd.tsMicro
         : Math.trunc(
-            imageStart.timestamp +
-              (1000 * imageStart.numFrames) / imageStart.fps
+            imageStart.tsMicro +
+              (1000000 * imageStart.numFrames) / imageStart.fps
           );
 
       openFileStatus = {
         filename: videoFile,
         open: true,
         numFrames: imageStart.numFrames,
-        startTime: imageStart.timestamp,
+        startTime: imageStart.tsMicro,
         endTime: imageEndTime,
         fps: imageStart.fps,
       };
@@ -150,23 +166,31 @@ const doRequestVideoFrame = async ({
         ? frameNum
         : 1;
 
+    let utcMilli = 0;
     if (toTimestamp) {
       // seek one more time to get the requested frame
-      const secs = timeToMilli(toTimestamp);
+      const tsMilli = timeToMilli(toTimestamp);
       const delta = openFileStatus.endTime - openFileStatus.startTime;
       const tzOffsetMinutes = getTimezoneOffset();
       const offset =
         tzOffsetMinutes !== undefined
           ? tzOffsetMinutes
           : -new Date().getTimezoneOffset();
+
+      // calc the desired time in utc milliseconds
+      const fileStartUtcMilli = Math.trunc(openFileStatus.startTime / 1000);
+      utcMilli =
+        fileStartUtcMilli -
+        (fileStartUtcMilli % (24 * 60 * 60 * 1000)) +
+        tsMilli -
+        offset * 60 * 1000;
       const startTime =
-        (openFileStatus.startTime + offset * 60 * 1000) % (24 * 60 * 60 * 1000);
+        (openFileStatus.startTime + offset * 60 * 1000000) %
+        (24 * 60 * 60 * 1000000);
       const frameNum =
-        1 + ((secs - startTime) / delta) * (openFileStatus.numFrames - 1);
-      // 1 +
-      // Math.trunc(
-      //   0.5 + ((secs - startTime) / delta) * (openFileStatus.numFrames - 1)
-      // );
+        1 +
+        ((tsMilli * 1000 - startTime) / delta) * (openFileStatus.numFrames - 1);
+
       console.log('seeking to ' + frameNum);
       seekPos = frameNum;
     }
@@ -176,6 +200,7 @@ const doRequestVideoFrame = async ({
       imageStart = await VideoUtils.getFrame(
         videoFile,
         seekPos,
+        utcMilli,
         zoom || {
           x: 0,
           y: 0,
@@ -185,11 +210,13 @@ const doRequestVideoFrame = async ({
       );
       if (!imageStart) {
         console.log(`failed to get frame for ${videoFile}@${seekPos}`);
+        setVideoError(`failed to get frame for ${videoFile}@${seekPos}`);
+        return;
       }
     }
 
-    imageStart.fileStartTime = openFileStatus.startTime;
-    imageStart.fileEndTime = openFileStatus.endTime;
+    imageStart.fileStartTime = openFileStatus.startTime / 1000;
+    imageStart.fileEndTime = openFileStatus.endTime / 1000;
     setImage(imageStart);
     if (fromClick) {
       // force a jump in the VideoScrubber

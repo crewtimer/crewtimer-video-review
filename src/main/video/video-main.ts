@@ -70,31 +70,35 @@ ipcMain.handle('video:closeFile', (_event, filePath) => {
   }
 });
 
-ipcMain.handle('video:getFrame', (_event, filePath, frameNum, zoom) => {
-  try {
-    console.log('Grabbing frame', zoom);
-    // console.log('Grabbing frame', filePath, frameNum);
-    const ret = nativeVideoExecutor({
-      op: 'grabFrameAt',
-      frameNum: frameNum,
-      file: filePath,
-      zoom: zoom ?? { x: 0, y: 0, width: 0, height: 0 },
-    } as unknown as GrabFrameMessage);
-    if (ret.status === 'OK') {
-      // row 0 should be black
-      // let timestamp = extractTimestampFromFrame(ret.data, 0, ret.width);
-      // if (timestamp === 0) {
-      //   timestamp = extractTimestampFromFrame(ret.data, 1, ret.width);
-      //   //console.log('extracted timestamp', timestamp);
-      //   ret.timestamp = timestamp;
-      // } else {
-      //   ret.timestamp = Math.trunc(
-      //     0.5 + ((frameNum - 1) * 1000) / (ret.fps ?? 30)
-      //   );
-      // }
+ipcMain.handle(
+  'video:getFrame',
+  (_event, filePath, frameNum, tsMilli, zoom) => {
+    try {
+      // console.log('Grabbing frame', zoom);
+      // console.log('Grabbing frame', filePath, frameNum);
+      const ret = nativeVideoExecutor({
+        op: 'grabFrameAt',
+        frameNum: frameNum,
+        file: filePath,
+        tsMilli: tsMilli,
+        zoom: zoom ?? { x: 0, y: 0, width: 0, height: 0 },
+      } as unknown as GrabFrameMessage);
+      if (ret.status === 'OK') {
+        // row 0 should be black
+        // let timestamp = extractTimestampFromFrame(ret.data, 0, ret.width);
+        // if (timestamp === 0) {
+        //   timestamp = extractTimestampFromFrame(ret.data, 1, ret.width);
+        //   //console.log('extracted timestamp', timestamp);
+        //   ret.timestamp = timestamp;
+        // } else {
+        //   ret.timestamp = Math.trunc(
+        //     0.5 + ((frameNum - 1) * 1000) / (ret.fps ?? 30)
+        //   );
+        // }
+      }
+      return ret;
+    } catch (err) {
+      return { status: `${err instanceof Error ? err.message : err}` };
     }
-    return ret;
-  } catch (err) {
-    return { status: `${err instanceof Error ? err.message : err}` };
   }
-});
+);

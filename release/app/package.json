@@ -1,6 +1,6 @@
 {
   "name": "crewtimer-video-review",
-  "version": "1.0.2",
+  "version": "1.0.3-beta.1",
   "description": "Review finish line video and post timing data to CrewTimer.",
   "license": "MIT",
   "author": {

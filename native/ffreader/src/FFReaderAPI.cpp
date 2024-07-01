@@ -46,7 +46,6 @@ uint64_t extractTimestampFromFrame(const std::vector<uint8_t> &image, int row,
     number = (number << 1) | bit;
   }
 
-  number = (5000 + number) / 10000; // Round 64-bit number to milliseconds
   if (row == 0) {
     if (number == 0) {
       return extractTimestampFromFrame(image, row + 1, width);
@@ -60,11 +59,12 @@ uint64_t extractTimestampFromFrame(const std::vector<uint8_t> &image, int row,
 
 static std::shared_ptr<FrameInfo>
 getFrame(const std::unique_ptr<FFVideoReader> &ffreader,
-         const std::string &filename, float frameNum) {
+         const std::string &filename, double frameNum) {
   auto key = formatKey(filename, frameNum, false);
   auto frame = frameInfoList.getFrame(key);
   if (frame == nullptr) {
-    std::cout << "Reading frame: " << key << std::endl;
+    // std::cout << "Reading frame: " << key << " frameNum: " << frameNum
+    //           << std::endl;
     auto rgbaFrame = ffreader->getRGBAFrame(frameNum);
     if (!rgbaFrame) {
       return nullptr;
@@ -95,12 +95,17 @@ getFrame(const std::unique_ptr<FFVideoReader> &ffreader,
     frame->data = std::make_shared<std::vector<std::uint8_t>>(
         rgbaFrame->data[0], rgbaFrame->data[0] + totalBytes);
     frame->motion = {0, 0, 0, false};
-    auto timestamp =
+    auto timestamp100ns =
         extractTimestampFromFrame(*frame->data, 0, rgbaFrame->width);
-    if (timestamp == 0) {
-      timestamp = uint64_t(0.5 + ((frameNum - 1) * 1000) / (frame->fps));
+    auto tsMilli =
+        (5000 + timestamp100ns) / 10000; // Round 64-bit number to milliseconds
+    auto tsMicro = (5 + timestamp100ns) / 10;
+
+    if (tsMicro == 0) {
+      tsMilli = uint64_t(0.5 + ((frameNum - 1) * 1000) / (frame->fps));
     }
-    frame->timestamp = timestamp;
+    frame->tsMicro = tsMicro;
+    frame->timestamp = tsMilli;
     frameInfoList.addFrame(frame);
   }
   return frame;
@@ -181,7 +186,8 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
       return ret;
     }
     auto file = args.Get("file").As<Napi::String>().Utf8Value();
-    auto frameNum = args.Get("frameNum").As<Napi::Number>().FloatValue();
+    auto frameNum = args.Get("frameNum").As<Napi::Number>().DoubleValue();
+    auto tsMilli = args.Get("tsMilli").As<Napi::Number>().DoubleValue();
     auto ffreader = videoReaders.find(file);
     if (ffreader == videoReaders.end()) {
       std::cerr << "File not open opening " << file << std::endl;
@@ -204,7 +210,7 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
         (roi.width > 0) && (roi.height > 0) && ((roi.x > 0 && roi.y > 0));
 
     auto key = formatKey(file, frameNum, hasZoom);
-    std::cout << "key: " << key << std::endl;
+    // std::cout << "key: " << key << std::endl;
     auto frameInfo = frameInfoList.getFrame(key);
     if (!frameInfo) {
       // Nothing in cache, generate a new result
@@ -216,8 +222,14 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
         auto frameA = getFrame(ffreader->second, file, intPart);
         auto frameB = getFrame(ffreader->second, file, intPart + 1);
         if (frameA && frameB) {
+          if (tsMilli) {
+            // refine the fractional part now that we know the exact frame times
+            // involved.
+            fractionalPart = (tsMilli * 1000.0 - frameA->tsMicro) /
+                             (frameB->tsMicro - frameA->tsMicro);
+          }
           if (!hasZoom || roi.width < 256) {
-            std::cout << "restricting roi" << std::endl;
+            // std::cout << "restricting roi" << std::endl;
             // Use a slice around the center
             auto width = std::min(frameA->width, 256);
             roi = {frameA->width / 2 - width / 2, 0, width, frameA->height};
@@ -268,6 +280,7 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
     ret.Set("status", Napi::String::New(env, "OK"));
     ret.Set("file", Napi::String::New(env, frameInfo->file));
     ret.Set("timestamp", Napi::Number::New(env, frameInfo->timestamp));
+    ret.Set("tsMicro", Napi::Number::New(env, frameInfo->tsMicro));
     Napi::Object motion = Napi::Object::New(env);
     motion.Set("x", Napi::Number::New(env, frameInfo->motion.x));
     motion.Set("y", Napi::Number::New(env, frameInfo->motion.y));

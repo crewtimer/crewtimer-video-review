@@ -9,6 +9,7 @@ declare global {
       getFrame(
         filePath: string,
         frameNum: number,
+        tsMilli: number,
         zoom?: Rect
       ): Promise<AppImage>;
       sendMulticast(

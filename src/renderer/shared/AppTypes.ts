@@ -4,6 +4,7 @@ export interface AppImage {
   height: number;
   frameNum: number;
   timestamp: number;
+  tsMicro: number;
   data: Uint8Array;
   fps: number;
   numFrames: number;

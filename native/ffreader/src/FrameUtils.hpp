@@ -39,7 +39,7 @@ inline std::string formatKey(const std::string &file, float frameNum,
                              bool hasZoom) {
   std::ostringstream oss;
   auto zStr = hasZoom ? "-z" : "";
-  oss << file << "-" << std::fixed << std::setprecision(3) << frameNum << zStr;
+  oss << file << "-" << std::fixed << std::setprecision(6) << frameNum << zStr;
   return oss.str();
 }
 
@@ -49,7 +49,7 @@ inline std::string formatKey(const std::string &file, float frameNum,
  */
 class FrameInfo {
 public:
-  int frameNum;    ///< The frame number.
+  float frameNum;  ///< The frame number.
   int numFrames;   ///< The total number of frames.
   double fps;      ///< Frames per second.
   int totalBytes;  ///< Total bytes of the frame data.
@@ -59,7 +59,8 @@ public:
   int width;          ///< Width of the frame.
   int height;         ///< Height of the frame.
   int linesize;       ///< Line size of the frame.
-  uint64_t timestamp; ///< Timestamp of the frame.
+  uint64_t timestamp; ///< Timestamp of the frame in milliseconds.
+  uint64_t tsMicro;   ///< Timestamp of the frame in microseconds.
   std::string file;   ///< The file associated with the frame.
   std::string debug;
   ImageMotion motion = {0, 0, 0, false}; ///< Motion information of the frame.

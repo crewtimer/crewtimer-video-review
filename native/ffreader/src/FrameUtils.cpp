@@ -195,13 +195,13 @@ generateInterpolatedFrame(const std::shared_ptr<FrameInfo> frameA,
            (void *)frameB->data->data());
   ImageMotion motion = frameA->motion;
   if (!motion.valid) {
-    std::cerr << "Calculating optical flow" << std::endl;
+    // std::cerr << "Calculating optical flow" << std::endl;
     Mat flow = calculateOpticalFlowBetweenFrames(
         matA, matB, {roi.x, roi.y, roi.width, roi.height});
     motion = calculateMotion(flow);
   }
 
-  std::cerr << "motion: x=" << motion.x << ", y=" << motion.y << std::endl;
+  // std::cerr << "motion: x=" << motion.x << ", y=" << motion.y << std::endl;
 
   motion.y = 0;
 
@@ -217,11 +217,13 @@ generateInterpolatedFrame(const std::shared_ptr<FrameInfo> frameA,
       vector<uint8_t>(resultFrameMat.data,
                       resultFrameMat.data +
                           resultFrameMat.total() * resultFrameMat.elemSize()));
-  resultFrame->timestamp =
-      frameA->timestamp + (frameB->timestamp - frameA->timestamp) * pctAtoB;
+  resultFrame->tsMicro =
+      frameA->tsMicro + (frameB->tsMicro - frameA->tsMicro) * pctAtoB + 0.5;
+  resultFrame->timestamp = (resultFrame->tsMicro + 500) / 1000;
   resultFrame->frameNum =
       frameA->frameNum + (frameB->frameNum - frameA->frameNum) * pctAtoB;
-  motion.dt = (frameB->timestamp - frameA->timestamp);
+
+  motion.dt = (frameB->tsMicro - frameA->tsMicro);
   resultFrame->motion = motion;
 
   return resultFrame;
