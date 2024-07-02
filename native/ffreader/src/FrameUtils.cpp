@@ -31,17 +31,17 @@ void sharpenImage(const cv::Mat &src, cv::Mat &dst) {
  * for left-to-right).
  * @return The index of the first peak found, or -1 if no peak is found.
  */
-int findFirstPeak(const vector<int> &arr, int dir) {
+int findFirstPeak(const vector<int> &arr, int dir, int minLevel) {
   if (dir > 0) { // Search from right to left
     for (auto i = arr.size() - 1; i >= 12; i--) {
-      if (arr[i] > 100 && arr[i] > arr[i - 1] && arr[i] > arr[i - 2] &&
+      if (arr[i] > minLevel && arr[i] > arr[i - 1] && arr[i] > arr[i - 2] &&
           arr[i] > arr[i - 3] && arr[i] > arr[i - 4] && arr[i] > arr[i - 10]) {
         return i;
       }
     }
   } else { // Search from left to right
     for (size_t i = 0; i < arr.size() - 12; i++) {
-      if (arr[i] > 100 && arr[i] > arr[i + 1] && arr[i] > arr[i + 2] &&
+      if (arr[i] > minLevel && arr[i] > arr[i + 1] && arr[i] > arr[i + 2] &&
           arr[i] > arr[i + 3] && arr[i] > arr[i + 4] && arr[i] > arr[i + 10]) {
         return i;
       }
@@ -52,20 +52,30 @@ int findFirstPeak(const vector<int> &arr, int dir) {
 }
 
 int findPeak(const vector<int> &hist) {
-  auto negPeak = findFirstPeak(hist, -1);
-  auto posPeak = findFirstPeak(hist, 1);
+  auto negPeak = findFirstPeak(hist, -1, 60);
+  auto posPeak = findFirstPeak(hist, 1, 60);
+  if (negPeak == -1 && posPeak == -1) {
+    return 1000;
+  }
   // Ignore one pixel on either side of the zero point (10 slots)
   if (posPeak < hist.size() / 2 + 10) {
-    posPeak = hist.size() - 1;
+    // posPeak no good, how about neg peak?
+    if (negPeak <= hist.size() / 2 - 10) {
+      return negPeak;
+    } else {
+      return 1000;
+    }
   }
   if (negPeak > hist.size() / 2 - 10) {
-    negPeak = 0;
+    // negPeak no good, how about pos peak?
+    if (posPeak > hist.size() / 2 + 10) {
+      return posPeak;
+    } else {
+      return 1000;
+    }
   }
   auto peak = (hist[negPeak] > hist[posPeak]) ? negPeak : posPeak;
-  if (peak < 100 || peak > 1900) {
-    // no valid peak found
-    peak = 1000;
-  }
+
   return peak;
 }
 

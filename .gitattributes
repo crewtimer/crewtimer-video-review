@@ -1,12 +1,22 @@
 *       text    eol=lf
 *.exe   binary
-*.png   binary
-*.jpg   binary
-*.jpeg  binary
-*.ico   binary
 *.icns  binary
 *.eot   binary
 *.otf   binary
 *.ttf   binary
 *.woff  binary
 *.woff2 binary
+*.lib   binary
+*.dylib binary
+*.dll   binary
+*.a     binary
+# - Include binary diff in patches instead of "binary files differ."
+*.sln     -text diff
+*.suo     -text diff
+*.vcxproj -text diff
+*.gif     -text diff
+*.gz      -text diff
+*.ico     -text diff
+*.jpeg    -text diff
+*.jpg    -text diff
+*.png     -text diff

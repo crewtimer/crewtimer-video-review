@@ -68,9 +68,9 @@ export default function Nav() {
   const updateAvailable =
     versionAsNumber(latestVersion) >
     versionAsNumber(window.platform.appVersion);
-  console.log(
-    `updateAvailable: ${updateAvailable} latestVersion: ${latestVersion} appVersion: ${window.platform.appVersion}`
-  );
+  // console.log(
+  //   `updateAvailable: ${updateAvailable} latestVersion: ${latestVersion} appVersion: ${window.platform.appVersion}`
+  // );
 
   const open = Boolean(anchorEl);
 

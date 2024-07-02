@@ -2,7 +2,7 @@ import { Stack, Button, Box, Slider, Tooltip } from '@mui/material';
 import { useRef, useEffect, useMemo, useState } from 'react';
 import { convertTimestampToString } from 'renderer/shared/Util';
 import { useWaypoint } from 'renderer/util/UseSettings';
-import { findClosestNumAndIndex, timeToMilli } from 'renderer/util/Util';
+import { findClosestNumAndIndex } from 'renderer/util/Util';
 import ImageButton from './ImageButton';
 import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
 import { useClickerData } from './UseClickerData';
@@ -32,6 +32,7 @@ const VideoScrubber = () => {
   const [, setSelectedEvent] = useVideoEvent();
   const [, setSelectedBow] = useVideoBow();
   const ignoreNextChange = useRef(false);
+  const sliderValueEvent = useRef(0);
 
   const [tooltip, setTooltip] = useState<TimeObject | undefined>();
   const numFrames = image.numFrames;
@@ -47,6 +48,7 @@ const VideoScrubber = () => {
   }, [videoFileChanging]);
 
   const handleSlider = (_event: Event, value: number | number[]) => {
+    sliderValueEvent.current = value as number;
     let newValue = value as number;
     if (ignoreNextChange.current) {
       ignoreNextChange.current = false;
@@ -129,10 +131,12 @@ const VideoScrubber = () => {
     }
   };
 
-  const onMouseDown = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+  const onMouseDown = (
+    _event: React.MouseEvent<HTMLDivElement, MouseEvent>
+  ) => {
     ignoreNextChange.current = true;
   };
-  const onMouseUp = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+  const onMouseUp = (_event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     ignoreNextChange.current = false;
   };
 
@@ -141,6 +145,8 @@ const VideoScrubber = () => {
   ) => {
     const click = findNearestClick(event);
     if (!click) {
+      setVideoFrameNum(sliderValueEvent.current);
+      requestVideoFrame({ videoFile, frameNum: sliderValueEvent.current });
       return;
     }
     resetVideoZoom();
@@ -153,7 +159,7 @@ const VideoScrubber = () => {
     }
   };
 
-  console.log(`videoFrameNum: ${videoFrameNum}/${numFrames}`);
+  // console.log(`videoFrameNum: ${videoFrameNum}/${numFrames}`);
   const sliderValue = videoFrameNum;
   return (
     <Stack

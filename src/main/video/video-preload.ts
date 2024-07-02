@@ -33,22 +33,25 @@ contextBridge.exposeInMainWorld('VideoUtils', {
       throw err;
     }
   },
-  getFrame: async (filePath: string, frameNum: number, zoom?: Rect) => {
+  getFrame: async (
+    filePath: string,
+    frameNum: number,
+    utcMilli: number,
+    zoom?: Rect
+  ) => {
     try {
       if (cacheFilename !== filePath) {
         videoCache.clear();
         cacheFilename = filePath;
       }
-      const zooming = zoom && zoom.x != 0 && zoom.y != 0;
+      const zooming = zoom && (zoom.x != 0 || zoom.y != 0);
       const uuid = `${filePath}-${zooming ? frameNum : Math.trunc(frameNum)}`;
-      // const cached = videoCache.get(uuid);
-      // if (cached) {
-      //   return cached;
-      // }
+
       const result = (await ipcRenderer.invoke(
         'video:getFrame',
         filePath,
         frameNum,
+        utcMilli,
         zoom
       )) as AppImage;
       if (result.status !== 'OK') {

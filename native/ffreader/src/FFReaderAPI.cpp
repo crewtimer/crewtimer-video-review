@@ -202,12 +202,13 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
       auto zwidth = zoom.Get("width").As<Napi::Number>().Int32Value();
       auto zheight = zoom.Get("height").As<Napi::Number>().Int32Value();
       roi = {x, y, zwidth, zheight};
-      // std::cout << "roi: " << roi.x << " " << roi.y << " " << roi.width
-      //           << " " << roi.height << std::endl;
+      // std::cout << "roi: " << roi.x << " " << roi.y << " " << roi.width << "
+      // "
+      //           << roi.height << std::endl;
     }
 
     auto hasZoom =
-        (roi.width > 0) && (roi.height > 0) && ((roi.x > 0 && roi.y > 0));
+        (roi.width > 0) && (roi.height > 0) && ((roi.x > 0 || roi.y > 0));
 
     auto key = formatKey(file, frameNum, hasZoom);
     // std::cout << "key: " << key << std::endl;
@@ -228,8 +229,9 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
             fractionalPart = (tsMilli * 1000.0 - frameA->tsMicro) /
                              (frameB->tsMicro - frameA->tsMicro);
           }
-          if (!hasZoom || roi.width < 256) {
-            // std::cout << "restricting roi" << std::endl;
+          if (!hasZoom || roi.width < 50) {
+            // std::cout << "restricting roi"
+            //           << " roi width=" << roi.width << std::endl;
             // Use a slice around the center
             auto width = std::min(frameA->width, 256);
             roi = {frameA->width / 2 - width / 2, 0, width, frameA->height};

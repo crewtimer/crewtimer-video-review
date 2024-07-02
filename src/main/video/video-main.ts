@@ -81,7 +81,7 @@ ipcMain.handle(
         frameNum: frameNum,
         file: filePath,
         tsMilli: tsMilli,
-        zoom: zoom ?? { x: 0, y: 0, width: 0, height: 0 },
+        zoom: zoom || { x: 0, y: 0, width: 0, height: 0 },
       } as unknown as GrabFrameMessage);
       if (ret.status === 'OK') {
         // row 0 should be black
