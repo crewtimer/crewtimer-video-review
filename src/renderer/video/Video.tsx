@@ -609,7 +609,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     [image, destHeight, destWidth]
   );
   console.log(
-    `frame: ${getVideoFrameNum()}, motion: ${JSON.stringify(image.motion)}`
+    `frame: ${getVideoFrameNum()}, motion: ${JSON.stringify(image.motion)} ${
+      image.width
+    }x${image.height}`
   );
 
   useEffect(() => {

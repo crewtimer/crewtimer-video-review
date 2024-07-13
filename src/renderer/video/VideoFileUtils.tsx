@@ -5,6 +5,7 @@ import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { useInitializing } from 'renderer/util/UseSettings';
 import { timeToMilli } from 'renderer/util/Util';
 import {
+  getHyperZoomFactor,
   getImage,
   getTimezoneOffset,
   getVideoFile,
@@ -187,10 +188,14 @@ const doRequestVideoFrame = async ({
       const startTime =
         (openFileStatus.startTime + offset * 60 * 1000000) %
         (24 * 60 * 60 * 1000000);
-      const frameNum =
+
+      let frameNum =
         1 +
         ((tsMilli * 1000 - startTime) / delta) * (openFileStatus.numFrames - 1);
 
+      if (getHyperZoomFactor() <= 1) {
+        frameNum = Math.round(frameNum);
+      }
       console.log('seeking to ' + frameNum);
       seekPos = frameNum;
     }

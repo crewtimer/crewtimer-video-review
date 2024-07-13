@@ -187,7 +187,7 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
     }
     auto file = args.Get("file").As<Napi::String>().Utf8Value();
     auto frameNum = args.Get("frameNum").As<Napi::Number>().DoubleValue();
-    auto tsMilli = args.Get("tsMilli").As<Napi::Number>().DoubleValue();
+    auto tsMilli = args.Get("tsMilli").As<Napi::Number>().Int64Value();
     auto ffreader = videoReaders.find(file);
     if (ffreader == videoReaders.end()) {
       std::cerr << "File not open opening " << file << std::endl;
@@ -226,8 +226,18 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
           if (tsMilli) {
             // refine the fractional part now that we know the exact frame times
             // involved.
-            fractionalPart = (tsMilli * 1000.0 - frameA->tsMicro) /
+            fractionalPart = double(tsMilli * 1000 - frameA->tsMicro) /
                              (frameB->tsMicro - frameA->tsMicro);
+            // std::cout << "tsMilli=" << tsMilli << " A ts=" << frameA->tsMicro
+            //           << " B ts=" << frameB->tsMicro
+            //           << " frac=" << fractionalPart << std::endl;
+            // std::cout << tsMilli << std::endl
+            //           << frameA->tsMicro << std::endl
+            //           << frameB->tsMicro << std::endl;
+            if (std::abs(fractionalPart) >= 1.0) {
+              std::cout << "Restricting fractional part to 1.0" << std::endl;
+              fractionalPart = 0;
+            }
           }
           if (!hasZoom || roi.width < 50) {
             // std::cout << "restricting roi"
@@ -236,6 +246,9 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
             auto width = std::min(frameA->width, 256);
             roi = {frameA->width / 2 - width / 2, 0, width, frameA->height};
           }
+          // std::cout << "A framenum=" << frameA->frameNum
+          //           << " B framenum=" << frameB->frameNum
+          //           << " frac=" << fractionalPart << std::endl;
           frameInfo = generateInterpolatedFrame(frameA, frameB, fractionalPart,
                                                 roi, hasZoom);
           frameA->motion = frameInfo->motion;
