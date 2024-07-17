@@ -90,6 +90,132 @@ const useStyles = makeStyles({
   },
 });
 
+interface DrawImageParams {
+  srcCanvas: HTMLCanvasElement;
+  destCanvas: HTMLCanvasElement;
+  scale: number;
+  srcCenter: { x: number; y: number };
+}
+
+/**
+ * Draws an image from the source canvas onto the destination canvas, scaled and centered
+ * as specified, while maintaining the aspect ratio of the image. The source center point
+ * in the source coordinates is mapped to the center of the destination canvas, ensuring
+ * no gap at the top if vertical centering would cause one.
+ *
+ * @param {DrawImageParams} params - The parameters for drawing the image.
+ * @param {HTMLCanvasElement} params.srcCanvas - The source canvas element containing the image.
+ * @param {HTMLCanvasElement} params.destCanvas - The destination canvas element to draw the image onto.
+ * @param {number} params.scale - The scale factor to apply to the image.
+ * @param {Object} params.srcCenter - The center point in the source coordinates.
+ * @param {number} params.srcCenter.x - The x-coordinate of the source center point.
+ * @param {number} params.srcCenter.y - The y-coordinate of the source center point.
+ */
+function drawImageWithScalingAndCentering({
+  srcCanvas,
+  destCanvas,
+  scale,
+  srcCenter,
+}: DrawImageParams): void {
+  const srcCtx = srcCanvas.getContext('2d');
+  const destCtx = destCanvas.getContext('2d');
+
+  if (!srcCtx || !destCtx) {
+    console.error('Failed to get canvas context');
+    return;
+  }
+  if (srcCenter.x === 0) {
+    srcCenter = {
+      x: srcCanvas.width / 2,
+      y: srcCanvas.height / 2,
+    };
+  }
+
+  const srcWidth = srcCanvas.width;
+  const srcHeight = srcCanvas.height;
+
+  const destWidth = destCanvas.width;
+  const destHeight = destCanvas.height;
+
+  // Calculate the aspect ratio
+  const srcAspectRatio = srcWidth / srcHeight;
+  const destAspectRatio = destWidth / destHeight;
+
+  let scaledWidth: number;
+  let scaledHeight: number;
+  let offsetScale: number;
+  // Maintain the aspect ratio
+  if (srcAspectRatio > destAspectRatio) {
+    // Source is wider relative to destination
+    scaledWidth = destWidth;
+    scaledHeight = destWidth / srcAspectRatio;
+    offsetScale = srcAspectRatio;
+  } else {
+    // Source is taller relative to destination
+    scaledWidth = destHeight * srcAspectRatio;
+    scaledHeight = destHeight;
+    offsetScale = destAspectRatio;
+  }
+  if (scale === 1) {
+    offsetScale = 1;
+  }
+
+  // Apply the scale factor
+  scaledWidth *= scale;
+  scaledHeight *= scale;
+
+  console.log(
+    `Scaled ${srcWidth}x${srcHeight} to ${scaledWidth}x${scaledHeight} scale=${scale}`
+  );
+  // Calculate the source coordinates
+  const srcX = srcCenter.x - srcWidth / 2 / scale;
+  const srcY = srcCenter.y - (srcHeight / 2 / scale) * offsetScale;
+  // const srcX = 0;
+  // const srcY = 0;
+
+  // Calculate the destination coordinates to center the image horizontally
+  // const destX = (destWidth - scaledWidth) / 2;
+  const destX = 0; //(destWidth-scaledWidth / 2);
+  const destY = 0; // Align to the top
+
+  // Clear the destination canvas
+  destCtx.clearRect(0, 0, destWidth, destHeight);
+
+  console.log(
+    JSON.stringify(
+      {
+        srcX,
+        srcY,
+        srcWidth,
+        srcHeight,
+        destWidth,
+        destHeight,
+        srcAspectRatio,
+        destAspectRatio,
+        srcCenter,
+        destX,
+        destY,
+        scaledWidth,
+        scaledHeight,
+        scale,
+      },
+      null,
+      2
+    )
+  );
+  // Draw the image
+  destCtx.drawImage(
+    srcCanvas,
+    srcX,
+    srcY,
+    srcWidth,
+    srcHeight,
+    destX,
+    destY,
+    scaledWidth,
+    scaledHeight
+  );
+}
 interface CalPoint {
   ts: number;
   px: number;
@@ -156,6 +282,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [wheelInverted] = useMouseWheelInverted();
   const [travelRightToLeft] = useTravelRightToLeft();
   const [resetZoomCount] = useResetZoomCounter();
+  const imageToCanvasScale = useRef(1);
 
   const mouseTracking = useRef<ZoomState>({
     zoomWindow: { x: 0, y: 0, width: 0, height: 0 },
@@ -284,19 +411,34 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       if (ctx) {
         ctx.clearRect(0, 0, width, height);
 
-        const { zoomWindow } = mouseTracking.current;
+        const { zoomWindow, scale } = mouseTracking.current;
         if (image.width) {
-          ctx.drawImage(
-            offscreenCanvas.current,
-            zoomWindow.x,
-            zoomWindow.y,
-            zoomWindow.width,
-            zoomWindow.height,
-            (canvas.width - destWidth) / 2, // center the image
-            0,
-            destWidth,
-            destHeight
-          );
+          drawImageWithScalingAndCentering({
+            srcCanvas: offscreenCanvas.current,
+            destCanvas: canvas,
+            scale,
+            srcCenter: {
+              // x: offscreenCanvas.current.width / 2,
+              // y: offscreenCanvas.current.height / 2,
+              x: mouseTracking.current.isZooming
+                ? mouseTracking.current.mouseDownPositionX
+                : 0,
+              y: mouseTracking.current.isZooming
+                ? mouseTracking.current.mouseDownPositionY
+                : 0,
+            },
+          });
+          // ctx.drawImage(
+          //   offscreenCanvas.current,
+          //   zoomWindow.x,
+          //   zoomWindow.y,
+          //   zoomWindow.width,
+          //   zoomWindow.height,
+          //   (canvas.width - destWidth) / 2, // center the image
+          //   0,
+          //   destWidth,
+          //   destHeight
+          // );
 
           ctx.beginPath();
 
@@ -343,6 +485,13 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   }, 10);
 
   useEffect(() => {
+    // Make note of basic underlying scale
+    console.log(`canvas dims: ${width}x${height}`);
+    console.log(`image dims: ${image.width}x${image.height}`);
+    const scaleX = width / image.width;
+    const scaleY = height / image.height;
+    imageToCanvasScale.current = Math.min(scaleX, scaleY);
+    console.log(`imageToCanvasScale: ${imageToCanvasScale.current}`);
     drawContent();
   }, [width, height]);
 
@@ -527,8 +676,20 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         return;
       }
       // Compute new sizes.  X and Y are scaled equally to maintain aspect ratio
-      const newWidth = image.width / zoomFactor;
+      // const newWidth = image.width / zoomFactor;
       const newHeight = image.height / zoomFactor;
+      const newWidth = Math.max(
+        image.width / zoomFactor,
+        ((1 / imageToCanvasScale.current) * width) / zoomFactor
+      );
+      console.log(`image size: ${image.width}x${image.height}`);
+      console.log(`canvas size: ${width}x${height}`);
+      console.log(`imageToCanvasScale: ${imageToCanvasScale.current}`);
+      console.log(
+        `newWidth=Math.max(${image.width / zoomFactor}, ${
+          ((1 / imageToCanvasScale.current) * width) / zoomFactor
+        }), newHeight=${newHeight}, `
+      );
 
       // mouseDownPositionY represents the y position in the image coordinates where centering should occur
       let newY = mouseTracking.current.mouseDownPositionY - newHeight / 2; // force to middle

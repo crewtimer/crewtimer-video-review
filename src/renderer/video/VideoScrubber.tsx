@@ -44,6 +44,13 @@ const VideoScrubber = () => {
     if (videoFileChanging) {
       const newImage = getImage();
       setVideoFrameNum(newImage.frameNum);
+      console.log(
+        `File:${newImage.file} fps: ${newImage.fps} frames: ${
+          newImage.numFrames
+        } sec: ${
+          (newImage.fileEndTime - newImage.fileStartTime) / 1000
+        } time: ${newImage.fileStartTime}->${newImage.fileEndTime}`
+      );
     }
   }, [videoFileChanging]);
 
