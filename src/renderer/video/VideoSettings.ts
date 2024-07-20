@@ -15,6 +15,46 @@ export interface VideoPosition {
   frameNum: number;
   file: string;
 }
+export type Point = { x: number; y: number };
+
+export interface VideoScaling {
+  destX: number; /// X offset in dest canvas units of image
+  destY: number; /// Y offset in dest canvas units of image
+  destWidth: number; /// Width in pixels of destination canvas
+  destHeight: number; /// width in pixels of destination canvas
+  srcWidth: number; /// Width of source image
+  srcHeight: number; /// Height of source image
+  scaledWidth: number; /// Width in zoomed pixels of dest canvas
+  scaledHeight: number; /// Height in zoomed pixels of dest canvas
+  zoom: number; /// zoom factor
+}
+
+export const [useVideoScaling, setVideoScaling, getVideoScaling] =
+  UseDatum<VideoScaling>({
+    destX: 0,
+    destY: 0,
+    destWidth: 1,
+    destHeight: 1,
+    srcWidth: 1,
+    srcHeight: 1,
+    scaledWidth: 1,
+    scaledHeight: 1,
+    zoom: 1,
+  });
+
+export const translatePoint = (
+  srcPoint: Point,
+  scaling?: VideoScaling
+): Point => {
+  if (!scaling) {
+    scaling = getVideoScaling();
+  }
+  const translatedX =
+    scaling.destX + (srcPoint.x * scaling.scaledWidth) / scaling.srcWidth;
+  const translatedY =
+    scaling.destY + (srcPoint.y * scaling.scaledHeight) / scaling.srcHeight;
+  return { x: translatedX, y: translatedY };
+};
 
 export const [useVideoError, setVideoError] = UseDatum<string | undefined>(
   undefined

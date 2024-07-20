@@ -85,7 +85,7 @@ const ContextMenu: React.FC = () => {
             0,
             false
           );
-          delay = 500; // wait for file switch to occur
+          delay = 500; // wait for file switch to occur.
         }
         setTimeout(async () => {
           let result = await window.Util.deleteFile(

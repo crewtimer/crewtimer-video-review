@@ -27,6 +27,8 @@ import {
   useVideoError,
   useVideoFile,
   resetVideoZoom,
+  setVideoScaling,
+  getVideoScaling,
 } from './VideoSettings';
 import VideoOverlay, {
   useAdjustingOverlay,
@@ -90,132 +92,94 @@ const useStyles = makeStyles({
   },
 });
 
-interface DrawImageParams {
+interface DrawImageProps {
   srcCanvas: HTMLCanvasElement;
-  destCanvas: HTMLCanvasElement;
-  scale: number;
-  srcCenter: { x: number; y: number };
+  destCanvas: HTMLCanvasElement | null;
+  destWidth: number;
+  destHeight: number;
+  srcPoint: { x: number; y: number };
+  zoom: number;
 }
 
-/**
- * Draws an image from the source canvas onto the destination canvas, scaled and centered
- * as specified, while maintaining the aspect ratio of the image. The source center point
- * in the source coordinates is mapped to the center of the destination canvas, ensuring
- * no gap at the top if vertical centering would cause one.
- *
- * @param {DrawImageParams} params - The parameters for drawing the image.
- * @param {HTMLCanvasElement} params.srcCanvas - The source canvas element containing the image.
- * @param {HTMLCanvasElement} params.destCanvas - The destination canvas element to draw the image onto.
- * @param {number} params.scale - The scale factor to apply to the image.
- * @param {Object} params.srcCenter - The center point in the source coordinates.
- * @param {number} params.srcCenter.x - The x-coordinate of the source center point.
- * @param {number} params.srcCenter.y - The y-coordinate of the source center point.
- */
-function drawImageWithScalingAndCentering({
+const genHelperFunctions = ({
   srcCanvas,
   destCanvas,
-  scale,
-  srcCenter,
-}: DrawImageParams): void {
+  destWidth,
+  destHeight,
+  srcPoint,
+  zoom,
+}: DrawImageProps) => {
+  if (!srcCanvas || !destCanvas) {
+    return;
+  }
   const srcCtx = srcCanvas.getContext('2d');
   const destCtx = destCanvas.getContext('2d');
 
   if (!srcCtx || !destCtx) {
-    console.error('Failed to get canvas context');
     return;
   }
-  if (srcCenter.x === 0) {
-    srcCenter = {
-      x: srcCanvas.width / 2,
-      y: srcCanvas.height / 2,
-    };
-  }
+
+  const destZoomWidth = destWidth * zoom;
+  const destZoomHeight = destHeight * zoom;
 
   const srcWidth = srcCanvas.width;
   const srcHeight = srcCanvas.height;
 
-  const destWidth = destCanvas.width;
-  const destHeight = destCanvas.height;
+  if (srcPoint.x === 0) {
+    srcPoint = { x: srcWidth / 2, y: srcHeight / 2 };
+  }
 
   // Calculate the aspect ratio
   const srcAspectRatio = srcWidth / srcHeight;
-  const destAspectRatio = destWidth / destHeight;
+  const destAspectRatio = destZoomWidth / destZoomHeight;
 
   let scaledWidth: number;
   let scaledHeight: number;
-  let offsetScale: number;
   // Maintain the aspect ratio
   if (srcAspectRatio > destAspectRatio) {
     // Source is wider relative to destination
-    scaledWidth = destWidth;
-    scaledHeight = destWidth / srcAspectRatio;
-    offsetScale = srcAspectRatio;
+    scaledWidth = destZoomWidth;
+    scaledHeight = destZoomWidth / srcAspectRatio;
   } else {
     // Source is taller relative to destination
-    scaledWidth = destHeight * srcAspectRatio;
-    scaledHeight = destHeight;
-    offsetScale = destAspectRatio;
-  }
-  if (scale === 1) {
-    offsetScale = 1;
+    scaledWidth = destZoomHeight * srcAspectRatio;
+    scaledHeight = destZoomHeight;
   }
 
-  // Apply the scale factor
-  scaledWidth *= scale;
-  scaledHeight *= scale;
-
-  console.log(
-    `Scaled ${srcWidth}x${srcHeight} to ${scaledWidth}x${scaledHeight} scale=${scale}`
+  const destX = destWidth / 2 - scaledWidth * (srcPoint.x / srcWidth);
+  const destY = Math.min(
+    0,
+    destHeight / 2 - scaledHeight * (srcPoint.y / srcHeight)
   );
-  // Calculate the source coordinates
-  const srcX = srcCenter.x - srcWidth / 2 / scale;
-  const srcY = srcCenter.y - (srcHeight / 2 / scale) * offsetScale;
-  // const srcX = 0;
-  // const srcY = 0;
-
-  // Calculate the destination coordinates to center the image horizontally
-  // const destX = (destWidth - scaledWidth) / 2;
-  const destX = 0; //(destWidth-scaledWidth / 2);
-  const destY = 0; // Align to the top
-
-  // Clear the destination canvas
-  destCtx.clearRect(0, 0, destWidth, destHeight);
-
   console.log(
     JSON.stringify(
       {
-        srcX,
-        srcY,
         srcWidth,
         srcHeight,
-        destWidth,
-        destHeight,
-        srcAspectRatio,
-        destAspectRatio,
-        srcCenter,
+        destZoomWidth,
+        destZoomHeight,
+        zoom,
         destX,
         destY,
-        scaledWidth,
-        scaledHeight,
-        scale,
       },
       null,
       2
     )
   );
-  // Draw the image
-  destCtx.drawImage(
-    srcCanvas,
-    srcX,
-    srcY,
-    srcWidth,
-    srcHeight,
+
+  setVideoScaling({
     destX,
     destY,
+    destWidth,
+    destHeight,
+    srcWidth,
+    srcHeight,
     scaledWidth,
-    scaledHeight
-  );
-}
+    scaledHeight,
+    zoom,
+  });
+};
+
 interface CalPoint {
   ts: number;
   px: number;
@@ -283,6 +247,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [travelRightToLeft] = useTravelRightToLeft();
   const [resetZoomCount] = useResetZoomCounter();
   const imageToCanvasScale = useRef(1);
+  const destSize = useRef({ width, height });
+  console.log(`size: ${width}x${height}`);
+  destSize.current = { width, height };
 
   const mouseTracking = useRef<ZoomState>({
     zoomWindow: { x: 0, y: 0, width: 0, height: 0 },
@@ -318,6 +285,31 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     mouseTracking.current.scale = scale;
     drawContent();
   }, []);
+
+  const updateImageHelpers = () => {
+    console.log(
+      `updating image helpers image ${image.width}x${image.height} canvas ${width}x${height}`
+    );
+    genHelperFunctions({
+      srcCanvas: offscreenCanvas.current,
+      destCanvas: canvasRef.current,
+      destWidth: destSize.current.width,
+      destHeight: destSize.current.height,
+      zoom: mouseTracking.current.scale,
+      srcPoint: {
+        x: mouseTracking.current.isZooming
+          ? mouseTracking.current.mouseDownPositionX
+          : 0,
+        y: mouseTracking.current.isZooming
+          ? mouseTracking.current.mouseDownPositionY
+          : 0,
+      },
+    });
+  };
+
+  // useEffect(() => {
+  //   updateImageHelpers();
+  // }, [image.width, image.height, width, height]);
 
   const initScaling = useCallback(() => {
     setScale(1);
@@ -401,7 +393,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     return () => setGenerateImageSnapshotCallback(undefined);
   }, [xPadding, destWidth, destHeight]);
 
-  const drawContent = useDebouncedCallback(() => {
+  const drawContentDebounced = useDebouncedCallback(() => {
     if (mouseTracking.current.imageLoaded && canvasRef?.current) {
       const canvas = canvasRef.current;
       if (canvas.width <= 1) {
@@ -410,38 +402,21 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.clearRect(0, 0, width, height);
-
-        const { zoomWindow, scale } = mouseTracking.current;
         if (image.width) {
-          drawImageWithScalingAndCentering({
-            srcCanvas: offscreenCanvas.current,
-            destCanvas: canvas,
-            scale,
-            srcCenter: {
-              // x: offscreenCanvas.current.width / 2,
-              // y: offscreenCanvas.current.height / 2,
-              x: mouseTracking.current.isZooming
-                ? mouseTracking.current.mouseDownPositionX
-                : 0,
-              y: mouseTracking.current.isZooming
-                ? mouseTracking.current.mouseDownPositionY
-                : 0,
-            },
-          });
-          // ctx.drawImage(
-          //   offscreenCanvas.current,
-          //   zoomWindow.x,
-          //   zoomWindow.y,
-          //   zoomWindow.width,
-          //   zoomWindow.height,
-          //   (canvas.width - destWidth) / 2, // center the image
-          //   0,
-          //   destWidth,
-          //   destHeight
-          // );
+          const videoScaling = getVideoScaling();
 
+          ctx.drawImage(
+            offscreenCanvas.current,
+            0,
+            0,
+            videoScaling.srcWidth,
+            videoScaling.srcHeight,
+            videoScaling.destX,
+            videoScaling.destY,
+            videoScaling.scaledWidth,
+            videoScaling.scaledHeight
+          );
           ctx.beginPath();
-
           // Draw a border as a Rectangle
           ctx.strokeStyle = 'black'; // You can choose any color
           ctx.lineWidth = 1; // Width of the border
@@ -484,6 +459,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     }
   }, 10);
 
+  const drawContent = () => {
+    updateImageHelpers();
+    drawContentDebounced();
+  };
+
   useEffect(() => {
     // Make note of basic underlying scale
     console.log(`canvas dims: ${width}x${height}`);
@@ -492,6 +472,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     const scaleY = height / image.height;
     imageToCanvasScale.current = Math.min(scaleX, scaleY);
     console.log(`imageToCanvasScale: ${imageToCanvasScale.current}`);
+
     drawContent();
   }, [width, height]);
 
@@ -655,6 +636,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       mouseTracking.current.mouseDownPositionX =
         pt1 +
         (pt2 - pt1) * (mouseTracking.current.mouseDownPositionY / image.height);
+
       if (!mouseTracking.current.isZooming) {
         doZoom(5);
       }

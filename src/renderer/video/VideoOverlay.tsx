@@ -13,7 +13,9 @@ import {
   getVideoFile,
   getVideoSettings,
   GuideLine,
+  translatePoint,
   useImage,
+  useVideoScaling,
   useVideoSettings,
   useZoomWindow,
 } from './VideoSettings';
@@ -64,6 +66,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
     const [image] = useImage();
     const [videoSettings, setVideoSettings] = useVideoSettings();
     const mouseDownVideoCoordsRef = useRef<Point>({ x: 0, y: 0 });
+    const [videoScaling] = useVideoScaling();
 
     useEffect(() => {
       // init volatile copy used while moving the mouse
@@ -154,8 +157,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       const canvas = canvasRef.current;
       const context = canvas?.getContext('2d');
       if (canvas && context) {
-        canvas.width = width;
-        canvas.height = destHeight;
+        canvas.width = videoScaling.destWidth;
+        canvas.height = videoScaling.destHeight;
 
         // Draw the vertical line
         context.clearRect(0, 0, canvas.width, canvas.height);
@@ -167,10 +170,19 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           switch (guide.dir) {
             case Dir.Vert:
               {
-                const fromScaled = scalePoint(image.width / 2 + guide.pt1, 0);
-                const toScaled = scalePoint(
-                  image.width / 2 + guide.pt2,
-                  image.height - 1
+                const fromScaled = translatePoint(
+                  {
+                    x: image.width / 2 + guide.pt1,
+                    y: 0,
+                  },
+                  videoScaling
+                );
+                const toScaled = translatePoint(
+                  {
+                    x: image.width / 2 + guide.pt2,
+                    y: image.height - 1,
+                  },
+                  videoScaling
                 );
                 drawLine(fromScaled, toScaled, 'red', Dir.Vert);
               }
@@ -186,22 +198,42 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                   10,
                   Math.min(image.height - 10, guide.pt2)
                 );
-                let fromScaled = scalePoint(0, guide.pt1);
-                let toScaled = scalePoint(image.width - 1, guide.pt2);
+                let fromScaled = translatePoint(
+                  {
+                    x: 0,
+                    y: guide.pt1,
+                  },
+                  videoScaling
+                );
+                let toScaled = translatePoint(
+                  {
+                    x: image.width - 1,
+                    y: guide.pt2,
+                  },
+                  videoScaling
+                );
                 drawLine(fromScaled, toScaled, '#ff0000a0', Dir.Horiz);
 
                 // Compute text orgin based on zoom
-                fromScaled = scalePoint(
-                  zoomWindow.x,
-                  guide.pt1 +
-                    ((guide.pt2 - guide.pt1) * zoomWindow.x) / image.width
+                fromScaled = translatePoint(
+                  {
+                    x: zoomWindow.x,
+                    y:
+                      guide.pt1 +
+                      ((guide.pt2 - guide.pt1) * zoomWindow.x) / image.width,
+                  },
+                  videoScaling
                 );
-                toScaled = scalePoint(
-                  zoomWindow.x + zoomWindow.width - 1,
-                  guide.pt1 +
-                    ((guide.pt2 - guide.pt1) *
-                      (zoomWindow.x + zoomWindow.width)) /
-                      image.width
+                toScaled = translatePoint(
+                  {
+                    x: zoomWindow.x + zoomWindow.width - 1,
+                    y:
+                      guide.pt1 +
+                      ((guide.pt2 - guide.pt1) *
+                        (zoomWindow.x + zoomWindow.width)) /
+                        image.width,
+                  },
+                  videoScaling
                 );
                 drawText(
                   context,
@@ -366,6 +398,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
 
     // TODO: Support touchscreens
 
+    console.log(`videoScaling: ${JSON.stringify(videoScaling, null, 2)}`);
     return (
       <canvas
         ref={canvasRef}
@@ -374,8 +407,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         onMouseMove={dragging ? handleMouseMove : undefined}
         onMouseUp={dragging ? handleMouseUp : undefined}
         onMouseLeave={dragging ? handleMouseUp : undefined}
-        width={`${width}px`}
-        height={`${height}px`}
+        width={`${videoScaling.destWidth}px`}
+        height={`${videoScaling.destHeight}px`}
         style={{
           zIndex: dragging ? 300 : 100, // adjustingOverlay ? 100 : undefined,
           position: 'absolute', // keeps the size from influencing the parent size
