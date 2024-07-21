@@ -21,8 +21,8 @@ import { useRef } from 'react';
 import { setDialogConfig } from './util/ConfirmDialog';
 import { UseDatum } from 'react-usedatum';
 import { showErrorDialog } from './util/ErrorDialog';
-import { moveToFileIndex } from './video/FileScrubber';
 import { replaceFileSuffix } from './util/Util';
+import { moveToFileIndex } from './video/VideoUtils';
 
 interface FileListProps {
   height: number;
