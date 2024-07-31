@@ -1,11 +1,5 @@
 import { Box, Typography, Stack, Tooltip } from '@mui/material';
-import React, {
-  useCallback,
-  useEffect,
-  useReducer,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { convertTimestampToString } from '../shared/Util';
 import { useDebouncedCallback } from 'use-debounce';
 import makeStyles from '@mui/styles/makeStyles';
@@ -239,8 +233,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 }) => {
   const [image] = useImage();
   const classes = useStyles();
-  const [, forceRender] = useReducer((s) => s + 1, 0);
-  const [computedTime, setComputedTime] = useState(0);
   const [adjustingOverlay] = useAdjustingOverlay();
   const [, setNearEdge] = useNearEdge();
   const [timezoneOffset] = useTimezoneOffset();
@@ -423,7 +415,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             videoScaling.scaledWidth,
             videoScaling.scaledHeight
           );
-          ctx.beginPath();
+
+          // ctx.beginPath();
           // Draw a border as a Rectangle
           // ctx.strokeStyle = 'black'; // You can choose any color
           // ctx.lineWidth = 1; // Width of the border
@@ -433,34 +426,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           //   destWidth - 1,
           //   destHeight - 1
           // );
-
-          // Draw measurement markers
-          if (mouseTracking.current.calPoints[0].ts !== 0) {
-            const x =
-              canvas.width / 2 +
-              (mouseTracking.current.calPoints[0].px *
-                mouseTracking.current.scale) /
-                mouseTracking.current.calPoints[0].scale;
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, destHeight);
-            ctx.strokeStyle = 'blue';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-          }
-          if (mouseTracking.current.calPoints[1].ts !== 0) {
-            const x =
-              canvas.width / 2 +
-              (mouseTracking.current.calPoints[1].px *
-                mouseTracking.current.scale) /
-                mouseTracking.current.calPoints[1].scale;
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, destHeight);
-            ctx.strokeStyle = 'blue';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-          }
         }
       }
     }
@@ -515,67 +480,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       const lane = laneLines[result.closestLine].lane.label.split(' ')[1];
       setVideoBow(lane);
     }
-  };
-
-  const storeComputedTime = (t: number) => {
-    const ts = convertTimestampToString(t, timezoneOffset);
-    setVideoTimestamp(ts);
-  };
-  const handleSingleClick = (
-    event: React.MouseEvent<HTMLDivElement, MouseEvent>
-  ) => {
-    const mousePositionY =
-      event.clientY - event.currentTarget.getBoundingClientRect().top;
-    const mousePositionX =
-      event.clientX - event.currentTarget.getBoundingClientRect().width / 2;
-
-    // If we are near the edge, allow the VideoOverlay to interpret what is happening
-    if (
-      mousePositionY < 30 ||
-      mousePositionY > destHeight - 20 ||
-      mousePositionX < -destWidth / 2 + 20 ||
-      mousePositionX > destWidth / 2 - 20
-    ) {
-      return;
-    }
-
-    // Single click requires a shift key
-    if (!event.shiftKey) {
-      return;
-    }
-
-    event.preventDefault();
-    const { calPoints } = mouseTracking.current;
-    let calPoint = calPoints[1];
-    if (Math.abs(mousePositionX - calPoints[1].px) < 30) {
-      // close to point 1, replace it
-    } else {
-      calPoints[0] = { ...calPoints[1] }; // shift and replace
-    }
-
-    calPoint.ts = image.timestamp;
-    calPoint.px = mousePositionX;
-    calPoint.scale = mouseTracking.current.scale;
-    if (calPoints[0].ts && calPoints[1].ts) {
-      let { pt1, pt2 } = getVideoSettings().guides[0];
-      const zoomWindow = mouseTracking.current.zoomWindow;
-      const finyPct = (zoomWindow.y + zoomWindow.height / 2) / image.height;
-      const finx = (destWidth / image.width) * (pt1 + (pt2 - pt1) * finyPct);
-      const deltaT = calPoints[1].ts - calPoints[0].ts;
-      const deltaPx =
-        calPoints[1].px * calPoints[1].scale -
-        calPoints[0].px * calPoints[0].scale;
-      const t = Math.round(
-        calPoints[0].ts +
-          ((-(calPoints[0].px - finx) * calPoints[0].scale) / deltaPx) * deltaT
-      );
-
-      setComputedTime(t);
-      storeComputedTime(t);
-    }
-
-    drawContent();
-    forceRender();
   };
 
   const handleDragStart = (
@@ -858,7 +762,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         onDragStart={adjustingOverlay ? undefined : handleDragStart}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleRightClick}
-        onClick={adjustingOverlay ? undefined : handleSingleClick}
         sx={{
           // margin: '16px', // Use state variable for padding
           width: `100%`, // Fill the width of the content area
@@ -913,18 +816,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             </Typography> */}
             <div style={{ flex: 1 }} />
           </Stack>
-          {computedTime
-            ? mouseTracking.current.calPoints[0].ts &&
-              mouseTracking.current.calPoints[1].ts && (
-                <Typography
-                  className={classes.computedtext}
-                  align="center"
-                  onClick={() => storeComputedTime(computedTime)}
-                >
-                  {convertTimestampToString(computedTime, timezoneOffset)}
-                </Typography>
-              )
-            : null}
           {!!videoError && (
             <Typography
               className={classes.computedtext}
