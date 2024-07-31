@@ -150,22 +150,6 @@ const updateVideoScaling = ({
     0,
     destHeight / 2 - scaledHeight * (srcPoint.y / srcHeight)
   );
-  console.log(
-    JSON.stringify(
-      {
-        srcWidth,
-        srcHeight,
-        destZoomWidth,
-        destZoomHeight,
-        zoom,
-        pixScale,
-        destX,
-        destY,
-      },
-      null,
-      2
-    )
-  );
 
   setVideoScaling({
     destX,
@@ -245,7 +229,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const imageToCanvasScale = useRef(1);
   const destSize = useRef({ width, height });
   const srcCenter = useRef<Point>({ x: width / 2, y: height / 2 });
-  console.log(`size: ${width}x${height}`);
   destSize.current = { width, height };
 
   const mouseTracking = useRef<ZoomState>({
@@ -280,9 +263,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   }, []);
 
   const updateImageHelpers = () => {
-    console.log(
-      `updating image helpers image ${image.width}x${image.height} canvas ${width}x${height}`
-    );
     updateVideoScaling({
       srcCanvas: offscreenCanvas.current,
       destCanvas: canvasRef.current,
@@ -294,10 +274,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         : { x: 0, y: 0 },
     });
   };
-
-  // useEffect(() => {
-  //   updateImageHelpers();
-  // }, [image.width, image.height, width, height]);
 
   const initScaling = useCallback(() => {
     setScale(1);
@@ -363,19 +339,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   const xPadding = Math.round((width - destWidth) / 2);
 
-  // const videoScaling = getVideoScaling();
-  // destWidth = videoScaling.scaledWidth;
-  // destHeight = videoScaling.scaledHeight;
-  // console.log(
-  //   JSON.stringify({
-  //     destWidth,
-  //     destHeight,
-  //     vw: videoScaling.scaledWidth,
-  //     vh: videoScaling.scaledHeight,
-  //     xPadding,
-  //   })
-  // );
-
   useEffect(() => {
     // A bit of a hack but set a global callback function instead of passing it down the tree
     setGenerateImageSnapshotCallback(() => {
@@ -438,13 +401,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   useEffect(() => {
     // Make note of basic underlying scale
-    console.log(`canvas dims: ${width}x${height}`);
-    console.log(`image dims: ${image.width}x${image.height}`);
     const scaleX = width / image.width;
     const scaleY = height / image.height;
     imageToCanvasScale.current = Math.min(scaleX, scaleY);
-    console.log(`imageToCanvasScale: ${imageToCanvasScale.current}`);
-
     drawContent();
   }, [width, height]);
 
@@ -505,7 +464,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       if (event.button != 0) {
         return;
       }
-      console.log('Mouse DOWN ++++++++++++++++++++++++++++++++++');
 
       const rect = canvasRef.current?.getBoundingClientRect();
       const {
@@ -526,38 +484,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       if (videoScaling.zoom === 1) {
         doZoom(5, { x: videoScaling.srcWidth / 2, y });
       }
-
-      // selectLane(event);
-      // mouseTracking.current.mouseDownClientY = event.clientY;
-      // mouseTracking.current.mouseDownClientX = event.clientX;
-      // const mousePositionY = Math.min(
-      //   destHeight,
-      //   Math.max(
-      //     0,
-      //     event.clientY - event.currentTarget.getBoundingClientRect().top
-      //   )
-      // );
-
-      // mouseTracking.current.mouseDown = true;
-      // mouseTracking.current.zoomStartWindow = mouseTracking.current.zoomWindow;
-
-      // // Reference back to the original frame x and y
-      // const yScale = mouseTracking.current.zoomWindow.width / destWidth;
-      // mouseTracking.current.mouseDownPositionY =
-      //   mouseTracking.current.zoomWindow.y + mousePositionY * yScale;
-
-      // // compute the x pos of the finish line in the frame before scalechanges
-      // let { pt1, pt2 } = getVideoSettings().guides[0];
-      // pt1 += image.width / 2;
-      // pt2 += image.width / 2;
-
-      // mouseTracking.current.mouseDownPositionX =
-      //   pt1 +
-      //   (pt2 - pt1) * (mouseTracking.current.mouseDownPositionY / image.height);
-
-      // if (!mouseTracking.current.isZooming) {
-      //   doZoom(5);
-      // }
     },
     [image, xPadding, destWidth]
   );
@@ -578,20 +504,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       }
       srcCenter.current = center;
       // Compute new sizes.  X and Y are scaled equally to maintain aspect ratio
-      // const newWidth = image.width / zoomFactor;
       const newHeight = image.height / zoomFactor;
       const newWidth = Math.max(
         image.width / zoomFactor,
         ((1 / imageToCanvasScale.current) * width) / zoomFactor
       );
-      // console.log(`image size: ${image.width}x${image.height}`);
-      // console.log(`canvas size: ${width}x${height}`);
-      // console.log(`imageToCanvasScale: ${imageToCanvasScale.current}`);
-      // console.log(
-      //   `newWidth=Math.max(${image.width / zoomFactor}, ${
-      //     ((1 / imageToCanvasScale.current) * width) / zoomFactor
-      //   }), newHeight=${newHeight}, `
-      // );
 
       // mouseDownPositionY represents the y position in the image coordinates where centering should occur
       let newY = center.y - newHeight / 2; // force to middle
@@ -604,15 +521,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         width: Math.min(image.width, newWidth),
         height: Math.min(image.height, newHeight),
       };
-      console.log(
-        `zoomWindow: ${JSON.stringify(mouseTracking.current.zoomWindow)}`
-      );
       mouseTracking.current.calPoints[0].ts = 0;
       mouseTracking.current.calPoints[1].ts = 0;
       mouseTracking.current.isZooming = true;
 
       setZoomWindow(mouseTracking.current.zoomWindow);
-      // console.log(JSON.stringify(mouseTracking.current, null, 2));
       setScale(zoomFactor);
     },
     [image, destHeight, destWidth]
@@ -638,7 +551,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       const nearEdge = withinBounds && (nearVerticalEdge || nearHorizontalEdge);
       setNearEdge(nearEdge && !mouseTracking.current.isZooming);
 
-      // console.log(`near edge: ${nearEdge} x: ${x} y: ${y}`);
       // dont trigger mouse down move actions until we have moved slightly. This avoids
       // accidental zooming on just a click
       const downMoveY = Math.abs(mouseTracking.current.mouseDownClientY - y);
@@ -681,27 +593,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const handleMouseUp = useCallback(
     (_event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
       mouseTracking.current.mouseDown = false;
-
-      // if (event.button != 0) {
-      //   return;
-      // }
-      // event.preventDefault();
-      // doZoom(1);
-      // // Trigger a reload of this frame as we exit zoom
-      // const frameNum = getVideoFrameNum();
-      // const intFrame = Math.trunc(frameNum);
-      // moveToFrame(intFrame, frameNum - intFrame);
     },
     [image]
   );
-
-  // useEffect(() => {
-  //   window.addEventListener('mouseup', handleMouseUp);
-  //   // Cleanup the mouseup listener on unmount
-  //   return () => {
-  //     window.removeEventListener('mouseup', handleMouseUp);
-  //   };
-  // }, [handleMouseUp]);
 
   const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
     if (holdoffChanges.current) {
@@ -722,7 +616,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     if (!mouseTracking.current.isZooming && Math.abs(delta) > 3) {
       delta = Math.sign(delta) * 3;
     }
-    console.log('delta', delta);
     moveToFrame(getVideoFrameNum(), delta);
   }, []);
 
@@ -783,18 +676,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         >
           <Stack direction="row">
             <div />
-            {/* <Typography
-              onClick={
-                holdoffChanges.current
-                  ? undefined
-                  : travelRightToLeft
-                  ? moveRight
-                  : moveLeft
-              }
-              className={classes.text}
-            >
-              &nbsp;&lt;&nbsp;
-            </Typography> */}
             {hyperZoom && <Box className={classes.hyperpadding} />}
             <Typography className={classes.tstext}>{videoTimestamp}</Typography>
             {hyperZoom && (
@@ -802,18 +683,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
                 <ZoomInIcon className={classes.hyperzoom} />
               </Tooltip>
             )}
-            {/* <Typography
-              onClick={
-                holdoffChanges.current
-                  ? undefined
-                  : travelRightToLeft
-                  ? moveLeft
-                  : moveRight
-              }
-              className={classes.text}
-            >
-              &nbsp;&gt;&nbsp;
-            </Typography> */}
             <div style={{ flex: 1 }} />
           </Stack>
           {!!videoError && (
@@ -860,11 +729,6 @@ const Video = () => {
       winWidth: window.innerWidth,
       winHeight: window.innerHeight,
     });
-    // clearTimeout(updateTimer.current);
-    // updateTimer.current = setTimeout(
-    //   () => setTableWidth(window.innerWidth),
-    //   16
-    // );
   };
 
   useEffect(() => {
@@ -880,7 +744,6 @@ const Video = () => {
   }, []);
   const width = winWidth;
   const height = Math.max(winHeight - top, 1);
-  // console.log(`width: ${width}x${height}`);
   return (
     <div
       style={{
@@ -906,7 +769,6 @@ const Video = () => {
               height: contentRect.bounds.height,
             });
           }
-          // console.log(JSON.stringify(contentRect.bounds));
         }}
       >
         {({ measureRef }) => (
