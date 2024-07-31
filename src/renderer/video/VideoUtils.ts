@@ -8,6 +8,7 @@ import {
   getSelectedIndex,
   getVideoFile,
   getVideoFrameNum,
+  getVideoScaling,
   getVideoSettings,
   getZoomWindow,
   setSelectedIndex,
@@ -15,6 +16,7 @@ import {
   setVideoFrameNum,
   setVideoSettings,
   VideoGuides,
+  VideoScaling,
 } from './VideoSettings';
 
 const { storeJsonFile, readJsonFile } = window.Util;
@@ -431,4 +433,72 @@ export const moveRight = () => {
 };
 export const moveLeft = () => {
   moveToFrame(getVideoFrameNum(), -1);
+};
+
+/**
+ * Translates a point from the source canvas coordinates to the destination canvas coordinates.
+ *
+ * @param {Point} srcPoint - The point in the source canvas coordinates.
+ * @param {VideoScaling} [scaling] - The scaling object containing the dimensions and offsets for the source and destination canvases.
+ *                                   If not provided, the function will call `getVideoScaling` to retrieve the scaling information.
+ * @returns {Point} - The translated point in the destination canvas coordinates.
+ */
+export const translateSrcCanvas2DestCanvas = (
+  srcPoint: Point,
+  scaling?: VideoScaling
+): Point => {
+  if (!scaling) {
+    scaling = getVideoScaling();
+  }
+  const translatedX =
+    scaling.destX + (srcPoint.x * scaling.scaledWidth) / scaling.srcWidth;
+  const translatedY =
+    scaling.destY + (srcPoint.y * scaling.scaledHeight) / scaling.srcHeight;
+  return { x: translatedX, y: translatedY };
+};
+
+/**
+ * Translates a point from the mouse coordinates on the destination canvas to the source canvas coordinates.
+ *
+ * @param {Point} point - The point in the mouse coordinates on the destination canvas.
+ * @returns {Point} - The translated point in the source canvas coordinates.
+ */
+export const translateMouseCoords2SourceCanvas = (point: Point): Point => {
+  const scaling = getVideoScaling();
+  const srcX =
+    ((point.x - scaling.destX) * scaling.srcWidth) / scaling.scaledWidth;
+  const srcY =
+    ((point.y - scaling.destY) * scaling.srcHeight) / scaling.scaledHeight;
+  // console.log(JSON.stringify({ srcX, srcY }, null, 2));
+  return { x: srcX, y: srcY };
+};
+
+/**
+ * Translates a mouse event's coordinates relative to the screen to coordinates
+ * relative to the source canvas. This function also checks whether the translated
+ * coordinates are within the bounds of the source canvas.
+
+ * @param {React.MouseEvent} event - The mouse event object containing the client coordinates.
+ * @param {DOMRect | undefined} rect - The bounding rectangle of the element being referenced.
+ *
+ * @returns {{ x: number, y: number, pt: { x: number, y: number }, withinBounds: boolean }} An object containing:
+ *   - x: The x-coordinate relative to the source canvas.
+ *   - y: The y-coordinate relative to the source canvas.
+ *   - pt: The point object with x and y coordinates transformed to the source canvas.
+ *   - withinBounds: A boolean indicating if the point is within the bounds of the source canvas.
+ */
+export const translateMouseEvent2Src = (
+  event: React.MouseEvent,
+  rect: DOMRect | undefined
+) => {
+  let x = event.clientX - (rect?.left ?? 0);
+  const y = event.clientY - (rect?.top ?? 0);
+  const pt = translateMouseCoords2SourceCanvas({ x, y });
+  const videoScaling = getVideoScaling();
+  const withinBounds =
+    pt.y <= videoScaling.srcHeight &&
+    pt.x <= videoScaling.srcWidth &&
+    pt.x >= 0 &&
+    pt.y >= 0;
+  return { x, y, pt, withinBounds };
 };

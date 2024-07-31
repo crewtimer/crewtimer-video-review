@@ -22,10 +22,12 @@ export interface VideoScaling {
   destY: number; /// Y offset in dest canvas units of image
   destWidth: number; /// Width in pixels of destination canvas
   destHeight: number; /// width in pixels of destination canvas
+  srcCenterPoint: Point; /// Center point in source image units
   srcWidth: number; /// Width of source image
   srcHeight: number; /// Height of source image
   scaledWidth: number; /// Width in zoomed pixels of dest canvas
   scaledHeight: number; /// Height in zoomed pixels of dest canvas
+  pixScale: number; /// convert canvas pixels to src pixels
   zoom: number; /// zoom factor
 }
 
@@ -35,26 +37,14 @@ export const [useVideoScaling, setVideoScaling, getVideoScaling] =
     destY: 0,
     destWidth: 1,
     destHeight: 1,
+    srcCenterPoint: { x: 0, y: 0 },
     srcWidth: 1,
     srcHeight: 1,
     scaledWidth: 1,
     scaledHeight: 1,
+    pixScale: 1,
     zoom: 1,
   });
-
-export const translatePoint = (
-  srcPoint: Point,
-  scaling?: VideoScaling
-): Point => {
-  if (!scaling) {
-    scaling = getVideoScaling();
-  }
-  const translatedX =
-    scaling.destX + (srcPoint.x * scaling.scaledWidth) / scaling.srcWidth;
-  const translatedY =
-    scaling.destY + (srcPoint.y * scaling.scaledHeight) / scaling.srcHeight;
-  return { x: translatedX, y: translatedY };
-};
 
 export const [useVideoError, setVideoError] = UseDatum<string | undefined>(
   undefined
