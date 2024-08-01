@@ -17,17 +17,45 @@ import {
   useMobileConfig,
   useMobileID,
   useFirebaseConnected,
+  setProgressBar,
+  useProgressBar,
 } from './util/UseSettings';
 import { getConnectionProps } from './util/Util';
 import { setToast } from './Toast';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
 import InfoIcon from '@mui/icons-material/Info';
 import { useFirebaseDatum } from './util/UseFirebase';
 import { Button, Stack, Link } from '@mui/material';
 import { setDialogConfig } from './util/ConfirmDialog';
+import { addSidecarFiles } from './video/VideoFileUtils';
+import { LinearProgress, Box } from '@mui/material';
+
+/**
+ * ProgressBarComponent is a React component that displays a progress bar
+ * using Material-UI. The progress gradually increases from 0 to 100.
+ *
+ * @component
+ * @example
+ * return (
+ *   <ProgressBarComponent />
+ * )
+ */
+const ProgressBarComponent: React.FC = () => {
+  const [progress] = useProgressBar();
+
+  return (
+    <Box sx={{ width: '100%' }}>
+      <Typography variant="h6" gutterBottom>
+        Progress: {Math.round(progress)}%
+      </Typography>
+      <LinearProgress variant="determinate" value={progress} />
+    </Box>
+  );
+};
 
 const AboutText = `CrewTimer Video Review ${window.platform.appVersion}`;
 
@@ -57,6 +85,7 @@ export default function Nav() {
   const [firebaseConnected] = useFirebaseConnected();
   const [msgOpen, setMsgOpen] = useState(false);
   const [msg, setMsg] = useState('');
+  const [shiftMenu, setShiftMenu] = useState(false);
   const latestVersion =
     useFirebaseDatum<string, string>(
       '/global/config/video-review/latestVersion'
@@ -77,11 +106,36 @@ export default function Nav() {
   const handleMenu = (
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>
   ) => {
+    setShiftMenu(event.shiftKey);
     setAnchorEl(event.currentTarget);
   };
 
   const handleClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleAddSidecarFiles = () => {
+    setAnchorEl(null);
+    setDialogConfig({
+      title: `Update Sidecar Files?`,
+      message: `Proceed to update Sidecar JSON files?`,
+      button: 'Proceed',
+      showCancel: true,
+      handleConfirm: () => {
+        setProgressBar(0);
+        addSidecarFiles();
+        setDialogConfig({
+          title: 'Creating Sidecar Files',
+          body: (
+            <Stack>
+              <ProgressBarComponent />
+            </Stack>
+          ),
+          button: 'OK',
+          showCancel: false,
+        });
+      },
+    });
   };
 
   const handleClearData = () => {
@@ -188,6 +242,14 @@ export default function Nav() {
                   </ListItemIcon>
                   <ListItemText primary="Clear Local History" />
                 </MenuItem>
+                {shiftMenu && (
+                  <MenuItem onClick={handleAddSidecarFiles}>
+                    <ListItemIcon>
+                      <CreateNewFolderIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="Create Sidecar Files" />
+                  </MenuItem>
+                )}
 
                 {/* <MenuItem
                   onClick={() => {

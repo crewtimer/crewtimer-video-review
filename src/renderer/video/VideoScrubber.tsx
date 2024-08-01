@@ -1,6 +1,9 @@
 import { Stack, Button, Box, Slider, Tooltip } from '@mui/material';
 import { useRef, useEffect, useMemo, useState } from 'react';
-import { convertTimestampToString } from 'renderer/shared/Util';
+import {
+  convertTimestampToLocalMicros,
+  convertTimestampToString,
+} from 'renderer/shared/Util';
 import { useWaypoint } from 'renderer/util/UseSettings';
 import { findClosestNumAndIndex } from 'renderer/util/Util';
 import ImageButton from './ImageButton';
@@ -17,6 +20,7 @@ import {
   useVideoBow,
   resetVideoZoom,
 } from './VideoSettings';
+import { TimeSegment } from './VideoTypes';
 import { moveLeft, moveRight, parseTimeToSeconds } from './VideoUtils';
 
 const VideoScrubber = () => {
@@ -65,13 +69,22 @@ const VideoScrubber = () => {
     requestVideoFrame({ videoFile, frameNum: newValue });
   };
 
-  const { startTime, endTime } = useMemo(() => {
+  const { startTime, endTime, segments } = useMemo(() => {
     const startTime = convertTimestampToString(
       image.fileStartTime,
       timezoneOffset
     );
     const endTime = convertTimestampToString(image.fileEndTime, timezoneOffset);
-    return { startTime, endTime };
+    const segment: TimeSegment = {
+      startTsMicro: convertTimestampToLocalMicros(image.fileStartTime * 1000),
+      endTsMicro: convertTimestampToLocalMicros(image.fileEndTime * 1000),
+      startTime,
+      endTime,
+      pctOffset: 0,
+      pct: 1,
+      label: image.file.replace(/.*\//, ''),
+    };
+    return { startTime, endTime, segments: [segment] };
   }, [image.fileStartTime, image.fileEndTime, timezoneOffset]);
 
   const [filteredTimes, filteredScoredTimes, relativePositions] =
@@ -202,12 +215,14 @@ const VideoScrubber = () => {
         }}
       >
         <TimeRangeIcons
+          segments={segments}
           times={filteredTimes}
           startTime={startTime}
           endTime={endTime}
           iconType="lower"
         />
         <TimeRangeIcons
+          segments={segments}
           times={filteredScoredTimes}
           startTime={startTime}
           endTime={endTime}

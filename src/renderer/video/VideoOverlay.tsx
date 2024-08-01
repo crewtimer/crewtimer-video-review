@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import { UseDatum } from 'react-usedatum';
 import { showErrorDialog } from 'renderer/util/ErrorDialog';
+import { saveVideoSidecar } from './VideoFileUtils';
 import {
   Dir,
   getVideoFile,
@@ -22,7 +23,6 @@ import {
   drawText,
   notifiyGuideChanged,
   Point,
-  saveVideoSidecar,
   translateMouseEvent2Src,
   translateSrcCanvas2DestCanvas,
 } from './VideoUtils';

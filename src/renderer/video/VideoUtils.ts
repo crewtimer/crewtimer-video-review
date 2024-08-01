@@ -1,12 +1,9 @@
-import { showErrorDialog } from 'renderer/util/ErrorDialog';
-import { replaceFileSuffix } from 'renderer/util/Util';
 import { getDirList, requestVideoFrame } from './VideoFileUtils';
 import {
   Dir,
   getHyperZoomFactor,
   getImage,
   getSelectedIndex,
-  getVideoFile,
   getVideoFrameNum,
   getVideoScaling,
   getVideoSettings,
@@ -14,12 +11,8 @@ import {
   setSelectedIndex,
   setVideoFile,
   setVideoFrameNum,
-  setVideoSettings,
-  VideoGuides,
   VideoScaling,
 } from './VideoSettings';
-
-const { storeJsonFile, readJsonFile } = window.Util;
 
 /**
  * Draws text on the canvas with specified alignment and position relative to a horizontal line.
@@ -341,46 +334,6 @@ export const downloadImageFromCanvasLayers = (
     height
   );
   downloadCanvasImage(combinedCanvas, filename);
-};
-
-/**
- * Save the video guide settings to a JSON file.  The JSON file is named after the video file
- *
- * @returns
- */
-export const saveVideoSidecar = () => {
-  const { guides, laneBelowGuide } = getVideoSettings();
-  const content: VideoGuides = {
-    guides,
-    laneBelowGuide,
-  };
-  const videoFile = getVideoFile();
-  if (videoFile) {
-    return storeJsonFile(replaceFileSuffix(videoFile, 'json'), content);
-  } else {
-    return Promise.reject('No video file');
-  }
-};
-
-/**
- *  Save the current video guide settings to a JSON file.  The JSON file is named after the video file
- *
- * @param videoFile - The path to the video file
- */
-export const loadVideoSidecar = (videoFile: string) => {
-  readJsonFile(replaceFileSuffix(videoFile, 'json'))
-    .then((result) => {
-      if (result.status === 'OK') {
-        setVideoSettings({
-          ...getVideoSettings(),
-          ...result?.json,
-          sidecarSource: videoFile,
-        });
-      } else {
-        console.log(JSON.stringify(result, null, 2));
-      }
-    })
-    .catch(showErrorDialog);
 };
 
 export const moveToFileIndex = (

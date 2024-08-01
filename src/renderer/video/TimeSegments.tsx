@@ -1,17 +1,7 @@
 import React from 'react';
 import Box from '@mui/material/Box';
 import Tooltip from '@mui/material/Tooltip';
-
-/**
- * Represents a time segment with start and end times.
- */
-type TimeSegment = {
-  /** The start time of the segment in HH:MM:SS.sss format. */
-  startTime: string;
-  /** The end time of the segment in HH:MM:SS.sss format. */
-  endTime: string;
-  label: string;
-};
+import { TimeSegment } from './VideoTypes';
 
 /**
  * Props for the TimeSegments component.
@@ -27,16 +17,6 @@ type TimeSegmentsProps = {
   startTime: string;
   /** The end time in HH:MM:SS.sss format for the range. */
   endTime: string;
-};
-
-/**
- * Parses a time string in HH:MM:SS.sss format to seconds.
- * @param time - A string representing time in HH:MM:SS.sss format.
- * @returns The time converted to seconds.
- */
-const parseTimeToSeconds = (time: string): number => {
-  const [hours, minutes, seconds] = time.split(':').map(parseFloat);
-  return hours * 3600 + minutes * 60 + seconds;
 };
 
 /**
@@ -75,14 +55,11 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
             startTime,
             endTime,
             label: 'No Data Available',
+            pct: 100,
           },
         ]
       : segments;
 
-  const rangeStartSeconds = parseTimeToSeconds(startTime);
-  const rangeEndSeconds = parseTimeToSeconds(endTime);
-  const totalDuration = rangeEndSeconds - rangeStartSeconds;
-  let lastEndSeconds = rangeStartSeconds;
   return (
     <Box
       sx={{
@@ -93,19 +70,7 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
       }}
     >
       {displaySegments.map((segment, index) => {
-        const startSeconds = parseTimeToSeconds(segment.startTime);
-        if (
-          startSeconds < rangeStartSeconds ||
-          startSeconds > rangeEndSeconds
-        ) {
-          return <div key={`${index}`}></div>;
-        }
-        const endSeconds = parseTimeToSeconds(segment.endTime);
-        const segmentDuration = endSeconds - startSeconds;
-        const widthPercent = (segmentDuration / totalDuration) * 100;
-        const marginLeftPercent =
-          ((startSeconds - lastEndSeconds) / totalDuration) * 100; // Adjust for gaps
-        lastEndSeconds = endSeconds;
+        const widthPercent = segment.pct * 100;
 
         return (
           <Tooltip
@@ -117,7 +82,6 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
               onClick={(event) => handleSegmentClick(event, index)}
               sx={{
                 width: `${widthPercent}%`,
-                marginLeft: `${marginLeftPercent}%`,
                 backgroundColor: index === activeIndex ? '#00ffff' : '#f0f0f0',
                 borderRight: '1px solid #888',
                 borderLeft: '1px solid #888',

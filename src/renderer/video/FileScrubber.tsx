@@ -6,13 +6,11 @@ import {
   refreshDirList,
   requestVideoFrame,
   useDirList,
+  useFileStatusList,
 } from './VideoFileUtils';
 import {
-  extractTime,
-  formatSecondsAsTime,
   moveToFileIndex,
   nextFile,
-  parseTimeToSeconds,
   prevFile,
   triggerFileSplit,
 } from './VideoUtils';
@@ -21,11 +19,17 @@ import {
   getVideoDir,
   setVideoFile,
   useSelectedIndex,
+  useTimezoneOffset,
 } from './VideoSettings';
 import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
 import TimeSegments from './TimeSegments';
 import { useClickerData } from './UseClickerData';
 import { useWaypoint } from 'renderer/util/UseSettings';
+import {
+  convertTimestampToLocalMicros,
+  convertTimestampToString,
+} from 'renderer/shared/Util';
+import { TimeSegment } from './VideoTypes';
 
 interface SxPropsArgs {
   sx?: SxProps<Theme>;
@@ -34,6 +38,8 @@ interface SxPropsArgs {
 const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   const [, setFileIndex] = useSelectedIndex();
   const [dirList] = useDirList();
+  const [fileStatusList] = useFileStatusList();
+  const [timezoneOffset] = useTimezoneOffset();
   let lapdata = useClickerData() as TimeObject[];
   const [scoredWaypoint] = useWaypoint();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
@@ -59,30 +65,36 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
     }, 1200);
   };
 
-  let prevStartTime = '00:00:00';
   // Calc the time segment list
   const segmentList = useMemo(() => {
-    const segments = dirList.map((item) => {
-      let startTime = extractTime(item);
-      // If not time in filename, bump prev start time by 120s
-      if (!startTime) {
-        startTime = formatSecondsAsTime(
-          parseTimeToSeconds(prevStartTime) + 120
-        );
-      }
-      prevStartTime = startTime;
-      return { startTime, endTime: '', label: item.replace(/.*\//, '') };
+    let totalTime = 0;
+    fileStatusList.forEach((item) => {
+      totalTime += item.duration;
     });
-    segments.forEach((item, index) => {
-      if (index < segments.length - 1) {
-        item.endTime = segments[index + 1].startTime;
-      }
-    });
-    if (segments.length > 0) {
-      segments[segments.length - 1].endTime = formatSecondsAsTime(
-        parseTimeToSeconds(segments[segments.length - 1]?.startTime) + 120
+    let pctOffset = 0;
+    const segments = fileStatusList.map((item) => {
+      let startTime = convertTimestampToString(
+        item.startTime / 1000,
+        timezoneOffset
       );
-    }
+      let endTime = convertTimestampToString(
+        item.endTime / 1000,
+        timezoneOffset
+      );
+
+      const pct = item.duration / totalTime;
+      const segment: TimeSegment = {
+        startTsMicro: convertTimestampToLocalMicros(item.startTime),
+        endTsMicro: convertTimestampToLocalMicros(item.endTime),
+        startTime,
+        endTime,
+        pctOffset,
+        pct,
+        label: item.filename.replace(/.*\//, ''),
+      };
+      pctOffset += pct;
+      return segment;
+    });
     return segments;
   }, [dirList]);
 
@@ -125,6 +137,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
         }}
       >
         <TimeRangeIcons
+          segments={segmentList}
           times={lapdata}
           startTime={startTime}
           endTime={endTime}
@@ -132,6 +145,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           iconType="lower"
         />
         <TimeRangeIcons
+          segments={segmentList}
           times={scoredLapdata}
           startTime={startTime}
           endTime={endTime}

@@ -9,7 +9,7 @@ import {
 } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
 import generateTestPattern from '../util/ImageUtils';
-import { loadVideoSidecar } from './VideoUtils';
+import { loadVideoSidecar } from './VideoFileUtils';
 
 export interface VideoPosition {
   frameNum: number;

@@ -16,6 +16,8 @@ import {
 const { LapStorage } = window;
 export const AUTH_OK = 'OK';
 
+export const [useProgressBar, setProgressBar, getProgressBar] = UseDatum(0);
+
 export const [useMobilePin, setMobilePin, getMobilePin] = UseStoredDatum(
   'MobileKey',
   ''
