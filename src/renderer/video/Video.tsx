@@ -482,7 +482,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       mouseTracking.current.mouseDown = true;
       const videoScaling = getVideoScaling();
       if (videoScaling.zoom === 1) {
-        doZoom(5, { x: videoScaling.srcWidth / 2, y });
+        doZoom(5, { x: videoScaling.srcWidth / 2, y: srcCoords.y });
       }
     },
     [image, xPadding, destWidth]
