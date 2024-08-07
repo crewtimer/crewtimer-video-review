@@ -26,8 +26,8 @@ import {
 import { useMobileConfig } from '../util/UseSettings';
 import TimezoneSelector from '../util/TimezoneSelector';
 import HyperZoomSelector from '../util/HyperZoomSelector';
-import { saveVideoSidecar } from './VideoUtils';
 import makeStyles from '@mui/styles/makeStyles';
+import { saveVideoSidecar } from './VideoFileUtils';
 
 declare module '@mui/styles/defaultTheme' {
   // eslint-disable-next-line @typescript-eslint/no-empty-interface (remove this line if you don't have the rule enabled)
@@ -60,6 +60,9 @@ export const VideoSettingsDialog = () => {
   const [wheelFactor, setWheelFactor] = useMouseWheelFactor();
   const [wheelInverted, setWheelInverted] = useMouseWheelInverted();
   const [rightToLeft, setRightToLeft] = useTravelRightToLeft();
+  if (videoSettings.enableLaneGuides === undefined) {
+    videoSettings.enableLaneGuides = true; // orig state this wasn't set
+  }
 
   // Handler to update the wheelFactor state
   const handleSliderChange = (_event: Event, newValue: number | number[]) => {
@@ -220,9 +223,27 @@ export const VideoSettingsDialog = () => {
                 size="small"
                 onClick={() => resetGuides()}
               >
-                Reset Finish
+                Reset Finish Line to Center
               </Button>
             </Stack>
+            <FormControlLabel
+              labelPlacement="end"
+              label="Enable Lane Guides"
+              control={
+                <Checkbox
+                  checked={videoSettings.enableLaneGuides}
+                  onChange={() => {
+                    setVideoSettings(
+                      {
+                        ...videoSettings,
+                        enableLaneGuides: !videoSettings.enableLaneGuides,
+                      },
+                      true
+                    );
+                  }}
+                />
+              }
+            />
             <Box>
               {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lane) => (
                 <FormControlLabel
@@ -232,6 +253,7 @@ export const VideoSettingsDialog = () => {
                   control={
                     <Checkbox
                       checked={videoSettings.guides[lane + 1].enabled}
+                      disabled={!videoSettings.enableLaneGuides}
                       onChange={() => {
                         const guides = [...videoSettings.guides]; // force 'diff'
                         videoSettings.guides[lane + 1].enabled =
@@ -258,7 +280,7 @@ export const showVideoSettings = () => {
   setDialogConfig({
     title: `Video Settings`,
     message: ``,
-    content: <VideoSettingsDialog />,
+    body: <VideoSettingsDialog />,
     button: 'Done',
     showCancel: false,
   });

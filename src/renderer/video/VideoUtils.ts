@@ -455,3 +455,16 @@ export const translateMouseEvent2Src = (
     pt.y >= 0;
   return { x, y, pt, withinBounds };
 };
+
+/**
+ * Return a guide definition for the finish line
+ * @returns {Guide}
+ */
+export const getFinishLine = () => {
+  const videoSettings = getVideoSettings();
+  let vert = videoSettings.guides.find((guide) => guide.dir === Dir.Vert);
+  if (!vert || !vert.enabled) {
+    vert = { enabled: true, dir: Dir.Vert, label: 'Finish', pt1: 0, pt2: 0 };
+  }
+  return vert;
+};

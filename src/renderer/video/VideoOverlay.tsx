@@ -140,7 +140,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         context.clearRect(0, 0, canvas.width, canvas.height);
 
         courseConfig.guides.forEach((guide) => {
-          if (!guide.enabled) {
+          if (
+            !guide.enabled ||
+            (!courseConfig.enableLaneGuides && guide.dir === Dir.Horiz)
+          ) {
             return;
           }
           switch (guide.dir) {
@@ -208,8 +211,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                 drawText(
                   context,
                   `${guide.label}`,
-                  destHeight / 50,
-                  fromScaled.x,
+                  12,
+                  0, // FIXME - calculate based on zoom
                   fromScaled.y,
                   videoSettings.laneBelowGuide ? 'below' : 'above',
                   'left'
@@ -217,8 +220,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                 drawText(
                   context,
                   `${guide.label}`,
-                  destHeight / 50,
-                  toScaled.x,
+                  12,
+                  videoScaling.destWidth, // FIXME - calculate based on zoom
                   toScaled.y,
                   videoSettings.laneBelowGuide ? 'below' : 'above',
                   'right'

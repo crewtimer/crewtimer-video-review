@@ -24,7 +24,7 @@ const ConfirmPrompt = styled('div')(({ theme }) => ({
 export interface ConfirmDialogProps {
   title: string;
   message?: string;
-  body?: ReactNode;
+  body?: ReactNode; //
   confirmText?: string;
   button?: string;
   showCancel: boolean;

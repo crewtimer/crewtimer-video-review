@@ -35,6 +35,7 @@ import TimingSidebar from './TimingSidebar';
 import {
   downloadImageFromCanvasLayers,
   findClosestLineAndPosition,
+  getFinishLine,
   moveLeft,
   moveRight,
   moveToFrame,
@@ -59,7 +60,7 @@ const useStyles = makeStyles({
   },
   tstext: {
     zIndex: 1,
-    background: '#ffffffa0',
+    background: '#ffffff80',
     color: 'black',
     border: '1px solid black',
     height: '32px',
@@ -75,7 +76,7 @@ const useStyles = makeStyles({
   },
   hyperzoom: {
     zIndex: 200,
-    background: '#ffffffa0',
+    background: '#ffffff80',
     color: 'black',
     height: '32px',
     width: '24px',
@@ -478,11 +479,17 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       if (!withinBounds) {
         return;
       }
-      selectLane(srcCoords);
+      if (getVideoSettings().enableLaneGuides) {
+        selectLane(srcCoords);
+      }
       mouseTracking.current.mouseDown = true;
       const videoScaling = getVideoScaling();
       if (videoScaling.zoom === 1) {
-        doZoom(5, { x: videoScaling.srcWidth / 2, y: srcCoords.y });
+        const finish = getFinishLine();
+        doZoom(5, {
+          x: videoScaling.srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
+          y: srcCoords.y,
+        });
       }
     },
     [image, xPadding, destWidth]
@@ -554,7 +561,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       // dont trigger mouse down move actions until we have moved slightly. This avoids
       // accidental zooming on just a click
       const downMoveY = Math.abs(mouseTracking.current.mouseDownClientY - y);
-      if (mouseTracking.current.mouseDown && downMoveY > 10) {
+      if (mouseTracking.current.mouseDown && downMoveY > 20) {
         mouseTracking.current.isZooming = true;
         const deltaY = event.movementY;
         const newScale = Math.max(
@@ -568,7 +575,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         let downMoveX = mouseTracking.current.mouseDownClientX - x;
         // Only start tracking if we have moved a significant amount
         if (mouseTracking.current.isZooming && Math.abs(downMoveX) > 10) {
-          const delta = Math.sign(downMoveX);
+          const delta = Math.sign(downMoveX) * 4; // FIXME - use velocity to determine amount
           mouseTracking.current.mouseDownClientX = x;
           moveToFrame(getVideoFrameNum(), travelRightToLeft ? delta : -delta);
         }
@@ -613,8 +620,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           )
         )
       );
-    if (!mouseTracking.current.isZooming && Math.abs(delta) > 3) {
-      delta = Math.sign(delta) * 3;
+    if (!mouseTracking.current.isZooming && Math.abs(delta) > 6) {
+      delta = Math.sign(delta) * 6;
     }
     moveToFrame(getVideoFrameNum(), delta);
   }, []);
@@ -674,7 +681,16 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             paddingTop: '10px',
           }}
         >
-          <Stack direction="row">
+          <Stack
+            direction="row"
+            sx={
+              travelRightToLeft
+                ? {
+                    paddingRight: `${width / 2}px`,
+                  }
+                : { paddingLeft: `${width / 2}px` }
+            }
+          >
             <div />
             {hyperZoom && <Box className={classes.hyperpadding} />}
             <Typography className={classes.tstext}>{videoTimestamp}</Typography>
@@ -683,7 +699,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
                 <ZoomInIcon className={classes.hyperzoom} />
               </Tooltip>
             )}
-            <div style={{ flex: 1 }} />
+            <div />
           </Stack>
           {!!videoError && (
             <Typography
