@@ -60,7 +60,7 @@ uint64_t extractTimestampFromFrame(const std::vector<uint8_t> &image, int row,
 static std::shared_ptr<FrameInfo>
 getFrame(const std::unique_ptr<FFVideoReader> &ffreader,
          const std::string &filename, double frameNum) {
-  auto key = formatKey(filename, frameNum, false);
+  auto key = formatKey(filename, frameNum, false, {0, 0, 0, 0});
   auto frame = frameInfoList.getFrame(key);
   if (frame == nullptr) {
     // std::cout << "Reading frame: " << key << " frameNum: " << frameNum
@@ -210,7 +210,7 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
     auto hasZoom =
         (roi.width > 0) && (roi.height > 0) && ((roi.x > 0 || roi.y > 0));
 
-    auto key = formatKey(file, frameNum, hasZoom);
+    auto key = formatKey(file, frameNum, hasZoom, roi);
     // std::cout << "key: " << key << std::endl;
     auto frameInfo = frameInfoList.getFrame(key);
     if (!frameInfo) {
@@ -239,10 +239,19 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
               fractionalPart = 0;
             }
           }
-          if (!hasZoom || roi.width < 50) {
+          if (!hasZoom) {
             // std::cout << "restricting roi"
             //           << " roi width=" << roi.width << std::endl;
             // Use a slice around the center
+            auto width = std::min(frameA->width, 256);
+            roi = {frameA->width / 2 - width / 2, 0, width, frameA->height};
+          }
+
+          if (roi.width < 50) {
+            // std::cout << "restricting roi"
+            //           << " roi width=" << roi.width << std::endl;
+            // Use a slice around the center
+            // FIXME - use original roi center if set
             auto width = std::min(frameA->width, 256);
             roi = {frameA->width / 2 - width / 2, 0, width, frameA->height};
           }
@@ -252,6 +261,7 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
           frameInfo = generateInterpolatedFrame(frameA, frameB, fractionalPart,
                                                 roi, hasZoom);
           frameA->motion = frameInfo->motion;
+          frameA->roi = frameInfo->roi;
         } else {
           std::cerr << "Failed to grab frames " << file << ": " << intPart
                     << " and " << intPart + 1 << std::endl;

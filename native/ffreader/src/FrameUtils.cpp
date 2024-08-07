@@ -204,7 +204,7 @@ generateInterpolatedFrame(const std::shared_ptr<FrameInfo> frameA,
   Mat matB(frameA->height, frameA->width, CV_8UC4,
            (void *)frameB->data->data());
   ImageMotion motion = frameA->motion;
-  if (!motion.valid) {
+  if (!motion.valid || frameA->roi != roi) {
     // std::cerr << "Calculating optical flow" << std::endl;
     Mat flow = calculateOpticalFlowBetweenFrames(
         matA, matB, {roi.x, roi.y, roi.width, roi.height});

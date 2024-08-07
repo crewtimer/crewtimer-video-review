@@ -19,6 +19,15 @@ struct FrameRect {
   int y;
   int width;
   int height;
+
+  // Overload the == operator
+  bool operator==(const FrameRect &other) const {
+    return x == other.x && y == other.y && width == other.width &&
+           height == other.height;
+  }
+
+  // Overload the != operator
+  bool operator!=(const FrameRect &other) const { return !(*this == other); }
 };
 
 struct InterpResult {
@@ -33,14 +42,20 @@ struct InterpResult {
  * @param file The file string.
  * @param frameNum The frame number.
  * @param hasZoom The frame will have zoom applied.
+ * @param roi Zoom region of interest (if hasZoom)
  * @return A formatted string combining the file and frame number.
  */
 inline std::string formatKey(const std::string &file, float frameNum,
-                             bool hasZoom) {
+                             bool hasZoom, FrameRect roi) {
   std::ostringstream oss;
-  auto zStr = hasZoom ? "-z" : "";
-  oss << file << "-" << std::fixed << std::setprecision(6) << frameNum << zStr;
-  return oss.str();
+  oss << file << "-" << std::fixed << std::setprecision(6) << frameNum;
+  if (hasZoom) {
+    oss << "-" << roi.x << "-" << roi.y << "-" << roi.width << "-"
+        << roi.height;
+  }
+  auto key = oss.str();
+  std::cout << "key=" << key << std::endl;
+  return key;
 }
 
 /**
@@ -64,6 +79,7 @@ public:
   std::string file;   ///< The file associated with the frame.
   std::string debug;
   ImageMotion motion = {0, 0, 0, false}; ///< Motion information of the frame.
+  FrameRect roi;                         ///< The roi used to calculate motion
   std::string
       key; ///< Unique key for the frame, concatenation of file and frameNum.
 
@@ -74,7 +90,7 @@ public:
    */
   FrameInfo(int frameNum, const std::string &file)
       : frameNum(frameNum), file(file) {
-    key = formatKey(file, frameNum, false);
+    key = formatKey(file, frameNum, false, {0, 0, 0, 0});
   }
 };
 

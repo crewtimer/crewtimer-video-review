@@ -576,11 +576,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     },
     [image, destHeight, destWidth]
   );
-  // console.log(
-  //   `frame: ${getVideoFrameNum()}, motion: ${JSON.stringify(image.motion)} ${
-  //     image.width
-  //   }x${image.height}`
-  // );
+  console.log(
+    `frame: ${getVideoFrameNum()}, motion: ${JSON.stringify(image.motion)} ${
+      image.width
+    }x${image.height}`
+  );
 
   useEffect(() => {
     doZoom(1);
