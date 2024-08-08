@@ -142,6 +142,7 @@ export interface VideoGuides {
   guides: GuideLine[];
   laneBelowGuide: boolean;
   enableLaneGuides: boolean;
+  enableAutoZoom: boolean;
 }
 
 /**
@@ -156,6 +157,7 @@ export const [useVideoSettings, setVideoSettings, getVideoSettings] =
     timingHintSource: '',
     laneBelowGuide: false,
     enableLaneGuides: true,
+    enableAutoZoom: true,
     guides: [
       { dir: Dir.Vert, pt1: 0, pt2: 0, label: 'Finish', enabled: true },
       { dir: Dir.Horiz, pt1: 200, pt2: 200, label: 'Lane 0', enabled: false },

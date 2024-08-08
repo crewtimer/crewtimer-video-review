@@ -89,6 +89,9 @@ const useStyles = makeStyles({
   },
 });
 
+export const [useAutoZoomPending, setAutoZoomPending, getAutoZoomPending] =
+  UseDatum<undefined | Point>(undefined);
+
 interface DrawImageProps {
   srcCanvas: HTMLCanvasElement;
   destCanvas: HTMLCanvasElement | null;
@@ -409,6 +412,24 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   }, [width, height]);
 
   useEffect(() => {
+    const zoomPoint = getAutoZoomPending();
+    if (zoomPoint && image.motion.valid) {
+      setAutoZoomPending(undefined);
+      if (Math.abs(image.motion.x) > 1 && Math.abs(image.motion.x) < 15) {
+        // Calculate movement
+        const finish = getFinishLine();
+        const dx = image.width / 2 + finish.pt1 - zoomPoint.x;
+        const ticks = dx / image.motion.x;
+        console.log(
+          `frame: ${getVideoFrameNum()}, motion: ${JSON.stringify(
+            image.motion
+          )} ${image.width}x${image.height}`
+        );
+        console.log(`ticks: ${ticks}`);
+        moveToFrame(getVideoFrameNum() + ticks, 0);
+      }
+    }
+
     // initialize zoom tracking if not already initialized
     if (mouseTracking.current.zoomWindow.width !== 0) {
       return;
@@ -486,10 +507,14 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       const videoScaling = getVideoScaling();
       if (videoScaling.zoom === 1) {
         const finish = getFinishLine();
+        if (getVideoSettings().enableAutoZoom) {
+          setAutoZoomPending(srcCoords);
+        }
         doZoom(5, {
           x: videoScaling.srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
           y: srcCoords.y,
         });
+        moveToFrame(getVideoFrameNum(), 0.1);
       }
     },
     [image, xPadding, destWidth]
@@ -582,11 +607,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       }
     },
     [image, destHeight, destWidth]
-  );
-  console.log(
-    `frame: ${getVideoFrameNum()}, motion: ${JSON.stringify(image.motion)} ${
-      image.width
-    }x${image.height}`
   );
 
   useEffect(() => {

@@ -63,6 +63,9 @@ export const VideoSettingsDialog = () => {
   if (videoSettings.enableLaneGuides === undefined) {
     videoSettings.enableLaneGuides = true; // orig state this wasn't set
   }
+  if (videoSettings.enableAutoZoom === undefined) {
+    videoSettings.enableAutoZoom = true; // orig state this wasn't set
+  }
 
   // Handler to update the wheelFactor state
   const handleSliderChange = (_event: Event, newValue: number | number[]) => {
@@ -159,6 +162,26 @@ export const VideoSettingsDialog = () => {
           </Toolbar>
           <Box className={classes.settings}>
             <HyperZoomSelector />
+          </Box>
+          <Box className={classes.settings}>
+            <FormControlLabel
+              labelPlacement="end"
+              label="Enable Auto-Zoom"
+              control={
+                <Checkbox
+                  checked={videoSettings.enableAutoZoom}
+                  onChange={() => {
+                    setVideoSettings(
+                      {
+                        ...videoSettings,
+                        enableAutoZoom: !videoSettings.enableAutoZoom,
+                      },
+                      true
+                    );
+                  }}
+                />
+              }
+            />
           </Box>
           <Box className={classes.settings}>
             <Tooltip title="Invert wheel direction" placement="right">
