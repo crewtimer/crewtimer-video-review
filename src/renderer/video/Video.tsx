@@ -416,16 +416,15 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     if (zoomPoint && image.motion.valid) {
       setAutoZoomPending(undefined);
       if (Math.abs(image.motion.x) > 1 && Math.abs(image.motion.x) < 15) {
-        // Calculate movement
-        const finish = getFinishLine();
-        const dx = image.width / 2 + finish.pt1 - zoomPoint.x;
-        const ticks = dx / image.motion.x;
         console.log(
           `frame: ${getVideoFrameNum()}, motion: ${JSON.stringify(
             image.motion
           )} ${image.width}x${image.height}`
         );
-        console.log(`ticks: ${ticks}`);
+        // Calculate movement
+        const finish = getFinishLine();
+        const dx = image.width / 2 + finish.pt1 - zoomPoint.x;
+        const ticks = dx / image.motion.x;
         moveToFrame(getVideoFrameNum() + ticks, 0);
       }
     }
@@ -494,6 +493,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         pt: srcCoords,
         withinBounds,
       } = translateMouseEvent2Src(event, rect);
+
       mouseTracking.current.mouseDownClientX = x;
       mouseTracking.current.mouseDownClientY = y;
 
@@ -505,7 +505,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       }
       mouseTracking.current.mouseDown = true;
       const videoScaling = getVideoScaling();
-      if (videoScaling.zoom === 1) {
+      if (event.shiftKey || videoScaling.zoom === 1) {
         const finish = getFinishLine();
         if (getVideoSettings().enableAutoZoom) {
           setAutoZoomPending(srcCoords);
@@ -599,8 +599,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       if (mouseTracking.current.mouseDown) {
         let downMoveX = mouseTracking.current.mouseDownClientX - x;
         // Only start tracking if we have moved a significant amount
-        if (mouseTracking.current.isZooming && Math.abs(downMoveX) > 10) {
-          const delta = Math.sign(downMoveX) * 4; // FIXME - use velocity to determine amount
+        if (mouseTracking.current.isZooming && Math.abs(downMoveX) > 5) {
+          const delta = Math.sign(downMoveX) * 8; // FIXME - use velocity to determine amount
           mouseTracking.current.mouseDownClientX = x;
           moveToFrame(getVideoFrameNum(), travelRightToLeft ? delta : -delta);
         }

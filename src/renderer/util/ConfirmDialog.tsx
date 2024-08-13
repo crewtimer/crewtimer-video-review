@@ -60,7 +60,7 @@ export function ConfirmDialog() {
   };
 
   if (!config) {
-    return undefined;
+    return <></>;
   }
   const actions = [
     config.showCancel ? (

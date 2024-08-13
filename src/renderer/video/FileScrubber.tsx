@@ -84,8 +84,11 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
 
       const pct = item.duration / totalTime;
       const segment: TimeSegment = {
-        startTsMicro: convertTimestampToLocalMicros(item.startTime),
-        endTsMicro: convertTimestampToLocalMicros(item.endTime),
+        startTsMicro: convertTimestampToLocalMicros(
+          item.startTime,
+          timezoneOffset
+        ),
+        endTsMicro: convertTimestampToLocalMicros(item.endTime, timezoneOffset),
         startTime,
         endTime,
         pctOffset,

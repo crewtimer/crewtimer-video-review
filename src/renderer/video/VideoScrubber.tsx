@@ -76,8 +76,14 @@ const VideoScrubber = () => {
     );
     const endTime = convertTimestampToString(image.fileEndTime, timezoneOffset);
     const segment: TimeSegment = {
-      startTsMicro: convertTimestampToLocalMicros(image.fileStartTime * 1000),
-      endTsMicro: convertTimestampToLocalMicros(image.fileEndTime * 1000),
+      startTsMicro: convertTimestampToLocalMicros(
+        image.fileStartTime * 1000,
+        timezoneOffset
+      ),
+      endTsMicro: convertTimestampToLocalMicros(
+        image.fileEndTime * 1000,
+        timezoneOffset
+      ),
       startTime,
       endTime,
       pctOffset: 0,
