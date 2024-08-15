@@ -1,6 +1,6 @@
 import moment from 'moment';
 import { UseDatum } from 'react-usedatum';
-import { AppImage, Rect } from 'renderer/shared/AppTypes';
+import { AppImage } from 'renderer/shared/AppTypes';
 import {
   N_IMAGE,
   N_VIDEO_FILE,
@@ -49,13 +49,6 @@ export const [useVideoScaling, setVideoScaling, getVideoScaling] =
 export const [useVideoError, setVideoError] = UseDatum<string | undefined>(
   undefined
 );
-export const [useZoomWindow, setZoomWindow, getZoomWindow] = UseDatum<Rect>({
-  x: 0,
-  y: 0,
-  width: 1,
-  height: 1,
-});
-
 export const [useVideoFrameNum, setVideoFrameNum, getVideoFrameNum] =
   UseDatum<number>(1);
 

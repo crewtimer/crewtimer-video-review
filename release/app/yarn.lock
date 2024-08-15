@@ -477,13 +477,6 @@ crewtimer_video_reader@../../native/ffreader:
     prebuild-install "^7.1.1"
     tar "^6.1.11"
 
-crewtimer_video_reader@../../native/ffreader/:
-  version "1.0.5"
-  dependencies:
-    bindings "^1.5.0"
-    prebuild-install "^7.1.1"
-    tar "^6.1.11"
-
 cross-spawn@^7.0.1, cross-spawn@^7.0.3:
   version "7.0.3"
   resolved "https://registry.yarnpkg.com/cross-spawn/-/cross-spawn-7.0.3.tgz#f73a85b9d5d41d045551c177e2882d4ac85728a6"

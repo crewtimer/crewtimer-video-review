@@ -1,13 +1,15 @@
+import { Rect } from 'renderer/shared/AppTypes';
+import { getAutoZoomPending } from './Video';
 import { getDirList, requestVideoFrame } from './VideoFileUtils';
 import {
   Dir,
   getHyperZoomFactor,
   getImage,
   getSelectedIndex,
+  getTravelRightToLeft,
   getVideoFrameNum,
   getVideoScaling,
   getVideoSettings,
-  getZoomWindow,
   setSelectedIndex,
   setVideoFile,
   setVideoFrameNum,
@@ -364,7 +366,8 @@ export const moveToFrame = (frameNum: number, offset?: number) => {
   } else if (frameNum > getImage().numFrames) {
     nextFile();
   } else {
-    const zoomFactor = image.height / getZoomWindow().height;
+    const videoScaling = getVideoScaling();
+    const zoomFactor = videoScaling.zoom;
     const hyperZoomFactor = getHyperZoomFactor();
     if (zoomFactor < 3 || hyperZoomFactor === 0) {
       frameNum = Math.trunc(frameNum) + offset; //Math.round(frameNum + offset);
@@ -373,10 +376,44 @@ export const moveToFrame = (frameNum: number, offset?: number) => {
     }
 
     setVideoFrameNum(frameNum);
+    // If we have an auto-zoom request pending, use those coords for the
+    // frame velocity calc.  Otherwise use a grid around the finish line
+    const autoZoomCoords = getAutoZoomPending();
+    let zoom: Rect | undefined;
+    if (videoScaling.zoom !== 1) {
+      // If we are zooming, specigy the coordinates for the motion detection zoom to utilize
+      if (autoZoomCoords) {
+        // An auto-zoom request is pending for specific coordinates
+        zoom = {
+          x: Math.max(
+            0,
+            autoZoomCoords.x + (getTravelRightToLeft() ? -16 : -240)
+          ),
+          y: Math.max(0, autoZoomCoords.y - 50),
+          width: 256,
+          height: 100,
+        };
+      } else {
+        // Motion estimate around finish line
+        const finishLine = getFinishLine();
+        zoom = {
+          x: Math.max(
+            0,
+            videoScaling.srcWidth / 2 +
+              (finishLine.pt1 + finishLine.pt2) / 2 +
+              (getTravelRightToLeft() ? -16 : -240)
+          ),
+          y: Math.max(0, videoScaling.srcCenterPoint.y - 50),
+          width: 256,
+          height: 100,
+        };
+      }
+    }
+
     requestVideoFrame({
       videoFile: image.file,
       frameNum,
-      zoom: getZoomWindow(),
+      zoom,
     });
   }
 };
@@ -432,7 +469,7 @@ export const translateMouseCoords2SourceCanvas = (point: Point): Point => {
  * coordinates are within the bounds of the source canvas.
 
  * @param {React.MouseEvent} event - The mouse event object containing the client coordinates.
- * @param {DOMRect | undefined} rect - The bounding rectangle of the element being referenced.
+ * @param {DomRect | undefined} rect - The bounding rectangle of the element being referenced.
  *
  * @returns {{ x: number, y: number, pt: { x: number, y: number }, withinBounds: boolean }} An object containing:
  *   - x: The x-coordinate relative to the source canvas.

@@ -166,7 +166,7 @@ export const VideoSettingsDialog = () => {
           <Box className={classes.settings}>
             <FormControlLabel
               labelPlacement="end"
-              label="Enable Auto-Zoom"
+              label="Enable Auto-Zoom with shift-click"
               control={
                 <Checkbox
                   checked={videoSettings.enableAutoZoom}

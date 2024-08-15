@@ -57,6 +57,7 @@ int findPeak(const vector<int> &hist) {
   if (negPeak == -1 && posPeak == -1) {
     return 1000;
   }
+
   // Ignore one pixel on either side of the zero point (10 slots)
   if (posPeak < hist.size() / 2 + 10) {
     // posPeak no good, how about neg peak?
@@ -177,8 +178,11 @@ Mat calculateOpticalFlowBetweenFrames(const Mat &frame1, const Mat &frame2,
   cvtColor(frame2, frame2Gray, COLOR_RGBA2GRAY);
 
   Mat flow;
-  calcOpticalFlowFarneback(frame1Gray(roi), frame2Gray(roi), flow, 0.5, 3, 15,
-                           3, 5, 1.2, 0);
+  // calcOpticalFlowFarneback(frame1Gray(roi), frame2Gray(roi), flow, 0.5, 3,
+  // 15,
+  //                          3, 5, 1.2, 0);
+  calcOpticalFlowFarneback(frame1Gray(roi), frame2Gray(roi), flow, 0.5, 5, 25,
+                           3, 7, 1.5, 0);
 
   return flow;
 }
@@ -203,17 +207,25 @@ generateInterpolatedFrame(const std::shared_ptr<FrameInfo> frameA,
            (void *)frameA->data->data());
   Mat matB(frameA->height, frameA->width, CV_8UC4,
            (void *)frameB->data->data());
+
   ImageMotion motion = frameA->motion;
-  if (!motion.valid || frameA->roi != roi) {
+  if (!motion.valid || motion.x == 0 || frameA->roi != roi) {
     // std::cerr << "Calculating optical flow" << std::endl;
     Mat flow = calculateOpticalFlowBetweenFrames(
         matA, matB, {roi.x, roi.y, roi.width, roi.height});
     motion = calculateMotion(flow);
+    frameA->motion = motion;
+    frameA->roi = roi;
   }
-
-  // std::cerr << "motion: x=" << motion.x << ", y=" << motion.y << std::endl;
-
   motion.y = 0;
+
+  // if (motion.x == 0) {
+  //   // No motion detected
+  //   std::cout << "No motion detected" << std::endl;
+  //   auto result = pctAtoB >= 0.5 ? frameB : frameA;
+  //   result->motion = motion;
+  //   return result;
+  // }
 
   Mat resultFrameMat;
   if (blend) {

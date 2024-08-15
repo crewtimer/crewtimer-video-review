@@ -21,7 +21,6 @@ import {
 } from './VideoSettings';
 import { extractTime, parseTimeToSeconds } from './VideoUtils';
 import deepequal from 'fast-deep-equal/es6/react';
-import { getAutoZoomPending } from './Video';
 
 const { storeJsonFile, readJsonFile, getFilesInDirectory } = window.Util;
 
@@ -219,24 +218,12 @@ const doRequestVideoFrame = async ({
 
     if (seekPos !== 0 || !imageStart) {
       seekPos = Math.max(1, Math.min(openFileStatus.numFrames, seekPos));
-      const autoZoomCoords = getAutoZoomPending();
-      const zoomArg =
-        autoZoomCoords && zoom?.x
-          ? {
-              ...zoom,
-              x: autoZoomCoords.x - zoom.width / 2,
-            }
-          : {
-              x: 0,
-              y: 0,
-              width: 0,
-              height: 0,
-            };
+
       imageStart = await VideoUtils.getFrame(
         videoFile,
         seekPos,
         utcMilli,
-        zoomArg
+        zoom
       );
       if (!imageStart) {
         console.log(`failed to get frame for ${videoFile}@${seekPos}`);

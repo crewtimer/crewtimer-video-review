@@ -211,7 +211,6 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
         (roi.width > 0) && (roi.height > 0) && ((roi.x > 0 || roi.y > 0));
 
     auto key = formatKey(file, frameNum, hasZoom, roi);
-    // std::cout << "key: " << key << std::endl;
     auto frameInfo = frameInfoList.getFrame(key);
     if (!frameInfo) {
       // Nothing in cache, generate a new result
@@ -219,6 +218,10 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
       double fractionalPart = frameNum - intPart; // Extract fractional part
       auto fractionalFrame =
           ((fractionalPart > 0.01) && (fractionalPart < 0.99));
+      if (!fractionalFrame) {
+        intPart = std::round(
+            frameNum); // ensure a frameNum like 123.9999 ends up 124.
+      }
       if (fractionalFrame) {
         auto frameA = getFrame(ffreader->second, file, intPart);
         auto frameB = getFrame(ffreader->second, file, intPart + 1);
@@ -246,7 +249,6 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
             auto width = std::min(frameA->width, 256);
             roi = {frameA->width / 2 - width / 2, 0, width, frameA->height};
           }
-
           if (roi.width < 50) {
             // std::cout << "restricting roi"
             //           << " roi width=" << roi.width << std::endl;

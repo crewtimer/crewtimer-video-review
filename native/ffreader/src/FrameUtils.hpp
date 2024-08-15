@@ -28,6 +28,13 @@ struct FrameRect {
 
   // Overload the != operator
   bool operator!=(const FrameRect &other) const { return !(*this == other); }
+
+  // Overload the << operator for easy printing
+  friend std::ostream &operator<<(std::ostream &os, const FrameRect &rect) {
+    os << "(x: " << rect.x << ", y: " << rect.y << ", " << rect.width << "x"
+       << rect.height << ")";
+    return os;
+  }
 };
 
 struct InterpResult {
@@ -54,7 +61,7 @@ inline std::string formatKey(const std::string &file, float frameNum,
         << roi.height;
   }
   auto key = oss.str();
-  std::cout << "key=" << key << std::endl;
+  // std::cout << "key=" << key << std::endl;
   return key;
 }
 
