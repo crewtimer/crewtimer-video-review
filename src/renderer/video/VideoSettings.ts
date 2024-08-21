@@ -97,7 +97,7 @@ export const [useTravelRightToLeft, , getTravelRightToLeft] = UseStoredDatum(
 
 export const [useHyperZoomFactor, , getHyperZoomFactor] = UseStoredDatum(
   'hyperZoomFactor',
-  2
+  0
 );
 export const [useResetZoomCounter, setResetZoomCounter, getResetZoomCounter] =
   UseDatum(0);

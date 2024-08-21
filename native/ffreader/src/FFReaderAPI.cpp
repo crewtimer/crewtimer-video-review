@@ -19,6 +19,7 @@ extern "C" {
 static std::map<std::string, std::unique_ptr<FFVideoReader>> videoReaders;
 static FrameInfoList frameInfoList;
 static FrameRect noZoom = {0, 0, 0, 0};
+static int debugLevel = 0;
 
 /**
  * @brief Extract a 64-bit 100ns UTC timestamp from the video frame.
@@ -131,6 +132,10 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
 
   auto op = args.Get("op").As<Napi::String>().Utf8Value();
 
+  if (op == "debug") {
+    debugLevel = args.Get("debugLevel").As<Napi::Number>().Int32Value();
+  }
+
   if (op == "closeFile") {
     if (!args.Has("file")) {
       Napi::TypeError::New(env, "Missing file field")
@@ -202,10 +207,13 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
       auto zwidth = zoom.Get("width").As<Napi::Number>().Int32Value();
       auto zheight = zoom.Get("height").As<Napi::Number>().Int32Value();
       roi = {x, y, zwidth, zheight};
-      // std::cout << "roi: " << roi.x << " " << roi.y << " " << roi.width << "
-      // "
-      //           << roi.height << std::endl;
+      if (debugLevel > 1) {
+        std::cout << "roi: " << roi.x << "," << roi.y << " " << roi.width << "x"
+                  << roi.height << std::endl;
+      }
     }
+    auto blend =
+        args.Has("blend") && args.Get("blend").As<Napi::Boolean>().Value();
 
     auto hasZoom =
         (roi.width > 0) && (roi.height > 0) && ((roi.x > 0 || roi.y > 0));
@@ -249,19 +257,30 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
             auto width = std::min(frameA->width, 256);
             roi = {frameA->width / 2 - width / 2, 0, width, frameA->height};
           }
-          if (roi.width < 50) {
-            // std::cout << "restricting roi"
-            //           << " roi width=" << roi.width << std::endl;
-            // Use a slice around the center
-            // FIXME - use original roi center if set
-            auto width = std::min(frameA->width, 256);
-            roi = {frameA->width / 2 - width / 2, 0, width, frameA->height};
+          // range check roi
+
+          roi.width = std::min(roi.width, frameA->width);
+          roi.height = std::min(roi.height, frameA->height);
+          roi.x = std::max(0, roi.x);
+          roi.y = std::max(0, roi.y);
+          if (roi.x + roi.width > frameA->width) {
+            roi.x = frameA->width - roi.width;
           }
+          if (roi.y + roi.height > frameA->height) {
+            roi.y = frameA->height - roi.height;
+          }
+
           // std::cout << "A framenum=" << frameA->frameNum
           //           << " B framenum=" << frameB->frameNum
           //           << " frac=" << fractionalPart << std::endl;
+          if (debugLevel) {
+            std::cout << __FILE__ << ":" << __LINE__
+                      << " Generating interpolated frame at " << fractionalPart
+                      << "% zoom=" << (hasZoom ? "true" : "false")
+                      << " blend=" << (blend ? "true" : "false") << std::endl;
+          }
           frameInfo = generateInterpolatedFrame(frameA, frameB, fractionalPart,
-                                                roi, hasZoom);
+                                                roi, blend);
           frameA->motion = frameInfo->motion;
           frameA->roi = frameInfo->roi;
         } else {
@@ -315,8 +334,10 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
     motion.Set("valid", Napi::Boolean::New(env, frameInfo->motion.valid));
     ret.Set("motion", motion);
 
-    // std::cout << "Grabbed frame: " << frameNum << " WxH=" << rgbaFrame->width
-    //           << "x" << rgbaFrame->height << std::endl;
+    if (debugLevel > 1) {
+      std::cout << "Grabbed frame: " << frameNum << " WxH=" << frameInfo->width
+                << "x" << frameInfo->height << std::endl;
+    }
     return ret;
   }
 

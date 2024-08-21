@@ -12,6 +12,10 @@ const store = new Store();
 /** In-memory cache for settings */
 const memCache = new Map<string, unknown>();
 
+function isObject(value: any): value is { [key: string]: any } {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 /**
  * Get a value persisted on disk.  An in-memory cache is used for quick lookup of values already
  * read from disk.
@@ -25,7 +29,11 @@ export function getStoredValue<T>(key: string, defaultValue: T): T {
     return memCache.get(key) as T;
   }
   const value = store.get(key, defaultValue) as T;
-  memCache.set(key, value);
+  if (isObject(defaultValue)) {
+    memCache.set(key, { ...defaultValue, ...value });
+  } else {
+    memCache.set(key, value);
+  }
 
   // console.log(`Read ${key} from storage`);
   return value;
@@ -68,7 +76,12 @@ export function setStoredValue<T>(
  */
 export function getMemValue<T>(key: string, defaultValue: T): T {
   if (memCache.has(key)) {
-    return memCache.get(key) as T;
+    const value = memCache.get(key) as T;
+    if (isObject(defaultValue)) {
+      return { ...defaultValue, ...value };
+    } else {
+      return value;
+    }
   }
   return defaultValue;
 }

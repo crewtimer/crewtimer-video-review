@@ -95,6 +95,7 @@ type VideoFrameRequest = {
   fromClick?: boolean; // Whether the request is from a click.
   toTimestamp?: string; // The timestamp to seek to (HHMMSS.sss), Optional.
   zoom?: Rect; // The zoom window, Optional.
+  blend?: boolean; // Whether to blend the frame with the previous frame, Optional.
 };
 
 const doRequestVideoFrame = async ({
@@ -104,6 +105,7 @@ const doRequestVideoFrame = async ({
   fromClick,
   toTimestamp,
   zoom,
+  blend,
 }: VideoFrameRequest) => {
   if (!videoFile) {
     return;
@@ -219,11 +221,15 @@ const doRequestVideoFrame = async ({
     if (seekPos !== 0 || !imageStart) {
       seekPos = Math.max(1, Math.min(openFileStatus.numFrames, seekPos));
 
+      // const blend =
+      //   zoom && zoom.width > 0 && zoom.height > 0 && (zoom.x > 0 || zoom.y > 0);
+
       imageStart = await VideoUtils.getFrame(
         videoFile,
         seekPos,
         utcMilli,
-        zoom
+        zoom,
+        blend
       );
       if (!imageStart) {
         console.log(`failed to get frame for ${videoFile}@${seekPos}`);
@@ -279,6 +285,7 @@ function createRequestVideoFrameHandler() {
     fromClick,
     toTimestamp,
     zoom,
+    blend,
   }: VideoFrameRequest): Promise<void> => {
     // Check if there is an ongoing request.
     if (currentRequest) {
@@ -292,6 +299,7 @@ function createRequestVideoFrameHandler() {
             fromClick,
             toTimestamp,
             zoom,
+            blend,
           })
             .then(resolve)
             .catch(reject);
@@ -306,6 +314,7 @@ function createRequestVideoFrameHandler() {
         fromClick,
         toTimestamp,
         zoom,
+        blend,
       });
     }
   };
@@ -324,6 +333,7 @@ function createRequestVideoFrameHandler() {
     fromClick,
     toTimestamp,
     zoom,
+    blend,
   }: VideoFrameRequest): Promise<void> => {
     // Start processing the request
     currentRequest = (async () => {
@@ -334,6 +344,7 @@ function createRequestVideoFrameHandler() {
         fromClick,
         toTimestamp,
         zoom,
+        blend,
       });
     })();
 
@@ -397,7 +408,7 @@ export const refreshDirList = async (videoDir: string) => {
       if (fileStatus) {
         fileStatusList.push(fileStatus);
       } else {
-        const videoSidecar = await loadVideoSidecar(file);
+        const videoSidecar = await loadVideoSidecar(file, true);
         fileStatus = {
           open: false,
           numFrames: 0,
@@ -458,6 +469,7 @@ export const seekToTimestamp = (timestamp: string, fromClick?: boolean) => {
       frameNum: 1,
       fromClick,
       toTimestamp: timestamp,
+      blend: true,
     }).catch(showErrorDialog);
   }
 };
@@ -489,17 +501,22 @@ export const saveVideoSidecar = () => {
  *
  * @param videoFile - The path to the video file
  */
-export const loadVideoSidecar = (videoFile: string): Promise<KeyMap> => {
+export const loadVideoSidecar = (
+  videoFile: string,
+  loadOnly?: boolean
+): Promise<KeyMap> => {
   let videoSidecar = {};
   return readJsonFile(replaceFileSuffix(videoFile, 'json'))
     .then((result) => {
       if (result.status === 'OK') {
         videoSidecar = { ...result?.json };
-        setVideoSettings({
-          ...getVideoSettings(),
-          ...result?.json,
-          sidecarSource: videoFile,
-        });
+        if (!loadOnly) {
+          setVideoSettings({
+            ...getVideoSettings(),
+            ...result?.json,
+            sidecarSource: videoFile,
+          });
+        }
       } else {
         console.log(JSON.stringify(result, null, 2));
       }

@@ -9,7 +9,7 @@ import { ipcMain } from 'electron';
  * @param width The number of columns in a row
  * @returns The extracted timestamp in milliseconds
  */
-function extractTimestampFromFrame(
+export function extractTimestampFromFrame(
   image: Uint8Array,
   row: number,
   width: number
@@ -72,7 +72,7 @@ ipcMain.handle('video:closeFile', (_event, filePath) => {
 
 ipcMain.handle(
   'video:getFrame',
-  (_event, filePath, frameNum, tsMilli, zoom) => {
+  (_event, filePath, frameNum, tsMilli, zoom, blend) => {
     try {
       // console.log('Grabbing frame', zoom);
       // console.log('Grabbing frame', filePath, frameNum);
@@ -82,6 +82,7 @@ ipcMain.handle(
         file: filePath,
         tsMilli: tsMilli,
         zoom: zoom || { x: 0, y: 0, width: 0, height: 0 },
+        blend: blend || false,
       } as unknown as GrabFrameMessage);
       if (ret.status === 'OK') {
         // row 0 should be black

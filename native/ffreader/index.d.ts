@@ -17,6 +17,7 @@ declare module 'crewtimer_video_reader' {
     frameNum: number;
     file: string;
     zoom?: { x: number; y: number; width: number; height: number };
+    blend?: boolean;
   }
 
   interface CloseFileMessage extends MessageBase {

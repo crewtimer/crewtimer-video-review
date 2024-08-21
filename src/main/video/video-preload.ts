@@ -6,9 +6,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { AppImage, Rect } from 'renderer/shared/AppTypes';
 
-// Cache of video frames
-const videoCache = new Map<string, AppImage>();
-let cacheFilename = '';
 contextBridge.exposeInMainWorld('VideoUtils', {
   openFile: async (filePath: string) => {
     try {
@@ -37,29 +34,20 @@ contextBridge.exposeInMainWorld('VideoUtils', {
     filePath: string,
     frameNum: number,
     utcMilli: number,
-    zoom?: Rect
+    zoom?: Rect,
+    blend?: boolean
   ) => {
     try {
-      if (cacheFilename !== filePath) {
-        videoCache.clear();
-        cacheFilename = filePath;
-      }
-      const zooming = zoom && (zoom.x != 0 || zoom.y != 0);
-      const uuid = `${filePath}-${zooming ? frameNum : Math.trunc(frameNum)}`;
-
       const result = (await ipcRenderer.invoke(
         'video:getFrame',
         filePath,
         frameNum,
         utcMilli,
-        zoom
+        zoom,
+        blend
       )) as AppImage;
       if (result.status !== 'OK') {
         throw new Error(result.status);
-      }
-
-      if (result.data) {
-        videoCache.set(uuid, result);
       }
       return result;
     } catch (err) {

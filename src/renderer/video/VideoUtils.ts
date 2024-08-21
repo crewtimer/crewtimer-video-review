@@ -356,10 +356,11 @@ export const prevFile = () => {
 export const nextFile = () => {
   moveToFileIndex(getSelectedIndex() + 1, 0, true);
 };
-export const moveToFrame = (frameNum: number, offset?: number) => {
-  if (offset === undefined) {
-    offset = 0;
-  }
+export const moveToFrame = (
+  frameNum: number,
+  offset?: number,
+  blend: boolean = true
+) => {
   const image = getImage();
   if (frameNum < 1) {
     prevFile();
@@ -369,18 +370,23 @@ export const moveToFrame = (frameNum: number, offset?: number) => {
     const videoScaling = getVideoScaling();
     const zoomFactor = videoScaling.zoom;
     const hyperZoomFactor = getHyperZoomFactor();
-    if (zoomFactor < 3 || hyperZoomFactor === 0) {
-      frameNum = Math.trunc(frameNum) + offset; //Math.round(frameNum + offset);
-    } else {
-      frameNum = frameNum + (offset * image.fps * hyperZoomFactor) / 1000;
+
+    if (offset !== undefined) {
+      if (zoomFactor < 3 || hyperZoomFactor === 0) {
+        frameNum = Math.trunc(frameNum) + offset; //Math.round(frameNum + offset);
+      } else {
+        frameNum = frameNum + (offset * image.fps * hyperZoomFactor) / 1000;
+      }
     }
 
     setVideoFrameNum(frameNum);
+    let zoom: Rect | undefined;
+
     // If we have an auto-zoom request pending, use those coords for the
     // frame velocity calc.  Otherwise use a grid around the finish line
     const autoZoomCoords = getAutoZoomPending();
-    let zoom: Rect | undefined;
-    if (videoScaling.zoom !== 1) {
+
+    if (videoScaling.zoom !== 1 || autoZoomCoords) {
       // If we are zooming, specigy the coordinates for the motion detection zoom to utilize
       if (autoZoomCoords) {
         // An auto-zoom request is pending for specific coordinates
@@ -389,7 +395,7 @@ export const moveToFrame = (frameNum: number, offset?: number) => {
             0,
             autoZoomCoords.x + (getTravelRightToLeft() ? -16 : -240)
           ),
-          y: Math.max(0, autoZoomCoords.y - 50),
+          y: Math.max(0, autoZoomCoords.y - 25),
           width: 256,
           height: 100,
         };
@@ -403,9 +409,9 @@ export const moveToFrame = (frameNum: number, offset?: number) => {
               (finishLine.pt1 + finishLine.pt2) / 2 +
               (getTravelRightToLeft() ? -16 : -240)
           ),
-          y: Math.max(0, videoScaling.srcCenterPoint.y - 50),
+          y: Math.max(0, videoScaling.srcCenterPoint.y - 100),
           width: 256,
-          height: 100,
+          height: 200,
         };
       }
     }
@@ -414,6 +420,7 @@ export const moveToFrame = (frameNum: number, offset?: number) => {
       videoFile: image.file,
       frameNum,
       zoom,
+      blend,
     });
   }
 };

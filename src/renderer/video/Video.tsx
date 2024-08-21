@@ -23,6 +23,8 @@ import {
   setVideoScaling,
   getVideoScaling,
   Point,
+  useVideoScaling,
+  getHyperZoomFactor,
 } from './VideoSettings';
 import VideoOverlay, {
   useAdjustingOverlay,
@@ -46,7 +48,7 @@ import { setGenerateImageSnapshotCallback } from './ImageButton';
 import VideoScrubber from './VideoScrubber';
 import { performAddSplit } from './AddSplitUtil';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import Blowup from 'renderer/Blowup';
+import Blowup from './Blowup';
 
 const useStyles = makeStyles({
   text: {
@@ -148,7 +150,7 @@ const applyZoom = ({ srcPoint, zoom }: { srcPoint: Point; zoom: number }) => {
 const isZooming = () => getVideoScaling().zoom !== 1;
 
 const clearZoom = () => {
-  applyZoom({ zoom: 1, srcPoint: { x: 0, y: 0 } });
+  applyZoom({ zoom: 1, srcPoint: getVideoScaling().srcCenterPoint });
 };
 
 interface MouseState {
@@ -178,7 +180,8 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
       getTravelRightToLeft() ? moveRight() : moveLeft();
       break;
     case 'Shift':
-      setShowBlowup(!isZooming());
+      // setShowBlowup(!isZooming());
+      setShowBlowup(true);
       break;
 
     default:
@@ -219,6 +222,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [mousePos, setMousePos] = useState<Point>({ x: 0, y: 0 });
   const [srcPos, setSrcPos] = useState<Point>({ x: 0, y: 0 });
   const [showBlowup, setShowBlowup] = useShowBlowup();
+  const [videoScaling] = useVideoScaling();
   destSize.current = { width, height };
 
   const mouseTracking = useRef<MouseState>({
@@ -236,17 +240,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const videoOverlayRef = useRef<VideoOverlayHandles>(null);
   const offscreenCanvas = useRef(document.createElement('canvas'));
 
-  const initScaling = useCallback(() => {
-    clearZoom();
-    mouseTracking.current.mouseDown = false;
-
-    srcCenter.current = { x: image.width / 2, y: image.height / 2 };
-
-    drawContentDebounced();
-  }, [image.width, image.height]);
-
   useEffect(() => {
-    initScaling();
+    mouseTracking.current.mouseDown = false;
+    srcCenter.current = { x: image.width / 2, y: image.height / 2 };
     setVideoScaling((prior) => ({
       ...prior,
       srcWidth: image.width,
@@ -254,6 +250,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       destWidth: width,
       destHeight: height,
     }));
+    applyZoom({
+      zoom: 1,
+      srcPoint: { x: image.width / 2, y: image.height / 2 },
+    });
+    drawContentDebounced();
   }, [image.width, image.height, width, height]);
 
   useEffect(() => {
@@ -277,7 +278,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     } else {
       mouseTracking.current.imageLoaded = false;
     }
-  }, [image]);
+  }, [image, videoScaling.zoom]);
 
   useEffect(() => {
     // A bit of a hack but set a global callback function instead of passing it down the tree
@@ -346,7 +347,21 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         const dx = image.width / 2 + finish.pt1 - zoomPoint.x;
         const ticks = dx / image.motion.x;
         console.log(`Ticks: ${ticks} (${dx} / ${image.motion.x})`);
-        moveToFrame(getVideoFrameNum() + ticks, 0);
+        // subtract 0.5 as that was used to trigger calc of dx
+        let destFrame = getVideoFrameNum() + ticks - 0.5;
+        if (getHyperZoomFactor() === 0) {
+          destFrame = Math.round(destFrame);
+        }
+        moveToFrame(destFrame);
+        applyZoom({
+          zoom: 4,
+          srcPoint: {
+            x: getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
+            y: zoomPoint.y,
+          },
+        });
+      } else {
+        console.log(`Failed to auto-zoom rx frame=${image.frameNum}`);
       }
     }
   }, [image]);
@@ -402,34 +417,32 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         pt: srcCoords,
         withinBounds,
       } = translateMouseEvent2Src(event, rect);
-
-      mouseTracking.current.mouseDownClientX = x;
-      mouseTracking.current.mouseDownClientY = y;
-
       if (!withinBounds) {
         return;
       }
-      if (getVideoSettings().enableLaneGuides) {
+
+      mouseTracking.current.mouseDown = true;
+      mouseTracking.current.mouseDownClientX = x;
+      mouseTracking.current.mouseDownClientY = y;
+
+      const videoSettings = getVideoSettings();
+      if (videoSettings.enableLaneGuides) {
         selectLane(srcCoords);
       }
-      mouseTracking.current.mouseDown = true;
-      const videoScaling = getVideoScaling();
       if (event.shiftKey) {
-        if (getVideoSettings().enableAutoZoom) {
+        if (videoSettings.enableAutoZoom) {
           setAutoZoomPending(srcCoords);
+          moveToFrame(getVideoFrameNum() + 0.5); //0.5 to trigger calc of
         }
-      }
-      if (!isZooming() || getAutoZoomPending()) {
+      } else if (!isZooming()) {
         const finish = getFinishLine();
         applyZoom({
           zoom: 5,
           srcPoint: {
-            x: videoScaling.srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
+            x: getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
             y: srcCoords.y,
           },
         });
-        drawContentDebounced();
-        moveToFrame(getVideoFrameNum(), 0.1);
       }
     },
     []
@@ -448,7 +461,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       setMousePos({ x, y });
       setSrcPos(srcCoords);
       const videoScaling = getVideoScaling();
-      setShowBlowup(event.shiftKey && !isZooming());
+      setShowBlowup(event.shiftKey);
 
       const nearVerticalEdge =
         srcCoords.y < 20 || srcCoords.y > videoScaling.srcHeight - 20;
@@ -467,7 +480,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         const newScale = Math.max(1, videoScaling.zoom + deltaY * 0.01);
         // Adjust the scale based on the mouse movement
         applyZoom({ zoom: newScale, srcPoint: srcCenter.current });
-        drawContentDebounced();
       }
       if (mouseTracking.current.mouseDown) {
         let downMoveX = mouseTracking.current.mouseDownClientX - x;
@@ -485,11 +497,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   useEffect(() => {
     clearZoom();
-    // Trigger a reload of this frame as we exit zoom
-    const frameNum = getVideoFrameNum();
-    const intFrame = Math.trunc(frameNum);
-    moveToFrame(intFrame, frameNum - intFrame);
-    drawContentDebounced();
+    // Trigger a reload of this frame as we exit zoom.
+    // This frame will be generated without alpha blending but simply moving the frame
+    // so it doesn't look fuzzy.
+    // const frameNum = getVideoFrameNum();
+    moveToFrame(getVideoFrameNum(), undefined, false); // keep to trigger refresh on exiting zoom
   }, [resetZoomCount]);
 
   const handleMouseLeave = () => {
@@ -571,6 +583,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           // justifyContent: 'center', // Center horizontally
           alignItems: 'top', //  vertically
           overflow: 'hidden', // In case the image is too big
+          // cursor: showBlowup ? 'none' : 'auto',
         }}
       >
         <Stack
@@ -624,8 +637,12 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             canvas={offscreenCanvas.current}
             mousePos={mousePos}
             srcPos={srcPos}
-            size={100} // size of the blowup circle
-            zoom={2} // zoom factor
+            size={videoScaling.zoom > 1 ? 100 : 100 / videoScaling.pixScale} // size of the blowup circle
+            zoom={
+              videoScaling.zoom > 1
+                ? 1 / videoScaling.pixScale
+                : 2 / videoScaling.pixScale
+            }
           />
         )}
         <VideoOverlay

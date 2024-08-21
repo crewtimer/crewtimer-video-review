@@ -60,12 +60,6 @@ export const VideoSettingsDialog = () => {
   const [wheelFactor, setWheelFactor] = useMouseWheelFactor();
   const [wheelInverted, setWheelInverted] = useMouseWheelInverted();
   const [rightToLeft, setRightToLeft] = useTravelRightToLeft();
-  if (videoSettings.enableLaneGuides === undefined) {
-    videoSettings.enableLaneGuides = true; // orig state this wasn't set
-  }
-  if (videoSettings.enableAutoZoom === undefined) {
-    videoSettings.enableAutoZoom = true; // orig state this wasn't set
-  }
 
   // Handler to update the wheelFactor state
   const handleSliderChange = (_event: Event, newValue: number | number[]) => {

@@ -46,7 +46,7 @@ const Blowup: React.FC<BlowupProps> = ({
           );
 
           // Draw crosshairs
-          blowupCtx.strokeStyle = '#ff000080'; // Color of the crosshair lines
+          blowupCtx.strokeStyle = '#ff0000a0'; // Color of the crosshair lines
           blowupCtx.lineWidth = 1; // Width of the crosshair lines
 
           // Vertical line

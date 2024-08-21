@@ -51,7 +51,8 @@
     "test": "jest",
     "winbuild": "npm run build && node_modules/.bin/electron-builder --win",
     "macbuild": "npm run build && node_modules/.bin/electron-builder --mac",
-    "kill": "kill -9 `lsof -i:1212 -t`"
+    "kill": "kill -9 `lsof -i:1212 -t`",
+    "update-native": "(cd release/app && yarn add ../../native/ffreader) && yarn start"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
