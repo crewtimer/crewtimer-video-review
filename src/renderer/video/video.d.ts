@@ -11,7 +11,8 @@ declare global {
         frameNum: number,
         tsMilli: number,
         zoom?: Rect,
-        blend?: boolean
+        blend?: boolean,
+        saveAs?: String
       ): Promise<AppImage>;
       sendMulticast(
         msg: string,

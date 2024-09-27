@@ -3,8 +3,17 @@
 #include "FrameUtils.hpp"
 #include <algorithm>
 #include <iostream>
+#include <memory>
 #include <opencv2/opencv.hpp>
+#include <string>
 #include <vector>
+
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/opt.h>
+}
 
 using namespace cv;
 using namespace std;
@@ -260,4 +269,134 @@ void sharpenFrame(const std::shared_ptr<FrameInfo> frameA) {
 
   // Apply the filter in-place
   cv::filter2D(img, img, img.depth(), kernel);
+}
+
+/**
+ * @brief Saves a frame as a PNG file using OpenCV.
+ *
+ * This function takes a `FrameInfo` object, extracts the RGBA data,
+ * and saves it as a PNG image using the OpenCV library.
+ *
+ * @param frameInfo A shared pointer to a `FrameInfo` object containing the
+ * frame data.
+ * @param outputFileName The name of the output PNG file.
+ *
+ * @note The `frameInfo` object must contain valid RGBA data, and the `width`
+ * and `height` fields must be set appropriately.
+ *
+ * @warning If the `frameInfo` object is invalid, the function will print an
+ * error message and return without saving an image.
+ */
+void saveFrameAsPNG(const std::shared_ptr<FrameInfo> &frameInfo,
+                    const std::string &outputFileName) {
+  if (!frameInfo || !frameInfo->data || frameInfo->data->empty() ||
+      frameInfo->width <= 0 || frameInfo->height <= 0) {
+    std::cerr << "Invalid frame data or dimensions." << std::endl;
+    return;
+  }
+
+  // Find the PNG encoder
+  const AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_PNG);
+  if (!codec) {
+    std::cerr << "PNG codec not found." << std::endl;
+    return;
+  }
+
+  // Create a codec context
+  AVCodecContext *codecContext = avcodec_alloc_context3(codec);
+  if (!codecContext) {
+    std::cerr << "Could not allocate codec context." << std::endl;
+    return;
+  }
+
+  // Set codec parameters
+  codecContext->bit_rate = 400000;
+  codecContext->width = frameInfo->width;
+  codecContext->height = frameInfo->height;
+  codecContext->pix_fmt = AV_PIX_FMT_RGBA; // Input pixel format
+  codecContext->time_base = {1, 25};       // Frame rate
+
+  // Open the codec
+  if (avcodec_open2(codecContext, codec, nullptr) < 0) {
+    std::cerr << "Could not open codec." << std::endl;
+    avcodec_free_context(&codecContext);
+    return;
+  }
+
+  // Allocate an AVFrame and set its properties
+  AVFrame *frame = av_frame_alloc();
+  if (!frame) {
+    std::cerr << "Could not allocate frame." << std::endl;
+    avcodec_free_context(&codecContext);
+    return;
+  }
+  frame->format = codecContext->pix_fmt;
+  frame->width = codecContext->width;
+  frame->height = codecContext->height;
+
+  // Allocate the frame buffer
+  if (av_image_alloc(frame->data, frame->linesize, frame->width, frame->height,
+                     codecContext->pix_fmt, 32) < 0) {
+    std::cerr << "Could not allocate frame buffer." << std::endl;
+    av_frame_free(&frame);
+    avcodec_free_context(&codecContext);
+    return;
+  }
+
+  // Copy the RGBA data from FrameInfo into the frame
+  int bufferSize = av_image_get_buffer_size(codecContext->pix_fmt, frame->width,
+                                            frame->height, 1);
+  std::memcpy(frame->data[0], frameInfo->data->data(), bufferSize);
+
+  // Create a packet to hold encoded data
+  AVPacket *pkt = av_packet_alloc();
+  if (!pkt) {
+    std::cerr << "Could not allocate packet." << std::endl;
+    av_freep(&frame->data[0]);
+    av_frame_free(&frame);
+    avcodec_free_context(&codecContext);
+    return;
+  }
+
+  // Encode the frame into a PNG
+  int ret = avcodec_send_frame(codecContext, frame);
+  if (ret < 0) {
+    std::cerr << "Error sending frame to codec." << std::endl;
+    av_packet_free(&pkt);
+    av_freep(&frame->data[0]);
+    av_frame_free(&frame);
+    avcodec_free_context(&codecContext);
+    return;
+  }
+
+  ret = avcodec_receive_packet(codecContext, pkt);
+  if (ret < 0) {
+    std::cerr << "Error receiving packet from codec." << std::endl;
+    av_packet_free(&pkt);
+    av_freep(&frame->data[0]);
+    av_frame_free(&frame);
+    avcodec_free_context(&codecContext);
+    return;
+  }
+
+  // Write the encoded data to a file
+  FILE *outputFile = fopen(outputFileName.c_str(), "wb");
+  if (!outputFile) {
+    std::cerr << "Could not open output file." << std::endl;
+    av_packet_free(&pkt);
+    av_freep(&frame->data[0]);
+    av_frame_free(&frame);
+    avcodec_free_context(&codecContext);
+    return;
+  }
+  fwrite(pkt->data, 1, pkt->size, outputFile);
+  fclose(outputFile);
+
+  // Free resources
+  av_packet_free(&pkt);
+  av_freep(&frame->data[0]);
+  av_frame_free(&frame);
+  avcodec_free_context(&codecContext);
+
+  std::cout << "Image saved successfully to " << outputFileName << std::endl;
 }

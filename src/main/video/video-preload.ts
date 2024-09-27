@@ -35,7 +35,8 @@ contextBridge.exposeInMainWorld('VideoUtils', {
     frameNum: number,
     utcMilli: number,
     zoom?: Rect,
-    blend?: boolean
+    blend?: boolean,
+    saveAs?: string
   ) => {
     try {
       const result = (await ipcRenderer.invoke(
@@ -44,7 +45,8 @@ contextBridge.exposeInMainWorld('VideoUtils', {
         frameNum,
         utcMilli,
         zoom,
-        blend
+        blend,
+        saveAs
       )) as AppImage;
       if (result.status !== 'OK') {
         throw new Error(result.status);

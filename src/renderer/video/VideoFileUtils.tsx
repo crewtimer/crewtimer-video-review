@@ -48,9 +48,8 @@ let openFileStatus: OpenFileStatus = {
   sidecar: {},
 };
 
-export const [useFileStatusList, setFileStatusList] = UseDatum<
-  OpenFileStatus[]
->([]);
+export const [useFileStatusList, setFileStatusList, getFileStatusList] =
+  UseDatum<OpenFileStatus[]>([]);
 const fileStatusByName = new Map<string, OpenFileStatus>();
 
 /**
@@ -96,6 +95,7 @@ type VideoFrameRequest = {
   toTimestamp?: string; // The timestamp to seek to (HHMMSS.sss), Optional.
   zoom?: Rect; // The zoom window, Optional.
   blend?: boolean; // Whether to blend the frame with the previous frame, Optional.
+  saveAs?: string; // optional filename in which to save a png image of the frame
 };
 
 const doRequestVideoFrame = async ({
@@ -106,6 +106,7 @@ const doRequestVideoFrame = async ({
   toTimestamp,
   zoom,
   blend,
+  saveAs,
 }: VideoFrameRequest) => {
   if (!videoFile) {
     return;
@@ -229,7 +230,8 @@ const doRequestVideoFrame = async ({
         seekPos,
         utcMilli,
         zoom,
-        blend
+        blend,
+        saveAs
       );
       if (!imageStart) {
         console.log(`failed to get frame for ${videoFile}@${seekPos}`);
@@ -286,6 +288,7 @@ function createRequestVideoFrameHandler() {
     toTimestamp,
     zoom,
     blend,
+    saveAs,
   }: VideoFrameRequest): Promise<void> => {
     // Check if there is an ongoing request.
     if (currentRequest) {
@@ -300,6 +303,7 @@ function createRequestVideoFrameHandler() {
             toTimestamp,
             zoom,
             blend,
+            saveAs,
           })
             .then(resolve)
             .catch(reject);
@@ -315,6 +319,7 @@ function createRequestVideoFrameHandler() {
         toTimestamp,
         zoom,
         blend,
+        saveAs,
       });
     }
   };
@@ -334,6 +339,7 @@ function createRequestVideoFrameHandler() {
     toTimestamp,
     zoom,
     blend,
+    saveAs,
   }: VideoFrameRequest): Promise<void> => {
     // Start processing the request
     currentRequest = (async () => {
@@ -345,6 +351,7 @@ function createRequestVideoFrameHandler() {
         toTimestamp,
         zoom,
         blend,
+        saveAs,
       });
     })();
 
@@ -470,6 +477,7 @@ export const seekToTimestamp = (timestamp: string, fromClick?: boolean) => {
       fromClick,
       toTimestamp: timestamp,
       blend: true,
+      saveAs: '',
     }).catch(showErrorDialog);
   }
 };

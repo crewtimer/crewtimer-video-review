@@ -18,7 +18,6 @@ import {
   useMobileID,
   useFirebaseConnected,
   setProgressBar,
-  useProgressBar,
 } from './util/UseSettings';
 import { getConnectionProps } from './util/Util';
 import { setToast } from './Toast';
@@ -32,30 +31,8 @@ import { useFirebaseDatum } from './util/UseFirebase';
 import { Button, Stack, Link } from '@mui/material';
 import { setDialogConfig } from './util/ConfirmDialog';
 import { addSidecarFiles } from './video/VideoFileUtils';
-import { LinearProgress, Box } from '@mui/material';
-
-/**
- * ProgressBarComponent is a React component that displays a progress bar
- * using Material-UI. The progress gradually increases from 0 to 100.
- *
- * @component
- * @example
- * return (
- *   <ProgressBarComponent />
- * )
- */
-const ProgressBarComponent: React.FC = () => {
-  const [progress] = useProgressBar();
-
-  return (
-    <Box sx={{ width: '100%' }}>
-      <Typography variant="h6" gutterBottom>
-        Progress: {Math.round(progress)}%
-      </Typography>
-      <LinearProgress variant="determinate" value={progress} />
-    </Box>
-  );
-};
+import ProgressBarComponent from './util/ProgressBarComponent';
+import { initiateImageArchive } from './video/ImageArchive';
 
 const AboutText = `CrewTimer Video Review ${window.platform.appVersion}`;
 
@@ -112,6 +89,11 @@ export default function Nav() {
 
   const handleClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleCreateImageArchive = () => {
+    setAnchorEl(null);
+    initiateImageArchive();
   };
 
   const handleAddSidecarFiles = () => {
@@ -248,6 +230,14 @@ export default function Nav() {
                       <CreateNewFolderIcon />
                     </ListItemIcon>
                     <ListItemText primary="Create Sidecar Files" />
+                  </MenuItem>
+                )}
+                {shiftMenu && (
+                  <MenuItem onClick={handleCreateImageArchive}>
+                    <ListItemIcon>
+                      <CreateNewFolderIcon />
+                    </ListItemIcon>
+                    <ListItemText primary="Create Image Archive" />
                   </MenuItem>
                 )}
 

@@ -72,7 +72,7 @@ ipcMain.handle('video:closeFile', (_event, filePath) => {
 
 ipcMain.handle(
   'video:getFrame',
-  (_event, filePath, frameNum, tsMilli, zoom, blend) => {
+  (_event, filePath, frameNum, tsMilli, zoom, blend, saveAs) => {
     try {
       // console.log('Grabbing frame', zoom);
       // console.log('Grabbing frame', filePath, frameNum);
@@ -83,6 +83,7 @@ ipcMain.handle(
         tsMilli: tsMilli,
         zoom: zoom || { x: 0, y: 0, width: 0, height: 0 },
         blend: blend || false,
+        saveAs: saveAs || '',
       } as unknown as GrabFrameMessage);
       if (ret.status === 'OK') {
         // row 0 should be black

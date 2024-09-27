@@ -166,3 +166,22 @@ generateInterpolatedFrame(const std::shared_ptr<FrameInfo> frameA,
                           double pctAtoB, FrameRect roi, bool blend);
 
 void sharpenFrame(const std::shared_ptr<FrameInfo> frameA);
+
+/**
+ * @brief Saves a frame as a PNG file using OpenCV.
+ *
+ * This function takes a `FrameInfo` object, extracts the RGBA data,
+ * and saves it as a PNG image using the OpenCV library.
+ *
+ * @param frameInfo A shared pointer to a `FrameInfo` object containing the
+ * frame data.
+ * @param outputFileName The name of the output PNG file.
+ *
+ * @note The `frameInfo` object must contain valid RGBA data, and the `width`
+ * and `height` fields must be set appropriately.
+ *
+ * @warning If the `frameInfo` object is invalid, the function will print an
+ * error message and return without saving an image.
+ */
+void saveFrameAsPNG(const std::shared_ptr<FrameInfo> &frameInfo,
+                    const std::string &outputFileName);

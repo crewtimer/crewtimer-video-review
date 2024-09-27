@@ -348,7 +348,7 @@ export const moveToFileIndex = (
   const videoFile = dirList[index];
   setSelectedIndex(index);
   setVideoFile(videoFile);
-  requestVideoFrame({ videoFile, seekPercent, fromClick });
+  return requestVideoFrame({ videoFile, seekPercent, fromClick });
 };
 export const prevFile = () => {
   moveToFileIndex(getSelectedIndex() - 1, 1, true);

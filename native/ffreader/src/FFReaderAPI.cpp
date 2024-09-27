@@ -200,6 +200,14 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
       return ret;
     }
     auto roi = noZoom;
+    std::string saveAs;
+    if (args.Has("saveAs")) {
+      saveAs = args.Get("saveAs").As<Napi::String>().Utf8Value();
+      if (debugLevel > 1) {
+        std::cout << "saveAs: " << saveAs << std::endl;
+      }
+    }
+
     if (args.Has("zoom")) {
       auto zoom = args.Get("zoom").As<Napi::Object>();
       auto x = zoom.Get("x").As<Napi::Number>().Int32Value();
@@ -313,6 +321,10 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
       // if (hasZoom) {
       //   sharpenFrame(frameInfo);
       // }
+    }
+
+    if (!saveAs.empty()) {
+      saveFrameAsPNG(frameInfo, saveAs);
     }
 
     ret.Set("data", Napi::Buffer<uint8_t>::Copy(env, frameInfo->data->data(),

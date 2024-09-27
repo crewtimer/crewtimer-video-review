@@ -18,6 +18,7 @@ declare module 'crewtimer_video_reader' {
     file: string;
     zoom?: { x: number; y: number; width: number; height: number };
     blend?: boolean;
+    saveAs?: string; // optional filename in which to save a png image of the frame
   }
 
   interface CloseFileMessage extends MessageBase {
