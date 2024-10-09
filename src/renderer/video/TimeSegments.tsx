@@ -77,6 +77,7 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
             key={`${index}`}
             title={`${segment.label} ${segment.startTime} - ${segment.endTime}`}
             enterTouchDelay={0}
+            placement="top"
           >
             <Box
               onClick={(event) => handleSegmentClick(event, index)}

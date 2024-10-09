@@ -47,7 +47,7 @@ const VideoSideBar: React.FC<CustomTableProps> = ({ sx, height }) => {
         ...sx,
       }}
     >
-      <Tooltip title={videoDir} placement="top">
+      <Tooltip title={videoDir} placement="bottom">
         <Button
           size="small"
           variant="contained"
