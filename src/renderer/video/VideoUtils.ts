@@ -10,6 +10,7 @@ import {
   getVideoFrameNum,
   getVideoScaling,
   getVideoSettings,
+  setJumpToEndPending,
   setSelectedIndex,
   setVideoFile,
   setVideoFrameNum,
@@ -183,6 +184,7 @@ export const triggerFileSplit = () => {
     ts: new Date().getTime(),
   };
   window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
+  setJumpToEndPending(true);
 };
 
 export const notifiyGuideChanged = () => {

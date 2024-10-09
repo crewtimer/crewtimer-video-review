@@ -46,6 +46,8 @@ export const [useVideoScaling, setVideoScaling, getVideoScaling] =
     zoom: 1,
   });
 
+export const [useJumpToEndPending, setJumpToEndPending] = UseDatum(false);
+
 export const [useVideoError, setVideoError] = UseDatum<string | undefined>(
   undefined
 );

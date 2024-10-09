@@ -17,6 +17,7 @@ import {
   setVideoFile,
   setVideoFrameNum,
   setVideoSettings,
+  useJumpToEndPending,
   useVideoDir,
 } from './VideoSettings';
 import { extractTime, parseTimeToSeconds } from './VideoUtils';
@@ -577,6 +578,7 @@ export const addSidecarFiles = async () => {
 const FileMonitor: React.FC = () => {
   const [videoDir] = useVideoDir();
   const [initializing] = useInitializing();
+  const [jumpToEndPending] = useJumpToEndPending();
 
   useEffect(() => {
     if (initializing) {
@@ -585,13 +587,16 @@ const FileMonitor: React.FC = () => {
     fileStatusByName.clear();
     setFileStatusList([]);
     refreshDirList(videoDir);
-    const timer = setInterval(() => {
-      if (videoDir) {
-        refreshDirList(videoDir);
-      }
-    }, 4000);
+    const timer = setInterval(
+      () => {
+        if (videoDir) {
+          refreshDirList(videoDir);
+        }
+      },
+      jumpToEndPending ? 500 : 4000
+    );
     return () => clearInterval(timer);
-  }, [videoDir, initializing]);
+  }, [videoDir, initializing, jumpToEndPending]);
 
   return <></>;
 };

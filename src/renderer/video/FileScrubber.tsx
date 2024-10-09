@@ -1,6 +1,6 @@
-import { Box, Button, Stack, SxProps, Theme } from '@mui/material';
+import { Box, Button, Stack, SxProps, Theme, Tooltip } from '@mui/material';
 import FastForwardIcon from '@mui/icons-material/FastForward';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   getDirList,
   refreshDirList,
@@ -18,6 +18,7 @@ import {
   getSelectedIndex,
   getVideoDir,
   setVideoFile,
+  useJumpToEndPending,
   useSelectedIndex,
   useTimezoneOffset,
 } from './VideoSettings';
@@ -43,18 +44,16 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   let lapdata = useClickerData() as TimeObject[];
   const [scoredWaypoint] = useWaypoint();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
+  const [jumpToEndPending, setJumpToEndPending] = useJumpToEndPending();
 
   // console.log(`lapdata: ${Object.keys(lapdata || {}).length}`);
 
-  const jumpToEnd = () => {
-    // Trigger a file split, then read the files and jump to the end
-    triggerFileSplit();
-    setTimeout(async () => {
-      await refreshDirList(getVideoDir());
-      const dirs = getDirList();
-      if (dirs.length) {
-        setFileIndex(dirs.length - 1);
-        const videoFile = dirs[dirs.length - 1];
+  useEffect(() => {
+    if (jumpToEndPending) {
+      setJumpToEndPending(false);
+      if (dirList.length) {
+        setFileIndex(dirList.length - 1);
+        const videoFile = dirList[dirList.length - 1];
         setVideoFile(videoFile);
         requestVideoFrame({
           videoFile: videoFile,
@@ -62,7 +61,12 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           fromClick: false,
         });
       }
-    }, 1200);
+    }
+  }, [dirList]);
+
+  const jumpToEnd = () => {
+    // Trigger a file split, then read the files and jump to the end
+    triggerFileSplit();
   };
 
   // Calc the time segment list
@@ -116,19 +120,21 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
       }}
       sx={sx}
     >
-      <Button
-        variant="contained"
-        onClick={prevFile}
-        size="small"
-        sx={{
-          height: 24,
-          m: 0,
-          minWidth: 24,
-          background: '#19857b',
-        }}
-      >
-        &lt;
-      </Button>
+      <Tooltip title="Previous video file" placement="top">
+        <Button
+          variant="contained"
+          onClick={prevFile}
+          size="small"
+          sx={{
+            height: 24,
+            m: 0,
+            minWidth: 24,
+            background: '#19857b',
+          }}
+        >
+          &lt;
+        </Button>
+      </Tooltip>
       <Box
         sx={{
           position: 'relative',
@@ -178,33 +184,37 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           />
         </Box>
       </Box>
-      <Button
-        variant="contained"
-        onClick={nextFile}
-        size="small"
-        sx={{
-          height: 24,
-          m: 0,
-          minWidth: 24,
-          background: '#19857b',
-        }}
-      >
-        &gt;
-      </Button>
-      <Button
-        variant="contained"
-        onClick={jumpToEnd}
-        size="small"
-        sx={{
-          height: 24,
-          m: 0,
-          minWidth: 24,
-          background: '#19857b',
-          marginLeft: '0.5em',
-        }}
-      >
-        <FastForwardIcon fontSize={'small'} />
-      </Button>
+      <Tooltip title="Next video file" placement="top">
+        <Button
+          variant="contained"
+          onClick={nextFile}
+          size="small"
+          sx={{
+            height: 24,
+            m: 0,
+            minWidth: 24,
+            background: '#19857b',
+          }}
+        >
+          &gt;
+        </Button>
+      </Tooltip>
+      <Tooltip title="Split video and select last video" placement="top">
+        <Button
+          variant="contained"
+          onClick={jumpToEnd}
+          size="small"
+          sx={{
+            height: 24,
+            m: 0,
+            minWidth: 24,
+            background: '#19857b',
+            marginLeft: '0.5em',
+          }}
+        >
+          <FastForwardIcon fontSize={'small'} />
+        </Button>
+      </Tooltip>
     </Stack>
   );
 };
