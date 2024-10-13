@@ -2,8 +2,6 @@ import { Box, Button, Stack, SxProps, Theme, Tooltip } from '@mui/material';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import React, { useEffect, useMemo } from 'react';
 import {
-  getDirList,
-  refreshDirList,
   requestVideoFrame,
   useDirList,
   useFileStatusList,
@@ -16,7 +14,6 @@ import {
 } from './VideoUtils';
 import {
   getSelectedIndex,
-  getVideoDir,
   setVideoFile,
   useJumpToEndPending,
   useSelectedIndex,
