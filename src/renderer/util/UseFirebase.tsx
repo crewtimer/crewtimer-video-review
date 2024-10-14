@@ -37,7 +37,7 @@ const unsubscribers: KeyMap<() => void> = {};
  * @param {WatchFirebaseOpts<T, P>} [opts] Optional parameters for filtering and transforming data.
  * @returns {() => void} Unsubscribe function to stop listening for data changes.
  */
-function firebaseSubscribe<T, P>(
+export function firebaseSubscribe<T, P>(
   path: string,
   onDataRx: (data: T | undefined) => void,
   opts?: WatchFirebaseOpts<T, P>
@@ -76,6 +76,7 @@ export function useFirebaseDatum<T, P = T>(
       setValue(data);
     };
     if (!callbackHandlers[key]) {
+      console.log(`useFirebaseDatum: ${key}`);
       callbackHandlers[key] = [];
       dataValues[key] = undefined;
       setValue(dataValues[key]);

@@ -7,8 +7,8 @@ import {
   getVideoFile,
   setVideoSettings,
 } from 'renderer/video/VideoSettings';
-import { saveVideoSidecar } from 'renderer/video/VideoUtils';
 import { showErrorDialog } from './ErrorDialog';
+import { saveVideoSidecar } from '../video/VideoFileUtils';
 
 export const [useLaps, setLaps, getLaps] = UseMemDatum<Lap[]>(LapDatumName, []);
 export const [useLapListInitCount] = UseMemDatum(LapListInitCount, 0);

@@ -53,6 +53,7 @@ import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 import makeStyles from '@mui/styles/makeStyles';
 import { seekToTimestamp } from './VideoFileUtils';
 import { performAddSplit } from './AddSplitUtil';
+import { useEntryException } from './UseClickerData';
 
 const useStyles = makeStyles((_theme) => ({
   row: {
@@ -66,6 +67,7 @@ interface RowType {
   eventNum: string;
   label: string;
   Bow: string;
+  Crew: string;
   Time: string;
   event: Event;
   entry?: Entry;
@@ -195,6 +197,11 @@ export const RenderTimeHeaderCell: React.FC<RenderHeaderCellProps<RowType>> = ({
     </Typography>
   );
 };
+
+function sanitizeFirebaseKey(s: string) {
+  return s.replace(/[#$/[.\]]/g, '-');
+}
+
 const columns = (width: number): readonly Column<RowType>[] => {
   const col2Width = 80 + 14 + 16;
   const col1Width = width - col2Width - 20;
@@ -205,24 +212,34 @@ const columns = (width: number): readonly Column<RowType>[] => {
       width: col1Width,
       renderHeaderCell: RenderHeaderCell,
       renderCell: ({ row }: { row: RowType }) => {
-        return (
+        const key = sanitizeFirebaseKey(
+          `1-${row.entry?.EventNum}-${row.entry?.Bow}`
+        );
+        const [exception] = useEntryException(key);
+
+        return row.eventName ? (
           <Typography
-            sx={
-              row.eventName
-                ? {
-                    color: 'white',
-                    paddingLeft: '0.5em',
-                    fontSize: timingFontSize,
-                    lineHeight: '24px',
-                  }
-                : {
-                    paddingLeft: '0.5em',
-                    fontSize: timingFontSize,
-                    lineHeight: '24px',
-                  }
-            }
+            sx={{
+              color: 'white',
+              paddingLeft: '0.5em',
+              fontSize: timingFontSize,
+              lineHeight: '24px',
+            }}
           >
             {row.label}
+          </Typography>
+        ) : (
+          <Typography
+            sx={{
+              paddingLeft: '0.5em',
+              fontSize: timingFontSize,
+              lineHeight: '24px',
+              backgroundColor: exception ? '#fdd' : undefined,
+            }}
+          >
+            {exception
+              ? `${row.Bow} ${exception} ${row.Crew}`
+              : `${row.Bow} ${row.Crew}`}
           </Typography>
         );
       },
@@ -357,6 +374,7 @@ const generateEventRows = (
       eventName: event.Event,
       eventNum: event.EventNum,
       label: `E${event.Event}`,
+      Crew: '',
       Bow: '',
       Time: '',
       event,
@@ -376,6 +394,7 @@ const generateEventRows = (
         eventName: '',
         eventNum: event.EventNum,
         label: `${entry.Bow} ${entry.Crew}`,
+        Crew: entry.Crew,
         Bow: entry.Bow,
         Time,
         event,

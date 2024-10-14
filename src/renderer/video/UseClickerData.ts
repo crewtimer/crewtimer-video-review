@@ -1,5 +1,6 @@
 import { Lap, KeyMap } from 'crewtimer-common';
 import { useFirebaseDatum } from 'renderer/util/UseFirebase';
+import { UseKeyedDatum } from 'renderer/util/UseKeyedDatum';
 import {
   getDay,
   getMobileConfig,
@@ -72,3 +73,11 @@ export const useResultData = () => {
   const entries = useFirebaseDatum<KeyMap[]>(path);
   return entries || [];
 };
+
+/**
+ * React hook for subscribing to entry exception state - DNS, DNF, SCR.
+ * @param {string} path A key computed as `1-${entry?.EventNum}-${entry?.Bow}`.
+ * @returns {string | undefined} The current exception state.
+ */
+export const [useEntryException, setEntryException, , clearEntryExceptions] =
+  UseKeyedDatum<string>();
