@@ -272,7 +272,7 @@ const VideoScrubber = () => {
                 ? ''
                 : tooltip.Bow === '?'
                 ? `? ${tooltip.Time}`
-                : `E${tooltip.EventNum}-${tooltip.Bow}: ${tooltip.Time}`
+                : `Bow ${tooltip.Bow}:E${tooltip.EventNum} ${tooltip.Time}`
             }
             placement="top"
             followCursor

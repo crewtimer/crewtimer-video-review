@@ -356,7 +356,12 @@ export const prevFile = () => {
   moveToFileIndex(getSelectedIndex() - 1, 1, true);
 };
 export const nextFile = () => {
-  moveToFileIndex(getSelectedIndex() + 1, 0, true);
+  const dirList = getDirList();
+  if (getSelectedIndex() === dirList.length - 1) {
+    triggerFileSplit();
+  } else {
+    moveToFileIndex(getSelectedIndex() + 1, 0, true);
+  }
 };
 export const moveToFrame = (
   frameNum: number,
