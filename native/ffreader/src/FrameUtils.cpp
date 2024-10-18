@@ -40,7 +40,7 @@ void sharpenImage(const cv::Mat &src, cv::Mat &dst) {
  * for left-to-right).
  * @return The index of the first peak found, or -1 if no peak is found.
  */
-int findFirstPeak(const vector<int> &arr, int dir, int minLevel) {
+size_t findFirstPeak(const vector<int> &arr, int dir, int minLevel) {
   if (dir > 0) { // Search from right to left
     for (auto i = arr.size() - 1; i >= 12; i--) {
       if (arr[i] > minLevel && arr[i] > arr[i - 1] && arr[i] > arr[i - 2] &&
@@ -57,13 +57,13 @@ int findFirstPeak(const vector<int> &arr, int dir, int minLevel) {
     }
   }
 
-  return -1; // No peak found
+  return 0; // No peak found
 }
 
 int findPeak(const vector<int> &hist) {
-  auto negPeak = findFirstPeak(hist, -1, 60);
-  auto posPeak = findFirstPeak(hist, 1, 60);
-  if (negPeak == -1 && posPeak == -1) {
+  size_t negPeak = findFirstPeak(hist, -1, 60);
+  size_t posPeak = findFirstPeak(hist, 1, 60);
+  if (negPeak == 0 && posPeak == 0) {
     return 1000;
   }
 

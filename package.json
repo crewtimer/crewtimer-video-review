@@ -223,7 +223,12 @@
     "files": [
       "dist",
       "node_modules",
-      "package.json"
+      "package.json",
+      "!node_modules/**/*.cpp",
+      "!node_modules/**/*.h",
+      "!node_modules/**/*.md",
+      "!node_modules/**/lib-build/**/*",
+      "!node_modules/**/ffmpeg*/**/*"
     ],
     "afterSign": ".erb/scripts/notarize.js",
     "mac": {

@@ -11,7 +11,7 @@
       ],
       "conditions": [
         ['OS=="mac"', {
-           "cflags": [ "-frtti"],
+          "cflags": [ "-frtti"],
           "cflags_cc!": [ "-frtti" ],
           "xcode_settings": {
             "OTHER_CFLAGS": [
@@ -26,7 +26,7 @@
           },
           "include_dirs": [
               "./src/ffmpeg-built-mac/include",
-              "/usr/local/Cellar/opencv/4.9.0_7/include/opencv4"
+              "./lib-build/opencv-static-mac/include/opencv4",
             ],
           "link_settings": {
             "libraries": [
@@ -37,9 +37,9 @@
                 "../src/ffmpeg-built-mac/lib/libavutil.a",
                 "../src/ffmpeg-built-mac/lib/libswresample.a",
                 "../src/ffmpeg-built-mac/lib/libswscale.a",
-                 "-lopencv_core",
-        "-lopencv_imgproc",
-        "-lopencv_video"],
+                "../lib-build/opencv-static-mac/lib/libopencv_core.a",
+                "../lib-build/opencv-static-mac/lib/libopencv_imgproc.a",
+                "../lib-build/opencv-static-mac/lib/libopencv_video.a"],
 
             'library_dirs': ['../src/ffmpeg-built-mac/lib']
           }
