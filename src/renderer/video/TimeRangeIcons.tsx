@@ -120,9 +120,9 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
         }
 
         let color = iconColor || '#d2122e';
-        if (showBeyondRange) {
-          color = '#d2122e80';
-        }
+        // if (showBeyondRange) {
+        //   color = '#d2122e80';
+        // }
 
         if (relativePosition < 0 || relativePosition > 100) {
           if (!showBeyondRange) {

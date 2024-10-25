@@ -6,7 +6,6 @@ import makeStyles from '@mui/styles/makeStyles';
 import VideoSideBar from './VideoSideBar';
 import {
   Dir,
-  getMouseWheelFactor,
   getTravelRightToLeft,
   getVideoFrameNum,
   getVideoSettings,
@@ -239,6 +238,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoOverlayRef = useRef<VideoOverlayHandles>(null);
   const offscreenCanvas = useRef(document.createElement('canvas'));
+
+  const wheelTime = useRef(0);
+  const deltaTAvg = useRef(0);
 
   useEffect(() => {
     mouseTracking.current.mouseDown = false;
@@ -495,6 +497,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     []
   );
 
+  // Clear zoom if file changes
+  useEffect(() => {
+    clearZoom();
+  }, [image.file]);
+
   useEffect(() => {
     clearZoom();
     // Trigger a reload of this frame as we exit zoom.
@@ -521,25 +528,30 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       return;
     }
 
-    let delta =
+    const now = Date.now();
+    const deltaT = Math.min(500, now - wheelTime.current);
+
+    if (deltaT >= 500 || Math.sign(deltaT) !== Math.sign(deltaTAvg.current)) {
+      deltaTAvg.current = deltaT;
+    }
+    const alpha = 0.75;
+    deltaTAvg.current = deltaTAvg.current * alpha + deltaT * (1 - alpha);
+    wheelTime.current = now;
+    // console.log(
+    //   `Wheel: ${event.deltaY} dt: ${deltaT}, avg: ${deltaTAvg.current}`
+    // );
+
+    // Use 1 for slow click rate.  Use 6 for fast click rate unless zooming and then use 2.
+    const delta =
       (wheelInverted ? -1 : 1) *
       Math.sign(event.deltaY) *
-      Math.max(
-        1,
-        Math.trunc(
-          Math.abs(
-            event.deltaY / getMouseWheelFactor() / getVideoScaling().zoom
-          )
-        )
-      );
-    if (!isZooming() && Math.abs(delta) > 6) {
-      delta = Math.sign(delta) * 6;
-    }
+      (deltaTAvg.current > 200 ? 1 : isZooming() ? 2 : 6);
     moveToFrame(getVideoFrameNum(), delta);
   }, []);
 
   const handleRightClick = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
+    event.stopPropagation();
     performAddSplit();
   };
 

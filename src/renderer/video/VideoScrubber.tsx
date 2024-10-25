@@ -240,19 +240,21 @@ const VideoScrubber = () => {
       >
         <TimeRangeIcons
           segments={segments}
-          times={filteredTimes}
-          startTime={startTime}
-          endTime={endTime}
-          iconType="lower"
-        />
-        <TimeRangeIcons
-          segments={segments}
           times={filteredScoredTimes}
           startTime={startTime}
           endTime={endTime}
           iconColor="#2e7d32"
+          iconType="lower"
+        />
+        <TimeRangeIcons
+          segments={segments}
+          times={filteredTimes}
+          startTime={startTime}
+          endTime={endTime}
+          iconColor="#d2122e"
           iconType="upper"
         />
+
         <Box
           sx={{
             position: 'absolute',
