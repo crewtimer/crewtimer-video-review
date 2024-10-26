@@ -275,6 +275,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                   videoScaling
                 );
                 drawLine(fromScaled, toScaled, '#ff0000a0', Dir.Horiz);
+                const leftText = Math.max(0, fromScaled.x);
+                const rightText = Math.min(videoScaling.destWidth, toScaled.x);
 
                 // Compute text orgin based on zoom
                 fromScaled = translateSrcCanvas2DestCanvas(
@@ -295,7 +297,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                   context,
                   `${guide.label}`,
                   12,
-                  0, // FIXME - calculate based on zoom
+                  leftText,
                   fromScaled.y,
                   videoSettings.laneBelowGuide ? 'below' : 'above',
                   'left'
@@ -304,7 +306,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                   context,
                   `${guide.label}`,
                   12,
-                  videoScaling.destWidth, // FIXME - calculate based on zoom
+                  rightText,
                   toScaled.y,
                   videoSettings.laneBelowGuide ? 'below' : 'above',
                   'right'
