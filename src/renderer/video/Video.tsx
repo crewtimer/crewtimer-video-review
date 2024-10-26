@@ -108,7 +108,7 @@ const applyZoom = ({ srcPoint, zoom }: { srcPoint: Point; zoom: number }) => {
   const srcWidth = videoScaling.srcWidth;
   const srcHeight = videoScaling.srcHeight;
 
-  if (srcPoint.x === 0) {
+  if (srcPoint.x === 0 || zoom === 1) {
     srcPoint = { x: srcWidth / 2, y: srcHeight / 2 };
   }
 
