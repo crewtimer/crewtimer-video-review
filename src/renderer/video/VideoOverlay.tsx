@@ -11,16 +11,19 @@ import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { saveVideoSidecar } from './VideoFileUtils';
 import {
   Dir,
+  getImage,
   getVideoFile,
+  getVideoFrameNum,
   getVideoScaling,
   getVideoSettings,
   GuideLine,
-  useImage,
+  useMouseWheelInverted,
   useVideoScaling,
   useVideoSettings,
 } from './VideoSettings';
 import {
   drawText,
+  moveToFrame,
   notifiyGuideChanged,
   Point,
   translateMouseEvent2Src,
@@ -63,14 +66,93 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
     const [adjustingOverlay, setAdjustingOverlay] = useAdjustingOverlay();
     const [nearEdge] = useNearEdge();
     const [courseConfig, setCourseConfig] = useState(getVideoSettings());
-    const [image] = useImage();
     const [videoSettings, setVideoSettings] = useVideoSettings();
     const [videoScaling] = useVideoScaling();
+    const [wheelInverted] = useMouseWheelInverted();
+    const wheelTracking = useRef({
+      millis: 0,
+      dtAvg: 0,
+      count: 0,
+      velocity: 0,
+    });
+    const isZooming = () => videoScaling.zoom !== 1;
 
     useEffect(() => {
       // init volatile copy used while moving the mouse
       setCourseConfig(videoSettings);
     }, [videoSettings]);
+
+    useEffect(() => {
+      let lastT = wheelTracking.current.count;
+      const timer = setInterval(() => {
+        if (lastT !== wheelTracking.current.count) {
+          lastT = wheelTracking.current.count;
+          // console.log(
+          //   `wheel v=${wheelTracking.current.velocity}, deltaT=${
+          //     wheelTracking.current.dtAvg
+          //   }, tc=${wheelTracking.current.count} ${Date.now() % 1000}`
+          // );
+        }
+      }, 100);
+      return () => clearInterval(timer);
+    }, []);
+
+    const onWheelMove = useCallback(
+      (event: React.WheelEvent<HTMLCanvasElement>) => {
+        let scrollAmount;
+
+        switch (event.deltaMode) {
+          case 0: // Pixel-based scroll (likely from a trackpad)
+            scrollAmount = event.deltaY;
+            break;
+          case 1: // Line-based scroll (likely from a traditional mouse)
+            scrollAmount = event.deltaY * 16; // Approximate conversion to pixels
+            break;
+          case 2: // Page-based scroll
+            scrollAmount = event.deltaY * window.innerHeight;
+            break;
+          default:
+            scrollAmount = event.deltaY;
+        }
+
+        const now = Date.now();
+        const deltaT = Math.min(500, now - wheelTracking.current.millis);
+        if (deltaT <= 0) {
+          return;
+        }
+        const velocity = Math.abs(scrollAmount) / deltaT;
+        wheelTracking.current.millis = now;
+        // if (deltaT > 200 && deltaT < 500) {
+        //   return; // Ignore as the user pauses to restart scroll
+        // }
+        if (deltaT === 500 || wheelTracking.current.dtAvg === 500) {
+          wheelTracking.current.dtAvg = deltaT;
+          wheelTracking.current.velocity = velocity;
+        } else {
+          const alpha = 0.5;
+          wheelTracking.current.dtAvg =
+            wheelTracking.current.dtAvg * alpha + deltaT * (1 - alpha);
+          wheelTracking.current.velocity =
+            wheelTracking.current.velocity * alpha + velocity * (1 - alpha);
+        }
+        wheelTracking.current.count++;
+
+        // console.log(
+        //   `deltaT=${deltaT} avg=${wheelTracking.current.dtAvg} dir=${Math.sign(
+        //     event.deltaY
+        //   )}`
+        // );
+
+        // If mouse moving 'slow', the use 1 for frame delta.  Otherwise use a larger
+        // factor depending on the zoom level.
+        const delta =
+          (wheelInverted ? -1 : 1) *
+          Math.sign(event.deltaY) *
+          (wheelTracking.current.velocity < 1 ? 1 : isZooming() ? 2 : 3);
+        setTimeout(() => moveToFrame(getVideoFrameNum(), delta), 10);
+      },
+      []
+    );
 
     const drawBox = useCallback(
       (
@@ -132,6 +214,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
     useEffect(() => {
       const canvas = canvasRef.current;
       const context = canvas?.getContext('2d');
+      const image = getImage();
       if (canvas && context) {
         canvas.width = videoScaling.destWidth;
         canvas.height = videoScaling.destHeight;
@@ -247,6 +330,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       if (!withinBounds) {
         return;
       }
+      const image = getImage();
       const videoScaling = getVideoScaling();
       const margin = 20 * videoScaling.pixScale;
 
@@ -367,6 +451,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       <canvas
         ref={canvasRef}
         onContextMenu={onContextMenu}
+        onWheel={adjustingOverlay ? undefined : onWheelMove}
         onMouseDown={handleMouseDown}
         onMouseMove={dragging ? handleMouseMove : undefined}
         onMouseUp={dragging ? handleMouseUp : undefined}

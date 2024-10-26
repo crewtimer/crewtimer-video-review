@@ -1,5 +1,11 @@
 import { Box, Typography, Stack, Tooltip } from '@mui/material';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { convertTimestampToString } from '../shared/Util';
 import { useDebouncedCallback } from 'use-debounce';
 import makeStyles from '@mui/styles/makeStyles';
@@ -13,7 +19,6 @@ import {
   setVideoTimestamp,
   useResetZoomCounter,
   useImage,
-  useMouseWheelInverted,
   useTimezoneOffset,
   useTravelRightToLeft,
   useVideoError,
@@ -213,7 +218,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [videoFile] = useVideoFile();
   const holdoffChanges = useRef<boolean>(false);
   const [videoError] = useVideoError();
-  const [wheelInverted] = useMouseWheelInverted();
   const [travelRightToLeft] = useTravelRightToLeft();
   const [resetZoomCount] = useResetZoomCounter();
   const destSize = useRef({ width, height });
@@ -238,9 +242,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoOverlayRef = useRef<VideoOverlayHandles>(null);
   const offscreenCanvas = useRef(document.createElement('canvas'));
-
-  const wheelTime = useRef(0);
-  const deltaTAvg = useRef(0);
 
   useEffect(() => {
     mouseTracking.current.mouseDown = false;
@@ -368,6 +369,19 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     }
   }, [image]);
 
+  const videoOverlay = useMemo(
+    () => (
+      <VideoOverlay
+        ref={videoOverlayRef}
+        width={width}
+        height={height}
+        destHeight={getVideoScaling().destHeight}
+        destWidth={getVideoScaling().destWidth}
+      />
+    ),
+    [width, height]
+  );
+
   const selectLane = (point: Point) => {
     const laneLines = getVideoSettings()
       .guides.filter((lane) => lane.dir === Dir.Horiz && lane.enabled)
@@ -438,6 +452,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         }
       } else if (!isZooming()) {
         const finish = getFinishLine();
+
         applyZoom({
           zoom: 5,
           srcPoint: {
@@ -523,32 +538,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     [image]
   );
 
-  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    if (holdoffChanges.current) {
-      return;
-    }
-
-    const now = Date.now();
-    const deltaT = Math.min(500, now - wheelTime.current);
-
-    if (deltaT >= 500 || Math.sign(deltaT) !== Math.sign(deltaTAvg.current)) {
-      deltaTAvg.current = deltaT;
-    }
-    const alpha = 0.75;
-    deltaTAvg.current = deltaTAvg.current * alpha + deltaT * (1 - alpha);
-    wheelTime.current = now;
-    // console.log(
-    //   `Wheel: ${event.deltaY} dt: ${deltaT}, avg: ${deltaTAvg.current}`
-    // );
-
-    // Use 1 for slow click rate.  Use 6 for fast click rate unless zooming and then use 2.
-    const delta =
-      (wheelInverted ? -1 : 1) *
-      Math.sign(event.deltaY) *
-      (deltaTAvg.current > 200 ? 1 : isZooming() ? 2 : 6);
-    moveToFrame(getVideoFrameNum(), delta);
-  }, []);
-
   const handleRightClick = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -578,7 +567,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   return (
     <Stack direction="column">
       <Box
-        onWheel={adjustingOverlay ? undefined : handleWheel}
         onMouseDown={adjustingOverlay ? undefined : handleMouseDown}
         onMouseMove={handleMouseMove} //{adjustingOverlay ? undefined : handleMouseMove}
         onMouseUp={adjustingOverlay ? undefined : handleMouseUp}
@@ -657,13 +645,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             }
           />
         )}
-        <VideoOverlay
-          ref={videoOverlayRef}
-          width={width}
-          height={height}
-          destHeight={getVideoScaling().destHeight}
-          destWidth={getVideoScaling().destWidth}
-        />
+        {videoOverlay}
       </Box>
     </Stack>
   );

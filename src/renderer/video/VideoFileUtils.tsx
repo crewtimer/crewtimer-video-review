@@ -167,6 +167,9 @@ const doRequestVideoFrame = async ({
               (1000000 * imageStart.numFrames) / imageStart.fps
           );
 
+      const fileStatus = getFileStatusList().find((f) => {
+        return f.filename === videoFile;
+      });
       openFileStatus = {
         filename: videoFile,
         open: true,
@@ -175,9 +178,8 @@ const doRequestVideoFrame = async ({
         endTime: imageEndTime,
         duration: imageEndTime - imageStart.tsMicro,
         fps: imageStart.fps,
-        sidecar: {},
+        sidecar: fileStatus?.sidecar || {},
       };
-      // console.log(JSON.stringify(openFileStatus, null, 2));
     }
 
     let seekPos =
@@ -243,6 +245,7 @@ const doRequestVideoFrame = async ({
 
     imageStart.fileStartTime = openFileStatus.startTime / 1000;
     imageStart.fileEndTime = openFileStatus.endTime / 1000;
+    imageStart.sidecar = openFileStatus.sidecar;
     setImage(imageStart);
     if (fromClick) {
       // force a jump in the VideoScrubber
@@ -425,7 +428,7 @@ export const refreshDirList = async (videoDir: string) => {
           endTime: 300,
           duration: 300,
           fps: 60,
-          sidecar: {},
+          sidecar: videoSidecar || {},
         };
         if (videoSidecar.file) {
           fileStatus.numFrames = videoSidecar.file.numFrames;

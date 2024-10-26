@@ -8,6 +8,35 @@ The package name cannot have dashes like most npm packages.  This is because the
 
 If using yarn to add this module locally, you must use yarn link or the .erb/scripts/check-native-dep.js script fails running `npm ls <modulename>`.  Using yarn add file:../../native/ffreader from the release/app of an electron app also works.
 
+## Package Size
+
+When the final app gets packaged, the .gitignore and .npmignore files tell the packager what files to leave out of the native module.  The .gitignore and .npmignore need to be in the native library folder and not in a parent.
+
+When building the Electron app that utilizes this package files to exclude are added to the top level package.json file with ! prefix:
+
+```json
+"build": {
+    "files": [
+      "dist",
+      "node_modules",
+      "package.json",
+      "!node_modules/**/*.cpp",
+      "!node_modules/**/*.h",
+      "!node_modules/**/*.md",
+      "!node_modules/**/lib-build/**/*",
+      "!node_modules/**/ffmpeg*/**/*"
+    ],
+}
+```
+
+## Building static opencv
+
+To avoid linking issues when deploying to other machines than the build machine opencv is built as a static library and linked directly to the native add-on.
+
+```bash
+yarn opencv-build
+```
+
 ## Building ffmpeg on Windows
 
 Native modules must be build with MSVC toolchains.

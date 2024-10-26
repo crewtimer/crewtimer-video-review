@@ -15,6 +15,7 @@ import uuidgen from 'short-uuid';
 import { setToast } from 'renderer/Toast';
 import { getMobileConfig, getWaypoint } from 'renderer/util/UseSettings';
 
+let lastAddSplit = 0;
 export const performAddSplit = () => {
   const videoBow = getVideoBow();
   const selectedEvent = getVideoEvent();
@@ -26,6 +27,13 @@ export const performAddSplit = () => {
   const activeEvent = mobileConfig?.eventList?.find(
     (event) => event.EventNum === selectedEvent
   );
+
+  const now = Date.now();
+  const deltaT = now - lastAddSplit;
+  if (deltaT < 500) {
+    return; // probable double click
+  }
+  lastAddSplit = now;
   if (!mobileConfig || !activeEvent || disabled) {
     setToast({
       severity: 'error',

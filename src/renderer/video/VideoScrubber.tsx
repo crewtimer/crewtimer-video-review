@@ -122,21 +122,21 @@ const VideoScrubber = () => {
       relativePositions.sort((a, b) => a.pos - b.pos);
 
       // Find the nearest click and jump there if found
-      const candidates = relativePositions.map(({ pos: p }) => p);
-      const pos = getImage().frameNum / getImage().numFrames;
-      const [index] = findClosestNumAndIndex(candidates, pos);
-      const item = relativePositions[index]?.data;
-      if (item) {
-        setTimeout(() => {
-          seekToTimestamp(item.Time, true);
-          if (item.EventNum !== '?') {
-            setSelectedEvent(item.EventNum);
-          }
-          if (item.Bow && item.Bow !== '*') {
-            setSelectedBow(item.Bow);
-          }
-        }, 100);
-      }
+      // const candidates = relativePositions.map(({ pos: p }) => p);
+      // const pos = getImage().frameNum / getImage().numFrames;
+      // const [index] = findClosestNumAndIndex(candidates, pos);
+      // const item = relativePositions[index]?.data;
+      // if (item) {
+      //   setTimeout(() => {
+      //     seekToTimestamp(item.Time, true);
+      //     if (item.EventNum !== '?') {
+      //       setSelectedEvent(item.EventNum);
+      //     }
+      //     if (item.Bow && item.Bow !== '*') {
+      //       setSelectedBow(item.Bow);
+      //     }
+      //   }, 100);
+      // }
 
       return [filteredTimes, filteredScoredTimes, relativePositions] as [
         typeof filteredTimes,

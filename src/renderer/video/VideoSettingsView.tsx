@@ -4,10 +4,14 @@ import {
   Button,
   Checkbox,
   Container,
+  FormControl,
   FormControlLabel,
   Grid,
   IconButton,
-  Slider,
+  InputLabel,
+  MenuItem,
+  Select,
+  SelectChangeEvent,
   Stack,
   SxProps,
   Theme,
@@ -18,7 +22,6 @@ import {
 import MenuIcon from '@mui/icons-material/Settings';
 import { setDialogConfig } from '../util/ConfirmDialog';
 import {
-  useMouseWheelFactor,
   useMouseWheelInverted,
   useTravelRightToLeft,
   useVideoSettings,
@@ -57,14 +60,13 @@ export const VideoSettingsDialog = () => {
   const classes = useStyles();
   const [videoSettings, setVideoSettings] = useVideoSettings();
   const [mc] = useMobileConfig();
-  const [wheelFactor, setWheelFactor] = useMouseWheelFactor();
   const [wheelInverted, setWheelInverted] = useMouseWheelInverted();
   const [rightToLeft, setRightToLeft] = useTravelRightToLeft();
 
   // Handler to update the wheelFactor state
-  const handleSliderChange = (_event: Event, newValue: number | number[]) => {
-    setWheelFactor(newValue as number);
-  };
+  // const handleSliderChange = (_event: Event, newValue: number | number[]) => {
+  //   setWheelFactor(newValue as number);
+  // };
 
   let waypointList = ['Start'];
   const waypoints = mc?.info.Waypoints || '';
@@ -111,37 +113,72 @@ export const VideoSettingsDialog = () => {
             <TimezoneSelector />
           </Box>
           <Box className={classes.settings}>
-            <FormControlLabel
-              labelPlacement="end"
-              label="Lane is below guide line"
-              control={
-                <Checkbox
-                  checked={videoSettings.laneBelowGuide}
-                  onChange={() => {
+            <Tooltip
+              title="Direction of travel when crossing the finish line"
+              placement="right"
+            >
+              <FormControl
+                sx={{
+                  marginTop: '0.5em',
+                  marginBottom: '0.5em',
+                  minWidth: 160,
+                }}
+                margin="dense"
+                size="medium"
+              >
+                <InputLabel id="travel-direction-label">
+                  Travel Direction
+                </InputLabel>
+                <Select
+                  labelId="travel-direction-label"
+                  value={rightToLeft ? 1 : 0}
+                  label="Hyperzoom Resolution"
+                  onChange={(event: SelectChangeEvent<number | string>) => {
+                    console.log(event.target.value as number);
+                    setRightToLeft((event.target.value as number) === 1);
+                  }}
+                >
+                  <MenuItem value={0}>Left to Right</MenuItem>
+                  <MenuItem value={1}>Right to Left</MenuItem>
+                </Select>
+              </FormControl>
+            </Tooltip>
+          </Box>
+          <Box className={classes.settings}>
+            <Tooltip
+              title="Lane position in relation to the lane guides"
+              placement="right"
+            >
+              <FormControl
+                sx={{
+                  marginTop: '0.5em',
+                  marginBottom: '0.5em',
+                  minWidth: 160,
+                }}
+                margin="dense"
+                size="medium"
+              >
+                <InputLabel id="lane-position-label">Lane Position</InputLabel>
+                <Select
+                  labelId="lane-position-label"
+                  value={videoSettings.laneBelowGuide ? 1 : 0}
+                  label="Lane Position"
+                  onChange={(event: SelectChangeEvent<number | string>) => {
                     setVideoSettings(
                       {
                         ...videoSettings,
-                        laneBelowGuide: !videoSettings.laneBelowGuide,
+                        laneBelowGuide: (event.target.value as number) === 1,
                       },
                       true
                     );
                     saveVideoSidecar();
                   }}
-                />
-              }
-            />
-          </Box>
-          <Box className={classes.settings}>
-            <FormControlLabel
-              labelPlacement="end"
-              label="Travel Right to Left"
-              control={
-                <Checkbox
-                  checked={rightToLeft}
-                  onChange={() => setRightToLeft(!rightToLeft)}
-                />
-              }
-            />
+                >
+                  <MenuItem value={0}>Lane Above Guide</MenuItem>
+                  <MenuItem value={1}>Lane Below Guide</MenuItem>
+                </Select>
+              </FormControl>
+            </Tooltip>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6}>
@@ -190,7 +227,7 @@ export const VideoSettingsDialog = () => {
                 }
               />
             </Tooltip>
-            <Typography variant="body1" mr={2}>
+            {/* <Typography variant="body1" mr={2}>
               Wheel Factor
             </Typography>
             <Box display="flex" alignItems="center">
@@ -206,7 +243,7 @@ export const VideoSettingsDialog = () => {
                   aria-labelledby="wheel-factor-slider"
                 />
               </Tooltip>
-            </Box>
+            </Box> */}
           </Box>
         </Grid>
         <Grid item xs={12} sm={12}>

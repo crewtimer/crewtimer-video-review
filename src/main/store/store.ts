@@ -7,7 +7,9 @@ import { notifyChange } from '../../renderer/util/Util';
 import { getMainWindow } from '../mainWindow';
 
 /** Stored data instance for on-disk storage */
-const store = new Store();
+const store = new Store({
+  name: 'ct-video-review', // this will create 'ct-video-review.json'
+});
 
 /** In-memory cache for settings */
 const memCache = new Map<string, unknown>();

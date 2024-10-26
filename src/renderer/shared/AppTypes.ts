@@ -1,3 +1,5 @@
+import { KeyMap } from 'crewtimer-common';
+
 export interface AppImage {
   status: string;
   width: number;
@@ -12,6 +14,7 @@ export interface AppImage {
   fileStartTime: number;
   fileEndTime: number;
   motion: { x: number; y: number; dt: number; valid: boolean };
+  sidecar?: KeyMap;
 }
 
 export interface Rect {
