@@ -1,6 +1,13 @@
+import { Lap } from 'crewtimer-common';
 import { Rect } from 'renderer/shared/AppTypes';
+import { TimeObject } from './TimeRangeIcons';
+import { ExtendedLap, getClickerData } from './UseClickerData';
 import { getAutoZoomPending } from './Video';
-import { getDirList, requestVideoFrame } from './VideoFileUtils';
+import {
+  getDirList,
+  requestVideoFrame,
+  seekToTimestamp,
+} from './VideoFileUtils';
 import {
   Dir,
   getHyperZoomFactor,
@@ -10,8 +17,11 @@ import {
   getVideoFrameNum,
   getVideoScaling,
   getVideoSettings,
+  resetVideoZoom,
   setJumpToEndPending,
   setSelectedIndex,
+  setVideoBow,
+  setVideoEvent,
   setVideoFile,
   setVideoFrameNum,
   VideoScaling,
@@ -518,4 +528,59 @@ export const getFinishLine = () => {
     vert = { enabled: true, dir: Dir.Vert, label: 'Finish', pt1: 0, pt2: 0 };
   }
   return vert;
+};
+
+/**
+ * Finds the next time point in a sorted array of time points that meets the specified conditions.
+ *
+ * @param {TimeObject} from - The reference time object containing a `Time` property to compare and a `Bow` property to match.
+ * @returns {TimeObject | undefined} The first `TimeObject` in the sorted `timePoints` array with a `seconds` value greater than or equal to `from.Time` and a different `Bow` value, or `undefined` if no such point is found.
+ *
+ * @remarks
+ * This function retrieves the array of time points from `getClickerData()`. It then performs a binary search to
+ * find the first `TimeObject` where `seconds >= s`, where `s` is the number of seconds parsed from `from.Time`.
+ * After finding an initial candidate, it checks subsequent points until it finds one with a different `Bow`
+ * value than `from.Bow`.
+ */
+export const seekToNextTimePoint = (from: Lap): TimeObject | undefined => {
+  const timePoints = getClickerData();
+  let left = 0;
+  let right = timePoints.length - 1;
+  let result: ExtendedLap | undefined = undefined;
+  const s = parseTimeToSeconds(from.Time || '00:00:00.000');
+
+  let mid: number = 0;
+  while (left <= right) {
+    mid = Math.floor((left + right) / 2);
+
+    if (timePoints[mid].seconds >= s) {
+      result = timePoints[mid];
+      right = mid - 1; // Keep searching in the left half for a closer match
+    } else {
+      left = mid + 1; // Search in the right half
+    }
+  }
+
+  if (!result) {
+    return undefined;
+  }
+
+  // Move forward in the array until finding a time point with a different Bow value
+  while (result.Bow === from.Bow || result.Bow === '*') {
+    mid++;
+    if (mid >= timePoints.length) {
+      return undefined;
+    }
+    result = timePoints[mid];
+  }
+
+  resetVideoZoom();
+  setTimeout(() => seekToTimestamp(result?.Time || '00:00:00.000', true), 100);
+  if (result.EventNum !== '?') {
+    setVideoEvent(result.EventNum);
+  }
+  if (result.Bow && result.Bow !== '*') {
+    setVideoBow(result.Bow);
+  }
+  return result as TimeObject;
 };

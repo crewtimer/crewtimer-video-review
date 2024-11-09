@@ -19,7 +19,6 @@ import {
   setVideoTimestamp,
   useResetZoomCounter,
   useImage,
-  useTimezoneOffset,
   useTravelRightToLeft,
   useVideoError,
   useVideoFile,
@@ -214,7 +213,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const classes = useStyles();
   const [adjustingOverlay] = useAdjustingOverlay();
   const [, setNearEdge] = useNearEdge();
-  const [timezoneOffset] = useTimezoneOffset();
   const [videoFile] = useVideoFile();
   const holdoffChanges = useRef<boolean>(false);
   const [videoError] = useVideoError();
@@ -261,7 +259,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   }, [image.width, image.height, width, height]);
 
   useEffect(() => {
-    console.log(`frame=${image.frameNum} dx=${image.motion.x}`);
     offscreenCanvas.current.width = image.width;
     offscreenCanvas.current.height = image.height;
     const ctx = offscreenCanvas.current?.getContext('2d');
@@ -502,7 +499,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         let downMoveX = mouseTracking.current.mouseDownClientX - x;
         // Only start tracking if we have moved a significant amount
         if (isZooming() && Math.abs(downMoveX) > 5) {
-          const delta = Math.sign(downMoveX) * 8; // FIXME - use velocity to determine amount
+          const delta = Math.sign(downMoveX) * 1; // FIXME - use velocity to determine amount
           mouseTracking.current.mouseDownClientX = x;
           moveToFrame(getVideoFrameNum(), travelRightToLeft ? delta : -delta);
         }
@@ -554,7 +551,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   const videoTimestamp = convertTimestampToString(
     image.timestamp,
-    timezoneOffset
+    image.tzOffset
   );
 
   useEffect(() => {

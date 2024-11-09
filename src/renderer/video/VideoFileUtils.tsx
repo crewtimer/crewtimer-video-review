@@ -6,11 +6,12 @@ import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { setProgressBar, useInitializing } from 'renderer/util/UseSettings';
 import { replaceFileSuffix, timeToMilli } from 'renderer/util/Util';
 import {
+  Dir,
   getHyperZoomFactor,
   getImage,
-  getTimezoneOffset,
   getVideoFile,
   getVideoSettings,
+  GuideLine,
   setImage,
   setSelectedIndex,
   setVideoError,
@@ -19,9 +20,13 @@ import {
   setVideoSettings,
   useJumpToEndPending,
   useVideoDir,
+  VideoGuidesKeys,
+  VideoSidecar,
 } from './VideoSettings';
 import { extractTime, parseTimeToSeconds } from './VideoUtils';
 import deepequal from 'fast-deep-equal/es6/react';
+import { getTimezoneOffset } from 'renderer/util/TimezoneSelector';
+import generateTestPattern from 'renderer/util/ImageUtils';
 
 const { storeJsonFile, readJsonFile, getFilesInDirectory } = window.Util;
 
@@ -35,6 +40,8 @@ interface OpenFileStatus {
   endTime: number;
   duration: number;
   fps: number;
+  tzOffset: number;
+  tzName?: string;
   sidecar: KeyMap;
 }
 
@@ -46,6 +53,7 @@ let openFileStatus: OpenFileStatus = {
   endTime: 0,
   duration: 0,
   fps: 60,
+  tzOffset: -new Date().getTimezoneOffset(),
   sidecar: {},
 };
 
@@ -112,9 +120,7 @@ const doRequestVideoFrame = async ({
   if (!videoFile) {
     return;
   }
-  // console.log(
-  //   JSON.stringify({ videoFile, frameNum, seekPercent, fromClick, toTimestamp })
-  // );
+
   try {
     let imageStart: AppImage | undefined;
     let imageEnd: AppImage | undefined;
@@ -178,6 +184,7 @@ const doRequestVideoFrame = async ({
         endTime: imageEndTime,
         duration: imageEndTime - imageStart.tsMicro,
         fps: imageStart.fps,
+        tzOffset: fileStatus?.tzOffset || -new Date().getTimezoneOffset(),
         sidecar: fileStatus?.sidecar || {},
       };
     }
@@ -194,11 +201,7 @@ const doRequestVideoFrame = async ({
       // seek one more time to get the requested frame
       const tsMilli = timeToMilli(toTimestamp);
       const delta = openFileStatus.endTime - openFileStatus.startTime;
-      const tzOffsetMinutes = getTimezoneOffset();
-      const offset =
-        tzOffsetMinutes !== undefined
-          ? tzOffsetMinutes
-          : -new Date().getTimezoneOffset();
+      const tzOffsetMinutes = openFileStatus.tzOffset;
 
       // calc the desired time in utc milliseconds
       const fileStartUtcMilli = Math.trunc(openFileStatus.startTime / 1000);
@@ -206,9 +209,9 @@ const doRequestVideoFrame = async ({
         fileStartUtcMilli -
         (fileStartUtcMilli % (24 * 60 * 60 * 1000)) +
         tsMilli -
-        offset * 60 * 1000;
+        tzOffsetMinutes * 60 * 1000;
       const startTime =
-        (openFileStatus.startTime + offset * 60 * 1000000) %
+        (openFileStatus.startTime + tzOffsetMinutes * 60 * 1000000) %
         (24 * 60 * 60 * 1000000);
 
       let frameNum =
@@ -237,6 +240,7 @@ const doRequestVideoFrame = async ({
         saveAs
       );
       if (!imageStart) {
+        setImage(generateTestPattern());
         console.log(`failed to get frame for ${videoFile}@${seekPos}`);
         setVideoError(`failed to get frame for ${videoFile}@${seekPos}`);
         return;
@@ -245,6 +249,7 @@ const doRequestVideoFrame = async ({
 
     imageStart.fileStartTime = openFileStatus.startTime / 1000;
     imageStart.fileEndTime = openFileStatus.endTime / 1000;
+    imageStart.tzOffset = openFileStatus.tzOffset;
     imageStart.sidecar = openFileStatus.sidecar;
     setImage(imageStart);
     if (fromClick) {
@@ -257,6 +262,7 @@ const doRequestVideoFrame = async ({
       `error opening and reading videoFile ${videoFile}`,
       e instanceof Error ? e.message : String(e)
     );
+    setImage(generateTestPattern());
     setVideoError(e instanceof Error ? e.message : String(e));
   }
 };
@@ -294,6 +300,9 @@ function createRequestVideoFrameHandler() {
     blend,
     saveAs,
   }: VideoFrameRequest): Promise<void> => {
+    if (!getDirList().includes(videoFile)) {
+      return;
+    }
     // Check if there is an ongoing request.
     if (currentRequest) {
       // Defer the request by wrapping it in a new Promise.
@@ -419,7 +428,10 @@ export const refreshDirList = async (videoDir: string) => {
       if (fileStatus) {
         fileStatusList.push(fileStatus);
       } else {
-        const videoSidecar = await loadVideoSidecar(file, true);
+        let videoSidecar = await loadVideoSidecar(file, true);
+        if (!videoSidecar) {
+          videoSidecar = await createSidecarFile(file);
+        }
         fileStatus = {
           open: false,
           numFrames: 0,
@@ -428,21 +440,27 @@ export const refreshDirList = async (videoDir: string) => {
           endTime: 300,
           duration: 300,
           fps: 60,
+          tzOffset: -new Date().getTimezoneOffset(),
           sidecar: videoSidecar || {},
         };
-        if (videoSidecar.file) {
+
+        if (videoSidecar?.file) {
           fileStatus.numFrames = videoSidecar.file.numFrames;
           fileStatus.startTime = Number(videoSidecar.file.startTs) * 1000000;
           fileStatus.endTime = Number(videoSidecar.file.stopTs) * 1000000;
           fileStatus.duration = fileStatus.endTime - fileStatus.startTime;
           fileStatus.fps = videoSidecar.file.fps || 60;
-          fileStatus.sidecar = videoSidecar;
+          fileStatus.tzOffset =
+            videoSidecar.file.tzOffset == undefined
+              ? fileStatus.tzOffset
+              : videoSidecar.file.tzOffset;
         }
         fileStatusByName.set(file, fileStatus);
         fileStatusList.push(fileStatus);
       }
       setFileStatusList(fileStatusList);
     }
+
     setDirList(dirList);
 
     // If no video file is selected, select the first one
@@ -452,6 +470,7 @@ export const refreshDirList = async (videoDir: string) => {
       requestVideoFrame({ videoFile: getVideoFile(), frameNum: 0 });
     }
     if (dirList.length > 0 && !dirList.includes(getVideoFile())) {
+      // If no video file is selected, select the first one
       setVideoFile(dirList[0]);
       requestVideoFrame({ videoFile: dirList[0], frameNum: 0 });
     }
@@ -509,23 +528,58 @@ export const saveVideoSidecar = () => {
 };
 
 /**
- *  Save the current video guide settings to a JSON file.  The JSON file is named after the video file
+ *  Read the current video guide settings from a JSON file.  The JSON file is named after the video file
  *
  * @param videoFile - The path to the video file
+ * @param loadOnly - If true, do not update the video settings
  */
 export const loadVideoSidecar = (
   videoFile: string,
   loadOnly?: boolean
-): Promise<KeyMap> => {
-  let videoSidecar = {};
+): Promise<VideoSidecar | undefined> => {
+  let videoSidecar: VideoSidecar;
   return readJsonFile(replaceFileSuffix(videoFile, 'json'))
     .then((result) => {
       if (result.status === 'OK') {
-        videoSidecar = { ...result?.json };
+        videoSidecar = { ...result?.json } as VideoSidecar;
+
         if (!loadOnly) {
+          if (videoSidecar.file.tzOffset === undefined) {
+            // Add tz if not already present
+            videoSidecar.file = {
+              ...videoSidecar.file,
+              tzOffset: -new Date().getTimezoneOffset(),
+            };
+          }
+
+          // override current settings from sidecar
+          const videoSettings = { ...getVideoSettings() };
+          VideoGuidesKeys.forEach((key) => {
+            if (videoSidecar[key]) {
+              (videoSettings as any)[key] = videoSidecar[key];
+            }
+          });
+
+          if (videoSidecar.guide && !videoSidecar.guides) {
+            // Provide default from video sidecar if not already set
+            const sidecarGuide = {
+              dir: Dir.Vert,
+              pt1: videoSidecar.guide.pt1 as number,
+              pt2: videoSidecar.guide.pt2 as number,
+              label: 'Finish',
+              enabled: true,
+            } as GuideLine;
+            const finishGuideIndex = videoSettings.guides.findIndex(
+              (g) => g.label === 'Finish'
+            );
+            if (finishGuideIndex >= 0) {
+              videoSettings.guides[finishGuideIndex] = sidecarGuide;
+            } else {
+              videoSettings.guides.push(sidecarGuide);
+            }
+          }
           setVideoSettings({
-            ...getVideoSettings(),
-            ...result?.json,
+            ...videoSettings,
             sidecarSource: videoFile,
           });
         }
@@ -535,37 +589,57 @@ export const loadVideoSidecar = (
       return videoSidecar;
     })
     .catch((error) => {
-      showErrorDialog(error);
-      return {};
+      console.log(
+        'loadVideoSidecar error',
+        error instanceof Error ? error.message : String(error)
+      );
+      // showErrorDialog(error);  Do not show error but return empty result.
+      return undefined;
     });
 };
 
+const createSidecarFile = async (
+  file: string
+): Promise<VideoSidecar | undefined> => {
+  const tzOffset = getTimezoneOffset();
+  await doRequestVideoFrame({
+    videoFile: file,
+    frameNum: 1,
+  });
+  const image = getImage();
+  if (image) {
+    const sidecar = await loadVideoSidecar(file, true);
+    if (sidecar?.file) {
+      if (sidecar.file.tzOffset !== tzOffset) {
+        sidecar.file.tzOffset = tzOffset;
+        await storeJsonFile(replaceFileSuffix(file, 'json'), sidecar);
+      } else {
+        console.log(`skipping ${file}.  file info already exists`);
+      }
+      return sidecar;
+    } else {
+      const content: VideoSidecar = {
+        file: {
+          startTs: `${image.fileStartTime / 1000}`,
+          stopTs: `${image.fileEndTime / 1000}`,
+          numFrames: image.numFrames,
+          fps: image.fps,
+          tzOffset,
+        },
+        ...sidecar,
+      } as VideoSidecar;
+      await storeJsonFile(replaceFileSuffix(file, 'json'), content);
+      return content;
+    }
+  }
+  return undefined;
+};
 export const addSidecarFiles = async () => {
   try {
     const files = getDirList();
     let count = 0;
     for (const file of files) {
-      await doRequestVideoFrame({
-        videoFile: file,
-        frameNum: 1,
-      });
-      const image = getImage();
-      if (image) {
-        const sidecar = await loadVideoSidecar(file);
-        if (sidecar.file) {
-          console.log(`skipping ${file}.  file info already exists`);
-        } else {
-          console.log(`updating ${file}`);
-          await storeJsonFile(replaceFileSuffix(file, 'json'), {
-            file: {
-              startTs: `${image.fileStartTime / 1000}`,
-              stopTs: `${image.fileEndTime / 1000}`,
-              numFrames: image.numFrames,
-            },
-            ...sidecar,
-          });
-        }
-      }
+      await createSidecarFile(file);
       setProgressBar((++count / files.length) * 100);
     }
     fileStatusByName.clear();

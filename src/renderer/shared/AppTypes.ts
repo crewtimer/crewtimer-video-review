@@ -9,6 +9,7 @@ export interface AppImage {
   tsMicro: number;
   data: Uint8Array;
   fps: number;
+  tzOffset: number;
   numFrames: number;
   file: string;
   fileStartTime: number;

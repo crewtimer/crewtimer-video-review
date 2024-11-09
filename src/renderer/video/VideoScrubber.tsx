@@ -14,7 +14,6 @@ import {
   useVideoFrameNum,
   useVideoFile,
   useImage,
-  useTimezoneOffset,
   getImage,
   useVideoEvent,
   useVideoBow,
@@ -31,7 +30,6 @@ const VideoScrubber = () => {
   const [scoredWaypoint] = useWaypoint();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
   const lastVideoFile = useRef('');
-  const [timezoneOffset] = useTimezoneOffset();
   const sliderRef = useRef<HTMLSpanElement>(null);
   const [, setSelectedEvent] = useVideoEvent();
   const [, setSelectedBow] = useVideoBow();
@@ -48,13 +46,13 @@ const VideoScrubber = () => {
     if (videoFileChanging) {
       const newImage = getImage();
       setVideoFrameNum(newImage.frameNum);
-      console.log(
-        `File:${newImage.file} fps: ${newImage.fps} frames: ${
-          newImage.numFrames
-        } sec: ${
-          (newImage.fileEndTime - newImage.fileStartTime) / 1000
-        } time: ${newImage.fileStartTime}->${newImage.fileEndTime}`
-      );
+      // console.log(
+      //   `File:${newImage.file} fps: ${newImage.fps} frames: ${
+      //     newImage.numFrames
+      //   } sec: ${
+      //     (newImage.fileEndTime - newImage.fileStartTime) / 1000
+      //   } time: ${newImage.fileStartTime}->${newImage.fileEndTime}`
+      // );
     }
   }, [videoFileChanging]);
 
@@ -72,17 +70,17 @@ const VideoScrubber = () => {
   const { startTime, endTime, segments } = useMemo(() => {
     const startTime = convertTimestampToString(
       image.fileStartTime,
-      timezoneOffset
+      image.tzOffset
     );
-    const endTime = convertTimestampToString(image.fileEndTime, timezoneOffset);
+    const endTime = convertTimestampToString(image.fileEndTime, image.tzOffset);
     const segment: TimeSegment = {
       startTsMicro: convertTimestampToLocalMicros(
         image.fileStartTime * 1000,
-        timezoneOffset
+        image.tzOffset
       ),
       endTsMicro: convertTimestampToLocalMicros(
         image.fileEndTime * 1000,
-        timezoneOffset
+        image.tzOffset
       ),
       startTime,
       endTime,
@@ -91,7 +89,7 @@ const VideoScrubber = () => {
       label: image.file.replace(/.*\//, ''),
     };
     return { startTime, endTime, segments: [segment] };
-  }, [image.fileStartTime, image.fileEndTime, timezoneOffset]);
+  }, [image.fileStartTime, image.fileEndTime, image.tzOffset]);
 
   const [filteredTimes, filteredScoredTimes, relativePositions] =
     useMemo(() => {

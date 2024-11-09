@@ -8,14 +8,20 @@ import {
   useDay,
 } from 'renderer/util/UseSettings';
 import { gateFromWaypoint, getConnectionProps } from 'renderer/util/Util';
-import { useVideoSettings } from './VideoSettings';
+import { getVideoSettings, useVideoSettings } from './VideoSettings';
+import { parseTimeToSeconds } from './VideoUtils';
 
+export interface ExtendedLap extends Lap {
+  seconds: number;
+}
 /**
  * This function transforms data received by firebase into a more easily usable format.
  * @param lapdata
  * @returns Lap[]
  */
-const onDataRxTransformer = (lapdata: KeyMap<Lap> | undefined): Lap[] => {
+const onDataRxTransformer = (
+  lapdata: KeyMap<Lap> | undefined
+): ExtendedLap[] => {
   if (lapdata) {
     let filteredEvents = getMobileConfig()?.eventList || [];
 
@@ -24,7 +30,7 @@ const onDataRxTransformer = (lapdata: KeyMap<Lap> | undefined): Lap[] => {
       filteredEvents = filteredEvents.filter((event) => event.Day === day);
     }
 
-    let sorted = Object.values(lapdata);
+    let sorted = Object.values(lapdata) as ExtendedLap[];
     const eventSet = new Set<string>();
     filteredEvents.forEach((event) => {
       eventSet.add(event.EventNum);
@@ -35,13 +41,23 @@ const onDataRxTransformer = (lapdata: KeyMap<Lap> | undefined): Lap[] => {
         lap.State !== 'Deleted' &&
         (lap.EventNum === '?' || eventSet.has(lap.EventNum))
     );
-    sorted = sorted.sort((a, b) =>
-      (a.Time || '00:00:00.000').localeCompare(b.Time || '00:00:00.000')
-    );
+    sorted.forEach((lap) => {
+      lap.seconds = parseTimeToSeconds(lap.Time || '00:00:00.000');
+    });
+    sorted = sorted.sort((a, b) => a.seconds - b.seconds);
     return sorted;
   } else {
     return [];
   }
+};
+
+const clickerDataCache: KeyMap<ExtendedLap[]> = {};
+
+export const getClickerData = (waypoint?: string): ExtendedLap[] => {
+  const gate = gateFromWaypoint(
+    waypoint ? waypoint : getVideoSettings().timingHintSource
+  );
+  return clickerDataCache[gate] || [];
 };
 
 export const useClickerData = (waypoint?: string) => {
@@ -55,11 +71,12 @@ export const useClickerData = (waypoint?: string) => {
     waypoint ? waypoint : videoSettings.timingHintSource
   );
 
-  const lapdata = useFirebaseDatum<KeyMap<Lap>, Lap[]>(path, {
+  const lapdata = useFirebaseDatum<KeyMap<Lap>, ExtendedLap[]>(path, {
     filter: { key: 'Gate', value: gate },
     dataTransformer: onDataRxTransformer,
     changeKey: day,
   });
+  clickerDataCache[gate] = lapdata || [];
 
   return lapdata || [];
 };

@@ -17,7 +17,6 @@ import {
   setVideoFile,
   useJumpToEndPending,
   useSelectedIndex,
-  useTimezoneOffset,
 } from './VideoSettings';
 import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
 import TimeSegments from './TimeSegments';
@@ -37,7 +36,6 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   const [, setFileIndex] = useSelectedIndex();
   const [dirList] = useDirList();
   const [fileStatusList] = useFileStatusList();
-  const [timezoneOffset] = useTimezoneOffset();
   let lapdata = useClickerData() as TimeObject[];
   const [scoredWaypoint] = useWaypoint();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
@@ -76,20 +74,20 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
     const segments = fileStatusList.map((item) => {
       let startTime = convertTimestampToString(
         item.startTime / 1000,
-        timezoneOffset
+        item.tzOffset
       );
       let endTime = convertTimestampToString(
         item.endTime / 1000,
-        timezoneOffset
+        item.tzOffset
       );
 
       const pct = item.duration / totalTime;
       const segment: TimeSegment = {
         startTsMicro: convertTimestampToLocalMicros(
           item.startTime,
-          timezoneOffset
+          item.tzOffset
         ),
-        endTsMicro: convertTimestampToLocalMicros(item.endTime, timezoneOffset),
+        endTsMicro: convertTimestampToLocalMicros(item.endTime, item.tzOffset),
         startTime,
         endTime,
         pctOffset,

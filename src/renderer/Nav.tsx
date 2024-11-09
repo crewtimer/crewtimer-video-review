@@ -33,6 +33,7 @@ import { setDialogConfig } from './util/ConfirmDialog';
 import { addSidecarFiles } from './video/VideoFileUtils';
 import ProgressBarComponent from './util/ProgressBarComponent';
 import { initiateImageArchive } from './video/ImageArchive';
+import TimezoneSelector from './util/TimezoneSelector';
 
 const AboutText = `CrewTimer Video Review ${window.platform.appVersion}`;
 
@@ -102,6 +103,7 @@ export default function Nav() {
       title: `Update Sidecar Files?`,
       message: `Proceed to update Sidecar JSON files?`,
       button: 'Proceed',
+      body: <TimezoneSelector />,
       showCancel: true,
       handleConfirm: () => {
         setProgressBar(0);
@@ -229,9 +231,10 @@ export default function Nav() {
                     <ListItemIcon>
                       <CreateNewFolderIcon />
                     </ListItemIcon>
-                    <ListItemText primary="Create Sidecar Files" />
+                    <ListItemText primary="Create/Update Sidecar Files" />
                   </MenuItem>
                 )}
+
                 {shiftMenu && (
                   <MenuItem onClick={handleCreateImageArchive}>
                     <ListItemIcon>

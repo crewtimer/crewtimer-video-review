@@ -1,12 +1,6 @@
-import moment from 'moment';
 import { UseDatum } from 'react-usedatum';
 import { AppImage } from 'renderer/shared/AppTypes';
-import {
-  N_IMAGE,
-  N_VIDEO_FILE,
-  N_VIDEO_DIR,
-  N_TIMEZONE,
-} from 'renderer/shared/Constants';
+import { N_IMAGE, N_VIDEO_FILE, N_VIDEO_DIR } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
 import generateTestPattern from '../util/ImageUtils';
 import { loadVideoSidecar } from './VideoFileUtils';
@@ -70,28 +64,6 @@ export const [usePlaceSort, setPlaceSort, getSortPlace] = UseDatum(true);
 export const [useSelectedIndex, setSelectedIndex, getSelectedIndex] =
   UseDatum(0);
 
-export const [useTimezoneOffset, setTimezoneOffset, getTimezoneOffset] =
-  UseDatum<number | undefined>(undefined);
-export const [useTimezone, setTimezone, getTimezone] = UseStoredDatum<string>(
-  N_TIMEZONE,
-  '',
-  (newValue) => {
-    let currentOffsetMinutes = undefined;
-    if (newValue) {
-      const tzDetails = moment.tz.zone(newValue);
-      // Get the current offset in minutes for the specified timezone
-      currentOffsetMinutes = tzDetails?.utcOffset(moment().valueOf());
-    }
-
-    if (currentOffsetMinutes === undefined) {
-      // If the timezone is not set, default to the local timezone
-      currentOffsetMinutes = new Date().getTimezoneOffset();
-    }
-
-    // Store as an offset that can be added to UTC to get local time
-    setTimezoneOffset(-currentOffsetMinutes);
-  }
-);
 export const [useTravelRightToLeft, , getTravelRightToLeft] = UseStoredDatum(
   'travelRightToLeft',
   false
@@ -140,13 +112,37 @@ export interface VideoGuides {
   enableAutoZoom: boolean;
 }
 
+export const VideoGuidesKeys: (keyof VideoGuides)[] = [
+  'guides',
+  'laneBelowGuide',
+  'enableLaneGuides',
+  'enableAutoZoom',
+];
+
 /**
  * Global video setting defaults
  */
-interface VideoSettings extends VideoGuides {
+export interface VideoSettings extends VideoGuides {
   timingHintSource: string;
   sidecarSource?: string;
 }
+
+/** Contents of the json video sidecar file */
+export interface VideoSidecar extends VideoGuides {
+  file: {
+    startTs: string; /// Start timestamp in UTC seconds
+    stopTs: string; /// Stop timestamp in UTC seconds
+    numFrames: number; /// Number of video frames in the video
+    fps: number; /// The number of frames/second
+    tzOffset?: number; /// Timezone offset in minutes
+    tzName?: string; /// Timezone name
+  };
+  guide?: {
+    pt1: number;
+    pt2: number;
+  };
+}
+
 export const [useVideoSettings, setVideoSettings, getVideoSettings] =
   UseStoredDatum<VideoSettings>('videoSettings', {
     timingHintSource: '',

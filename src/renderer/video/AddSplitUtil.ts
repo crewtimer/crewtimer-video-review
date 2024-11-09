@@ -14,6 +14,7 @@ import {
 import uuidgen from 'short-uuid';
 import { setToast } from 'renderer/Toast';
 import { getMobileConfig, getWaypoint } from 'renderer/util/UseSettings';
+import { seekToNextTimePoint } from './VideoUtils';
 
 let lastAddSplit = 0;
 export const performAddSplit = () => {
@@ -91,6 +92,7 @@ export const performAddSplit = () => {
           severity: 'info',
           msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,
         });
+        seekToNextTimePoint(lap);
       },
     });
     return;
@@ -102,4 +104,5 @@ export const performAddSplit = () => {
     severity: 'info',
     msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,
   });
+  seekToNextTimePoint(lap);
 };

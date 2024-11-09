@@ -22,15 +22,17 @@ import {
 import MenuIcon from '@mui/icons-material/Settings';
 import { setDialogConfig } from '../util/ConfirmDialog';
 import {
+  getVideoFile,
   useMouseWheelInverted,
   useTravelRightToLeft,
   useVideoSettings,
 } from './VideoSettings';
 import { useMobileConfig } from '../util/UseSettings';
-import TimezoneSelector from '../util/TimezoneSelector';
 import HyperZoomSelector from '../util/HyperZoomSelector';
 import makeStyles from '@mui/styles/makeStyles';
-import { saveVideoSidecar } from './VideoFileUtils';
+import { getFileStatusList, saveVideoSidecar } from './VideoFileUtils';
+import { notifiyGuideChanged } from './VideoUtils';
+import { setToast } from 'renderer/Toast';
 
 declare module '@mui/styles/defaultTheme' {
   // eslint-disable-next-line @typescript-eslint/no-empty-interface (remove this line if you don't have the rule enabled)
@@ -76,13 +78,38 @@ export const VideoSettingsDialog = () => {
   waypointList = waypointList.concat(['Finish']);
   waypointList = waypointList.map((waypoint) => waypoint.trim());
 
-  const resetGuides = () => {
+  const resetFinishGuide = () => {
     const newSetting = { ...videoSettings };
     const finishGuide = newSetting.guides.find((g) => g.label === 'Finish');
     if (finishGuide) {
       finishGuide.pt1 = finishGuide.pt2 = 0;
       setVideoSettings(newSetting, true);
       saveVideoSidecar();
+      notifiyGuideChanged();
+      setToast({
+        severity: 'info',
+        msg: `Finish guide set to center`,
+      });
+    }
+  };
+
+  const resetFinishGuideToRecording = () => {
+    const videoFile = getVideoFile();
+    const fileStatus = getFileStatusList().find((f) => {
+      return f.filename === videoFile;
+    });
+    const newSetting = { ...videoSettings };
+    const finishGuide = newSetting.guides.find((g) => g.label === 'Finish');
+    if (finishGuide && fileStatus?.sidecar?.guide) {
+      finishGuide.pt1 = fileStatus.sidecar.guide.pt1;
+      finishGuide.pt2 = fileStatus.sidecar.guide.pt2;
+      setVideoSettings(newSetting, true);
+      saveVideoSidecar();
+      notifiyGuideChanged();
+      setToast({
+        severity: 'info',
+        msg: `Finish guide set to recording default`,
+      });
     }
   };
 
@@ -109,9 +136,6 @@ export const VideoSettingsDialog = () => {
               Course Configuration
             </Typography>
           </Toolbar>
-          <Box className={classes.settings}>
-            <TimezoneSelector />
-          </Box>
           <Box className={classes.settings}>
             <Tooltip
               title="Direction of travel when crossing the finish line"
@@ -275,9 +299,17 @@ export const VideoSettingsDialog = () => {
               <Button
                 variant="outlined"
                 size="small"
-                onClick={() => resetGuides()}
+                onClick={() => resetFinishGuide()}
               >
-                Reset Finish Line to Center
+                Set to Center
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => resetFinishGuideToRecording()}
+                sx={{ marginLeft: '0.5em' }}
+              >
+                Set from Recording
               </Button>
             </Stack>
             <FormControlLabel
@@ -299,25 +331,31 @@ export const VideoSettingsDialog = () => {
               }
             />
             <Box>
-              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((lane) => (
-                <FormControlLabel
-                  key={lane}
-                  labelPlacement="end"
-                  label={`Lane ${lane}`}
-                  control={
-                    <Checkbox
-                      checked={videoSettings.guides[lane + 1].enabled}
-                      disabled={!videoSettings.enableLaneGuides}
-                      onChange={() => {
-                        const guides = [...videoSettings.guides]; // force 'diff'
-                        videoSettings.guides[lane + 1].enabled =
-                          !videoSettings.guides[lane + 1].enabled;
-                        setVideoSettings({ ...videoSettings, guides }, true);
-                      }}
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(
+                (lane) =>
+                  videoSettings.guides[lane + 1] && (
+                    <FormControlLabel
+                      key={lane}
+                      labelPlacement="end"
+                      label={`Lane ${lane}`}
+                      control={
+                        <Checkbox
+                          checked={videoSettings.guides[lane + 1].enabled}
+                          disabled={!videoSettings.enableLaneGuides}
+                          onChange={() => {
+                            const guides = [...videoSettings.guides]; // force 'diff'
+                            videoSettings.guides[lane + 1].enabled =
+                              !videoSettings.guides[lane + 1].enabled;
+                            setVideoSettings(
+                              { ...videoSettings, guides },
+                              true
+                            );
+                          }}
+                        />
+                      }
                     />
-                  }
-                />
-              ))}
+                  )
+              )}
             </Box>
           </Box>
         </Grid>

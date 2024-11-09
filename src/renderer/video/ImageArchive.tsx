@@ -8,7 +8,6 @@ import { setProgressBar, useDay, useWaypoint } from '../util/UseSettings';
 import { TimeObject } from './TimeRangeIcons';
 import { useClickerData } from './UseClickerData';
 import { requestVideoFrame, useFileStatusList } from './VideoFileUtils';
-import { useTimezoneOffset } from './VideoSettings';
 import { moveToFileIndex, parseTimeToSeconds } from './VideoUtils';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import { UseStoredDatum } from '../store/UseElectronDatum';
@@ -91,7 +90,6 @@ export const initiateImageArchive = () => {
 export const ImageArchive = () => {
   const [dirList] = useFileStatusList();
   const [scoredWaypoint] = useWaypoint();
-  const [timezoneOffset] = useTimezoneOffset();
   const [folderPath] = useArchiveFolder();
   let [prefix] = useArchivePrefix();
   let [day] = useDay();
@@ -108,11 +106,11 @@ export const ImageArchive = () => {
       const image = dirList[i];
       const startTime = convertTimestampToString(
         image.startTime / 1000,
-        timezoneOffset
+        image.tzOffset
       );
       const endTime = convertTimestampToString(
         image.endTime / 1000,
-        timezoneOffset
+        image.tzOffset
       );
       const startSeconds = parseTimeToSeconds(startTime);
       const endSeconds = parseTimeToSeconds(endTime);
