@@ -25,23 +25,20 @@
 
           },
           "include_dirs": [
-              "./src/ffmpeg-built-mac/include",
+              "./lib-build/ffmpeg-static-mac/include",
               "./lib-build/opencv-static-mac/include/opencv4",
             ],
           "link_settings": {
             "libraries": [
-                "../src/ffmpeg-built-mac/lib/libavcodec.a",
-                "../src/ffmpeg-built-mac/lib/libavdevice.a",
-                "../src/ffmpeg-built-mac/lib/libavfilter.a",
-                "../src/ffmpeg-built-mac/lib/libavformat.a",
-                "../src/ffmpeg-built-mac/lib/libavutil.a",
-                "../src/ffmpeg-built-mac/lib/libswresample.a",
-                "../src/ffmpeg-built-mac/lib/libswscale.a",
+                "../lib-build/ffmpeg-static-mac/lib/libavcodec.a",
+                "../lib-build/ffmpeg-static-mac/lib/libavformat.a",
+                "../lib-build/ffmpeg-static-mac/lib/libavutil.a",
+                "../lib-build/ffmpeg-static-mac/lib/libswscale.a",
                 "../lib-build/opencv-static-mac/lib/libopencv_core.a",
                 "../lib-build/opencv-static-mac/lib/libopencv_imgproc.a",
                 "../lib-build/opencv-static-mac/lib/libopencv_video.a"],
 
-            'library_dirs': ['../src/ffmpeg-built-mac/lib']
+            'library_dirs': ['../lib-build/ffmpeg-static-mac/lib']
           }
       }],
 
