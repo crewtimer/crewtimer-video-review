@@ -10,6 +10,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   CMAKE_ARCH_OPTS=-DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
 elif [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OS" == "Windows"* ]]; then
   PLATFORM="win"
+  CMAKE_ARCH_OPTS="-Ax64"
 else
   PLATFORM="linux"
 fi
@@ -64,6 +65,7 @@ cmake  \
       -DBUILD_SHARED_LIBS=OFF \
       -DBUILD_ZLIB=ON -DWITH_OPENEXR=ON \
       -DWITH_IPP=OFF -DWITH_ITT=OFF \
+       -DWITH_JPEG=OFF -DBUILD_JPEG=OFF -DBUILD_opencv_imgcodecs=ON \
       -DBUILD_LIST=core,imgproc,video \
       ..
 

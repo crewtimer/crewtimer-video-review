@@ -44,20 +44,22 @@
 
       ['OS=="win"', {
         "include_dirs": [
-          "y:/ffmpeg-built-win/include",
-          "C:/OpenCV/opencv/build/include"
+          "./lib-build/ffmpeg-static-win/include",
+          "./lib-build/opencv-static-win/include"
         ],
         "link_settings": {
             "libraries": [
-                "y:/ffmpeg-built-win/lib/libavcodec.a",
-                "y:/ffmpeg-built-win/lib/libavformat.a",
-                "y:/ffmpeg-built-win/lib/libavutil.a",
-                "y:/ffmpeg-built-win/lib/libswscale.a",
-                "y:/ffmpeg-built-win/lib/libswresample.a",
-                "C:/OpenCV/opencv/build/x64/vc16/lib/opencv_world490.lib",
+                "../lib-build/ffmpeg-static-win/lib/libavcodec.a",
+                "../lib-build/ffmpeg-static-win/lib/libavformat.a",
+                "../lib-build/ffmpeg-static-win/lib/libavutil.a",
+                "../lib-build/ffmpeg-static-win/lib/libswscale.a",
+                "../lib-build/opencv-static-win/staticlib/opencv_core490.lib",
+                "../lib-build/opencv-static-win/staticlib/opencv_imgproc490.lib",
+                "../lib-build/opencv-static-win/staticlib/opencv_video490.lib",
                 "Bcrypt.lib", "Mfuuid.lib", "Strmiids.lib"
             ],
-          'library_dirs': ['../src/ffmpeg-built-win/lib']
+          'library_dirs': ["../lib-build/ffmpeg-static-win/staticlib",
+                           "../lib-build/opencv-static-win/staticlib"]
           }
         }],
       ],

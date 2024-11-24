@@ -8,33 +8,33 @@
     "install": "prebuild-install --verbose -r napi || yarn rebuild",
     "install-prebuild": "prebuild-install --verbose -r napi",
     "prebuild": "prebuild --runtime napi --all --verbose",
+
+    "build:mac-x64": "prebuild --napi --napi-version 6 --runtime napi --arch x64 --platform darwin",
+    "build:mac-arm": "prebuild --napi --napi-version 6 --runtime napi --arch arm64 --platform darwin",
+    "build:mac" : "yarn build:mac-x64 && yarn build:mac-arm",
+
     "rebuild": "node-gyp rebuild",
     "uploadall": "prebuild --upload-all $GITHUB_TOKEN",
     "upload": "prebuild --verbose --runtime napi",
     "build": "node-gyp rebuild",
     "winbuild": "node-gyp rebuild --arch=x64 --target_platform=win32",
-    "build-opencv": "bash ./scripts/build-opencv.sh",
-    "build-ffmpeg-mac": "git clone https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg && ./configure --prefix=../src/ffmpeg-built-mac --enable-static --enable-gpl --disable-network --disable-programs --disable-doc --disable-avdevice --disable-swresample --disable-postproc --disable-avfilter && make && make install",
-    "build-ffmpeg-win": "git clone https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg && ./configure --prefix=../src/ffmpeg-built-win --enable-static --enable-gpl --disable-network --disable-programs --disable-doc --disable-avdevice --disable-swresample --disable-postproc --disable-avfilter --toolchain=msvc && make && make install",
-    "install-ffmpeg-win": "git clone https://github.com/FFmpeg/FFmpeg.git --config core.autocrlf=false && cd FFmpeg && ./configure --prefix=./ffmpeg-built-win --enable-gpl && make && make install",
-    "install-ffmpeg-mac": "git clone https://github.com/FFmpeg/FFmpeg.git && cd FFmpeg && ./configure --prefix=./ffmpeg-built-mac --enable-gpl && make && make install",
-    "install-ffmpeg": "node -e \"require('os').platform() === 'darwin' ? require('child_process').execSync('npm run install-ffmpeg-mac') : require('os').platform() === 'win32' ? require('child_process').execSync('npm run install-ffmpeg-win') : console.log('Unsupported OS')\""
-  },
+    "build-opencv": "bash ./scripts/build-opencv.sh"
+    },
   "keywords": [],
   "author": "Glenn Engel (glenne)",
   "license": "ISC",
   "devDependencies": {
-    "@types/node": "^20.9.4",
-    "electron": "^27.1.2",
-    "node-addon-api": "^7.0.0",
-    "node-gyp": "^10.0.1",
-    "prebuild": "^12.1.0",
-    "typescript": "^5.3.2"
+    "@types/node": "^22.9.1",
+    "electron": "^33.2.0",
+    "node-addon-api": "^8.2.2",
+    "node-gyp": "^10.2.0",
+    "prebuild": "^13.0.1",
+    "typescript": "^5.6.3"
   },
   "dependencies": {
-    "prebuild-install": "^7.1.1",
     "bindings": "^1.5.0",
-    "tar": "^6.1.11"
+    "prebuild-install": "^7.1.2",
+    "tar": "^7.4.3"
   },
   "binary": {
     "napi_versions": [

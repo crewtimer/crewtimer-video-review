@@ -2,15 +2,86 @@
 
 An electron native module for processing video for use with CrewTimer.  The package uses 'prebuild' to build native versions and store them in github releases so projects which use this module do not have to build the module.
 
-## Constraints
+## Toolchains
 
-The package name cannot have dashes like most npm packages.  This is because the package name gets used in a macro for the napi boilerplate.
+Building this native module on windows requires building both opencv and ffmpeg from source to allow static linking to the C++ code.  This requires build tools and a few custom scripts.
 
-If using yarn to add this module locally, you must use yarn link or the .erb/scripts/check-native-dep.js script fails running `npm ls <modulename>`.  Using yarn add file:../../native/ffreader from the release/app of an electron app also works.
+### MacOS Toolchain
+
+On MacOS, the following brew modules are required to be installed.
+
+Install brew from [brew.sh](https://brew.sh)
+
+```bash
+brew install nvm
+brew install nasm
+brew install yasm
+brew install pkg-config
+brew install cmake
+```
+
+### Windows Toolchain
+
+A unix like environment is needed to build ffmpeg and opencv.  Cygwin is used to establish a unix-like environment.  Install the following:
+
+- [nvm for windows](https://github.com/coreybutler/nvm-windows/releases)
+- [git for windows](https://gitforwindows.org/)
+- [Visual Studio Community]() with C++ addon
+- [cmake](https://cmake.org/download/)
+- Python.  Just type `python` on windows to get prompted to install. It is installed already on macos.
+- [Cygwin 64 bit](https://www.cygwin.com/install.html).  Add 'yasm' and 'make' modules.
+
+Either check out the git repo or if in a Macos Parallels Desktop, map a network drive to share the git repo.
+
+In windows explorer, navigate to the scripts/ folder and double click on the Cygwin-vstudio.bat file.  This will open a bash terminal with the visual studio tools available from the command line.
+
+## Building the prebuilt binary
+
+Set up nvm/node:
+
+```bash
+nvm install 18
+nvm use 18
+npm i -g yarn
+```
+
+Build ffmpeg and opencv:
+
+```bash
+cd crewtimer-video-review/native/ffreader
+./scripts/build-opencv.sh
+./scripts/build-ffmpeg.sh
+```
+
+Build the module and upload to github:
+
+```bash
+yarn install
+yarn prebuild
+```
+
+The result is placed into a file such as prebuilds/crewtimer_video_reader-v1.0.2-napi-v6-win32-x64.tar.gz.
+
+The `yarn prebuild` command will also upload the binary module to github if a ~/.prebuildrc file with a github token is present such as 
+
+```txt
+upload=ghp_kQ04DpisXo2hTiLt2syssyssysysysysysy
+token=ghp_kQ04DpisXo2hTiLt2syssyssysysysysysy
+```
+
+Optionally manually upload the tar.gz file to [github releases](https://github.com/crewtimer/crewtimer-video-review/releases).
+
+## Usage
+
+Here's how to use the module in your Electron app:
+
+```ts
+import { someFunction } = from 'crewtimer_video_reader';
+
+console.log(someFunction());
+```
 
 ## Package Size
-
-When the final app gets packaged, the .gitignore and .npmignore files tell the packager what files to leave out of the native module.  The .gitignore and .npmignore need to be in the native library folder and not in a parent.
 
 When building the Electron app that utilizes this package files to exclude are added to the top level package.json file with ! prefix:
 
@@ -23,89 +94,21 @@ When building the Electron app that utilizes this package files to exclude are a
       "!node_modules/**/*.cpp",
       "!node_modules/**/*.h",
       "!node_modules/**/*.md",
-      "!node_modules/**/lib-build/**/*",
-      "!node_modules/**/ffmpeg*/**/*"
+      "!node_modules/**/lib-build/**/*"
     ],
 }
 ```
 
-## Building static opencv
+## Constraints
 
-To avoid linking issues when deploying to other machines than the build machine opencv is built as a static library and linked directly to the native add-on.
+The package name cannot have dashes like most npm packages.  This is because the package name gets used in a macro for the napi boilerplate.
 
-```bash
-yarn opencv-build
-```
+If using yarn to add this module locally, you must use yarn link or the .erb/scripts/check-native-dep.js script fails running `npm ls <modulename>`.  Using yarn add file:../../native/ffreader from the release/app of an electron app also works.
 
-## Building ffmpeg on Windows
-
-Native modules must be build with MSVC toolchains.
-
-ffmpeg needs configure which requires bash.  One recipe follows:
-
-* Install nvm for windows.
-* Install node 16 (includes npm): `nvm install 16 && nvm use 16`
-* Install yarn: `npm install -g yarn`
-* Install Cygwin with make and git options
-* Install Visual Studio Community Edition with C++ support
-* Edit C:\cygwin64\Cygwin.bat and add ```call "c:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"``` to provide MSVC to cygwin shell.
-* Start a Cygwin shell from file file explorer by clicking on Cygwin.bat
-* Verify msvc is available.  Create a dummy main.cpp and invoke `cl main.cpp` to test.
-
-Build the ffmpeg libraries
-
-```bash
-cd crewtimer-video-review/native/ffreader
-yarn build-ffmpeg-win
-```
-
-## Making a new prebuilt on windows
-
-First, ensure that ffmpeg has been built by following the prior section instructions.
-
-Open a shell via C:\cygwin64\Cygwin.bat.  Alternatively, open a Visual Studio 2022 x64 Native Tools Command Prompt.
-
-```bash
-cd c:/Users/glenne/git/crewtimer-video-review/native/ffreader
-rm -rf node_modules build # start from scratch
-rm yarn.lock # removes an error about stringWidth libraries
-yarn install # The final step of the install will fail where it tries to get prebuilt binaries.  We'll build our own next
-yarn prebuild # This will likely fail on the final step where it tries to upload to github releases
-```
-
-If you get an error about a stringWidth require, do the following: `rm -rf node_modules yarn.lock && yarn install`.  A conflict exists between two string packages and an install without a yarn.lock will succeed.
-
-The result is placed into a file such as prebuilds/crewtimer_video_reader-v1.0.2-napi-v6-win32-x64.tar.gz.  It will also attempt to upload it to github releases.  This file can also be copied to a similar directory on a mac and uploaded from there via `yarn uploadall`.
-
-If it creates a file with something like v94 instead of v6, this is not what you want and a script got the wrong napi version.  Try also removing the build directory - `rm -rf node_modules yarn.lock build && yarn install`.
-
-Uploading requires a GITHUB_TOKEN env variable to be set to grant permission.
-
-## Usage
-
-Here's how to use the module in your Electron app:
-
-```ts
-import { someFunction } = from 'crewtimer_video_reader';
-
-console.log(someFunction());
-```
-
-## Requirements
-
-* Node.js
-* Electron
-* C++ toolchain
-
-## Building
-
-The `install` script in `package.json` is configured to build the native module:
-
-```bash
-yarn install
-```
 
 ## Problems
+
+If you get an error about a stringWidth require, do the following: `rm -rf node_modules yarn.lock && yarn install`.  A conflict exists between two string packages and an install without a yarn.lock will succeed.
 
 On windows, running the Electron App you might see the error *The specified module could not be found*.  This usually indicates missing dll files.  Copy dll files into the same folder as the exe to see if you can figure out which dlls are missing.
 

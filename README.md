@@ -7,7 +7,7 @@ See the [VSCode plugins suggested here](https://electron-react-boilerplate.js.or
 
 ## Development Environment Setup
 
-Node version 16 or later is recommended.
+Node version 18 or later is recommended.
 
 * [Visual Studio Code](https://code.visualstudio.com/) is the recommended IDE for editing code for this repo.  If you don't have it installed, please do that first.
 * The [nvm node version manager](https://github.com/nvm-sh/nvm) is recommended to manage node versions.  [Node.js which includes npm](https://nodejs.org/en) is required for local development.
@@ -16,8 +16,13 @@ Node version 16 or later is recommended.
 ## Quickstart
 
 ```bash
-nvm install 16
-nvm use 16
+nvm install 18
+nvm use 18
+nvm alias default v16
+npm i -g node-gyp@latest
+npm i -g yarn
+npm i -g ts-node
+
 git clone git@github.com:crewtimer/crewtimer-video-review.git
 yarn install
 yarn start
@@ -31,21 +36,7 @@ The crewtimer_video_reader native module contains pre-built binaries for mac and
 2. Add it to ~/.prebuild-installrc
 3. e.g. `token=ghp_8bh6rSO2EhGf3nVCgY4GrEvs1dqd324`
 
-## Installation and Configuration Notes to self
 
-MacOS can build for all targets - mac, win, linux
-
-To build native libs (sqlite3) a recent version of npm is needed.
-
-* Run `nvm ls-remote --lts` and pick a version.  16 known to work.
-* Install `nvm install 16`
-* Use it `nvm use 16`
-* Make it default `nvm alias default v16`
-* Update node-gyp `npm i -g node-gyp@latest"`.  Required to build sqlite3.
-* Install yarn `npm i -g yarn`
-* Install ts-node `npm i -g ts-node`
-* Some report needing this: `npm config set node_gyp "/usr/local/lib/node_modules/node-gyp/bin/node-gyp.js`
-* Add sqlite3 to release/app/package.json instead of top level. `cd release/app && npm i --save sqlite3`
 * For firebase, edit webpack.config.renderer.dev.dll.ts and modify renderer field `entry: {
     renderer: Object.keys(dependencies || {}).filter((it) => it !== 'firebase'),
   },` . See [stackoverflow](https://stackoverflow.com/a/72220505/924369) for issue it resolves.
@@ -55,9 +46,9 @@ To build native libs (sqlite3) a recent version of npm is needed.
 
 ## Native modules
 
-A native module is used to read mp4 files from storage using the ffmpeg library.  This code is prebuilt and stored on github.
+A native module is used to read mp4 files from storage using the ffmpeg and opencv libraries.  This code is prebuilt and stored on github.
 
-To make updates to the native code, see [Instructions for the native video reader](native/ffreader/README.md).  Access to both a windows and Mac is required.
+To make updates to the native code, see [Instructions for the native video reader](native/ffreader/README.md).  Access to both windows and Mac is required. Parallels Desktop on Mac works well as a windows VM.
 
 ## Debugging
 
@@ -87,11 +78,20 @@ See also [the Electron React Boilerplate page](https://electron-react-boilerplat
 
 ## Releasing new versions
 
-1. Edit [release/app/package.json](release/app/package.json) and src/renderer/Nav.tsx and adjust version info
-2. Execute `npm run winbuild`
-3. Look in release/ for the exe file
-4. Copy the exe to the 'CrewTimer Installers' google drive folder.
-5. Make a copy of the installer and rename it without a version: `CrewTimerConnect Setup.exe`.
+1. Edit [release/app/package.json](release/app/package.json) and adjust version info
+2. Execute `yarn macbuild && yarn winbuild`
+3. Look in release/ for the dmg and exe files
+4. Copy the dmg and exe to a Releases set on github
+
+## Notarizing MacOS builds
+
+To create a notarized macos build, create a .env file with the following contents.  **Do not commit this file to the repo**
+
+```txt
+APPLE_ID=glenne@engel.org
+APPLE_APP_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx
+TEAM_ID=P<snip>4
+```
 
 ## Tips
 
