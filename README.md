@@ -18,7 +18,7 @@ Node version 18 or later is recommended.
 ```bash
 nvm install 18
 nvm use 18
-nvm alias default v16
+nvm alias default v18
 npm i -g node-gyp@latest
 npm i -g yarn
 npm i -g ts-node
