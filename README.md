@@ -83,16 +83,6 @@ See also [the Electron React Boilerplate page](https://electron-react-boilerplat
 3. Look in release/ for the dmg and exe files
 4. Copy the dmg and exe to a Releases set on github
 
-## Notarizing MacOS builds
-
-To create a notarized macos build, create a .env file with the following contents.  **Do not commit this file to the repo**
-
-```txt
-APPLE_ID=glenne@engel.org
-APPLE_APP_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx
-TEAM_ID=P<snip>4
-```
-
 ## Tips
 
 * Blank screen at startup? Check to make sure packagse were added top level package.json
@@ -104,3 +94,30 @@ TEAM_ID=P<snip>4
 * [Python opencv interpolation](https://github.com/satinder147/video-frame-interpolation)
 * [chatgpt conversion of xxx](https://chat.openai.com/share/42a74f77-a0ab-4b40-97ab-6b75b121f289)
 * [minimal opencv libs](https://github.com/nihui/opencv-mobile)
+
+## Code signing for MacOS
+
+In order to install apps downloaded outside the app store without diving into security exception settings, apps must be signed and notarized. This process takes several minutes as the binary must be uploaded to Apple to get notarized. To disable notariztion during development, set `"notarize" : "false"` in the build.mac section of [package.json](package.json)
+
+Requirements for signing:
+
+1. A 'Developer ID Application' signing identity certificate as well as it's associated private key to be in the keychain.
+2. Signing credentials with app specific password stored in the keychain.
+
+You can verify you have a valid signing identity with command below. It should list a key such as "Developer ID Application: Entazza LLC (P87Q63DNL4)".
+
+```bash
+security find-identity -v -p codesigning
+```
+
+Once you have obtained an app specific password from your developer account, store it into the keychain with this command:
+
+```bash
+xcrun notarytool store-credentials "crewtimer-app-signing" --apple-id "glenne@engel.org" --team-id P87Q63DNL4 --password app-specific-passord-hash
+```
+
+Signing is configured by setting the env variable APPLE_KEYCHAIN_PROFILE to the name of the profile in the keychain that has the credentials. See [macPackager.js](node_modules/app-builder-lib/out/macPackager.js) and [notarize](https://github.com/electron/notarize) for other options.
+
+If notarization fails, add console.log info to [macPackager.js](node_modules/app-builder-lib/out/macPackager.js).
+
+Note: As of 12/2024 the notarize.js script in .erb/scripts is not utilized.

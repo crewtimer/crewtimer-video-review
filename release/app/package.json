@@ -6,24 +6,25 @@
   "author": {
     "name": "Glenn Engel",
     "email": "info@crewtimer.com",
-    "url": "https://crewtimr.com"
+    "url": "https://crewtimer.com/about"
   },
   "main": "./dist/main/main.js",
   "scripts": {
+    "install": "patch-package --exclude nothing",
     "rebuild": "node -r ts-node/register ../../.erb/scripts/electron-rebuild.js",
-    "postinstall": "patch-package --exclude nothing",
-    "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts",
-    "xpostinstall": "npm run electron-rebuild && npm run link-modules"
+    "postinstall": "patch-package --exclude nothing && npm run rebuild && npm run link-modules",
+    "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
   },
   "dependencies": {
-    "crewtimer_video_reader": "../../native/ffreader/",
+    "crewtimer_video_reader": "../../native/ffreader",
     "patch-package": "^8.0.0",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.6.0",
-    "@types/node": "^20.11.7",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.3.2"
+    "@electron/rebuild": "^3.6.0"
+  },
+  "resolutions": {
+    "node-gyp": "^11.0.0",
+    "prebuild-install": "^7.1.2"
   }
 }
