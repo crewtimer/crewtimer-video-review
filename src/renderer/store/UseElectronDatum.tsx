@@ -11,7 +11,7 @@ window.store.onStoredDatumUpdate(
     if (datum) {
       datum[1](value);
     }
-  }
+  },
 );
 
 window.mem.onDatumUpdate(
@@ -20,13 +20,13 @@ window.mem.onDatumUpdate(
     if (datum) {
       datum[1](value);
     }
-  }
+  },
 );
 
 export function UseStoredDatum<T>(
   key: string,
   initialValue: T,
-  onChange?: (current: T, prior: T) => void
+  onChange?: (current: T, prior: T) => void,
 ) {
   const datum = UseDatum<T>(initialValue, async (newValue, priorValue) => {
     notifyChange(key);
@@ -53,7 +53,7 @@ export function UseStoredDatum<T>(
 export function UseMemDatum<T>(
   key: string,
   initialValue: T,
-  onChange?: (current: T, prior: T) => void
+  onChange?: (current: T, prior: T) => void,
 ) {
   const datum = UseDatum<T>(initialValue, async (newValue, priorValue) => {
     notifyChange(key);

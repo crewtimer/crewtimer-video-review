@@ -3,7 +3,7 @@ import { AppImage } from 'renderer/shared/AppTypes';
 import { N_IMAGE, N_VIDEO_FILE, N_VIDEO_DIR } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
 import generateTestPattern from '../util/ImageUtils';
-import { loadVideoSidecar } from './VideoFileUtils';
+import { OpenFileStatus } from './VideoTypes';
 
 export interface VideoPosition {
   frameNum: number;
@@ -24,70 +24,6 @@ export interface VideoScaling {
   pixScale: number; /// convert canvas pixels to src pixels
   zoom: number; /// zoom factor
 }
-
-export const [useVideoScaling, setVideoScaling, getVideoScaling] =
-  UseDatum<VideoScaling>({
-    destX: 0,
-    destY: 0,
-    destWidth: 1,
-    destHeight: 1,
-    srcCenterPoint: { x: 0, y: 0 },
-    srcWidth: 1,
-    srcHeight: 1,
-    scaledWidth: 1,
-    scaledHeight: 1,
-    pixScale: 1,
-    zoom: 1,
-  });
-
-export const [useJumpToEndPending, setJumpToEndPending] = UseDatum(false);
-
-export const [useVideoError, setVideoError] = UseDatum<string | undefined>(
-  undefined
-);
-export const [useVideoFrameNum, setVideoFrameNum, getVideoFrameNum] =
-  UseDatum<number>(1);
-
-export const [useVideoFile, setVideoFile, getVideoFile] = UseStoredDatum(
-  N_VIDEO_FILE,
-  '',
-  (current) => {
-    loadVideoSidecar(current);
-    return;
-  }
-);
-export const [useVideoTimestamp, setVideoTimestamp, getVideoTimestamp] =
-  UseDatum('');
-export const [useVideoBow, setVideoBow, getVideoBow] = UseDatum('');
-export const [useVideoEvent, setVideoEvent, getVideoEvent] = UseDatum('');
-export const [usePlaceSort, setPlaceSort, getSortPlace] = UseDatum(true);
-export const [useSelectedIndex, setSelectedIndex, getSelectedIndex] =
-  UseDatum(0);
-
-export const [useTravelRightToLeft, , getTravelRightToLeft] = UseStoredDatum(
-  'travelRightToLeft',
-  false
-);
-
-export const [useHyperZoomFactor, , getHyperZoomFactor] = UseStoredDatum(
-  'hyperZoomFactor',
-  0
-);
-export const [useResetZoomCounter, setResetZoomCounter, getResetZoomCounter] =
-  UseDatum(0);
-export const resetVideoZoom = () => {
-  setResetZoomCounter((c) => c + 1);
-};
-
-/// Mouse wheel zoom factor
-export const [useMouseWheelFactor, setMouseWheelFactor, getMouseWheelFactor] =
-  UseStoredDatum<number>('wheelFactor', 4);
-export const [useMouseWheelInverted] = UseStoredDatum('wheelInvert', false);
-
-export const [useVideoDir, setVideoDir, getVideoDir] = UseStoredDatum(
-  N_VIDEO_DIR,
-  '.'
-);
 
 export enum Dir {
   Horiz,
@@ -112,21 +48,6 @@ export interface VideoGuides {
   enableAutoZoom: boolean;
 }
 
-export const VideoGuidesKeys: (keyof VideoGuides)[] = [
-  'guides',
-  'laneBelowGuide',
-  'enableLaneGuides',
-  'enableAutoZoom',
-];
-
-/**
- * Global video setting defaults
- */
-export interface VideoSettings extends VideoGuides {
-  timingHintSource: string;
-  sidecarSource?: string;
-}
-
 /** Contents of the json video sidecar file */
 export interface VideoSidecar extends VideoGuides {
   file: {
@@ -141,6 +62,105 @@ export interface VideoSidecar extends VideoGuides {
     pt1: number;
     pt2: number;
   };
+}
+
+/**
+ *  Read the current video guide settings from a JSON file.  The JSON file is named after the video file
+ *
+ * @param videoFile - The path to the video file
+ * @param loadOnly - If true, do not update the video settings
+ */
+// eslint-disable-next-line import/no-mutable-exports
+export let loadVideoSidecar = (
+  videoFile: string,
+  loadOnly?: boolean,
+): Promise<VideoSidecar | undefined> => {
+  videoFile as any;
+  loadOnly as any;
+  return Promise.resolve(undefined);
+};
+
+export const setLoadVideoSidecar = (func: typeof loadVideoSidecar) => {
+  // eslint-disable-next-line no-import-assign
+  loadVideoSidecar = func;
+};
+
+export const [useVideoScaling, setVideoScaling, getVideoScaling] =
+  UseDatum<VideoScaling>({
+    destX: 0,
+    destY: 0,
+    destWidth: 1,
+    destHeight: 1,
+    srcCenterPoint: { x: 0, y: 0 },
+    srcWidth: 1,
+    srcHeight: 1,
+    scaledWidth: 1,
+    scaledHeight: 1,
+    pixScale: 1,
+    zoom: 1,
+  });
+
+export const [useJumpToEndPending, setJumpToEndPending] = UseDatum(false);
+
+export const [useVideoError, setVideoError] = UseDatum<string | undefined>(
+  undefined,
+);
+export const [useVideoFrameNum, setVideoFrameNum, getVideoFrameNum] =
+  UseDatum<number>(1);
+
+export const [useVideoFile, setVideoFile, getVideoFile] = UseStoredDatum(
+  N_VIDEO_FILE,
+  '',
+  (current) => {
+    loadVideoSidecar(current);
+  },
+);
+export const [useVideoTimestamp, setVideoTimestamp, getVideoTimestamp] =
+  UseDatum('');
+export const [useVideoBow, setVideoBow, getVideoBow] = UseDatum('');
+export const [useVideoEvent, setVideoEvent, getVideoEvent] = UseDatum('');
+export const [usePlaceSort, setPlaceSort, getSortPlace] = UseDatum(true);
+export const [useSelectedIndex, setSelectedIndex, getSelectedIndex] =
+  UseDatum(0);
+
+export const [useTravelRightToLeft, , getTravelRightToLeft] = UseStoredDatum(
+  'travelRightToLeft',
+  false,
+);
+
+export const [useHyperZoomFactor, , getHyperZoomFactor] = UseStoredDatum(
+  'hyperZoomFactor',
+  0,
+);
+export const [useResetZoomCounter, setResetZoomCounter, getResetZoomCounter] =
+  UseDatum(0);
+export const resetVideoZoom = () => {
+  setResetZoomCounter((c) => c + 1);
+};
+
+/// Mouse wheel zoom factor
+export const [useMouseWheelFactor, setMouseWheelFactor, getMouseWheelFactor] =
+  UseStoredDatum<number>('wheelFactor', 4);
+export const [useMouseWheelInverted] = UseStoredDatum('wheelInvert', false);
+
+export const [useVideoDir, setVideoDir, getVideoDir] = UseStoredDatum(
+  N_VIDEO_DIR,
+  '.',
+);
+
+export const VideoGuidesKeys: (keyof VideoGuides)[] = [
+  'guides',
+  'laneBelowGuide',
+  'enableLaneGuides',
+  'enableAutoZoom',
+];
+
+/**
+ * Global video setting defaults
+ */
+export interface VideoSettings extends VideoGuides {
+  timingHintSource: string;
+  sidecarSource?: string;
 }
 
 export const [useVideoSettings, setVideoSettings, getVideoSettings] =
@@ -180,5 +200,11 @@ export const [useVideoSettings, setVideoSettings, getVideoSettings] =
 
 export const [useImage, setImage, getImage] = UseMemDatum<AppImage>(
   N_IMAGE,
-  generateTestPattern()
+  generateTestPattern(),
 );
+
+export const [useFileStatusList, setFileStatusList, getFileStatusList] =
+  UseDatum<OpenFileStatus[]>([]);
+
+export const [useAutoZoomPending, setAutoZoomPending, getAutoZoomPending] =
+  UseDatum<undefined | Point>(undefined);

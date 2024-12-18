@@ -1,10 +1,12 @@
+import React from 'react';
 import Paper from '@mui/material/Paper';
 import { Button, SxProps, Theme, Tooltip } from '@mui/material';
-const { openDirDialog } = window.Util;
 import makeStyles from '@mui/styles/makeStyles';
 import FileList from '../FileList';
 import { useDirList } from './VideoFileUtils';
 import { useVideoDir } from './VideoSettings';
+
+const { openDirDialog } = window.Util;
 
 const useStyles = makeStyles((_theme) => ({
   button: { margin: '0.5em', fontSize: 10 },
@@ -35,8 +37,11 @@ const VideoSideBar: React.FC<CustomTableProps> = ({ sx, height }) => {
             setVideoDir(result.path);
           }
         }
+        return undefined;
       })
-      .catch();
+      .catch((_e) => {
+        /* ignore */
+      });
   };
 
   return (

@@ -58,43 +58,43 @@ function generateTestPattern(): AppImage {
 export const sharpenImageData = (
   data: Uint8ClampedArray,
   width: number,
-  height: number
+  height: number,
 ): Uint8ClampedArray => {
   const sharpenKernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
 
   const applyKernel = (
     x: number,
     y: number,
-    data: Uint8ClampedArray,
-    width: number
+    d: Uint8ClampedArray,
+    w: number,
   ): [number, number, number] => {
     const weight = (kx: number, ky: number): number =>
       sharpenKernel[(ky + 1) * 3 + (kx + 1)];
     const sum = (dx: number, dy: number): [number, number, number] => {
-      const pixelIndex = (y + dy) * width + (x + dx);
+      const pixelIndex = (y + dy) * w + (x + dx);
       return [
-        weight(dx, dy) * data[pixelIndex * 4], // R
-        weight(dx, dy) * data[pixelIndex * 4 + 1], // G
-        weight(dx, dy) * data[pixelIndex * 4 + 2], // B
+        weight(dx, dy) * d[pixelIndex * 4], // R
+        weight(dx, dy) * d[pixelIndex * 4 + 1], // G
+        weight(dx, dy) * d[pixelIndex * 4 + 2], // B
       ];
     };
 
     const totalWeight = sharpenKernel.reduce((a, b) => a + b, 0) || 1;
-    const [r, g, b] = [-1, 0, 1]
+    const [red, green, blue] = [-1, 0, 1]
       .flatMap((dy) => [-1, 0, 1].map((dx) => sum(dx, dy)))
       .reduce((a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], [0, 0, 0]);
 
     return [
-      Math.min(Math.max(r / totalWeight, 0), 255),
-      Math.min(Math.max(g / totalWeight, 0), 255),
-      Math.min(Math.max(b / totalWeight, 0), 255),
+      Math.min(Math.max(red / totalWeight, 0), 255),
+      Math.min(Math.max(green / totalWeight, 0), 255),
+      Math.min(Math.max(blue / totalWeight, 0), 255),
     ];
   };
 
   const newData = new Uint8ClampedArray(data);
 
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
       const [r, g, b] = applyKernel(x, y, data, width);
       const index = (y * width + x) * 4;
       newData[index] = r;

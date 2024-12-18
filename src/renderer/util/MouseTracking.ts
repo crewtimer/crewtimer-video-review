@@ -1,3 +1,4 @@
+import React from 'react';
 /**
  * Type representing a 2D position with x and y coordinates.
  */
@@ -17,7 +18,7 @@ type Position = {
 type MouseVelocityCallback = (
   position: Position,
   velocity: number,
-  pct: number
+  pct: number,
 ) => void;
 
 /**
@@ -58,7 +59,7 @@ export function createMouseMoveHandler(callback: MouseVelocityCallback) {
   const updatePosition = (
     newPosition: Position,
     velocity: number,
-    pct: number
+    pct: number,
   ) => {
     if (velocity < velocityKnee) {
       // Slow down the position calculation if velocity is below velocityKnee px/s
@@ -90,13 +91,13 @@ export function createMouseMoveHandler(callback: MouseVelocityCallback) {
       currentPosition.x -= elementLeft;
       pct = Math.min(
         100,
-        Math.max(0, currentPosition.x / (event.target.clientWidth - 1))
+        Math.max(0, currentPosition.x / (event.target.clientWidth - 1)),
       );
     }
 
     if (lastPosition && lastTimestamp) {
       const timeElapsed = (currentTime - lastTimestamp) / 1000; // convert to seconds
-      if (timeElapsed == 0) {
+      if (timeElapsed === 0) {
         return;
       }
       const distance = currentPosition.x - lastPosition.x;

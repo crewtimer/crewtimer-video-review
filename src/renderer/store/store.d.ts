@@ -7,7 +7,11 @@ declare global {
       set<T>(key: string, newValue: T): void;
       delete(key: string): void;
       onStoredDatumUpdate(
-        callback: (event: IpcRendererEvent, key: string, value: unknown) => void
+        callback: (
+          event: IpcRendererEvent,
+          key: string,
+          value: unknown,
+        ) => void,
       ): void;
     };
     mem: {
@@ -15,7 +19,11 @@ declare global {
       set<T>(key: string, newValue: T): void;
       delete(key: string): void;
       onDatumUpdate(
-        callback: (event: IpcRendererEvent, key: string, value: unknown) => void
+        callback: (
+          event: IpcRendererEvent,
+          key: string,
+          value: unknown,
+        ) => void,
       ): void;
     };
   }

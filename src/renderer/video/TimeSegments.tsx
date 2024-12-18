@@ -71,14 +71,10 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
     >
       {displaySegments.map((segment, index) => {
         const widthPercent = segment.pct * 100;
-
+        const title = `${segment.label} ${segment.startTime} - ${segment.endTime}`;
+        const key = `$title}-${index}`;
         return (
-          <Tooltip
-            key={`${index}`}
-            title={`${segment.label} ${segment.startTime} - ${segment.endTime}`}
-            enterTouchDelay={0}
-            placement="top"
-          >
+          <Tooltip key={key} title={title} enterTouchDelay={0} placement="top">
             <Box
               onClick={(event) => handleSegmentClick(event, index)}
               sx={{

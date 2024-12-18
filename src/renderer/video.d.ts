@@ -12,12 +12,12 @@ declare global {
         tsMilli: number,
         zoom?: Rect,
         blend?: boolean,
-        saveAs?: String
+        saveAs?: String,
       ): Promise<AppImage>;
       sendMulticast(
         msg: string,
         dest: string,
-        port: number
+        port: number,
       ): Promise<{ status: string }>;
     };
   }

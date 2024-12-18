@@ -60,6 +60,7 @@ export function ConfirmDialog() {
   };
 
   if (!config) {
+    // eslint-disable-next-line react/jsx-no-useless-fragment
     return <></>;
   }
   const actions = [

@@ -59,9 +59,10 @@ export async function validateCredentials({
     }
     return code;
   } catch (err) {
-    Log.info('Config', err.message);
-    setAuthStatus(err.message);
-    return err.message;
+    const message = err instanceof Error ? err.message : String(err);
+    Log.info('Config', message);
+    setAuthStatus(message);
+    return message;
   }
 }
 

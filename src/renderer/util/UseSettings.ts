@@ -20,7 +20,7 @@ export const [useProgressBar, setProgressBar, getProgressBar] = UseDatum(0);
 
 export const [useMobilePin, setMobilePin, getMobilePin] = UseStoredDatum(
   'MobileKey',
-  ''
+  '',
 );
 export const [useMobileID, setMobileID, getMobileID] = UseStoredDatum(
   N_MOBILE_ID,
@@ -29,12 +29,12 @@ export const [useMobileID, setMobileID, getMobileID] = UseStoredDatum(
     if (prior !== '' && current !== prior) {
       LapStorage.truncateLapTable();
     }
-  }
+  },
 );
 
 export const [useWaypoint, setWaypoint, getWaypoint] = UseStoredDatum(
   N_WAYPOINT,
-  'Finish'
+  'Finish',
 );
 export const [useFLStartWaypoint, setFLStartWaypoint, getFLStartWaypoint] =
   UseStoredDatum(N_FL_START_WAYPOINT, 'Start');
@@ -65,12 +65,12 @@ export const [useDebugLevel, setDebugLevel, getDebugLevel] =
 // Tab position of the CenteredTabs component
 export const [useTabPosition, setTabPosition, getTabPosition] = UseStoredDatum(
   'systemTabPosition',
-  'System Config'
+  'System Config',
 );
 
 export const [useFirebaseConnected, setFirebaseConnected] = UseMemDatum(
   FirebaseConnectedKey,
-  false
+  false,
 );
 
 export const [
@@ -81,6 +81,6 @@ export const [
 
 export const [useMobileConfigDate] = UseMemDatum<string>(
   MobileConfigDateKey,
-  ''
+  '',
 );
 export const [useInitializing, setInitializing] = UseDatum(true);

@@ -24,5 +24,5 @@ window.Util.onUserMessage(
     } else {
       userMessage.info(`Unsupported user message level: ${level}`);
     }
-  }
+  },
 );

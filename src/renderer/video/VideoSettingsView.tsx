@@ -20,22 +20,21 @@ import {
   Typography,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Settings';
+import makeStyles from '@mui/styles/makeStyles';
+import { setToast } from 'renderer/Toast';
 import { setDialogConfig } from '../util/ConfirmDialog';
 import {
+  getFileStatusList,
   getVideoFile,
   useMouseWheelInverted,
   useTravelRightToLeft,
   useVideoSettings,
 } from './VideoSettings';
-import { useMobileConfig } from '../util/UseSettings';
 import HyperZoomSelector from '../util/HyperZoomSelector';
-import makeStyles from '@mui/styles/makeStyles';
-import { getFileStatusList, saveVideoSidecar } from './VideoFileUtils';
+import { saveVideoSidecar } from './VideoFileUtils';
 import { notifiyGuideChanged } from './VideoUtils';
-import { setToast } from 'renderer/Toast';
 
 declare module '@mui/styles/defaultTheme' {
-  // eslint-disable-next-line @typescript-eslint/no-empty-interface (remove this line if you don't have the rule enabled)
   interface DefaultTheme extends Theme {}
 }
 const useStyles = makeStyles((theme) => ({
@@ -61,7 +60,6 @@ const useStyles = makeStyles((theme) => ({
 export const VideoSettingsDialog = () => {
   const classes = useStyles();
   const [videoSettings, setVideoSettings] = useVideoSettings();
-  const [mc] = useMobileConfig();
   const [wheelInverted, setWheelInverted] = useMouseWheelInverted();
   const [rightToLeft, setRightToLeft] = useTravelRightToLeft();
 
@@ -70,19 +68,12 @@ export const VideoSettingsDialog = () => {
   //   setWheelFactor(newValue as number);
   // };
 
-  let waypointList = ['Start'];
-  const waypoints = mc?.info.Waypoints || '';
-  if (waypoints.length > 0) {
-    waypointList = waypointList.concat(waypoints.split(','));
-  }
-  waypointList = waypointList.concat(['Finish']);
-  waypointList = waypointList.map((waypoint) => waypoint.trim());
-
   const resetFinishGuide = () => {
     const newSetting = { ...videoSettings };
     const finishGuide = newSetting.guides.find((g) => g.label === 'Finish');
     if (finishGuide) {
-      finishGuide.pt1 = finishGuide.pt2 = 0;
+      finishGuide.pt1 = 0;
+      finishGuide.pt2 = 0;
       setVideoSettings(newSetting, true);
       saveVideoSidecar();
       notifiyGuideChanged();
@@ -193,7 +184,7 @@ export const VideoSettingsDialog = () => {
                         ...videoSettings,
                         laneBelowGuide: (event.target.value as number) === 1,
                       },
-                      true
+                      true,
                     );
                     saveVideoSidecar();
                   }}
@@ -231,7 +222,7 @@ export const VideoSettingsDialog = () => {
                         ...videoSettings,
                         enableAutoZoom: !videoSettings.enableAutoZoom,
                       },
-                      true
+                      true,
                     );
                   }}
                 />
@@ -324,7 +315,7 @@ export const VideoSettingsDialog = () => {
                         ...videoSettings,
                         enableLaneGuides: !videoSettings.enableLaneGuides,
                       },
-                      true
+                      true,
                     );
                   }}
                 />
@@ -348,13 +339,13 @@ export const VideoSettingsDialog = () => {
                               !videoSettings.guides[lane + 1].enabled;
                             setVideoSettings(
                               { ...videoSettings, guides },
-                              true
+                              true,
                             );
                           }}
                         />
                       }
                     />
-                  )
+                  ),
               )}
             </Box>
           </Box>

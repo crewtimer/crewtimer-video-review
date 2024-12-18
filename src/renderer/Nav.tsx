@@ -12,33 +12,33 @@ import CloudOffOutlinedIcon from '@mui/icons-material/CloudOffOutlined';
 import Snackbar from '@mui/material/Snackbar';
 import Tooltip from '@mui/material/Tooltip';
 // import icon from '../assets/icons/crewtimer-review-white.svg';
-import icon from '../assets/icons/crewtimer-review2-white.svg';
-import {
-  useMobileConfig,
-  useMobileID,
-  useFirebaseConnected,
-  setProgressBar,
-} from './util/UseSettings';
-import { getConnectionProps } from './util/Util';
-import { setToast } from './Toast';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
 import InfoIcon from '@mui/icons-material/Info';
-import { useFirebaseDatum } from './util/UseFirebase';
 import { Button, Stack, Link } from '@mui/material';
+import { useFirebaseDatum } from './util/UseFirebase';
+import { setToast } from './Toast';
+import { getConnectionProps } from './util/Util';
+import {
+  useMobileConfig,
+  useMobileID,
+  useFirebaseConnected,
+  setProgressBar,
+} from './util/UseSettings';
+import icon from '../assets/icons/crewtimer-review2-white.svg';
 import { setDialogConfig } from './util/ConfirmDialog';
 import { addSidecarFiles } from './video/VideoFileUtils';
-import ProgressBarComponent from './util/ProgressBarComponent';
+import { ProgressBarComponent } from './util/ProgressBarComponent';
 import { initiateImageArchive } from './video/ImageArchive';
 import TimezoneSelector from './util/TimezoneSelector';
 
 const AboutText = `CrewTimer Video Review ${window.platform.appVersion}`;
 
 const versionAsNumber = (version: string) => {
-  const parts = version.split(/[\.\-]/);
+  const parts = version.split(/[.-]/);
   return Number(parts[0]) * 100 + Number(parts[1]) * 10 + Number(parts[2]);
 };
 
@@ -66,11 +66,11 @@ export default function Nav() {
   const [shiftMenu, setShiftMenu] = useState(false);
   const latestVersion =
     useFirebaseDatum<string, string>(
-      '/global/config/video-review/latestVersion'
+      '/global/config/video-review/latestVersion',
     ) || '0.0.0';
   const latestText =
     useFirebaseDatum<string, string>(
-      '/global/config/video-review/latestText'
+      '/global/config/video-review/latestText',
     ) || '';
   const updateAvailable =
     versionAsNumber(latestVersion) >
@@ -82,7 +82,7 @@ export default function Nav() {
   const open = Boolean(anchorEl);
 
   const handleMenu = (
-    event: React.MouseEvent<HTMLButtonElement, MouseEvent>
+    event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => {
     setShiftMenu(event.shiftKey);
     setAnchorEl(event.currentTarget);

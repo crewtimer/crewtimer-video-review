@@ -1,3 +1,5 @@
+import { KeyMap } from 'crewtimer-common';
+
 /**
  * Represents a time segment with start and end times.
  */
@@ -12,3 +14,25 @@ export type TimeSegment = {
   startTsMicro: number;
   endTsMicro: number;
 };
+
+/**
+ * Represents a time object with a time property in HH:MM:SS.sss format.
+ */
+export type TimeObject = {
+  Time: string;
+  Bow: string;
+  EventNum: string;
+};
+
+export interface OpenFileStatus {
+  open: boolean;
+  numFrames: number;
+  filename: string;
+  startTime: number;
+  endTime: number;
+  duration: number;
+  fps: number;
+  tzOffset: number;
+  tzName?: string;
+  sidecar: KeyMap;
+}

@@ -6,7 +6,7 @@
  */
 export function convertTimestampToString(
   utcMillis: number,
-  tzOffsetMinutes?: number
+  tzOffsetMinutes?: number,
 ): string {
   // Use the provided tzOffsetMinutes directly if defined, otherwise, use the local timezone offset
   // Note: getTimezoneOffset() returns the offset in minutes as the difference between UTC and local time,
@@ -29,7 +29,7 @@ export function convertTimestampToString(
 
   // Construct formatted time string including milliseconds
   return `${formatTimeComponent(hours)}:${formatTimeComponent(
-    minutes
+    minutes,
   )}:${formatTimeComponent(seconds)}.${formatTimeComponent(milliseconds, 3)}`;
 }
 
@@ -41,7 +41,7 @@ export function convertTimestampToString(
  */
 export function convertTimestampToLocalMicros(
   utcMicros: number,
-  tzOffsetMinutes?: number
+  tzOffsetMinutes?: number,
 ): number {
   // Use the provided tzOffsetMinutes directly if defined, otherwise, use the local timezone offset
   // Note: getTimezoneOffset() returns the offset in minutes as the difference between UTC and local time,

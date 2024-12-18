@@ -5,15 +5,15 @@ import {
   getEntryResult,
 } from 'renderer/util/LapStorageDatum';
 import { gateFromWaypoint } from 'renderer/util/Util';
+import uuidgen from 'short-uuid';
+import { setToast } from 'renderer/Toast';
+import { getMobileConfig, getWaypoint } from 'renderer/util/UseSettings';
 import {
   getVideoBow,
   getVideoEvent,
   getVideoTimestamp,
   setResetZoomCounter,
 } from './VideoSettings';
-import uuidgen from 'short-uuid';
-import { setToast } from 'renderer/Toast';
-import { getMobileConfig, getWaypoint } from 'renderer/util/UseSettings';
 import { seekToNextTimePoint } from './VideoUtils';
 
 let lastAddSplit = 0;
@@ -26,7 +26,7 @@ export const performAddSplit = () => {
   const videoTimestamp = getVideoTimestamp();
   const disabled = !videoBow || !videoTimestamp || !selectedEvent;
   const activeEvent = mobileConfig?.eventList?.find(
-    (event) => event.EventNum === selectedEvent
+    (event) => event.EventNum === selectedEvent,
   );
 
   const now = Date.now();
@@ -43,8 +43,27 @@ export const performAddSplit = () => {
     return;
   }
   const entry: Entry | undefined = activeEvent.eventItems.find(
-    (item) => item.Bow === videoBow
+    (item) => item.Bow === videoBow,
   );
+
+  const key = `${gate}_${entry?.EventNum || '?'}_${videoBow}`;
+  const priorLap = getEntryResult(key);
+  const lap: Lap = {
+    keyid: key,
+    uuid: priorLap?.uuid || uuidgen.generate(),
+    SequenceNum: priorLap?.SequenceNum || 0,
+    Bow: videoBow,
+    Time: videoTimestamp,
+    EventNum: entry?.EventNum || '?',
+    Gate: gate,
+    Crew: '',
+    CrewAbbrev: '',
+    Event: '',
+    EventAbbrev: '',
+    AdjTime: '',
+    Place: 0,
+    Stroke: '',
+  };
 
   if (!entry) {
     setDialogConfig({
@@ -60,24 +79,6 @@ export const performAddSplit = () => {
     return;
   }
 
-  const key = `${gate}_${entry.EventNum}_${videoBow}`;
-  const priorLap = getEntryResult(key);
-  const lap: Lap = {
-    keyid: key,
-    uuid: priorLap?.uuid || uuidgen.generate(),
-    SequenceNum: priorLap?.SequenceNum || 0,
-    Bow: videoBow,
-    Time: videoTimestamp,
-    EventNum: entry.EventNum,
-    Gate: gate,
-    Crew: '',
-    CrewAbbrev: '',
-    Event: '',
-    EventAbbrev: '',
-    AdjTime: '',
-    Place: 0,
-    Stroke: '',
-  };
   if (priorLap && priorLap.State !== 'Deleted') {
     setDialogConfig({
       title: `Time Already Recorded`,

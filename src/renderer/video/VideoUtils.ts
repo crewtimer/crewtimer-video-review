@@ -1,14 +1,14 @@
+import React from 'react';
 import { Lap } from 'crewtimer-common';
 import { Rect } from 'renderer/shared/AppTypes';
-import { TimeObject } from './TimeRangeIcons';
 import { ExtendedLap, getClickerData } from './UseClickerData';
-import { getAutoZoomPending } from './Video';
 import {
   getDirList,
   requestVideoFrame,
   seekToTimestamp,
 } from './VideoFileUtils';
 import {
+  getAutoZoomPending,
   Dir,
   getHyperZoomFactor,
   getImage,
@@ -26,6 +26,86 @@ import {
   setVideoFrameNum,
   VideoScaling,
 } from './VideoSettings';
+import { TimeObject } from './VideoTypes';
+import { parseTimeToSeconds } from '../util/StringUtils';
+
+// Define types for points and lines for better type checking and readability
+export type Point = { x: number; y: number };
+export type Line = { pt1: Point; pt2: Point };
+
+/**
+ * Calculates the perpendicular distance from a point to a line.
+ *
+ * @param point - The point from which to measure distance.
+ * @param line - The line to measure distance to.
+ * @returns The perpendicular distance from the point to the line.
+ */
+function perpendicularDistance(point: Point, line: Line): number {
+  const { pt1, pt2 } = line;
+  return (
+    Math.abs(
+      (pt2.x - pt1.x) * (pt1.y - point.y) - (pt1.x - point.x) * (pt2.y - pt1.y),
+    ) / Math.sqrt((pt2.x - pt1.x) ** 2 + (pt2.y - pt1.y) ** 2)
+  );
+}
+
+/**
+ * Determines the position of a point relative to a line (above, below, or on the line).
+ *
+ * @param point - The point to check.
+ * @param line - The line to compare against.
+ * @returns A string indicating whether the point is 'above', 'below', or 'on' the line.
+ */
+function pointPositionRelativeToLine(
+  point: Point,
+  line: Line,
+): 'above' | 'below' | 'on' {
+  const { pt1, pt2 } = line;
+  const crossProduct =
+    (pt2.x - pt1.x) * (point.y - pt1.y) - (pt2.y - pt1.y) * (point.x - pt1.x);
+
+  if (crossProduct > 0) return 'below'; // Note for canvas y=0 is top
+  if (crossProduct < 0) return 'above';
+  return 'on';
+}
+
+export const triggerFileSplit = () => {
+  const msg = {
+    cmd: 'split-video',
+    src: 'crewtimer-video-review',
+    ts: new Date().getTime(),
+  };
+  window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
+  setJumpToEndPending(true);
+};
+
+/**
+ * Return a guide definition for the finish line
+ * @returns {Guide}
+ */
+export const getFinishLine = () => {
+  const videoSettings = getVideoSettings();
+  let vert = videoSettings.guides.find((guide) => guide.dir === Dir.Vert);
+  if (!vert || !vert.enabled) {
+    vert = { enabled: true, dir: Dir.Vert, label: 'Finish', pt1: 0, pt2: 0 };
+  }
+  return vert;
+};
+
+export const notifiyGuideChanged = () => {
+  const videoSettings = getVideoSettings();
+  const vert = videoSettings.guides.find((guide) => guide.dir === Dir.Vert);
+  if (!vert) {
+    return;
+  }
+  const msg = {
+    cmd: 'guide-config',
+    src: 'crewtimer-video-review',
+    ts: new Date().getTime(),
+    guide: { pt1: vert.pt1, pt2: vert.pt2 },
+  };
+  window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
+};
 
 /**
  * Draws text on the canvas with specified alignment and position relative to a horizontal line.
@@ -45,7 +125,7 @@ export const drawText = (
   x: number,
   y: number,
   position: 'above' | 'below' | 'center',
-  align: 'left' | 'center' | 'right'
+  align: 'left' | 'center' | 'right',
 ) => {
   ctx.font = `${Math.trunc(fontSize)}px Arial`;
   const textSize = ctx.measureText(text);
@@ -53,7 +133,6 @@ export const drawText = (
 
   // Adjust X-Coordinate for Alignment
   let textX: number;
-  let rectX: number;
   switch (align) {
     case 'center':
       textX = x - textSize.width / 2;
@@ -65,7 +144,7 @@ export const drawText = (
       textX = x + padding / 2 + 2;
       break;
   }
-  rectX = textX - padding / 2;
+  const rectX = textX - padding / 2;
 
   // Adjust Y-Coordinate for Position
   let rectY: number;
@@ -110,10 +189,6 @@ export const drawText = (
   ctx.fillText(text, textX, textY);
 };
 
-// Define types for points and lines for better type checking and readability
-export type Point = { x: number; y: number };
-export type Line = { pt1: Point; pt2: Point };
-
 /**
  * Finds the closest line to a given point and its position relative to the point.
  * Can filter the search based on whether the line should be above or below the point.
@@ -126,7 +201,7 @@ export type Line = { pt1: Point; pt2: Point };
 export function findClosestLineAndPosition(
   point: Point,
   lines: Line[],
-  desiredPosition: 'above' | 'below' | 'any'
+  desiredPosition: 'above' | 'below' | 'any',
 ): { closestLine: number; position: string } {
   let minDistance = Number.MAX_VALUE;
   let closestLine: number = -1;
@@ -151,67 +226,6 @@ export function findClosestLineAndPosition(
   return { closestLine, position };
 }
 
-/**
- * Calculates the perpendicular distance from a point to a line.
- *
- * @param point - The point from which to measure distance.
- * @param line - The line to measure distance to.
- * @returns The perpendicular distance from the point to the line.
- */
-function perpendicularDistance(point: Point, line: Line): number {
-  const { pt1, pt2 } = line;
-  return (
-    Math.abs(
-      (pt2.x - pt1.x) * (pt1.y - point.y) - (pt1.x - point.x) * (pt2.y - pt1.y)
-    ) / Math.sqrt((pt2.x - pt1.x) ** 2 + (pt2.y - pt1.y) ** 2)
-  );
-}
-
-/**
- * Determines the position of a point relative to a line (above, below, or on the line).
- *
- * @param point - The point to check.
- * @param line - The line to compare against.
- * @returns A string indicating whether the point is 'above', 'below', or 'on' the line.
- */
-function pointPositionRelativeToLine(
-  point: Point,
-  line: Line
-): 'above' | 'below' | 'on' {
-  const { pt1, pt2 } = line;
-  const crossProduct =
-    (pt2.x - pt1.x) * (point.y - pt1.y) - (pt2.y - pt1.y) * (point.x - pt1.x);
-
-  if (crossProduct > 0) return 'below'; // Note for canvas y=0 is top
-  else if (crossProduct < 0) return 'above';
-  else return 'on';
-}
-
-export const triggerFileSplit = () => {
-  const msg = {
-    cmd: 'split-video',
-    src: 'crewtimer-video-review',
-    ts: new Date().getTime(),
-  };
-  window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
-  setJumpToEndPending(true);
-};
-
-export const notifiyGuideChanged = () => {
-  const videoSettings = getVideoSettings();
-  const vert = videoSettings.guides.find((guide) => guide.dir === Dir.Vert);
-  if (!vert) {
-    return;
-  }
-  const msg = {
-    cmd: 'guide-config',
-    src: 'crewtimer-video-review',
-    ts: new Date().getTime(),
-    guide: { pt1: vert.pt1, pt2: vert.pt2 },
-  };
-  window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
-};
-
 // // Example usage
 // const lines: Line[] = [
 //     { pt1: { x: 0, y: 0 }, pt2: { x: 10, y: 10 } },
@@ -229,59 +243,12 @@ export const notifiyGuideChanged = () => {
 //     console.log('No line found matching the criteria.');
 // }
 
-export function extractTime(fileName: string) {
-  let name = fileName.replace(/[:\-_]/g, '').replace(/.*\//, ''); // strip path
-  const lastIndex = name.lastIndexOf('.');
-
-  // If a period is found, return the substring after it
-  if (lastIndex > -1) {
-    name = name.substring(0, lastIndex);
-  }
-
-  // Last 6 chars should be HHMMSS
-  const match = name.match(/(\d{6})$/);
-  if (match) {
-    // Extract the last 6 characters from the string
-    const timeStr = name.slice(-6);
-    // Insert colons to format as HH:MM:SS
-    return `${timeStr.slice(0, 2)}:${timeStr.slice(2, 4)}:${timeStr.slice(
-      4,
-      6
-    )}`;
-  } else {
-    return '00:00:00';
-  }
-}
-
-/**
- * Parses a time string in HH:MM:SS.sss format to seconds.
- * @param time - A string representing time in HH:MM:SS.sss format.
- * @returns The time converted to seconds.
- */
-export const parseTimeToSeconds = (time: string): number => {
-  const [hours, minutes, seconds] = time.split(':').map(parseFloat);
-  const secs = hours * 3600 + minutes * 60 + seconds;
-  return secs;
-};
-
-export function formatSecondsAsTime(secondsInput: number): string {
-  const hours = Math.floor(secondsInput / 3600);
-  const minutes = Math.floor((secondsInput % 3600) / 60);
-  const seconds = secondsInput % 60;
-
-  const paddedHours = hours.toString().padStart(2, '0');
-  const paddedMinutes = minutes.toString().padStart(2, '0');
-  const paddedSeconds = seconds.toString().padStart(2, '0');
-
-  return `${paddedHours}:${paddedMinutes}:${paddedSeconds}`;
-}
-
 function combineCanvasLayers(
   layers: (HTMLCanvasElement | null | undefined)[],
   xOffset: number,
   yOffset: number,
   width: number,
-  height: number
+  height: number,
 ): HTMLCanvasElement {
   const combinedCanvas = document.createElement('canvas');
   const context = combinedCanvas.getContext('2d');
@@ -305,7 +272,7 @@ function combineCanvasLayers(
         0,
         0,
         width,
-        height
+        height,
       );
       // context.drawImage(layer, 0, 0);
     }
@@ -316,7 +283,7 @@ function combineCanvasLayers(
 
 export function downloadCanvasImage(
   combinedCanvas: HTMLCanvasElement,
-  filename: string = 'screenshot.png'
+  filename: string = 'screenshot.png',
 ): void {
   // Create an 'a' element for the download
   const link = document.createElement('a');
@@ -337,7 +304,7 @@ export const downloadImageFromCanvasLayers = (
   xOffset: number,
   yOffset: number,
   width: number,
-  height: number
+  height: number,
 ) => {
   // Combine the layers and initiate the download
   const combinedCanvas = combineCanvasLayers(
@@ -345,7 +312,7 @@ export const downloadImageFromCanvasLayers = (
     xOffset,
     yOffset,
     width,
-    height
+    height,
   );
   downloadCanvasImage(combinedCanvas, filename);
 };
@@ -353,12 +320,12 @@ export const downloadImageFromCanvasLayers = (
 export const moveToFileIndex = (
   index: number,
   seekPercent: number,
-  fromClick: boolean
+  fromClick: boolean,
 ) => {
   const dirList = getDirList();
-  index = Math.max(0, Math.min(index, dirList.length - 1));
+  const selIndex = Math.max(0, Math.min(index, dirList.length - 1));
   const videoFile = dirList[index];
-  setSelectedIndex(index);
+  setSelectedIndex(selIndex);
   setVideoFile(videoFile);
   return requestVideoFrame({ videoFile, seekPercent, fromClick });
 };
@@ -376,7 +343,7 @@ export const nextFile = () => {
 export const moveToFrame = (
   frameNum: number,
   offset?: number,
-  blend: boolean = true
+  blend: boolean = true,
 ) => {
   const image = getImage();
   if (frameNum < 1) {
@@ -387,16 +354,18 @@ export const moveToFrame = (
     const videoScaling = getVideoScaling();
     const zoomFactor = videoScaling.zoom;
     const hyperZoomFactor = getHyperZoomFactor();
+    let videoFrameNum = frameNum;
 
     if (offset !== undefined) {
       if (zoomFactor < 3 || hyperZoomFactor === 0) {
-        frameNum = Math.trunc(frameNum) + offset; //Math.round(frameNum + offset);
+        videoFrameNum = Math.trunc(frameNum) + offset; // Math.round(frameNum + offset);
       } else {
-        frameNum = frameNum + (offset * image.fps * hyperZoomFactor) / 1000;
+        videoFrameNum =
+          frameNum + (offset * image.fps * hyperZoomFactor) / 1000;
       }
     }
 
-    setVideoFrameNum(frameNum);
+    setVideoFrameNum(videoFrameNum);
     let zoom: Rect | undefined;
 
     // If we have an auto-zoom request pending, use those coords for the
@@ -410,7 +379,7 @@ export const moveToFrame = (
         zoom = {
           x: Math.max(
             0,
-            autoZoomCoords.x + (getTravelRightToLeft() ? -16 : -240)
+            autoZoomCoords.x + (getTravelRightToLeft() ? -16 : -240),
           ),
           y: Math.max(0, autoZoomCoords.y - 25),
           width: 256,
@@ -424,7 +393,7 @@ export const moveToFrame = (
             0,
             videoScaling.srcWidth / 2 +
               (finishLine.pt1 + finishLine.pt2) / 2 +
-              (getTravelRightToLeft() ? -16 : -240)
+              (getTravelRightToLeft() ? -16 : -240),
           ),
           y: Math.max(0, videoScaling.srcCenterPoint.y - 100),
           width: 256,
@@ -435,7 +404,7 @@ export const moveToFrame = (
 
     requestVideoFrame({
       videoFile: image.file,
-      frameNum,
+      frameNum: videoFrameNum,
       zoom,
       blend,
     });
@@ -459,15 +428,14 @@ export const moveLeft = () => {
  */
 export const translateSrcCanvas2DestCanvas = (
   srcPoint: Point,
-  scaling?: VideoScaling
+  scaling?: VideoScaling,
 ): Point => {
-  if (!scaling) {
-    scaling = getVideoScaling();
-  }
+  const scale = scaling || getVideoScaling();
+
   const translatedX =
-    scaling.destX + (srcPoint.x * scaling.scaledWidth) / scaling.srcWidth;
+    scale.destX + (srcPoint.x * scale.scaledWidth) / scale.srcWidth;
   const translatedY =
-    scaling.destY + (srcPoint.y * scaling.scaledHeight) / scaling.srcHeight;
+    scale.destY + (srcPoint.y * scale.scaledHeight) / scale.srcHeight;
   return { x: translatedX, y: translatedY };
 };
 
@@ -503,9 +471,9 @@ export const translateMouseCoords2SourceCanvas = (point: Point): Point => {
  */
 export const translateMouseEvent2Src = (
   event: React.MouseEvent,
-  rect: DOMRect | undefined
+  rect: DOMRect | undefined,
 ) => {
-  let x = event.clientX - (rect?.left ?? 0);
+  const x = event.clientX - (rect?.left ?? 0);
   const y = event.clientY - (rect?.top ?? 0);
   const pt = translateMouseCoords2SourceCanvas({ x, y });
   const videoScaling = getVideoScaling();
@@ -515,19 +483,6 @@ export const translateMouseEvent2Src = (
     pt.x >= 0 &&
     pt.y >= 0;
   return { x, y, pt, withinBounds };
-};
-
-/**
- * Return a guide definition for the finish line
- * @returns {Guide}
- */
-export const getFinishLine = () => {
-  const videoSettings = getVideoSettings();
-  let vert = videoSettings.guides.find((guide) => guide.dir === Dir.Vert);
-  if (!vert || !vert.enabled) {
-    vert = { enabled: true, dir: Dir.Vert, label: 'Finish', pt1: 0, pt2: 0 };
-  }
-  return vert;
 };
 
 /**
@@ -546,7 +501,7 @@ export const seekToNextTimePoint = (from: Lap): TimeObject | undefined => {
   const timePoints = getClickerData();
   let left = 0;
   let right = timePoints.length - 1;
-  let result: ExtendedLap | undefined = undefined;
+  let result: ExtendedLap | undefined;
   const s = parseTimeToSeconds(from.Time || '00:00:00.000');
 
   let mid: number = 0;
@@ -567,7 +522,7 @@ export const seekToNextTimePoint = (from: Lap): TimeObject | undefined => {
 
   // Move forward in the array until finding a time point with a different Bow value
   while (result.Bow === from.Bow || result.Bow === '*') {
-    mid++;
+    mid += 1;
     if (mid >= timePoints.length) {
       return undefined;
     }

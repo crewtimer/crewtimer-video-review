@@ -14,7 +14,7 @@ export const [useTimezoneOffset, setTimezoneOffset, getTimezoneOffset] =
 export const [useTimezone, setTimezone, getTimezone] = UseDatum<string>(
   '',
   (newValue) => {
-    let currentOffsetMinutes = undefined;
+    let currentOffsetMinutes;
     if (newValue) {
       const tzDetails = moment.tz.zone(newValue);
       // Get the current offset in minutes for the specified timezone
@@ -28,11 +28,11 @@ export const [useTimezone, setTimezone, getTimezone] = UseDatum<string>(
 
     // Store as an offset that can be added to UTC to get local time
     setTimezoneOffset(-currentOffsetMinutes);
-  }
+  },
 );
 
 const TimezoneSelector: React.FC = () => {
-  let [timezone, setTimezone] = useTimezone();
+  let [timezone] = useTimezone();
   if (!timezone) {
     timezone = moment.tz.guess();
   }

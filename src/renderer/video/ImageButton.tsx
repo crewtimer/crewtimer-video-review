@@ -4,7 +4,7 @@ import PhotoCamera from '@mui/icons-material/PhotoCamera';
 
 let generateImageSnapshot: (() => void) | undefined;
 export const setGenerateImageSnapshotCallback = (
-  callback: undefined | (() => void)
+  callback: undefined | (() => void),
 ) => {
   generateImageSnapshot = callback;
 };

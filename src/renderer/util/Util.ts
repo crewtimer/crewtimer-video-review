@@ -1,8 +1,7 @@
 import { KeyMap } from 'crewtimer-common';
 
 export function gateFromWaypoint(waypoint: string) {
-  waypoint = waypoint || '';
-  let gate = waypoint.replace(/^Start$/, 'S').replace(/^Finish$/, 'F');
+  let gate = (waypoint || '').replace(/^Start$/, 'S').replace(/^Finish$/, 'F');
   if (gate !== 'S' && gate !== 'F') {
     gate = `G_${gate}`;
   }
@@ -35,7 +34,7 @@ export function milliToString(elapsed: number, includeHours = true) {
 
   // Otter Island has times greater than 60 minutes
   let result = `${get2digitString(m)}:${get2digitString(s)}.${get3digitString(
-    frac
+    frac,
   )}`;
   if (includeHours) result = `${get2digitString(h)}:${result}`;
   if (negative) result = `-${result}`;
@@ -94,12 +93,12 @@ export function formatTime(date: Date, milliDigits = 3) {
   if (milliDigits === 0) {
     startTimeFormatted = startTimeFormatted.substring(
       0,
-      startTimeFormatted.length - 4 + milliDigits
+      startTimeFormatted.length - 4 + milliDigits,
     );
   } else if (milliDigits < 3) {
     startTimeFormatted = startTimeFormatted.substring(
       0,
-      startTimeFormatted.length - 3 + milliDigits
+      startTimeFormatted.length - 3 + milliDigits,
     );
   }
   return startTimeFormatted;
@@ -190,7 +189,7 @@ export function notifyChange(name: string) {
 
 export const onPropertyChange = (
   name: string,
-  handler: OnDatumChangeHandler
+  handler: OnDatumChangeHandler,
 ) => {
   changeHandlers.set(name, handler);
 };
@@ -209,7 +208,7 @@ export const onPropertyChange = (
  */
 export function findClosestNumAndIndex(
   numbers: number[],
-  target: number
+  target: number,
 ): [number, number] {
   if (numbers.length === 0) {
     return [-1, 0]; // Return fallback if the array is empty

@@ -6,9 +6,12 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { convertTimestampToString } from '../shared/Util';
 import { useDebouncedCallback } from 'use-debounce';
 import makeStyles from '@mui/styles/makeStyles';
+import Measure, { ContentRect } from 'react-measure';
+import { UseDatum } from 'react-usedatum';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import { convertTimestampToString } from '../shared/Util';
 import VideoSideBar from './VideoSideBar';
 import {
   Dir,
@@ -28,6 +31,8 @@ import {
   Point,
   useVideoScaling,
   getHyperZoomFactor,
+  setAutoZoomPending,
+  getAutoZoomPending,
 } from './VideoSettings';
 import VideoOverlay, {
   useAdjustingOverlay,
@@ -45,12 +50,9 @@ import {
   translateMouseEvent2Src,
 } from './VideoUtils';
 import FileScrubber from './FileScrubber';
-import Measure from 'react-measure';
-import { UseDatum } from 'react-usedatum';
 import { setGenerateImageSnapshotCallback } from './ImageButton';
 import VideoScrubber from './VideoScrubber';
 import { performAddSplit } from './AddSplitUtil';
-import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import Blowup from './Blowup';
 
 const useStyles = makeStyles({
@@ -93,9 +95,6 @@ const useStyles = makeStyles({
   },
 });
 
-export const [useAutoZoomPending, setAutoZoomPending, getAutoZoomPending] =
-  UseDatum<undefined | Point>(undefined);
-
 const [useShowBlowup, setShowBlowup] = UseDatum(false);
 
 const applyZoom = ({ srcPoint, zoom }: { srcPoint: Point; zoom: number }) => {
@@ -104,12 +103,12 @@ const applyZoom = ({ srcPoint, zoom }: { srcPoint: Point; zoom: number }) => {
   const destZoomWidth = videoScaling.destWidth * zoom;
   const destZoomHeight = videoScaling.destHeight * zoom;
 
-  const srcWidth = videoScaling.srcWidth;
-  const srcHeight = videoScaling.srcHeight;
-
-  if (srcPoint.x === 0 || zoom === 1) {
-    srcPoint = { x: srcWidth / 2, y: srcHeight / 2 };
-  }
+  const { srcWidth } = videoScaling;
+  const { srcHeight } = videoScaling;
+  const point =
+    srcPoint.x === 0 || zoom === 1
+      ? { x: srcWidth / 2, y: srcHeight / 2 }
+      : srcPoint;
 
   // Calculate the aspect ratio
   const srcAspectRatio = srcWidth / srcHeight;
@@ -131,18 +130,17 @@ const applyZoom = ({ srcPoint, zoom }: { srcPoint: Point; zoom: number }) => {
     pixScale = srcWidth / scaledWidth;
   }
 
-  const destX =
-    videoScaling.destWidth / 2 - scaledWidth * (srcPoint.x / srcWidth);
+  const destX = videoScaling.destWidth / 2 - scaledWidth * (point.x / srcWidth);
   const destY = Math.min(
     0,
-    videoScaling.destHeight / 2 - scaledHeight * (srcPoint.y / srcHeight)
+    videoScaling.destHeight / 2 - scaledHeight * (point.y / srcHeight),
   );
 
   setVideoScaling((prior) => ({
     ...prior,
     destX,
     destY,
-    srcCenterPoint: srcPoint,
+    srcCenterPoint: point,
     scaledWidth,
     scaledHeight,
     zoom,
@@ -175,12 +173,20 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
     case 'ArrowRight':
     case '>':
     case '.':
-      getTravelRightToLeft() ? moveLeft() : moveRight();
+      if (getTravelRightToLeft()) {
+        moveLeft();
+      } else {
+        moveRight();
+      }
       break;
     case 'ArrowLeft':
     case '<':
     case ',':
-      getTravelRightToLeft() ? moveRight() : moveLeft();
+      if (getTravelRightToLeft()) {
+        moveRight();
+      } else {
+        moveLeft();
+      }
       break;
     case 'Shift':
       // setShowBlowup(!isZooming());
@@ -222,7 +228,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const srcCenter = useRef<Point>({ x: width / 2, y: height / 2 });
   const [mousePos, setMousePos] = useState<Point>({ x: 0, y: 0 });
   const [srcPos, setSrcPos] = useState<Point>({ x: 0, y: 0 });
-  const [showBlowup, setShowBlowup] = useShowBlowup();
+  const [showBlowup] = useShowBlowup();
   const [videoScaling] = useVideoScaling();
   destSize.current = { width, height };
 
@@ -234,68 +240,14 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   });
 
   holdoffChanges.current = image.file !== videoFile; // || activeVideoFile.current !== videoFile;
-
-  const infoRowHeight = 0; // 40;
-  height = height - infoRowHeight;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoOverlayRef = useRef<VideoOverlayHandles>(null);
   const offscreenCanvas = useRef(document.createElement('canvas'));
 
-  useEffect(() => {
-    mouseTracking.current.mouseDown = false;
-    srcCenter.current = { x: image.width / 2, y: image.height / 2 };
-    setVideoScaling((prior) => ({
-      ...prior,
-      srcWidth: image.width,
-      srcHeight: image.height,
-      destWidth: width,
-      destHeight: height,
-    }));
-    applyZoom({
-      zoom: 1,
-      srcPoint: { x: image.width / 2, y: image.height / 2 },
-    });
-    drawContentDebounced();
-  }, [image.width, image.height, width, height]);
-
-  useEffect(() => {
-    offscreenCanvas.current.width = image.width;
-    offscreenCanvas.current.height = image.height;
-    const ctx = offscreenCanvas.current?.getContext('2d');
-    if (ctx && image.width) {
-      ctx.putImageData(
-        new ImageData(
-          new Uint8ClampedArray(image.data),
-          image.width,
-          image.height
-        ),
-        0,
-        0
-      );
-
-      mouseTracking.current.imageLoaded = true;
-      drawContentDebounced();
-    } else {
-      mouseTracking.current.imageLoaded = false;
-    }
-  }, [image, videoScaling.zoom]);
-
-  useEffect(() => {
-    // A bit of a hack but set a global callback function instead of passing it down the tree
-    setGenerateImageSnapshotCallback(() => {
-      const videoScaling = getVideoScaling();
-      downloadImageFromCanvasLayers(
-        // 'video-snapshot.png',
-        `Image_${videoTimestamp}.png`,
-        [canvasRef.current, videoOverlayRef.current?.getCanvas()],
-        (width - videoScaling.destWidth) / 2,
-        0,
-        videoScaling.destWidth,
-        videoScaling.destHeight
-      );
-    });
-    return () => setGenerateImageSnapshotCallback(undefined);
-  }, []);
+  const videoTimestamp = convertTimestampToString(
+    image.timestamp,
+    image.tzOffset,
+  );
 
   const drawContentDebounced = useDebouncedCallback(() => {
     if (mouseTracking.current.imageLoaded && canvasRef?.current) {
@@ -307,18 +259,18 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       if (ctx) {
         ctx.clearRect(0, 0, width, height);
         if (image.width) {
-          const videoScaling = getVideoScaling();
+          const vScaling = getVideoScaling();
 
           ctx.drawImage(
             offscreenCanvas.current,
             0,
             0,
-            videoScaling.srcWidth,
-            videoScaling.srcHeight,
-            videoScaling.destX,
-            videoScaling.destY,
-            videoScaling.scaledWidth,
-            videoScaling.scaledHeight
+            vScaling.srcWidth,
+            vScaling.srcHeight,
+            vScaling.destX,
+            vScaling.destY,
+            vScaling.scaledWidth,
+            vScaling.scaledHeight,
           );
 
           // ctx.beginPath();
@@ -335,6 +287,62 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       }
     }
   }, 10);
+
+  useEffect(() => {
+    mouseTracking.current.mouseDown = false;
+    srcCenter.current = { x: image.width / 2, y: image.height / 2 };
+    setVideoScaling((prior) => ({
+      ...prior,
+      srcWidth: image.width,
+      srcHeight: image.height,
+      destWidth: width,
+      destHeight: height,
+    }));
+    applyZoom({
+      zoom: 1,
+      srcPoint: { x: image.width / 2, y: image.height / 2 },
+    });
+    drawContentDebounced();
+  }, [image.width, image.height, width, height, drawContentDebounced]);
+
+  useEffect(() => {
+    offscreenCanvas.current.width = image.width;
+    offscreenCanvas.current.height = image.height;
+    const ctx = offscreenCanvas.current?.getContext('2d');
+    if (ctx && image.width) {
+      ctx.putImageData(
+        new ImageData(
+          new Uint8ClampedArray(image.data),
+          image.width,
+          image.height,
+        ),
+        0,
+        0,
+      );
+
+      mouseTracking.current.imageLoaded = true;
+      drawContentDebounced();
+    } else {
+      mouseTracking.current.imageLoaded = false;
+    }
+  }, [drawContentDebounced, image, videoScaling.zoom]);
+
+  useEffect(() => {
+    // A bit of a hack but set a global callback function instead of passing it down the tree
+    setGenerateImageSnapshotCallback(() => {
+      const vScaling = getVideoScaling();
+      downloadImageFromCanvasLayers(
+        // 'video-snapshot.png',
+        `Image_${videoTimestamp}.png`,
+        [canvasRef.current, videoOverlayRef.current?.getCanvas()],
+        (width - vScaling.destWidth) / 2,
+        0,
+        vScaling.destWidth,
+        vScaling.destHeight,
+      );
+    });
+    return () => setGenerateImageSnapshotCallback(undefined);
+  }, [videoTimestamp, width]);
 
   useEffect(() => {
     const zoomPoint = getAutoZoomPending();
@@ -376,36 +384,39 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         destWidth={getVideoScaling().destWidth}
       />
     ),
-    [width, height]
+    [width, height],
   );
 
-  const selectLane = (point: Point) => {
-    const laneLines = getVideoSettings()
-      .guides.filter((lane) => lane.dir === Dir.Horiz && lane.enabled)
-      .map((lane) => ({
-        pt1: { x: 0, y: lane.pt1 },
-        pt2: { x: image.width, y: lane.pt2 },
-        lane,
-      }));
-    const result = findClosestLineAndPosition(
-      point,
-      laneLines,
-      getVideoSettings().laneBelowGuide ? 'below' : 'above'
-    );
-    if (result.closestLine >= 0) {
-      const lane = laneLines[result.closestLine].lane.label.split(' ')[1];
-      setVideoBow(lane);
-    }
-  };
+  const selectLane = useCallback(
+    (point: Point) => {
+      const laneLines = getVideoSettings()
+        .guides.filter((lane) => lane.dir === Dir.Horiz && lane.enabled)
+        .map((lane) => ({
+          pt1: { x: 0, y: lane.pt1 },
+          pt2: { x: image.width, y: lane.pt2 },
+          lane,
+        }));
+      const result = findClosestLineAndPosition(
+        point,
+        laneLines,
+        getVideoSettings().laneBelowGuide ? 'below' : 'above',
+      );
+      if (result.closestLine >= 0) {
+        const lane = laneLines[result.closestLine].lane.label.split(' ')[1];
+        setVideoBow(lane);
+      }
+    },
+    [image.width],
+  );
 
   const handleDragStart = (
-    event: React.MouseEvent<HTMLDivElement, MouseEvent>
+    event: React.MouseEvent<HTMLDivElement, MouseEvent>,
   ) => {
     event.preventDefault();
   };
 
   const handleDoubleClick = (
-    event: React.MouseEvent<HTMLDivElement, MouseEvent>
+    event: React.MouseEvent<HTMLDivElement, MouseEvent>,
   ) => {
     const mousePositionY =
       event.clientY - event.currentTarget.getBoundingClientRect().top;
@@ -418,7 +429,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   const handleMouseDown = useCallback(
     (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-      if (event.button != 0) {
+      if (event.button !== 0) {
         return;
       }
       setShowBlowup(false);
@@ -445,7 +456,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       if (event.shiftKey) {
         if (videoSettings.enableAutoZoom) {
           setAutoZoomPending(srcCoords);
-          moveToFrame(getVideoFrameNum() + 0.5); //0.5 to trigger calc of
+          moveToFrame(getVideoFrameNum() + 0.5); // 0.5 to trigger calc of
         }
       } else if (!isZooming()) {
         const finish = getFinishLine();
@@ -459,7 +470,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         });
       }
     },
-    []
+    [selectLane],
   );
 
   const handleMouseMove = useCallback(
@@ -474,14 +485,14 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
       setMousePos({ x, y });
       setSrcPos(srcCoords);
-      const videoScaling = getVideoScaling();
+      const vScaling = getVideoScaling();
       setShowBlowup(event.shiftKey);
 
       const nearVerticalEdge =
-        srcCoords.y < 20 || srcCoords.y > videoScaling.srcHeight - 20;
+        srcCoords.y < 20 || srcCoords.y > vScaling.srcHeight - 20;
 
       const nearHorizontalEdge =
-        srcCoords.x < 20 || srcCoords.x > videoScaling.srcWidth - 20;
+        srcCoords.x < 20 || srcCoords.x > vScaling.srcWidth - 20;
 
       const nearEdge = withinBounds && (nearVerticalEdge || nearHorizontalEdge);
       setNearEdge(nearEdge && !isZooming());
@@ -491,12 +502,12 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       const downMoveY = Math.abs(mouseTracking.current.mouseDownClientY - y);
       if (event.shiftKey && mouseTracking.current.mouseDown && downMoveY > 10) {
         const deltaY = event.movementY;
-        const newScale = Math.max(1, videoScaling.zoom + deltaY * 0.01);
+        const newScale = Math.max(1, vScaling.zoom + deltaY * 0.01);
         // Adjust the scale based on the mouse movement
         applyZoom({ zoom: newScale, srcPoint: srcCenter.current });
       }
       if (mouseTracking.current.mouseDown) {
-        let downMoveX = mouseTracking.current.mouseDownClientX - x;
+        const downMoveX = mouseTracking.current.mouseDownClientX - x;
         // Only start tracking if we have moved a significant amount
         if (isZooming() && Math.abs(downMoveX) > 5) {
           const delta = Math.sign(downMoveX) * 1; // FIXME - use velocity to determine amount
@@ -506,7 +517,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       }
       drawContentDebounced();
     },
-    []
+    [drawContentDebounced, setNearEdge, travelRightToLeft],
   );
 
   // Clear zoom if file changes
@@ -525,14 +536,17 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   const handleMouseLeave = () => {
     setShowBlowup(false);
-    adjustingOverlay ? undefined : () => setNearEdge(false);
+    if (adjustingOverlay) {
+      return undefined;
+    }
+    return () => setNearEdge(false);
   };
 
   const handleMouseUp = useCallback(
-    (_event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    (/* _event: React.MouseEvent<HTMLDivElement, MouseEvent> */) => {
       mouseTracking.current.mouseDown = false;
     },
-    [image]
+    [],
   );
 
   const handleRightClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -549,23 +563,19 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     };
   }, []);
 
-  const videoTimestamp = convertTimestampToString(
-    image.timestamp,
-    image.tzOffset
-  );
-
   useEffect(() => {
     setVideoTimestamp(videoTimestamp);
-  }, [image]);
+  }, [image, videoTimestamp]);
 
   const frameNum = getVideoFrameNum();
   const fracFrame = frameNum - Math.trunc(frameNum);
   const hyperZoom = fracFrame > 0.001 && fracFrame < 0.999;
+  console.log('render video');
   return (
     <Stack direction="column">
       <Box
         onMouseDown={adjustingOverlay ? undefined : handleMouseDown}
-        onMouseMove={handleMouseMove} //{adjustingOverlay ? undefined : handleMouseMove}
+        onMouseMove={handleMouseMove} // {adjustingOverlay ? undefined : handleMouseMove}
         onMouseUp={adjustingOverlay ? undefined : handleMouseUp}
         onMouseLeave={handleMouseLeave}
         onDragStart={adjustingOverlay ? undefined : handleDragStart}
@@ -657,12 +667,12 @@ const Video = () => {
   const sidebarWidth = Math.max(60, videoSidebarWidth + timingSidebarwidth);
   const [{ winWidth, winHeight }, setWindowSize] = useWindowSize();
 
-  const onResize = () => {
+  const onResize = useCallback(() => {
     setWindowSize({
       winWidth: window.innerWidth,
       winHeight: window.innerHeight,
     });
-  };
+  }, [setWindowSize]);
 
   useEffect(() => {
     const win = window;
@@ -674,9 +684,21 @@ const Video = () => {
       win.onresize = onResize;
     }
     onResize();
-  }, []);
+  }, [onResize]);
   const width = winWidth;
   const height = Math.max(winHeight - top, 1);
+
+  // Define the type for contentRect in the callback
+  const handleResize = (contentRect: ContentRect) => {
+    if (contentRect.bounds) {
+      setDimensions({
+        top: contentRect.bounds.top,
+        width: contentRect.bounds.width,
+        height: contentRect.bounds.height,
+      });
+    }
+  };
+
   return (
     <div
       style={{
@@ -692,18 +714,7 @@ const Video = () => {
     >
       <FileScrubber />
       <VideoScrubber />
-      <Measure
-        bounds
-        onResize={(contentRect) => {
-          if (contentRect.bounds) {
-            setDimensions({
-              top: contentRect.bounds.top,
-              width: contentRect.bounds.width,
-              height: contentRect.bounds.height,
-            });
-          }
-        }}
-      >
+      <Measure bounds onResize={handleResize}>
         {({ measureRef }) => (
           <div ref={measureRef} style={{ flexGrow: 1, width: '100%' }}>
             <Stack direction="row">
@@ -718,7 +729,7 @@ const Video = () => {
                     width={timingSidebarwidth}
                     sx={{
                       width: timingSidebarwidth,
-                      height: height,
+                      height,
                     }}
                   />
                   <VideoSideBar

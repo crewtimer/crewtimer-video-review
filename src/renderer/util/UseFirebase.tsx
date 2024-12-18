@@ -7,9 +7,9 @@ import {
   query,
   ref,
 } from 'firebase/database';
+import { useEffect, useRef, useState } from 'react';
 import firebasedb from '../shared/FirebaseConfig';
 import { getMobileID } from './UseSettings';
-import { useEffect, useState } from 'react';
 
 type ValueTypes = string | number | boolean | null;
 
@@ -40,7 +40,7 @@ const unsubscribers: KeyMap<() => void> = {};
 export function firebaseSubscribe<T, P>(
   path: string,
   onDataRx: (data: T | undefined) => void,
-  opts?: WatchFirebaseOpts<T, P>
+  opts?: WatchFirebaseOpts<T, P>,
 ) {
   const mobileID = getMobileID();
   const database = firebasedb(mobileID);
@@ -67,10 +67,11 @@ export function firebaseSubscribe<T, P>(
  */
 export function useFirebaseDatum<T, P = T>(
   path: string,
-  opts?: WatchFirebaseOpts<T, P>
+  opts?: WatchFirebaseOpts<T, P>,
 ) {
   const key = `${path}_${opts?.filter?.key}_${opts?.filter?.value}_${opts?.changeKey}`;
   const [value, setValue] = useState<P | undefined>(dataValues[key]);
+  const optsRef = useRef(opts);
   useEffect(() => {
     const setValueCallback = (data: P | undefined) => {
       setValue(data);
@@ -83,15 +84,15 @@ export function useFirebaseDatum<T, P = T>(
       const unsubscribe = firebaseSubscribe(
         path,
         (data: T | undefined) => {
-          const xformData = opts?.dataTransformer
-            ? opts.dataTransformer(data)
+          const xformData = optsRef.current?.dataTransformer
+            ? optsRef.current.dataTransformer(data)
             : data;
           dataValues[key] = xformData;
           callbackHandlers[key].forEach((callback) => {
             callback(xformData);
           });
         },
-        opts
+        optsRef.current,
       );
       unsubscribers[key] = unsubscribe;
     }
@@ -107,7 +108,7 @@ export function useFirebaseDatum<T, P = T>(
         unsubscribe?.();
       }
     };
-  }, [key]);
+  }, [key, path]);
 
   return value;
 }

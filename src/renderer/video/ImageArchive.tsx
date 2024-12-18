@@ -1,22 +1,25 @@
 import { Box, Typography, Button, TextField } from '@mui/material';
 import Stack from '@mui/material/Stack';
-import { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import { convertTimestampToString } from '../shared/Util';
 import { setDialogConfig } from '../util/ConfirmDialog';
-import ProgressBarComponent from '../util/ProgressBarComponent';
+import { ProgressBarComponent } from '../util/ProgressBarComponent';
 import { setProgressBar, useDay, useWaypoint } from '../util/UseSettings';
-import { TimeObject } from './TimeRangeIcons';
 import { useClickerData } from './UseClickerData';
-import { requestVideoFrame, useFileStatusList } from './VideoFileUtils';
-import { moveToFileIndex, parseTimeToSeconds } from './VideoUtils';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import { requestVideoFrame } from './VideoFileUtils';
+import { moveToFileIndex } from './VideoUtils';
 import { UseStoredDatum } from '../store/UseElectronDatum';
+import { TimeObject } from './VideoTypes';
+import { useFileStatusList } from './VideoSettings';
+import { parseTimeToSeconds } from '../util/StringUtils';
+
 const { openDirDialog } = window.Util;
 
 const [useArchiveFolder] = UseStoredDatum('ArchiveFolder', '/tmp');
 const [useArchivePrefix] = UseStoredDatum('ArchivePrefix', 'CT');
 interface FolderInputProps {}
-const ImageArchiveConfig: React.FC<FolderInputProps> = ({}) => {
+const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
   const [folderPath, setFolderPath] = useArchiveFolder();
   const [prefix, setPrefix] = useArchivePrefix();
 
@@ -28,8 +31,9 @@ const ImageArchiveConfig: React.FC<FolderInputProps> = ({}) => {
             setFolderPath(result.path);
           }
         }
+        return undefined;
       })
-      .catch();
+      .catch(() => {});
   };
 
   // Function to handle prefix input change
@@ -68,6 +72,73 @@ const ImageArchiveConfig: React.FC<FolderInputProps> = ({}) => {
     </Box>
   );
 };
+
+export const ImageArchive = () => {
+  const [dirList] = useFileStatusList();
+  const [scoredWaypoint] = useWaypoint();
+  const [folderPath] = useArchiveFolder();
+  let [prefix] = useArchivePrefix();
+  let [day] = useDay();
+  const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
+  if (day) {
+    day = `${day}-`;
+  }
+  prefix = prefix || 'CT';
+
+  const saveImageArchive = useCallback(async () => {
+    for (let i = 0; i < dirList.length; i += 1) {
+      setProgressBar((i / dirList.length) * 100);
+      // eslint-disable-next-line no-await-in-loop
+      await moveToFileIndex(i, 0, false);
+      const image = dirList[i];
+      const startTime = convertTimestampToString(
+        image.startTime / 1000,
+        image.tzOffset,
+      );
+      const endTime = convertTimestampToString(
+        image.endTime / 1000,
+        image.tzOffset,
+      );
+      const startSeconds = parseTimeToSeconds(startTime);
+      const endSeconds = parseTimeToSeconds(endTime);
+
+      const filteredScoredTimes = scoredLapdata.filter((timeObj) => {
+        const timeSeconds = parseTimeToSeconds(timeObj.Time);
+        const valid = timeSeconds >= startSeconds && timeSeconds <= endSeconds;
+        return valid;
+      });
+      for (let j = 0; j < filteredScoredTimes.length; j += 1) {
+        const timeObj = filteredScoredTimes[j];
+        const filename = `${folderPath}/${prefix}-${day}T${timeObj.Time}-B${
+          timeObj.Bow
+        }-E${timeObj.EventNum.replaceAll(' ', '_')}.png`.replaceAll(':', '');
+        // eslint-disable-next-line no-await-in-loop
+        await requestVideoFrame({
+          videoFile: image.filename,
+          frameNum: 1,
+          fromClick: false,
+          toTimestamp: timeObj.Time,
+          blend: false,
+          saveAs: filename,
+        });
+        setProgressBar(
+          ((i + j / filteredScoredTimes.length) / dirList.length) * 100,
+        );
+      }
+    }
+    setProgressBar(100);
+  }, [day, dirList, folderPath, prefix, scoredLapdata]);
+
+  useEffect(() => {
+    saveImageArchive();
+  }, [saveImageArchive]);
+  return (
+    <Stack>
+      <ProgressBarComponent />
+    </Stack>
+  );
+};
+
 export const initiateImageArchive = () => {
   setDialogConfig({
     title: `Create Image Archive?`,
@@ -86,67 +157,4 @@ export const initiateImageArchive = () => {
       });
     },
   });
-};
-export const ImageArchive = () => {
-  const [dirList] = useFileStatusList();
-  const [scoredWaypoint] = useWaypoint();
-  const [folderPath] = useArchiveFolder();
-  let [prefix] = useArchivePrefix();
-  let [day] = useDay();
-  const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
-  if (day) {
-    day = `${day}-`;
-  }
-  prefix = prefix || 'CT';
-
-  const saveImageArchive = async () => {
-    for (let i = 0; i < dirList.length; i++) {
-      setProgressBar((i / dirList.length) * 100);
-      await moveToFileIndex(i, 0, false);
-      const image = dirList[i];
-      const startTime = convertTimestampToString(
-        image.startTime / 1000,
-        image.tzOffset
-      );
-      const endTime = convertTimestampToString(
-        image.endTime / 1000,
-        image.tzOffset
-      );
-      const startSeconds = parseTimeToSeconds(startTime);
-      const endSeconds = parseTimeToSeconds(endTime);
-
-      const filteredScoredTimes = scoredLapdata.filter((timeObj) => {
-        const timeSeconds = parseTimeToSeconds(timeObj.Time);
-        const valid = timeSeconds >= startSeconds && timeSeconds <= endSeconds;
-        return valid;
-      });
-      for (let j = 0; j < filteredScoredTimes.length; j++) {
-        const timeObj = filteredScoredTimes[j];
-        const filename = `${folderPath}/${prefix}-${day}T${timeObj.Time}-B${
-          timeObj.Bow
-        }-E${timeObj.EventNum.replaceAll(' ', '_')}.png`.replaceAll(':', '');
-        await requestVideoFrame({
-          videoFile: image.filename,
-          frameNum: 1,
-          fromClick: false,
-          toTimestamp: timeObj.Time,
-          blend: false,
-          saveAs: filename,
-        });
-        setProgressBar(
-          ((i + j / filteredScoredTimes.length) / dirList.length) * 100
-        );
-      }
-    }
-    setProgressBar(100);
-  };
-
-  useEffect(() => {
-    saveImageArchive();
-  }, []);
-  return (
-    <Stack>
-      <ProgressBarComponent />
-    </Stack>
-  );
 };

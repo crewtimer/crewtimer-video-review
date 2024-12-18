@@ -21,6 +21,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <CssBaseline />
       <App />
     </ThemeProvider>
-  </StyledEngineProvider>
+  </StyledEngineProvider>,
   // </React.StrictMode>
 );

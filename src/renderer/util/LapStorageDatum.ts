@@ -6,7 +6,7 @@ import {
   getVideoSettings,
   getVideoFile,
   setVideoSettings,
-} from 'renderer/video/VideoSettings';
+} from '../video/VideoSettings';
 import { showErrorDialog } from './ErrorDialog';
 import { saveVideoSidecar } from '../video/VideoFileUtils';
 

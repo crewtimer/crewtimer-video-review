@@ -9,7 +9,7 @@
 export const downsizeImage = async (
   src: string,
   factor: number,
-  callback: (downsizedDataURL: string) => void
+  callback: (downsizedDataURL: string) => void,
 ): Promise<void> => {
   // Create a new Image object
   const img = new Image();

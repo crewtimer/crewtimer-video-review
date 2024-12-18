@@ -1,5 +1,6 @@
 import { Slide, Snackbar, Alert } from '@mui/material';
 import { UseDatum } from 'react-usedatum';
+
 export const [useToast, setToast] = UseDatum<{
   severity: 'success' | 'error' | 'warning' | 'info';
   msg: string;

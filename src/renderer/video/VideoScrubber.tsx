@@ -1,5 +1,5 @@
 import { Stack, Button, Box, Slider, Tooltip } from '@mui/material';
-import { useRef, useEffect, useMemo, useState } from 'react';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
 import {
   convertTimestampToLocalMicros,
   convertTimestampToString,
@@ -7,7 +7,7 @@ import {
 import { useWaypoint } from 'renderer/util/UseSettings';
 import { findClosestNumAndIndex } from 'renderer/util/Util';
 import ImageButton from './ImageButton';
-import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
+import TimeRangeIcons from './TimeRangeIcons';
 import { useClickerData } from './UseClickerData';
 import { requestVideoFrame, seekToTimestamp } from './VideoFileUtils';
 import {
@@ -19,8 +19,9 @@ import {
   useVideoBow,
   resetVideoZoom,
 } from './VideoSettings';
-import { TimeSegment } from './VideoTypes';
-import { moveLeft, moveRight, parseTimeToSeconds } from './VideoUtils';
+import { TimeObject, TimeSegment } from './VideoTypes';
+import { moveLeft, moveRight } from './VideoUtils';
+import { parseTimeToSeconds } from '../util/StringUtils';
 
 const VideoScrubber = () => {
   const [videoFrameNum, setVideoFrameNum] = useVideoFrameNum();
@@ -37,7 +38,7 @@ const VideoScrubber = () => {
   const sliderValueEvent = useRef(0);
 
   const [tooltip, setTooltip] = useState<TimeObject | undefined>();
-  const numFrames = image.numFrames;
+  const { numFrames } = image;
   const videoFileChanging = lastVideoFile.current !== image.file;
   lastVideoFile.current = image.file;
 
@@ -54,11 +55,11 @@ const VideoScrubber = () => {
       //   } time: ${newImage.fileStartTime}->${newImage.fileEndTime}`
       // );
     }
-  }, [videoFileChanging]);
+  }, [setVideoFrameNum, videoFileChanging]);
 
   const handleSlider = (_event: Event, value: number | number[]) => {
     sliderValueEvent.current = value as number;
-    let newValue = value as number;
+    const newValue = value as number;
     if (ignoreNextChange.current) {
       ignoreNextChange.current = false;
       return;
@@ -68,28 +69,25 @@ const VideoScrubber = () => {
   };
 
   const { startTime, endTime, segments } = useMemo(() => {
-    const startTime = convertTimestampToString(
-      image.fileStartTime,
-      image.tzOffset
-    );
-    const endTime = convertTimestampToString(image.fileEndTime, image.tzOffset);
+    const start = convertTimestampToString(image.fileStartTime, image.tzOffset);
+    const end = convertTimestampToString(image.fileEndTime, image.tzOffset);
     const segment: TimeSegment = {
       startTsMicro: convertTimestampToLocalMicros(
         image.fileStartTime * 1000,
-        image.tzOffset
+        image.tzOffset,
       ),
       endTsMicro: convertTimestampToLocalMicros(
         image.fileEndTime * 1000,
-        image.tzOffset
+        image.tzOffset,
       ),
-      startTime,
-      endTime,
+      startTime: start,
+      endTime: end,
       pctOffset: 0,
       pct: 1,
       label: image.file.replace(/.*\//, ''),
     };
-    return { startTime, endTime, segments: [segment] };
-  }, [image.fileStartTime, image.fileEndTime, image.tzOffset]);
+    return { startTime: start, endTime: end, segments: [segment] };
+  }, [image.fileStartTime, image.tzOffset, image.fileEndTime, image.file]);
 
   const [filteredTimes, filteredScoredTimes, relativePositions] =
     useMemo(() => {
@@ -97,27 +95,27 @@ const VideoScrubber = () => {
       const endSeconds = parseTimeToSeconds(endTime);
       const totalDuration = endSeconds - startSeconds;
 
-      const relativePositions: { pos: number; data: TimeObject }[] = [];
+      const relPositions: { pos: number; data: TimeObject }[] = [];
       // Filter times to only include those within the start and end times.
-      const filteredTimes = lapdata.filter((timeObj) => {
+      const filtTimes = lapdata.filter((timeObj) => {
         const timeSeconds = parseTimeToSeconds(timeObj.Time);
         const valid = timeSeconds >= startSeconds && timeSeconds <= endSeconds;
         if (valid) {
           const relativePosition = (timeSeconds - startSeconds) / totalDuration;
-          relativePositions.push({ pos: relativePosition, data: timeObj });
+          relPositions.push({ pos: relativePosition, data: timeObj });
         }
         return valid;
       });
-      const filteredScoredTimes = scoredLapdata.filter((timeObj) => {
+      const filtScoredTimes = scoredLapdata.filter((timeObj) => {
         const timeSeconds = parseTimeToSeconds(timeObj.Time);
         const valid = timeSeconds >= startSeconds && timeSeconds <= endSeconds;
         if (valid) {
           const relativePosition = (timeSeconds - startSeconds) / totalDuration;
-          relativePositions.push({ pos: relativePosition, data: timeObj });
+          relPositions.push({ pos: relativePosition, data: timeObj });
         }
         return valid;
       });
-      relativePositions.sort((a, b) => a.pos - b.pos);
+      relPositions.sort((a, b) => a.pos - b.pos);
 
       // Find the nearest click and jump there if found
       // const candidates = relativePositions.map(({ pos: p }) => p);
@@ -136,10 +134,10 @@ const VideoScrubber = () => {
       //   }, 100);
       // }
 
-      return [filteredTimes, filteredScoredTimes, relativePositions] as [
-        typeof filteredTimes,
-        typeof filteredScoredTimes,
-        typeof relativePositions
+      return [filtTimes, filtScoredTimes, relPositions] as [
+        typeof filtTimes,
+        typeof filtScoredTimes,
+        typeof relPositions,
       ];
     }, [lapdata, startTime, endTime, scoredLapdata]);
 
@@ -149,10 +147,10 @@ const VideoScrubber = () => {
    * @returns The nearest click event or undefined if none are near.
    */
   const findNearestClick = (
-    event: React.MouseEvent<HTMLDivElement, MouseEvent>
+    event: React.MouseEvent<HTMLDivElement, MouseEvent>,
   ) => {
     const rect = sliderRef.current?.getBoundingClientRect();
-    let x = event.clientX - (rect?.left ?? 0);
+    const x = event.clientX - (rect?.left ?? 0);
     const pos = x / (rect?.width ?? 1);
     const candidates = relativePositions.map(({ pos: p }) => p);
     const [index, value] = findClosestNumAndIndex(candidates, pos);
@@ -174,7 +172,7 @@ const VideoScrubber = () => {
   };
 
   const onMouseDown = (
-    _event: React.MouseEvent<HTMLDivElement, MouseEvent>
+    _event: React.MouseEvent<HTMLDivElement, MouseEvent>,
   ) => {
     ignoreNextChange.current = true;
   };
@@ -183,7 +181,7 @@ const VideoScrubber = () => {
   };
 
   const onSliderClick = (
-    event: React.MouseEvent<HTMLDivElement, MouseEvent>
+    event: React.MouseEvent<HTMLDivElement, MouseEvent>,
   ) => {
     const click = findNearestClick(event);
     if (!click) {
@@ -271,8 +269,8 @@ const VideoScrubber = () => {
               tooltip === undefined
                 ? ''
                 : tooltip.Bow === '?'
-                ? `? ${tooltip.Time}`
-                : `Bow ${tooltip.Bow}:E${tooltip.EventNum} ${tooltip.Time}`
+                  ? `? ${tooltip.Time}`
+                  : `Bow ${tooltip.Bow}:E${tooltip.EventNum} ${tooltip.Time}`
             }
             placement="top"
             followCursor

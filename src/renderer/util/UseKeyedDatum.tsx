@@ -8,68 +8,14 @@ import { useEffect, useState, useRef, useReducer } from 'react';
  * Usage: const [useKeyedBoolean, setKeyedBoolean, clearKeyedBoolean, getKeyList ] = UseKeyedDatum<boolean>( (key:string)=>mylookup(key))
  */
 export const UseKeyedDatum = <T,>(
-  getCurrentValue?: (key: string) => T | undefined
+  getCurrentValue?: (key: string) => T | undefined,
 ) => {
   const valueCache = new Map<string, T | undefined>();
   const callbackCache = new Map<
     string,
     Map<number, (value: T | undefined, force?: boolean) => void>
   >();
-  let idCounter = 0;
-  /**
-   * Request a change hook callback when the value of the specified key changes.
-   * The return value is similar to react useState().
-   *
-   * @param key The key to monitor
-   * @returns [T, (newValue:T, force?:boolean)=>void]
-   */
-  const useFunc = (key: string) => {
-    if (!valueCache.has(key)) {
-      // Is there a helper function to get the value?
-      const currentValue = getCurrentValue?.(key);
-      if (currentValue !== undefined) {
-        valueCache.set(key, currentValue);
-      }
-    }
-    const value = valueCache.get(key);
-    const [, setValue] = useState<T | undefined>(value);
-    const [, forceRender] = useReducer((s) => s + 1, 0);
-    const id = useRef(0);
-    if (id.current === 0) {
-      id.current = idCounter++;
-    }
-    let callbackMap = callbackCache.get(key);
-    if (!callbackMap) {
-      callbackMap = new Map<
-        number,
-        (value: T | undefined, force?: boolean) => void
-      >();
-      callbackCache.set(key, callbackMap);
-    }
-
-    if (!callbackMap.has(id.current)) {
-      callbackMap.set(id.current, (value: T | undefined, force?: boolean) => {
-        if (value === undefined) {
-          valueCache.delete(key);
-        } else {
-          valueCache.set(key, value);
-        }
-        setValue(value);
-        if (force) {
-          forceRender();
-        }
-      });
-    }
-
-    useEffect(() => {
-      return () => {
-        const callbackMap = callbackCache.get(key);
-        callbackMap?.delete(id.current);
-        // valueCache.delete(key); // do not delete, retain values
-      };
-    }, []);
-    return [value, updateFunc] as [typeof value, typeof updateFunc];
-  };
+  const idCounter = 0;
 
   /**
    * Update the value corresponding to key.  If the value is different than the
@@ -96,6 +42,61 @@ export const UseKeyedDatum = <T,>(
     } else {
       valueCache.set(key, value);
     }
+  };
+
+  /**
+   * Request a change hook callback when the value of the specified key changes.
+   * The return value is similar to react useState().
+   *
+   * @param key The key to monitor
+   * @returns [T, (newValue:T, force?:boolean)=>void]
+   */
+  const useFunc = (key: string) => {
+    if (!valueCache.has(key)) {
+      // Is there a helper function to get the value?
+      const currentValue = getCurrentValue?.(key);
+      if (currentValue !== undefined) {
+        valueCache.set(key, currentValue);
+      }
+    }
+    const value = valueCache.get(key);
+    const [, setValue] = useState<T | undefined>(value);
+    const [, forceRender] = useReducer((s) => s + 1, 0);
+    const id = useRef(0);
+    if (id.current === 0) {
+      id.current = idCounter + 1;
+    }
+    let callbackMap = callbackCache.get(key);
+    if (!callbackMap) {
+      callbackMap = new Map<
+        number,
+        (value: T | undefined, force?: boolean) => void
+      >();
+      callbackCache.set(key, callbackMap);
+    }
+
+    if (!callbackMap.has(id.current)) {
+      callbackMap.set(id.current, (val: T | undefined, force?: boolean) => {
+        if (val === undefined) {
+          valueCache.delete(key);
+        } else {
+          valueCache.set(key, val);
+        }
+        setValue(val);
+        if (force) {
+          forceRender();
+        }
+      });
+    }
+
+    useEffect(() => {
+      return () => {
+        const map = callbackCache.get(key);
+        map?.delete(id.current);
+        // valueCache.delete(key); // do not delete, retain values
+      };
+    }, [key]);
+    return [value, updateFunc] as [typeof value, typeof updateFunc];
   };
 
   /**
@@ -155,6 +156,6 @@ export const UseKeyedDatum = <T,>(
     typeof getFunc,
     typeof clearFunc,
     typeof getKeysFunc,
-    typeof dumpContents
+    typeof dumpContents,
   ];
 };

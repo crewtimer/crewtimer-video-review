@@ -1,4 +1,12 @@
-import * as React from 'react';
+import React, { useRef } from 'react';
+import { UseDatum } from 'react-usedatum';
+import { Box, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
+import DataGrid, {
+  CellClickArgs,
+  CellMouseEvent,
+  Column,
+  DataGridHandle,
+} from 'react-data-grid';
 import {
   getVideoDir,
   useSelectedIndex,
@@ -9,17 +17,9 @@ import {
   refreshDirList,
   requestVideoFrame,
 } from './video/VideoFileUtils';
-import DataGrid, {
-  CellClickArgs,
-  CellMouseEvent,
-  Column,
-  DataGridHandle,
-} from 'react-data-grid';
+
 import 'react-data-grid/lib/styles.css';
-import { Box, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
-import { useRef } from 'react';
 import { setDialogConfig } from './util/ConfirmDialog';
-import { UseDatum } from 'react-usedatum';
 import { showErrorDialog } from './util/ErrorDialog';
 import { replaceFileSuffix } from './util/Util';
 import { moveToFileIndex } from './video/VideoUtils';
@@ -76,25 +76,25 @@ const ContextMenu: React.FC = () => {
       showCancel: true,
       handleConfirm: () => {
         console.log(
-          `delete ${filename} selectedIndex: ${selectedIndex} id: ${row.id}`
+          `delete ${filename} selectedIndex: ${selectedIndex} id: ${row.id}`,
         );
         let delay = 10;
         if (selectedIndex === row.id) {
           moveToFileIndex(
             row.id === getDirList().length - 1 ? row.id - 1 : row.id + 1,
             0,
-            false
+            false,
           );
           delay = 500; // wait for file switch to occur.
         }
         setTimeout(async () => {
           let result = await window.Util.deleteFile(
-            replaceFileSuffix(row.filename, 'json')
+            replaceFileSuffix(row.filename, 'json'),
           ).catch((_e) => {
             /* ignore */
           });
           result = await window.Util.deleteFile(row.filename).catch((e) =>
-            showErrorDialog(e)
+            showErrorDialog(e),
           );
 
           if (result && result.error) {
@@ -136,7 +136,7 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
     if (index !== -1) {
       setSelectedIndex(index);
     }
-  }, [files, videoFile]);
+  }, [files, videoFile, setSelectedIndex]);
 
   React.useEffect(() => {
     if (files.length === 0) {
@@ -146,13 +146,14 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
       setSelectedIndex(0);
       setVideoFile(files[0]);
       return;
-    } else if (selectedIndex > files.length - 1) {
+    }
+    if (selectedIndex > files.length - 1) {
       setSelectedIndex(files.length - 1);
       setVideoFile(files[files.length - 1]);
       return;
     }
     dataGridRef.current?.scrollToCell({ rowIdx: selectedIndex, idx: 0 });
-  }, [selectedIndex]);
+  }, [files, selectedIndex, setSelectedIndex, setVideoFile]);
 
   const columns: Column<FileInfo>[] = [
     {
@@ -185,7 +186,7 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
 
   const dispItems = React.useMemo(
     () => files.map((filename, index) => ({ id: index, filename })),
-    [files]
+    [files],
   );
 
   const handleClick = React.useCallback(
@@ -199,7 +200,7 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
       requestVideoFrame({ videoFile: filename, frameNum: 1 });
       // dataGridRef.current?.scrollToCell({ rowIdx: index, idx: 0 });
     },
-    [dispItems]
+    [dispItems, setSelectedIndex, setVideoFile],
   );
 
   const handleContextMenu = React.useCallback(
@@ -209,7 +210,7 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
       event.preventDefault();
       setContextMenuAnchor({ element: event.currentTarget, row: args.row });
     },
-    []
+    [],
   );
 
   return (
@@ -220,7 +221,7 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
       ) : (
         <DataGrid<FileInfo>
           ref={dataGridRef}
-          style={{ height: height }}
+          style={{ height }}
           rowHeight={30}
           columns={columns}
           rows={dispItems}

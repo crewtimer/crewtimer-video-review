@@ -15,13 +15,14 @@ import {
 } from './util/UseSettings';
 import { useClickerData } from './video/UseClickerData';
 import { notifiyGuideChanged } from './video/VideoUtils';
+
 const { LapStorage } = window;
 
 const [, setLastClearTS, getLastClearTS] = UseStoredDatum('LastClearTS', 0);
 
 const timeSort = (a: Lap, b: Lap) => {
-  let t1 = a.Timestamp || 0;
-  let t2 = b.Timestamp || 0;
+  const t1 = a.Timestamp || 0;
+  const t2 = b.Timestamp || 0;
   if (t1 < t2) {
     return -1;
   }
@@ -49,7 +50,7 @@ export default function StatusMonitor() {
     }
     setLastClearTS(clearTS);
     clearEntryResults(undefined);
-  }, [mc?.info.ClearTS || 0]);
+  }, [mc?.info.ClearTS]);
 
   useEffect(() => {
     const laps = getLaps();
@@ -64,12 +65,11 @@ export default function StatusMonitor() {
   useEffect(() => {
     timingLapdata.sort(timeSort);
     for (const lap of timingLapdata) {
-      if (lap.State === 'Deleted') {
-        continue;
+      if (lap.State !== 'Deleted') {
+        const key = `${lap.Gate}_${lap.EventNum}_${lap.Bow}`;
+        lap.keyid = key;
+        setEntryResult(key, lap);
       }
-      const key = `${lap.Gate}_${lap.EventNum}_${lap.Bow}`;
-      lap.keyid = key;
-      setEntryResult(key, lap);
     }
   }, [timingLapdata]);
 
@@ -77,7 +77,7 @@ export default function StatusMonitor() {
     // Let recorder know the current guide settings periodically
     // It's also notified if it changes
     if (initializing) {
-      return;
+      return undefined;
     }
     notifiyGuideChanged();
     const timer = setInterval(() => {

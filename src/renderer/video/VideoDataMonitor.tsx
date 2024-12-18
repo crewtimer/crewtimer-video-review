@@ -1,5 +1,5 @@
 import { EntryProgressItem, KeyMap } from 'crewtimer-common';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { firebaseSubscribe } from 'renderer/util/UseFirebase';
 import { useMobileID } from 'renderer/util/UseSettings';
 import { getConnectionProps } from 'renderer/util/Util';
@@ -11,6 +11,7 @@ import {
 
 const ClickerDataKeepAlive: React.FC = () => {
   useClickerData(); // trigger firebase to read the clicker data
+  // eslint-disable-next-line react/jsx-no-useless-fragment
   return <></>;
 };
 
@@ -27,10 +28,9 @@ const ClickerProgressWatcher: React.FC = () => {
       const path = `mobile/${regattaID}/P/S`;
       const onDataRx = (data: KeyMap<EntryProgressItem> | undefined): void => {
         if (data) {
-          for (const key in data) {
-            // For now, only interested in exceptions
-            setEntryException(key, data[key].e);
-          }
+          Object.keys(data).forEach(
+            (key) => setEntryException(key, data[key].e), // For now, only interested in exceptions
+          );
         }
       };
       const unsubscribe = firebaseSubscribe(path, onDataRx);
@@ -40,9 +40,10 @@ const ClickerProgressWatcher: React.FC = () => {
         }
       };
     }
-    return;
+    return undefined;
   }, [mobileID]);
 
+  // eslint-disable-next-line react/jsx-no-useless-fragment
   return <></>;
 };
 /**

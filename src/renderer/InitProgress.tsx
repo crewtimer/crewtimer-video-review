@@ -29,7 +29,7 @@ export default function InitProgress() {
         </Box>
         <Box minWidth={35}>
           <Typography variant="body2" color="textSecondary">{`${Math.round(
-            initProgress
+            initProgress,
           )}%`}</Typography>
         </Box>
       </Box>

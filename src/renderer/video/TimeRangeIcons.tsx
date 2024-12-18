@@ -2,8 +2,8 @@ import React from 'react';
 import Box from '@mui/material/Box';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
-import { parseTimeToSeconds } from './VideoUtils';
-import { TimeSegment } from './VideoTypes';
+import { TimeObject, TimeSegment } from './VideoTypes';
+import { parseTimeToSeconds } from '../util/StringUtils';
 
 /**
  * Finds the TimeSegment where the given timestamp in microseconds falls between startTsMicro and endTsMicro.
@@ -14,7 +14,7 @@ import { TimeSegment } from './VideoTypes';
  */
 function findTimeSegment(
   segments: TimeSegment[],
-  timestampMicro: number
+  timestampMicro: number,
 ): TimeSegment | undefined {
   if (segments.length === 0) {
     return undefined;
@@ -43,15 +43,6 @@ function findTimeSegment(
 
   return undefined; // No matching segment found
 }
-
-/**
- * Represents a time object with a time property in HH:MM:SS.sss format.
- */
-export type TimeObject = {
-  Time: string;
-  Bow: string;
-  EventNum: string;
-};
 
 /**
  * Props for the TimeRangeIcons component.
@@ -123,12 +114,10 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
         // if (showBeyondRange) {
         //   color = '#d2122e80';
         // }
-
+        const key = `${timeObj.Time}-${index}`;
         if (relativePosition < 0 || relativePosition > 100) {
           if (!showBeyondRange) {
-            return (
-              <Box key={`${timeObj.Time}-${index}`} sx={{ display: 'none' }} />
-            );
+            return <Box key={key} sx={{ display: 'none' }} />;
           }
           color = 'blue';
           relativePosition = Math.max(0, Math.min(100, relativePosition));
@@ -136,7 +125,7 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
 
         return (
           <Box
-            key={`${timeObj.Time}-${index}`}
+            key={key}
             sx={{
               position: 'absolute',
               left: `${relativePosition}%`,

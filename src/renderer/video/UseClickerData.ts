@@ -9,7 +9,7 @@ import {
 } from 'renderer/util/UseSettings';
 import { gateFromWaypoint, getConnectionProps } from 'renderer/util/Util';
 import { getVideoSettings, useVideoSettings } from './VideoSettings';
-import { parseTimeToSeconds } from './VideoUtils';
+import { parseTimeToSeconds } from '../util/StringUtils';
 
 export interface ExtendedLap extends Lap {
   seconds: number;
@@ -20,7 +20,7 @@ export interface ExtendedLap extends Lap {
  * @returns Lap[]
  */
 const onDataRxTransformer = (
-  lapdata: KeyMap<Lap> | undefined
+  lapdata: KeyMap<Lap> | undefined,
 ): ExtendedLap[] => {
   if (lapdata) {
     let filteredEvents = getMobileConfig()?.eventList || [];
@@ -39,23 +39,22 @@ const onDataRxTransformer = (
     sorted = sorted.filter(
       (lap) =>
         lap.State !== 'Deleted' &&
-        (lap.EventNum === '?' || eventSet.has(lap.EventNum))
+        (lap.EventNum === '?' || eventSet.has(lap.EventNum)),
     );
     sorted.forEach((lap) => {
       lap.seconds = parseTimeToSeconds(lap.Time || '00:00:00.000');
     });
     sorted = sorted.sort((a, b) => a.seconds - b.seconds);
     return sorted;
-  } else {
-    return [];
   }
+  return [];
 };
 
 const clickerDataCache: KeyMap<ExtendedLap[]> = {};
 
 export const getClickerData = (waypoint?: string): ExtendedLap[] => {
   const gate = gateFromWaypoint(
-    waypoint ? waypoint : getVideoSettings().timingHintSource
+    waypoint || getVideoSettings().timingHintSource,
   );
   return clickerDataCache[gate] || [];
 };
@@ -67,9 +66,7 @@ export const useClickerData = (waypoint?: string) => {
 
   const { regattaID } = getConnectionProps(mobileID);
   const path = `regatta/${regattaID}/lapdata`;
-  const gate = gateFromWaypoint(
-    waypoint ? waypoint : videoSettings.timingHintSource
-  );
+  const gate = gateFromWaypoint(waypoint || videoSettings.timingHintSource);
 
   const lapdata = useFirebaseDatum<KeyMap<Lap>, ExtendedLap[]>(path, {
     filter: { key: 'Gate', value: gate },

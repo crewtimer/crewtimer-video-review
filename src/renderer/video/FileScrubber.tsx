@@ -1,11 +1,12 @@
 import { Box, Button, Stack, SxProps, Theme, Tooltip } from '@mui/material';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import React, { useEffect, useMemo } from 'react';
+import { useWaypoint } from 'renderer/util/UseSettings';
 import {
-  requestVideoFrame,
-  useDirList,
-  useFileStatusList,
-} from './VideoFileUtils';
+  convertTimestampToLocalMicros,
+  convertTimestampToString,
+} from 'renderer/shared/Util';
+import { requestVideoFrame, useDirList } from './VideoFileUtils';
 import {
   moveToFileIndex,
   nextFile,
@@ -15,18 +16,14 @@ import {
 import {
   getSelectedIndex,
   setVideoFile,
+  useFileStatusList,
   useJumpToEndPending,
   useSelectedIndex,
 } from './VideoSettings';
-import TimeRangeIcons, { TimeObject } from './TimeRangeIcons';
+import TimeRangeIcons from './TimeRangeIcons';
 import TimeSegments from './TimeSegments';
 import { useClickerData } from './UseClickerData';
-import { useWaypoint } from 'renderer/util/UseSettings';
-import {
-  convertTimestampToLocalMicros,
-  convertTimestampToString,
-} from 'renderer/shared/Util';
-import { TimeSegment } from './VideoTypes';
+import { TimeObject, TimeSegment } from './VideoTypes';
 
 interface SxPropsArgs {
   sx?: SxProps<Theme>;
@@ -36,7 +33,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   const [, setFileIndex] = useSelectedIndex();
   const [dirList] = useDirList();
   const [fileStatusList] = useFileStatusList();
-  let lapdata = useClickerData() as TimeObject[];
+  const lapdata = useClickerData() as TimeObject[];
   const [scoredWaypoint] = useWaypoint();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
   const [jumpToEndPending, setJumpToEndPending] = useJumpToEndPending();
@@ -51,13 +48,13 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
         const videoFile = dirList[dirList.length - 1];
         setVideoFile(videoFile);
         requestVideoFrame({
-          videoFile: videoFile,
+          videoFile,
           frameNum: 1,
           fromClick: false,
         });
       }
     }
-  }, [dirList]);
+  }, [dirList, jumpToEndPending, setFileIndex, setJumpToEndPending]);
 
   const jumpToEnd = () => {
     // Trigger a file split, then read the files and jump to the end
@@ -72,20 +69,20 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
     });
     let pctOffset = 0;
     const segments = fileStatusList.map((item) => {
-      let startTime = convertTimestampToString(
+      const startTime = convertTimestampToString(
         item.startTime / 1000,
-        item.tzOffset
+        item.tzOffset,
       );
-      let endTime = convertTimestampToString(
+      const endTime = convertTimestampToString(
         item.endTime / 1000,
-        item.tzOffset
+        item.tzOffset,
       );
 
       const pct = item.duration / totalTime;
       const segment: TimeSegment = {
         startTsMicro: convertTimestampToLocalMicros(
           item.startTime,
-          item.tzOffset
+          item.tzOffset,
         ),
         endTsMicro: convertTimestampToLocalMicros(item.endTime, item.tzOffset),
         startTime,
@@ -98,10 +95,10 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
       return segment;
     });
     return segments;
-  }, [dirList]);
+  }, [fileStatusList]);
 
   const startTime = segmentList[0]?.startTime || '12:00:00';
-  let endTime = segmentList[segmentList.length - 1]?.endTime || '17:00:00';
+  const endTime = segmentList[segmentList.length - 1]?.endTime || '17:00:00';
 
   return (
     <Stack
@@ -145,7 +142,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           times={scoredLapdata}
           startTime={startTime}
           endTime={endTime}
-          showBeyondRange={true}
+          showBeyondRange
           iconColor="#2e7d32"
           iconType="lower"
         />
@@ -209,7 +206,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
             marginLeft: '0.5em',
           }}
         >
-          <FastForwardIcon fontSize={'small'} />
+          <FastForwardIcon fontSize="small" />
         </Button>
       </Tooltip>
     </Stack>

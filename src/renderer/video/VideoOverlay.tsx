@@ -7,7 +7,7 @@ import React, {
   useImperativeHandle,
 } from 'react';
 import { UseDatum } from 'react-usedatum';
-import { showErrorDialog } from 'renderer/util/ErrorDialog';
+import { showErrorDialog } from '../util/ErrorDialog';
 import { saveVideoSidecar } from './VideoFileUtils';
 import {
   Dir,
@@ -37,6 +37,7 @@ export interface VideoOverlayProps {
   width: number; /// Canas width
   height: number; /// Canvas height
   destHeight: number; /// Image height in canvas
+  // eslint-disable-next-line react/no-unused-prop-types
   destWidth: number; /// Image width in canvas
   onContextMenu?: (event: React.MouseEvent<HTMLCanvasElement>) => void;
 }
@@ -75,7 +76,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       count: 0,
       velocity: 0,
     });
-    const isZooming = () => videoScaling.zoom !== 1;
+    const isZooming = useCallback(
+      () => videoScaling.zoom !== 1,
+      [videoScaling.zoom],
+    );
 
     useEffect(() => {
       // init volatile copy used while moving the mouse
@@ -135,7 +139,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           wheelTracking.current.velocity =
             wheelTracking.current.velocity * alpha + velocity * (1 - alpha);
         }
-        wheelTracking.current.count++;
+        wheelTracking.current.count += 1;
 
         // console.log(
         //   `deltaT=${deltaT} avg=${wheelTracking.current.dtAvg} dir=${Math.sign(
@@ -151,7 +155,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           (wheelTracking.current.velocity < 1 ? 1 : isZooming() ? 2 : 3);
         setTimeout(() => moveToFrame(getVideoFrameNum(), delta), 10);
       },
-      []
+      [isZooming, wheelInverted],
     );
 
     const drawBox = useCallback(
@@ -159,7 +163,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         context: CanvasRenderingContext2D,
         posScaled: Point,
         dir: Dir,
-        beginEdge: boolean
+        beginEdge: boolean,
       ) => {
         context.beginPath();
         context.strokeStyle = 'black';
@@ -175,20 +179,18 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
             context.fillStyle = 'white';
             context.fillRect(posScaled.x - 11, posScaled.y - 6, 10, 10);
           }
+        } // vertical
+        else if (posScaled.y <= 0) {
+          context.strokeRect(posScaled.x - 7, 1, 12, 12);
+          context.fillStyle = 'white';
+          context.fillRect(posScaled.x - 6, 2, 10, 10);
         } else {
-          // vertical
-          if (posScaled.y <= 0) {
-            context.strokeRect(posScaled.x - 7, 1, 12, 12);
-            context.fillStyle = 'white';
-            context.fillRect(posScaled.x - 6, 2, 10, 10);
-          } else {
-            context.strokeRect(posScaled.x - 7, destHeight - 12, 12, 12);
-            context.fillStyle = 'white';
-            context.fillRect(posScaled.x - 6, destHeight - 11, 10, 10);
-          }
+          context.strokeRect(posScaled.x - 7, destHeight - 12, 12, 12);
+          context.fillStyle = 'white';
+          context.fillRect(posScaled.x - 6, destHeight - 11, 10, 10);
         }
       },
-      [destHeight]
+      [destHeight],
     );
 
     const drawLine = useCallback(
@@ -208,7 +210,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           drawBox(context, { x: to.x, y: to.y }, dir, false);
         }
       },
-      [adjustingOverlay, nearEdge]
+      [adjustingOverlay, drawBox, nearEdge],
     );
 
     useEffect(() => {
@@ -237,14 +239,14 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                     x: image.width / 2 + guide.pt1,
                     y: 0,
                   },
-                  videoScaling
+                  videoScaling,
                 );
                 const toScaled = translateSrcCanvas2DestCanvas(
                   {
                     x: image.width / 2 + guide.pt2,
                     y: image.height - 1,
                   },
-                  videoScaling
+                  videoScaling,
                 );
                 drawLine(fromScaled, toScaled, 'red', Dir.Vert);
               }
@@ -254,25 +256,25 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                 // Range check the guides
                 guide.pt1 = Math.max(
                   10,
-                  Math.min(image.height - 10, guide.pt1)
+                  Math.min(image.height - 10, guide.pt1),
                 );
                 guide.pt2 = Math.max(
                   10,
-                  Math.min(image.height - 10, guide.pt2)
+                  Math.min(image.height - 10, guide.pt2),
                 );
                 let fromScaled = translateSrcCanvas2DestCanvas(
                   {
                     x: 0,
                     y: guide.pt1,
                   },
-                  videoScaling
+                  videoScaling,
                 );
                 let toScaled = translateSrcCanvas2DestCanvas(
                   {
                     x: videoScaling.srcWidth - 1,
                     y: guide.pt2,
                   },
-                  videoScaling
+                  videoScaling,
                 );
                 drawLine(fromScaled, toScaled, '#ff0000a0', Dir.Horiz);
                 const leftText = Math.max(0, fromScaled.x);
@@ -284,14 +286,14 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                     x: 0,
                     y: guide.pt1,
                   },
-                  videoScaling
+                  videoScaling,
                 );
                 toScaled = translateSrcCanvas2DestCanvas(
                   {
                     x: videoScaling.srcWidth - 1,
                     y: guide.pt2,
                   },
-                  videoScaling
+                  videoScaling,
                 );
                 drawText(
                   context,
@@ -300,7 +302,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                   leftText,
                   fromScaled.y,
                   videoSettings.laneBelowGuide ? 'below' : 'above',
-                  'left'
+                  'left',
                 );
                 drawText(
                   context,
@@ -309,9 +311,11 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                   rightText,
                   toScaled.y,
                   videoSettings.laneBelowGuide ? 'below' : 'above',
-                  'right'
+                  'right',
                 );
               }
+              break;
+            default:
               break;
           }
         });
@@ -324,6 +328,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       width,
       height,
       videoScaling,
+      drawLine,
     ]);
 
     const handleMouseDown = (event: React.MouseEvent) => {
@@ -333,14 +338,14 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         return;
       }
       const image = getImage();
-      const videoScaling = getVideoScaling();
-      const margin = 20 * videoScaling.pixScale;
+      const scaling = getVideoScaling();
+      const margin = 20 * scaling.pixScale;
 
       if (
         pt.y < margin ||
-        pt.y > videoScaling.srcHeight - margin ||
+        pt.y > scaling.srcHeight - margin ||
         pt.x < margin ||
-        pt.x > videoScaling.srcWidth - margin
+        pt.x > scaling.srcWidth - margin
       ) {
         // find first guide within margin px
         const nearest: { index: number; dist: number } = {
@@ -360,16 +365,16 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
             guide.dir === Dir.Vert
               ? { x: image.width / 2 + guide.pt2, y: image.height }
               : { x: image.width, y: guide.pt2 };
-          if (guide.dir === Dir.Vert && guidept2.y > videoScaling.srcHeight) {
-            guidept2.y = videoScaling.srcHeight;
+          if (guide.dir === Dir.Vert && guidept2.y > scaling.srcHeight) {
+            guidept2.y = scaling.srcHeight;
           }
           const dist1 = Math.sqrt(
             (guidept1.x - pt.x) * (guidept1.x - pt.x) +
-              (guidept1.y - pt.y) * (guidept1.y - pt.y)
+              (guidept1.y - pt.y) * (guidept1.y - pt.y),
           );
           const dist2 = Math.sqrt(
             (guidept2.x - pt.x) * (guidept2.x - pt.x) +
-              (guidept2.y - pt.y) * (guidept2.y - pt.y)
+              (guidept2.y - pt.y) * (guidept2.y - pt.y),
           );
 
           if (dist1 < margin || dist2 < margin) {
@@ -406,29 +411,25 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           if (shift) {
             dragHandle.guide.pt1 = xpos;
             dragHandle.guide.pt2 = xpos;
+          } else if (dragHandle.pos === 'pt1') {
+            const delta = dragHandle.guide.pt2 - dragHandle.guide.pt1;
+            dragHandle.guide.pt1 = xpos;
+            dragHandle.guide.pt2 = xpos + delta;
           } else {
-            if (dragHandle.pos === 'pt1') {
-              const delta = dragHandle.guide.pt2 - dragHandle.guide.pt1;
-              dragHandle.guide.pt1 = xpos;
-              dragHandle.guide.pt2 = xpos + delta;
-            } else {
-              dragHandle.guide.pt2 = xpos;
-            }
+            dragHandle.guide.pt2 = xpos;
           }
         } else {
           const ypos = Math.round(pt.y);
           if (shift) {
             dragHandle.guide.pt1 = ypos;
             dragHandle.guide.pt2 = ypos;
+          } else if (dragHandle.pos === 'pt1') {
+            // dragging pt1, keep angle between pt1 and pt2
+            const delta = dragHandle.guide.pt2 - dragHandle.guide.pt1;
+            dragHandle.guide.pt1 = ypos;
+            dragHandle.guide.pt2 = ypos + delta;
           } else {
-            if (dragHandle.pos === 'pt1') {
-              // dragging pt1, keep angle between pt1 and pt2
-              const delta = dragHandle.guide.pt2 - dragHandle.guide.pt1;
-              dragHandle.guide.pt1 = ypos;
-              dragHandle.guide.pt2 = ypos + delta;
-            } else {
-              dragHandle.guide.pt2 = ypos;
-            }
+            dragHandle.guide.pt2 = ypos;
           }
         }
 
@@ -466,7 +467,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         }}
       />
     );
-  }
+  },
 );
 
 export default VideoOverlay;

@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 
 interface BlowupProps {
   canvas: HTMLCanvasElement | null;
@@ -42,7 +42,7 @@ const Blowup: React.FC<BlowupProps> = ({
             0,
             0,
             size,
-            size
+            size,
           );
 
           // Draw crosshairs
@@ -65,7 +65,7 @@ const Blowup: React.FC<BlowupProps> = ({
         }
       }
     }
-  }, [canvas, mousePos, size, zoom]);
+  }, [canvas, mousePos, size, srcPos.x, srcPos.y, zoom]);
 
   return (
     <canvas

@@ -1,4 +1,8 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+/* eslint-disable prefer-destructuring */
+/* eslint-disable jsx-a11y/no-static-element-interactions */
+/* eslint-disable jsx-a11y/click-events-have-key-events */
+/* eslint-disable react/jsx-no-useless-fragment */
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   TextField,
   FormControl,
@@ -25,15 +29,6 @@ import DataGrid, {
   DataGridHandle,
   RenderHeaderCellProps,
 } from 'react-data-grid';
-import {
-  getSortPlace,
-  resetVideoZoom,
-  setVideoBow,
-  usePlaceSort,
-  useVideoBow,
-  useVideoEvent,
-  useVideoTimestamp,
-} from './VideoSettings';
 import { Entry, Event, KeyMap } from 'crewtimer-common';
 import {
   getWaypoint,
@@ -51,11 +46,20 @@ import { gateFromWaypoint } from 'renderer/util/Util';
 import { UseDatum } from 'react-usedatum';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 import makeStyles from '@mui/styles/makeStyles';
+import {
+  getSortPlace,
+  resetVideoZoom,
+  setVideoBow,
+  usePlaceSort,
+  useVideoBow,
+  useVideoEvent,
+  useVideoTimestamp,
+} from './VideoSettings';
 import { seekToTimestamp } from './VideoFileUtils';
 import { performAddSplit } from './AddSplitUtil';
 import { useEntryException } from './UseClickerData';
 
-const useStyles = makeStyles((_theme) => ({
+const useStyles = makeStyles((/* _theme */) => ({
   row: {
     background: '#556cd6',
   },
@@ -88,11 +92,12 @@ const TimestampCell = ({ row }: { row: RowType }) => {
   const timeChange = time !== row.Time;
 
   // Re-render the parent component if the time changes
+  const sortPlace = getSortPlace();
   useEffect(() => {
-    if (timeChange && getSortPlace()) {
+    if (timeChange && sortPlace) {
       setRenderRequired(getRenderRequired() + 1);
     }
-  }, [timeChange && getSortPlace()]);
+  }, [timeChange, sortPlace]);
 
   const handleMenu: React.MouseEventHandler<HTMLDivElement> = (event) => {
     setContextMenuAnchor({ element: event.currentTarget, row });
@@ -205,44 +210,45 @@ function sanitizeFirebaseKey(s: string) {
 const columns = (width: number): readonly Column<RowType>[] => {
   const col2Width = 80 + 14 + 16;
   const col1Width = width - col2Width - 20;
+  const RenderCell = ({ row }: { row: RowType }) => {
+    const key = sanitizeFirebaseKey(
+      `1-${row.entry?.EventNum}-${row.entry?.Bow}`,
+    );
+    const [exception] = useEntryException(key);
+
+    return row.eventName ? (
+      <Typography
+        sx={{
+          color: 'white',
+          paddingLeft: '0.5em',
+          fontSize: timingFontSize,
+          lineHeight: '24px',
+        }}
+      >
+        {row.label}
+      </Typography>
+    ) : (
+      <Typography
+        sx={{
+          paddingLeft: '0.5em',
+          fontSize: timingFontSize,
+          lineHeight: '24px',
+          backgroundColor: exception ? '#fdd' : undefined,
+        }}
+      >
+        {exception
+          ? `${row.Bow} ${exception} ${row.Crew}`
+          : `${row.Bow} ${row.Crew}`}
+      </Typography>
+    );
+  };
   return [
     {
       key: 'label',
       name: 'Entry',
       width: col1Width,
       renderHeaderCell: RenderHeaderCell,
-      renderCell: ({ row }: { row: RowType }) => {
-        const key = sanitizeFirebaseKey(
-          `1-${row.entry?.EventNum}-${row.entry?.Bow}`
-        );
-        const [exception] = useEntryException(key);
-
-        return row.eventName ? (
-          <Typography
-            sx={{
-              color: 'white',
-              paddingLeft: '0.5em',
-              fontSize: timingFontSize,
-              lineHeight: '24px',
-            }}
-          >
-            {row.label}
-          </Typography>
-        ) : (
-          <Typography
-            sx={{
-              paddingLeft: '0.5em',
-              fontSize: timingFontSize,
-              lineHeight: '24px',
-              backgroundColor: exception ? '#fdd' : undefined,
-            }}
-          >
-            {exception
-              ? `${row.Bow} ${exception} ${row.Crew}`
-              : `${row.Bow} ${row.Crew}`}
-          </Typography>
-        );
-      },
+      renderCell: RenderCell,
     },
     {
       key: 'ts',
@@ -275,7 +281,7 @@ const VideoTimestamp: React.FC = () => {
 };
 
 const VideoBow: React.FC = () => {
-  const [videoBow, setVideoBow] = useVideoBow();
+  const [videoBow] = useVideoBow();
   return (
     <TextField
       label="Bow"
@@ -362,7 +368,7 @@ const generateEventRows = (
   gate: string,
   event: Event | undefined,
   includeEventName: boolean,
-  includeEntries: boolean
+  includeEntries: boolean,
 ) => {
   const rows: RowType[] = [];
   if (!event) {
@@ -416,31 +422,31 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   const [day] = useDay();
   const [waypoint] = useWaypoint();
   const [placeSort] = usePlaceSort();
-  let [selectedEvent, setSelectedEvent] = useVideoEvent();
+  const [selectedEvent, setSelectedEvent] = useVideoEvent();
   const datagridRef = useRef<DataGridHandle | null>(null);
   const [, setTabPosition] = useTabPosition();
   useRenderRequired();
 
   const gate = gateFromWaypoint(waypoint);
   const { rows, filteredEvents } = useMemo(() => {
-    let filteredEvents = (mobileConfig?.eventList || []).filter(
-      (evt) => evt.RaceType !== 'Info'
+    let events = (mobileConfig?.eventList || []).filter(
+      (evt) => evt.RaceType !== 'Info',
     );
     if (day) {
-      filteredEvents = filteredEvents.filter((event) => event.Day === day);
+      events = events.filter((event) => event.Day === day);
     }
 
     const filteredRows: RowType[] = [];
-    filteredEvents.forEach((event) => {
+    events.forEach((event) => {
       generateEventRows(gate, event, true, false).forEach((row) => {
         filteredRows.push(row);
       });
     });
-    return { rows: filteredRows, filteredEvents };
-  }, [mobileConfig?.eventList, day]);
+    return { rows: filteredRows, filteredEvents: events };
+  }, [mobileConfig?.eventList, day, gate]);
 
   let activeEvent = filteredEvents.find(
-    (event) => event.EventNum === selectedEvent
+    (event) => event.EventNum === selectedEvent,
   );
   if (activeEvent === undefined && filteredEvents.length > 0) {
     activeEvent = filteredEvents[0];
@@ -453,10 +459,10 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   const combined = mobileConfig?.info?.CombinedRaces || '{}';
   const combinedRaces = JSON.parse(combined) as KeyMap<string[]>;
   const combinedList = combinedRaces[selectedEvent] || [selectedEvent];
-  const columnConfig = useMemo(() => columns(width), []);
+  const columnConfig = useMemo(() => columns(width), [width]);
   const activeEvents: Event[] = [];
   combinedList.forEach((eventNum) => {
-    const event = filteredEvents.find((event) => event.EventNum === eventNum);
+    const event = filteredEvents.find((evt) => evt.EventNum === eventNum);
     if (event) {
       activeEvents.push(event);
     }
@@ -473,14 +479,14 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
         {
           numeric: true,
           sensitivity: 'base',
-        }
-      )
+        },
+      ),
     );
   }
 
   const onRowClick = (
     args: CellClickArgs<RowType, unknown>,
-    _event: CellMouseEvent
+    _event: CellMouseEvent,
   ) => {
     setSelectedEvent(args.row.eventNum);
     if (args.row.Bow) {
@@ -499,24 +505,27 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
     }
   };
 
-  const scrollToEvent = (eventNum: string) => {
-    let eventRow = rows.findIndex((row) => row.eventNum === eventNum);
-    if (eventRow < 0 && rows.length > 0) {
-      eventRow = 0;
-    }
-    if (eventRow >= 0) {
-      setSelectedEvent(eventNum);
-      datagridRef.current?.scrollToCell({
-        rowIdx: Math.min(
-          rows.length - 1,
-          eventRow // + Math.min(rows[eventRow].event.eventItems.length, 10)
-        ),
-        idx: 0,
-      });
-    }
-  };
+  const scrollToEvent = useCallback(
+    (eventNum: string) => {
+      let eventRow = rows.findIndex((row) => row.eventNum === eventNum);
+      if (eventRow < 0 && rows.length > 0) {
+        eventRow = 0;
+      }
+      if (eventRow >= 0) {
+        setSelectedEvent(eventNum);
+        datagridRef.current?.scrollToCell({
+          rowIdx: Math.min(
+            rows.length - 1,
+            eventRow, // + Math.min(rows[eventRow].event.eventItems.length, 10)
+          ),
+          idx: 0,
+        });
+      }
+    },
+    [rows, setSelectedEvent],
+  );
 
-  useEffect(() => scrollToEvent(selectedEvent), [selectedEvent]);
+  useEffect(() => scrollToEvent(selectedEvent), [scrollToEvent, selectedEvent]);
 
   const onEventChange = (event: SelectChangeEvent<string>) => {
     setSelectedEvent(event.target.value);
@@ -524,7 +533,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
 
   const prevEvent = () => {
     const index = filteredEvents.findIndex(
-      (event) => event.EventNum === selectedEvent
+      (event) => event.EventNum === selectedEvent,
     );
     if (index > 0) {
       setSelectedEvent(filteredEvents[index - 1].EventNum);
@@ -533,7 +542,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
 
   const nextEvent = () => {
     const index = filteredEvents.findIndex(
-      (event) => event.EventNum === selectedEvent
+      (event) => event.EventNum === selectedEvent,
     );
     if (index !== -1 && index < filteredEvents.length - 1) {
       setSelectedEvent(filteredEvents[index + 1].EventNum);
@@ -541,7 +550,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   };
 
   const activeEventIndex = filteredEvents.findIndex(
-    (event) => event.EventNum === selectedEvent
+    (event) => event.EventNum === selectedEvent,
   );
 
   if (!mobileConfig) {

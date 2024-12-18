@@ -1,3 +1,4 @@
+import React from 'react';
 import { Box, Typography, LinearProgress } from '@mui/material';
 import { useProgressBar } from './UseSettings';
 

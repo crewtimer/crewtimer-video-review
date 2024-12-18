@@ -2,19 +2,19 @@ import makeStyles from '@mui/styles/makeStyles';
 import Paper from '@mui/material/Paper';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
-import Setup from './Setup';
-import Status from './Status';
-import { useInitializing, useTabPosition } from './util/UseSettings';
-import { Toast } from './Toast';
-import Video from './video/Video';
 import {
   HistoryTwoTone,
   VideoSettings,
   OndemandVideo,
 } from '@mui/icons-material';
 import { Tooltip } from '@mui/material';
-import { VideoSettingsDialog } from './video/VideoSettingsView';
 import CrewTimerRower from 'assets/icons/CrewTimerRower';
+import Setup from './Setup';
+import Status from './Status';
+import { useInitializing, useTabPosition } from './util/UseSettings';
+import { Toast } from './Toast';
+import Video from './video/Video';
+import { VideoSettingsDialog } from './video/VideoSettingsView';
 
 const useStyles = makeStyles({
   root: {
@@ -26,6 +26,7 @@ const useStyles = makeStyles({
 
 export default function CenteredTabs() {
   const classes = useStyles();
+  // eslint-disable-next-line prefer-const
   let [tabPosition, setTabPosition] = useTabPosition();
   const [initializing] = useInitializing();
 
