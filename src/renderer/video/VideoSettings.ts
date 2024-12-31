@@ -2,7 +2,7 @@ import { UseDatum } from 'react-usedatum';
 import { AppImage } from 'renderer/shared/AppTypes';
 import { N_IMAGE, N_VIDEO_FILE, N_VIDEO_DIR } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
-import generateTestPattern from '../util/ImageUtils';
+import { generateTestPattern } from '../util/ImageUtils';
 import { OpenFileStatus } from './VideoTypes';
 
 export interface VideoPosition {
@@ -12,17 +12,19 @@ export interface VideoPosition {
 export type Point = { x: number; y: number };
 
 export interface VideoScaling {
-  destX: number; /// X offset in dest canvas units of image
-  destY: number; /// Y offset in dest canvas units of image
   destWidth: number; /// Width in pixels of destination canvas
   destHeight: number; /// width in pixels of destination canvas
-  srcCenterPoint: Point; /// Center point in source image units
   srcWidth: number; /// Width of source image
   srcHeight: number; /// Height of source image
-  scaledWidth: number; /// Width in zoomed pixels of dest canvas
-  scaledHeight: number; /// Height in zoomed pixels of dest canvas
-  pixScale: number; /// convert canvas pixels to src pixels
-  zoom: number; /// zoom factor
+  srcCenterPoint: Point; /// Center point in source image units
+  zoomX: number; // x-axis zoom factor
+  zoomY: number; // y-axis zoom factor
+
+  // Calculated from above parms
+  scaleX: number; /// transform from src canvas to dest canvas
+  scaleY: number; /// transform from src canvas to dest canvas
+  destX: number; /// X offset in dest canvas units of image
+  destY: number; /// Y offset in dest canvas units of image
 }
 
 export enum Dir {
@@ -94,10 +96,10 @@ export const [useVideoScaling, setVideoScaling, getVideoScaling] =
     srcCenterPoint: { x: 0, y: 0 },
     srcWidth: 1,
     srcHeight: 1,
-    scaledWidth: 1,
-    scaledHeight: 1,
-    pixScale: 1,
-    zoom: 1,
+    scaleX: 1,
+    scaleY: 1,
+    zoomX: 1,
+    zoomY: 1,
   });
 
 export const [useJumpToEndPending, setJumpToEndPending] = UseDatum(false);

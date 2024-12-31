@@ -10,7 +10,7 @@ import { setProgressBar, useInitializing } from 'renderer/util/UseSettings';
 import { replaceFileSuffix, timeToMilli } from 'renderer/util/Util';
 import deepequal from 'fast-deep-equal/es6/react';
 import { getTimezoneOffset } from 'renderer/util/TimezoneSelector';
-import generateTestPattern from 'renderer/util/ImageUtils';
+import { generateTestPattern } from '../util/ImageUtils';
 import { extractTime, parseTimeToSeconds } from '../util/StringUtils';
 import {
   Dir,

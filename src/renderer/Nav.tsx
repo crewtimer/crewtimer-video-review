@@ -109,7 +109,7 @@ export default function Nav() {
         setProgressBar(0);
         addSidecarFiles();
         setDialogConfig({
-          title: 'Creating Sidecar Files',
+          title: 'Updating Sidecar Files',
           body: (
             <Stack>
               <ProgressBarComponent />

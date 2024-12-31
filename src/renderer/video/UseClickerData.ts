@@ -73,9 +73,10 @@ export const useClickerData = (waypoint?: string) => {
     dataTransformer: onDataRxTransformer,
     changeKey: day,
   });
-  clickerDataCache[gate] = lapdata || [];
+  const result = lapdata || [];
+  clickerDataCache[gate] = result;
 
-  return lapdata || [];
+  return result;
 };
 
 export const useResultData = () => {

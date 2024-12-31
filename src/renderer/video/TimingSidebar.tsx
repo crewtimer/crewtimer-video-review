@@ -390,9 +390,6 @@ const generateEventRows = (
     event.eventItems.forEach((entry) => {
       const key = `${gate}_${event.EventNum}_${entry?.Bow}`;
       const lap = getEntryResult(key);
-      // console.log(
-      //   `rendering timestamp cell for ${key} value=${JSON.stringify(entry)}`
-      // );
       const Time = lap?.State === 'Deleted' ? '' : lap?.Time || '';
 
       rows.push({

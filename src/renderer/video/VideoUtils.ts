@@ -126,6 +126,7 @@ export const drawText = (
   y: number,
   position: 'above' | 'below' | 'center',
   align: 'left' | 'center' | 'right',
+  bgColor = '#ffffff60',
 ) => {
   ctx.font = `${Math.trunc(fontSize)}px Arial`;
   const textSize = ctx.measureText(text);
@@ -181,12 +182,20 @@ export const drawText = (
     padding;
 
   // Draw the background rectangle
-  ctx.fillStyle = '#ffffff60';
+  ctx.fillStyle = bgColor;
   ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
 
   // Draw the text
   ctx.fillStyle = 'black';
   ctx.fillText(text, textX, textY);
+
+  // Return bounds of the text
+  return {
+    x: rectX + padding / 2,
+    y: rectY + padding / 2,
+    width: rectWidth - padding,
+    height: rectHeight - padding,
+  };
 };
 
 /**
@@ -352,7 +361,7 @@ export const moveToFrame = (
     nextFile();
   } else {
     const videoScaling = getVideoScaling();
-    const zoomFactor = videoScaling.zoom;
+    const zoomFactor = videoScaling.zoomY;
     const hyperZoomFactor = getHyperZoomFactor();
     let videoFrameNum = frameNum;
 
@@ -372,7 +381,7 @@ export const moveToFrame = (
     // frame velocity calc.  Otherwise use a grid around the finish line
     const autoZoomCoords = getAutoZoomPending();
 
-    if (videoScaling.zoom !== 1 || autoZoomCoords) {
+    if (videoScaling.zoomY !== 1 || autoZoomCoords) {
       // If we are zooming, specigy the coordinates for the motion detection zoom to utilize
       if (autoZoomCoords) {
         // An auto-zoom request is pending for specific coordinates
@@ -432,11 +441,11 @@ export const translateSrcCanvas2DestCanvas = (
 ): Point => {
   const scale = scaling || getVideoScaling();
 
-  const translatedX =
-    scale.destX + (srcPoint.x * scale.scaledWidth) / scale.srcWidth;
-  const translatedY =
-    scale.destY + (srcPoint.y * scale.scaledHeight) / scale.srcHeight;
-  return { x: translatedX, y: translatedY };
+  const { x, y } = srcPoint;
+  return {
+    x: scale.destX + scale.scaleX * x,
+    y: scale.destY + scale.scaleY * y,
+  };
 };
 
 /**
@@ -447,12 +456,12 @@ export const translateSrcCanvas2DestCanvas = (
  */
 export const translateMouseCoords2SourceCanvas = (point: Point): Point => {
   const scaling = getVideoScaling();
-  const srcX =
-    ((point.x - scaling.destX) * scaling.srcWidth) / scaling.scaledWidth;
-  const srcY =
-    ((point.y - scaling.destY) * scaling.srcHeight) / scaling.scaledHeight;
-  // console.log(JSON.stringify({ srcX, srcY }, null, 2));
-  return { x: srcX, y: srcY };
+
+  const { x, y } = point;
+  return {
+    x: (x - scaling.destX) / scaling.scaleX,
+    y: (y - scaling.destY) / scaling.scaleY,
+  };
 };
 
 /**

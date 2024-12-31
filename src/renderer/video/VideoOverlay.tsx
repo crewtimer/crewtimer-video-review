@@ -29,16 +29,15 @@ import {
   translateMouseEvent2Src,
   translateSrcCanvas2DestCanvas,
 } from './VideoUtils';
+import { updateVideoScaling } from '../util/ImageUtils';
 
-export const [useAdjustingOverlay] = UseDatum(false);
-export const [useNearEdge, , getNearEdge] = UseDatum(false);
+export const [useOverlayActive, setOverlayActive] = UseDatum(false);
+export const [useAdjustingOverlay, , getAdjustingOverlay] = UseDatum(false);
+export const [useNearEdge, setNearEdge, getNearEdge] = UseDatum(false);
 
 export interface VideoOverlayProps {
   width: number; /// Canas width
   height: number; /// Canvas height
-  destHeight: number; /// Image height in canvas
-  // eslint-disable-next-line react/no-unused-prop-types
-  destWidth: number; /// Image width in canvas
   onContextMenu?: (event: React.MouseEvent<HTMLCanvasElement>) => void;
 }
 
@@ -51,7 +50,7 @@ export interface VideoOverlayHandles {
  * @returns A canvas element
  */
 const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
-  ({ width, height, destHeight, onContextMenu }, ref) => {
+  ({ width, height, onContextMenu }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     // Use useImperativeHandle to expose custom functions or values to the parent
@@ -76,9 +75,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       count: 0,
       velocity: 0,
     });
+    const scaleButtons = useRef({ x: 0, y: 0, width: 1, height: 1 });
     const isZooming = useCallback(
-      () => videoScaling.zoom !== 1,
-      [videoScaling.zoom],
+      () => videoScaling.zoomY !== 1,
+      [videoScaling.zoomY],
     );
 
     useEffect(() => {
@@ -185,12 +185,12 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           context.fillStyle = 'white';
           context.fillRect(posScaled.x - 6, 2, 10, 10);
         } else {
-          context.strokeRect(posScaled.x - 7, destHeight - 12, 12, 12);
+          context.strokeRect(posScaled.x - 7, posScaled.y - 12, 12, 12);
           context.fillStyle = 'white';
-          context.fillRect(posScaled.x - 6, destHeight - 11, 10, 10);
+          context.fillRect(posScaled.x - 6, posScaled.y - 11, 10, 10);
         }
       },
-      [destHeight],
+      [],
     );
 
     const drawLine = useCallback(
@@ -319,6 +319,24 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
               break;
           }
         });
+
+        // Draw the x-axis magnification buttons
+        const scaleBoxCoords = translateSrcCanvas2DestCanvas({
+          x: videoScaling.srcWidth - 1,
+          y: 0,
+        });
+        scaleBoxCoords.x = Math.min(videoScaling.destWidth, scaleBoxCoords.x);
+        const scaleText = `${videoScaling.zoomX}x`;
+        scaleButtons.current = drawText(
+          context,
+          scaleText,
+          16,
+          scaleBoxCoords.x - 4,
+          scaleBoxCoords.y,
+          'below',
+          'right',
+          '#fff',
+        );
       }
     }, [
       videoSettings,
@@ -339,7 +357,24 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       }
       const image = getImage();
       const scaling = getVideoScaling();
-      const margin = 20 * scaling.pixScale;
+      const margin = (20 * (scaling.scaleX + scaling.scaleY)) / 2;
+
+      const x = event.clientX - (rect?.left ?? 0);
+      const y = event.clientY - (rect?.top ?? 0);
+      if (
+        y < scaleButtons.current.y + scaleButtons.current.height &&
+        x > scaleButtons.current.x
+      ) {
+        let { zoomX } = scaling;
+        if (zoomX >= 8) {
+          zoomX = 1;
+        } else {
+          zoomX *= 2;
+        }
+
+        updateVideoScaling({ zoomX });
+        return;
+      }
 
       if (
         pt.y < margin ||
@@ -389,6 +424,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           const nearestGuide = courseConfig.guides[nearest.index];
           setDragging(true);
           setAdjustingOverlay(true);
+          setOverlayActive(true);
           event.preventDefault();
           event.stopPropagation();
           if (pt.y < margin || pt.x < margin) {
@@ -401,10 +437,11 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
     };
 
     const handleMouseMove = (event: React.MouseEvent) => {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      const { pt, withinBounds } = translateMouseEvent2Src(event, rect);
+
       if (dragging && dragHandle) {
         const shift = event.shiftKey;
-        const rect = canvasRef.current?.getBoundingClientRect();
-        const { pt } = translateMouseEvent2Src(event, rect);
 
         if (dragHandle.guide.dir === Dir.Vert) {
           const xpos = Math.round(pt.x - videoScaling.srcWidth / 2);
@@ -434,6 +471,26 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         }
 
         setCourseConfig({ ...courseConfig });
+      } else {
+        const vScaling = getVideoScaling();
+
+        const x = event.clientX - (rect?.left ?? 0);
+        const y = event.clientY - (rect?.top ?? 0);
+        const overButtons =
+          y < scaleButtons.current.y + scaleButtons.current.height &&
+          x > scaleButtons.current.x;
+
+        const nearVerticalEdge = pt.y < 20 || pt.y > vScaling.srcHeight - 20;
+        const nearHorizontalEdge = pt.x < 20 || pt.x > vScaling.srcWidth - 20;
+
+        const isNearEdge =
+          !overButtons &&
+          !isZooming() &&
+          withinBounds &&
+          (nearVerticalEdge || nearHorizontalEdge);
+        setNearEdge(isNearEdge);
+
+        setOverlayActive(overButtons || isNearEdge || adjustingOverlay);
       }
     };
 
@@ -447,6 +504,13 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       setDragging(false);
       setDragHandle(null);
       setAdjustingOverlay(false);
+      setOverlayActive(false);
+    };
+    const handleMouseLeave = () => {
+      if (dragging) {
+        handleMouseUp();
+      }
+      setNearEdge(false);
     };
 
     // TODO: Support touchscreens
@@ -456,9 +520,9 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         onContextMenu={onContextMenu}
         onWheel={adjustingOverlay ? undefined : onWheelMove}
         onMouseDown={handleMouseDown}
-        onMouseMove={dragging ? handleMouseMove : undefined}
+        onMouseMove={handleMouseMove}
         onMouseUp={dragging ? handleMouseUp : undefined}
-        onMouseLeave={dragging ? handleMouseUp : undefined}
+        onMouseLeave={handleMouseLeave}
         width={`${videoScaling.destWidth}px`}
         height={`${videoScaling.destHeight}px`}
         style={{
