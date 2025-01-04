@@ -1,6 +1,5 @@
 import React from 'react';
-import Paper from '@mui/material/Paper';
-import { Button, SxProps, Theme, Tooltip } from '@mui/material';
+import { Box, Button, SxProps, Theme, Tooltip } from '@mui/material';
 import makeStyles from '@mui/styles/makeStyles';
 import FileList from '../FileList';
 import { useDirList } from './VideoFileUtils';
@@ -45,10 +44,11 @@ const VideoSideBar: React.FC<CustomTableProps> = ({ sx, height }) => {
   };
 
   return (
-    <Paper
+    <Box
       sx={{
         maxWidth: '100%',
         height: height - 8,
+        paddingRight: '4px',
         ...sx,
       }}
     >
@@ -66,7 +66,7 @@ const VideoSideBar: React.FC<CustomTableProps> = ({ sx, height }) => {
         </Button>
       </Tooltip>
       <FileList files={dirList} height={height - 8 - 35} />
-    </Paper>
+    </Box>
   );
 };
 

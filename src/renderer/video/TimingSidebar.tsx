@@ -7,7 +7,6 @@ import {
   TextField,
   FormControl,
   InputLabel,
-  Paper,
   Select,
   MenuItem,
   SxProps,
@@ -582,7 +581,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   }
 
   return (
-    <Paper
+    <Box
       sx={{
         display: 'flex',
         flexDirection: 'column',
@@ -664,7 +663,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
           style={{ height: height - 138 }}
         />
       </div>
-    </Paper>
+    </Box>
   );
 };
 

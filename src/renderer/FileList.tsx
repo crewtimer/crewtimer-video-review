@@ -178,7 +178,7 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
             }
           >
             <Tooltip title={filename} placement="left">
-              <Box>{filename}</Box>
+              <Box>{replaceFileSuffix(filename, '')}</Box>
             </Tooltip>
           </Box>
         );

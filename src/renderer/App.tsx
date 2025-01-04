@@ -58,7 +58,12 @@ export default function App() {
   }, []); // Empty dependency array means this effect runs only on mount and unmount
 
   return (
-    <Router>
+    <Router
+      future={{
+        v7_relativeSplatPath: true,
+        v7_startTransition: true,
+      }}
+    >
       <div style={{ height: '100vh', display: 'flex', flexFlow: 'column' }}>
         <Nav />
         <InitProgress />

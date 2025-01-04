@@ -1,5 +1,4 @@
 import makeStyles from '@mui/styles/makeStyles';
-import Paper from '@mui/material/Paper';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import {
@@ -7,7 +6,7 @@ import {
   VideoSettings,
   OndemandVideo,
 } from '@mui/icons-material';
-import { Tooltip } from '@mui/material';
+import { Box, Tooltip } from '@mui/material';
 import CrewTimerRower from 'assets/icons/CrewTimerRower';
 import Setup from './Setup';
 import Status from './Status';
@@ -18,7 +17,6 @@ import { VideoSettingsDialog } from './video/VideoSettingsView';
 
 const useStyles = makeStyles({
   root: {
-    flexGrow: 1,
     flexFlow: 'column',
     display: 'flex',
   },
@@ -51,7 +49,7 @@ export default function CenteredTabs() {
     tabPosition = 'System Config';
   }
   return (
-    <Paper className={classes.root} square>
+    <Box className={classes.root}>
       {/* Keeep Tabs from scrolling by surround with fixed */}
       <div>
         <Tabs
@@ -105,6 +103,6 @@ export default function CenteredTabs() {
       <Tabs style={{ zIndex: 0 }} />
       <Page />
       <Toast />
-    </Paper>
+    </Box>
   );
 }

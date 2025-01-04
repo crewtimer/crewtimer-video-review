@@ -79,9 +79,6 @@ const useStyles = makeStyles((theme) => ({
     transform: 'scale(0.8)',
     transformOrigin: 'left',
   },
-  grow: {
-    flexGrow: 1,
-  },
   space: {
     marginLeft: theme.spacing(2),
   },

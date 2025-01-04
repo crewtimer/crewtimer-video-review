@@ -41,7 +41,6 @@ import VideoOverlay, {
 import TimingSidebar from './TimingSidebar';
 import {
   downloadImageFromCanvasLayers,
-  drawText,
   findClosestLineAndPosition,
   getFinishLine,
   moveLeft,
@@ -238,16 +237,17 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         0,
       );
 
-      drawText(
-        ctx,
-        '                  CrewTimer Regatta Timing                   ',
-        16,
-        30,
-        32,
-        'below',
-        'left',
-        '#ccc',
-      );
+      // Cover the early version watermark timestamp
+      // drawText(
+      //   ctx,
+      //   '                  CrewTimer Regatta Timing                   ',
+      //   16,
+      //   30,
+      //   32,
+      //   'below',
+      //   'left',
+      //   '#ccc',
+      // );
 
       mouseTracking.current.imageLoaded = true;
     } else {
@@ -548,6 +548,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const fracFrame = frameNum - Math.trunc(frameNum);
   const hyperZoom = fracFrame > 0.001 && fracFrame < 0.999;
   const scaleText = `${videoScaling.zoomX * videoScaling.zoomY}X`;
+
   return (
     <Stack direction="column">
       <Box
@@ -576,7 +577,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             width: `${width}px`,
             alignItems: 'end',
             paddingTop: '5px',
-            paddingRight: '58px',
+            paddingRight: '5px',
           }}
         >
           <Stack
@@ -587,7 +588,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
               //       paddingRight: `${width / 2}px`,
               //     }
               //   : { paddingLeft: `${width / 2}px` }
-              {}
+              {
+                paddingRight: `${Math.trunc((width - image.width * videoScaling.scaleX) / 2)}px`,
+              }
             }
           >
             <div />
@@ -659,7 +662,7 @@ const [useWindowSize] = UseDatum({ winWidth: 0, winHeight: 0 });
 
 const Video = () => {
   const [{ top }, setDimensions] = useState({ top: 180, width: 1, height: 1 });
-  const videoSidebarWidth = 130; // enough for '20240308_123248.mp4'
+  const videoSidebarWidth = 150; // enough for '20240308_123248.mp4'
   const timingSidebarwidth = 300;
   const sidebarWidth = Math.max(60, videoSidebarWidth + timingSidebarwidth);
   const [{ winWidth, winHeight }, setWindowSize] = useWindowSize();
