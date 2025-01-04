@@ -7,7 +7,7 @@ import {
   query,
   ref,
 } from 'firebase/database';
-import { useEffect, useReducer, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 import firebasedb from '../shared/FirebaseConfig';
 import { getMobileID } from './UseSettings';
 

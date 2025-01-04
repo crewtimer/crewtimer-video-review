@@ -128,7 +128,7 @@ export const drawText = (
   align: 'left' | 'center' | 'right',
   bgColor = '#ffffff60',
 ) => {
-  ctx.font = `${Math.trunc(fontSize)}px Arial`;
+  ctx.font = `${Math.trunc(fontSize)}px Roboto`;
   const textSize = ctx.measureText(text);
   const padding = 12;
 

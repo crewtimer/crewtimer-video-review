@@ -29,7 +29,7 @@ import {
   translateMouseEvent2Src,
   translateSrcCanvas2DestCanvas,
 } from './VideoUtils';
-import { updateVideoScaling } from '../util/ImageUtils';
+import { updateVideoScaling } from '../util/ImageScaling';
 
 export const [useOverlayActive, setOverlayActive] = UseDatum(false);
 export const [useAdjustingOverlay, , getAdjustingOverlay] = UseDatum(false);
@@ -248,7 +248,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                   },
                   videoScaling,
                 );
-                drawLine(fromScaled, toScaled, 'red', Dir.Vert);
+                drawLine(fromScaled, toScaled, '#f008', Dir.Vert);
               }
               break;
             case Dir.Horiz:
@@ -319,24 +319,6 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
               break;
           }
         });
-
-        // Draw the x-axis magnification buttons
-        const scaleBoxCoords = translateSrcCanvas2DestCanvas({
-          x: videoScaling.srcWidth - 1,
-          y: 0,
-        });
-        scaleBoxCoords.x = Math.min(videoScaling.destWidth, scaleBoxCoords.x);
-        const scaleText = `${videoScaling.zoomX}x`;
-        scaleButtons.current = drawText(
-          context,
-          scaleText,
-          16,
-          scaleBoxCoords.x - 4,
-          scaleBoxCoords.y,
-          'below',
-          'right',
-          '#fff',
-        );
       }
     }, [
       videoSettings,
@@ -359,22 +341,14 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       const scaling = getVideoScaling();
       const margin = (20 * (scaling.scaleX + scaling.scaleY)) / 2;
 
-      const x = event.clientX - (rect?.left ?? 0);
-      const y = event.clientY - (rect?.top ?? 0);
-      if (
-        y < scaleButtons.current.y + scaleButtons.current.height &&
-        x > scaleButtons.current.x
-      ) {
-        let { zoomX } = scaling;
-        if (zoomX >= 8) {
-          zoomX = 1;
-        } else {
-          zoomX *= 2;
-        }
-
-        updateVideoScaling({ zoomX });
-        return;
-      }
+      // if (rect) {
+      //   const x = event.clientX - (rect?.left ?? 0);
+      //   const y = event.clientY - (rect?.top ?? 0);
+      //   console.log(`(${x}x${y} w=${rect.width})`);
+      //   if (y < 100 && x > rect.width - 100) {
+      //     return;
+      //   }
+      // }
 
       if (
         pt.y < margin ||
@@ -474,11 +448,14 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       } else {
         const vScaling = getVideoScaling();
 
-        const x = event.clientX - (rect?.left ?? 0);
-        const y = event.clientY - (rect?.top ?? 0);
-        const overButtons =
-          y < scaleButtons.current.y + scaleButtons.current.height &&
-          x > scaleButtons.current.x;
+        let overButtons = false;
+        if (rect) {
+          const x = event.clientX - (rect?.left ?? 0);
+          const y = event.clientY - (rect?.top ?? 0);
+          if (y < 50 && x > rect.width - 100) {
+            overButtons = true;
+          }
+        }
 
         const nearVerticalEdge = pt.y < 20 || pt.y > vScaling.srcHeight - 20;
         const nearHorizontalEdge = pt.x < 20 || pt.x > vScaling.srcWidth - 20;

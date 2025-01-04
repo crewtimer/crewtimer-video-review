@@ -11,7 +11,7 @@ import { requestVideoFrame } from './VideoFileUtils';
 import { moveToFileIndex } from './VideoUtils';
 import { UseStoredDatum } from '../store/UseElectronDatum';
 import { TimeObject } from './VideoTypes';
-import { useFileStatusList } from './VideoSettings';
+import { useFileStatusList } from './VideoFileStatus';
 import { parseTimeToSeconds } from '../util/StringUtils';
 
 const { openDirDialog } = window.Util;

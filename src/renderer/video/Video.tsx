@@ -1,4 +1,4 @@
-import { Box, Typography, Stack, Tooltip } from '@mui/material';
+import { Box, Typography, Stack, Tooltip, Button } from '@mui/material';
 import React, {
   useCallback,
   useEffect,
@@ -54,7 +54,7 @@ import { setGenerateImageSnapshotCallback } from './ImageButton';
 import VideoScrubber from './VideoScrubber';
 import { performAddSplit } from './AddSplitUtil';
 import Blowup from './Blowup';
-import { updateVideoScaling } from '../util/ImageUtils';
+import { updateVideoScaling } from '../util/ImageScaling';
 
 const useStyles = makeStyles({
   text: {
@@ -72,6 +72,15 @@ const useStyles = makeStyles({
     border: '1px solid black',
     height: '32px',
     padding: '0.2em',
+  },
+  zoom: {
+    zIndex: 400,
+    background: '#ffffff80',
+    color: 'black',
+    border: '1px solid black',
+    height: '32px',
+    padding: '0.2em',
+    marginLeft: '2em',
   },
   computedtext: {
     zIndex: 200,
@@ -101,12 +110,7 @@ const [useShowBlowup, setShowBlowup] = UseDatum(false);
 const applyZoom = ({ srcPoint, zoom }: { srcPoint: Point; zoom: number }) => {
   const vScaling = getVideoScaling();
   updateVideoScaling({
-    srcWidth: vScaling.srcWidth,
-    srcHeight: vScaling.srcHeight,
-    zoomX: zoom === 1 ? 1 : zoom,
     zoomY: zoom,
-    destWidth: vScaling.destWidth,
-    destHeight: vScaling.destHeight,
     srcCenterPoint:
       zoom === 1
         ? { x: vScaling.srcWidth / 2, y: vScaling.srcHeight / 2 }
@@ -117,7 +121,11 @@ const applyZoom = ({ srcPoint, zoom }: { srcPoint: Point; zoom: number }) => {
 const isZooming = () => getVideoScaling().zoomY !== 1;
 
 const clearZoom = () => {
-  applyZoom({ zoom: 1, srcPoint: getVideoScaling().srcCenterPoint });
+  updateVideoScaling({
+    zoomX: 1,
+    zoomY: 1,
+    srcCenterPoint: getVideoScaling().srcCenterPoint,
+  });
 };
 
 interface MouseState {
@@ -232,9 +240,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
       drawText(
         ctx,
-        '               CrewTimer Regatta Timing               ',
+        '                  CrewTimer Regatta Timing                   ',
         16,
-        34,
+        30,
         32,
         'below',
         'left',
@@ -355,7 +363,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         }
         moveToFrame(destFrame);
         applyZoom({
-          zoom: 4,
+          zoom: 5,
           srcPoint: {
             x: getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
             y: zoomPoint.y,
@@ -539,6 +547,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const frameNum = getVideoFrameNum();
   const fracFrame = frameNum - Math.trunc(frameNum);
   const hyperZoom = fracFrame > 0.001 && fracFrame < 0.999;
+  const scaleText = `${videoScaling.zoomX * videoScaling.zoomY}X`;
   return (
     <Stack direction="column">
       <Box
@@ -565,18 +574,20 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           direction="column"
           sx={{
             width: `${width}px`,
-            alignItems: 'center',
-            paddingTop: '10px',
+            alignItems: 'end',
+            paddingTop: '5px',
+            paddingRight: '58px',
           }}
         >
           <Stack
             direction="row"
             sx={
-              travelRightToLeft
-                ? {
-                    paddingRight: `${width / 2}px`,
-                  }
-                : { paddingLeft: `${width / 2}px` }
+              // travelRightToLeft
+              //   ? {
+              //       paddingRight: `${width / 2}px`,
+              //     }
+              //   : { paddingLeft: `${width / 2}px` }
+              {}
             }
           >
             <div />
@@ -587,6 +598,29 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
                 <ZoomInIcon className={classes.hyperzoom} />
               </Tooltip>
             )}
+            <Tooltip title="x-axis zoom factor">
+              <Button
+                size="small"
+                variant="outlined"
+                className={classes.zoom}
+                sx={{
+                  height: 24,
+                  m: 0,
+                  minWidth: 30,
+                }}
+                onClick={() => {
+                  let { zoomX } = getVideoScaling();
+                  if (zoomX >= 16) {
+                    zoomX = 1;
+                  } else {
+                    zoomX *= 2;
+                  }
+                  updateVideoScaling({ zoomX });
+                }}
+              >
+                {scaleText}
+              </Button>
+            </Tooltip>
             <div />
           </Stack>
           {!!videoError && (
@@ -612,12 +646,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             canvas={offscreenCanvas.current}
             mousePos={mousePos}
             srcPos={srcPos}
-            size={videoScaling.zoomY > 1 ? 100 : 100 / videoScaling.scaleY} // size of the blowup circle
-            zoom={
-              videoScaling.zoomY > 1
-                ? 1 / videoScaling.scaleY
-                : 2 / videoScaling.scaleY
-            }
+            size={150} // size of the blowup circle
           />
         )}
         {videoOverlay}
@@ -629,8 +658,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 const [useWindowSize] = UseDatum({ winWidth: 0, winHeight: 0 });
 
 const Video = () => {
-  const [{ top }, setDimensions] = useState({ top: 170, width: 1, height: 1 });
-  const videoSidebarWidth = 170; // enough for '20240308_123248.mp4'
+  const [{ top }, setDimensions] = useState({ top: 180, width: 1, height: 1 });
+  const videoSidebarWidth = 130; // enough for '20240308_123248.mp4'
   const timingSidebarwidth = 300;
   const sidebarWidth = Math.max(60, videoSidebarWidth + timingSidebarwidth);
   const [{ winWidth, winHeight }, setWindowSize] = useWindowSize();

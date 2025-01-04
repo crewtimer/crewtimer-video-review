@@ -24,7 +24,7 @@ export type TimeObject = {
   EventNum: string;
 };
 
-export interface OpenFileStatus {
+export interface FileStatus {
   open: boolean;
   numFrames: number;
   filename: string;

@@ -24,7 +24,6 @@ import makeStyles from '@mui/styles/makeStyles';
 import { setToast } from 'renderer/Toast';
 import { setDialogConfig } from '../util/ConfirmDialog';
 import {
-  getFileStatusList,
   getVideoFile,
   useMouseWheelInverted,
   useTravelRightToLeft,
@@ -33,6 +32,7 @@ import {
 import HyperZoomSelector from '../util/HyperZoomSelector';
 import { saveVideoSidecar } from './VideoFileUtils';
 import { notifiyGuideChanged } from './VideoUtils';
+import { getFileStatusList } from './VideoFileStatus';
 
 declare module '@mui/styles/defaultTheme' {
   interface DefaultTheme extends Theme {}

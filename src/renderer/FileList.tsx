@@ -43,8 +43,10 @@ const HeaderRenderer: React.FC<{
   [key: string]: any;
 }> = ({ column, ...props }) => {
   // Strip the sortDirection prop as it is not supported by div.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars, react/prop-types
   const { sortDirection, ...restOfProps } = props;
   return (
+    // eslint-disable-next-line react/jsx-props-no-spreading
     <div {...restOfProps} style={{ fontSize: 12 }}>
       {column.name}
     </div>
@@ -160,19 +162,19 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
       key: 'name',
       name: 'Filename',
       renderHeaderCell: HeaderRenderer,
-      renderCell: ({ row, rowIdx }: { row: FileInfo; rowIdx: number }) => {
-        const filename = row.filename.replace(/.*[\/\\]/, '');
+      renderCell: ({ row, rowIdx }) => {
+        const filename = row.filename.replace(/.*[/\\]/, '');
         return (
           <Box
             sx={
               rowIdx === selectedIndex
                 ? {
-                    fontSize: 12,
+                    fontSize: 10,
                     background: '#19857b',
                     color: 'white',
-                    paddingLeft: '0.5em',
+                    paddingLeft: '0.25em',
                   }
-                : { fontSize: 12, paddingLeft: '0.5em' }
+                : { fontSize: 10, paddingLeft: '0.25em' }
             }
           >
             <Tooltip title={filename} placement="left">
@@ -222,7 +224,7 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
         <DataGrid<FileInfo>
           ref={dataGridRef}
           style={{ height }}
-          rowHeight={30}
+          rowHeight={20}
           columns={columns}
           rows={dispItems}
           rowKeyGetter={rowKeyGetter}

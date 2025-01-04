@@ -30,31 +30,20 @@ import {
   useVideoDir,
   VideoGuidesKeys,
   VideoSidecar,
-  loadVideoSidecar,
+} from './VideoSettings';
+import { FileStatus } from './VideoTypes';
+import {
   setFileStatusList,
   getFileStatusList,
-} from './VideoSettings';
-import { OpenFileStatus } from './VideoTypes';
+  getFileStatusByName,
+  updateFileStatus,
+} from './VideoFileStatus';
 
 const { storeJsonFile, readJsonFile, getFilesInDirectory } = window.Util;
 
 const { VideoUtils } = window;
 
 export const [useDirList, setDirList, getDirList] = UseDatum<string[]>([]);
-
-let openFileStatus: OpenFileStatus = {
-  open: false,
-  numFrames: 0,
-  filename: '',
-  startTime: 0,
-  endTime: 0,
-  duration: 0,
-  fps: 60,
-  tzOffset: -new Date().getTimezoneOffset(),
-  sidecar: {},
-};
-
-const fileStatusByName = new Map<string, OpenFileStatus>();
 
 /**
  * Extracts the directory path from a full filename across different operating systems.
@@ -120,6 +109,11 @@ const doRequestVideoFrame = async ({
     let imageStart: AppImage | undefined;
     let imageEnd: AppImage | undefined;
     // Check if the file is already open
+    const openFileStatus = getFileStatusByName(videoFile);
+    if (!openFileStatus) {
+      setVideoError(`Unable to open file: ${videoFile}`);
+      return;
+    }
     if (openFileStatus.open && openFileStatus.filename !== videoFile) {
       // Changing files, close the old file
       VideoUtils.closeFile(openFileStatus.filename);
@@ -173,7 +167,7 @@ const doRequestVideoFrame = async ({
       const fileStatus = getFileStatusList().find((f) => {
         return f.filename === videoFile;
       });
-      openFileStatus = {
+      updateFileStatus({
         filename: videoFile,
         open: true,
         numFrames: imageStart.numFrames,
@@ -183,7 +177,7 @@ const doRequestVideoFrame = async ({
         fps: imageStart.fps,
         tzOffset: fileStatus?.tzOffset || -new Date().getTimezoneOffset(),
         sidecar: fileStatus?.sidecar || {},
-      };
+      });
     }
 
     let seekPos =
@@ -218,7 +212,6 @@ const doRequestVideoFrame = async ({
       if (getHyperZoomFactor() <= 1) {
         seekFrame = Math.round(seekFrame);
       }
-      console.log(`seeking to ${seekFrame}`);
       seekPos = seekFrame;
     }
 
@@ -238,7 +231,6 @@ const doRequestVideoFrame = async ({
       );
       if (!imageStart) {
         setImage(generateTestPattern());
-        console.log(`failed to get frame for ${videoFile}@${seekPos}`);
         setVideoError(`failed to get frame for ${videoFile}@${seekPos}`);
         return;
       }
@@ -385,6 +377,77 @@ function createRequestVideoFrameHandler() {
 // Create a handler for video frame requests.
 export const requestVideoFrame = createRequestVideoFrameHandler();
 
+/**
+ *  Read the current video guide settings from a JSON file.  The JSON file is named after the video file
+ *
+ * @param videoFile - The path to the video file
+ * @param loadOnly - If true, do not update the video settings
+ */
+const loadVideoSidecar = (
+  videoFile: string,
+  loadOnly?: boolean,
+): Promise<VideoSidecar | undefined> => {
+  let videoSidecar: VideoSidecar;
+  return readJsonFile(replaceFileSuffix(videoFile, 'json'))
+    .then((result) => {
+      if (result.status === 'OK') {
+        videoSidecar = { ...result?.json } as VideoSidecar;
+
+        if (!loadOnly) {
+          if (videoSidecar.file.tzOffset === undefined) {
+            // Add tz if not already present
+            videoSidecar.file = {
+              ...videoSidecar.file,
+              tzOffset: -new Date().getTimezoneOffset(),
+            };
+          }
+
+          // override current settings from sidecar
+          const videoSettings = { ...getVideoSettings() };
+          VideoGuidesKeys.forEach((key) => {
+            if (videoSidecar[key]) {
+              (videoSettings as any)[key] = videoSidecar[key];
+            }
+          });
+
+          if (videoSidecar.guide && !videoSidecar.guides) {
+            // Provide default from video sidecar if not already set
+            const sidecarGuide = {
+              dir: Dir.Vert,
+              pt1: videoSidecar.guide.pt1 as number,
+              pt2: videoSidecar.guide.pt2 as number,
+              label: 'Finish',
+              enabled: true,
+            } as GuideLine;
+            const finishGuideIndex = videoSettings.guides.findIndex(
+              (g) => g.label === 'Finish',
+            );
+            if (finishGuideIndex >= 0) {
+              videoSettings.guides[finishGuideIndex] = sidecarGuide;
+            } else {
+              videoSettings.guides.push(sidecarGuide);
+            }
+          }
+          setVideoSettings({
+            ...videoSettings,
+            sidecarSource: videoFile,
+          });
+        }
+      } else {
+        console.log(JSON.stringify(result, null, 2));
+      }
+      return videoSidecar;
+    })
+    .catch((error) => {
+      console.log(
+        'loadVideoSidecar error',
+        error instanceof Error ? error.message : String(error),
+      );
+      // showErrorDialog(error);  Do not show error but return empty result.
+      return undefined;
+    });
+};
+
 const createSidecarFile = async (
   file: string,
 ): Promise<VideoSidecar | undefined> => {
@@ -429,96 +492,8 @@ export const addSidecarFiles = async () => {
       count += 1;
       setProgressBar((count / files.length) * 100);
     }
-    fileStatusByName.clear();
     setDirList([]); // Trigger reload of the video list
-  } catch (e) {
-    showErrorDialog(e);
-  }
-};
-
-const videoFileRegex = /\.(mp4|avi|mov|wmv|flv|mkv)$/i;
-export const refreshDirList = async (videoDir: string) => {
-  try {
-    const result = await getFilesInDirectory(videoDir);
-    if (!result || result?.error) {
-      setDirList([]);
-      return;
-    }
-
-    const files = result.files
-      .filter((file) => videoFileRegex.test(file))
-      .filter((file) => !file.includes('tmp'));
-
-    // Sort files by the embedded time in the filename
-    const fileInfo = files.map((file) => ({
-      name: file,
-      time: extractTime(file),
-    }));
-    fileInfo.sort((a, b) => {
-      // Use localeCompare for natural alphanumeric sorting
-      return a.time.localeCompare(b.time, undefined, {
-        numeric: true,
-        sensitivity: 'base',
-      });
-    });
-    const dirList = fileInfo.map(
-      (file) => `${videoDir}${window.platform.pathSeparator}${file.name}`,
-    );
-    if (deepequal(dirList, getDirList())) {
-      return; // no change
-    }
-    const fileStatusList: OpenFileStatus[] = [];
-    for (const file of dirList) {
-      let fileStatus = fileStatusByName.get(file);
-      if (fileStatus) {
-        fileStatusList.push(fileStatus);
-      } else {
-        let videoSidecar = await loadVideoSidecar(file, true);
-        if (!videoSidecar) {
-          videoSidecar = await createSidecarFile(file);
-        }
-        fileStatus = {
-          open: false,
-          numFrames: 0,
-          filename: file,
-          startTime: 0,
-          endTime: 300,
-          duration: 300,
-          fps: 60,
-          tzOffset: -new Date().getTimezoneOffset(),
-          sidecar: videoSidecar || {},
-        };
-
-        if (videoSidecar?.file) {
-          fileStatus.numFrames = videoSidecar.file.numFrames;
-          fileStatus.startTime = Number(videoSidecar.file.startTs) * 1000000;
-          fileStatus.endTime = Number(videoSidecar.file.stopTs) * 1000000;
-          fileStatus.duration = fileStatus.endTime - fileStatus.startTime;
-          fileStatus.fps = videoSidecar.file.fps || 60;
-          fileStatus.tzOffset =
-            videoSidecar.file.tzOffset === undefined
-              ? fileStatus.tzOffset
-              : videoSidecar.file.tzOffset;
-        }
-        fileStatusByName.set(file, fileStatus);
-        fileStatusList.push(fileStatus);
-      }
-    }
-
-    setFileStatusList(fileStatusList);
-    setDirList(dirList);
-
-    // If no video file is selected, select the first one
-    const needImage = getImage().file === '';
-    if (needImage && dirList.includes(getVideoFile())) {
-      setVideoFile(getVideoFile());
-      requestVideoFrame({ videoFile: getVideoFile(), frameNum: 0 });
-    }
-    if (dirList.length > 0 && !dirList.includes(getVideoFile())) {
-      // If no video file is selected, select the first one
-      setVideoFile(dirList[0]);
-      requestVideoFrame({ videoFile: dirList[0], frameNum: 0 });
-    }
+    setFileStatusList([]);
   } catch (e) {
     showErrorDialog(e);
   }
@@ -560,89 +535,108 @@ export const saveVideoSidecar = () => {
 
   const videoFile = getVideoFile();
   if (videoFile) {
-    const fileInfo = fileStatusByName.get(videoFile);
+    const fileInfo = getFileStatusByName(videoFile);
     const content: KeyMap = {
       ...fileInfo?.sidecar,
       guides,
       laneBelowGuide,
     };
+    if (!content.file) {
+      return Promise.reject(new Error('Missing file property in sidecar'));
+    }
     return storeJsonFile(replaceFileSuffix(videoFile, 'json'), content);
   }
   return Promise.reject(new Error('No video file'));
 };
 
-/**
- *  Read the current video guide settings from a JSON file.  The JSON file is named after the video file
- *
- * @param videoFile - The path to the video file
- * @param loadOnly - If true, do not update the video settings
- */
-setLoadVideoSidecar(
-  (
-    videoFile: string,
-    loadOnly?: boolean,
-  ): Promise<VideoSidecar | undefined> => {
-    let videoSidecar: VideoSidecar;
-    return readJsonFile(replaceFileSuffix(videoFile, 'json'))
-      .then((result) => {
-        if (result.status === 'OK') {
-          videoSidecar = { ...result?.json } as VideoSidecar;
+const videoFileRegex = /\.(mp4|avi|mov|wmv|flv|mkv)$/i;
+export const refreshDirList = async (videoDir: string) => {
+  try {
+    const result = await getFilesInDirectory(videoDir);
+    if (!result || result?.error) {
+      setDirList([]);
+      setFileStatusList([]);
+      return;
+    }
 
-          if (!loadOnly) {
-            if (videoSidecar.file.tzOffset === undefined) {
-              // Add tz if not already present
-              videoSidecar.file = {
-                ...videoSidecar.file,
-                tzOffset: -new Date().getTimezoneOffset(),
-              };
-            }
+    const files = result.files
+      .filter((file) => videoFileRegex.test(file))
+      .filter((file) => !file.includes('tmp'));
 
-            // override current settings from sidecar
-            const videoSettings = { ...getVideoSettings() };
-            VideoGuidesKeys.forEach((key) => {
-              if (videoSidecar[key]) {
-                (videoSettings as any)[key] = videoSidecar[key];
-              }
-            });
-
-            if (videoSidecar.guide && !videoSidecar.guides) {
-              // Provide default from video sidecar if not already set
-              const sidecarGuide = {
-                dir: Dir.Vert,
-                pt1: videoSidecar.guide.pt1 as number,
-                pt2: videoSidecar.guide.pt2 as number,
-                label: 'Finish',
-                enabled: true,
-              } as GuideLine;
-              const finishGuideIndex = videoSettings.guides.findIndex(
-                (g) => g.label === 'Finish',
-              );
-              if (finishGuideIndex >= 0) {
-                videoSettings.guides[finishGuideIndex] = sidecarGuide;
-              } else {
-                videoSettings.guides.push(sidecarGuide);
-              }
-            }
-            setVideoSettings({
-              ...videoSettings,
-              sidecarSource: videoFile,
-            });
-          }
-        } else {
-          console.log(JSON.stringify(result, null, 2));
-        }
-        return videoSidecar;
-      })
-      .catch((error) => {
-        console.log(
-          'loadVideoSidecar error',
-          error instanceof Error ? error.message : String(error),
-        );
-        // showErrorDialog(error);  Do not show error but return empty result.
-        return undefined;
+    // Sort files by the embedded time in the filename
+    const fileInfo = files.map((file) => ({
+      name: file,
+      time: extractTime(file),
+    }));
+    fileInfo.sort((a, b) => {
+      // Use localeCompare for natural alphanumeric sorting
+      return a.time.localeCompare(b.time, undefined, {
+        numeric: true,
+        sensitivity: 'base',
       });
-  },
-);
+    });
+    const dirList = fileInfo.map(
+      (file) => `${videoDir}${window.platform.pathSeparator}${file.name}`,
+    );
+    if (deepequal(dirList, getDirList())) {
+      return; // no change
+    }
+    const fileStatusList: FileStatus[] = [];
+    for (const file of dirList) {
+      let fileStatus = getFileStatusByName(file);
+      if (fileStatus) {
+        fileStatusList.push(fileStatus);
+      } else {
+        let videoSidecar = await loadVideoSidecar(file, true);
+        if (!videoSidecar) {
+          videoSidecar = await createSidecarFile(file);
+        }
+        fileStatus = {
+          open: false,
+          numFrames: 0,
+          filename: file,
+          startTime: 0,
+          endTime: 300,
+          duration: 300,
+          fps: 60,
+          tzOffset: -new Date().getTimezoneOffset(),
+          sidecar: videoSidecar || {},
+        };
+
+        if (videoSidecar?.file) {
+          fileStatus.numFrames = videoSidecar.file.numFrames;
+          fileStatus.startTime = Number(videoSidecar.file.startTs) * 1000000;
+          fileStatus.endTime = Number(videoSidecar.file.stopTs) * 1000000;
+          fileStatus.duration = fileStatus.endTime - fileStatus.startTime;
+          fileStatus.fps = videoSidecar.file.fps || 60;
+          fileStatus.tzOffset =
+            videoSidecar.file.tzOffset === undefined
+              ? fileStatus.tzOffset
+              : videoSidecar.file.tzOffset;
+        }
+        updateFileStatus(fileStatus);
+        fileStatusList.push(fileStatus);
+      }
+    }
+
+    setDirList(dirList);
+    setFileStatusList(fileStatusList);
+
+    // If no video file is selected, select the first one
+    const needImage = getImage().file === '';
+    if (needImage && dirList.includes(getVideoFile())) {
+      setVideoFile(getVideoFile());
+      requestVideoFrame({ videoFile: getVideoFile(), frameNum: 0 });
+    }
+    if (dirList.length > 0 && !dirList.includes(getVideoFile())) {
+      // If no video file is selected, select the first one
+      setVideoFile(dirList[0]);
+      requestVideoFrame({ videoFile: dirList[0], frameNum: 0 });
+    }
+  } catch (e) {
+    showErrorDialog(e);
+  }
+};
 
 /**
  * The component that monitors the video directory for changes.
@@ -656,8 +650,6 @@ const FileMonitor: React.FC = () => {
     if (initializing) {
       return undefined;
     }
-    fileStatusByName.clear();
-    setFileStatusList([]);
     refreshDirList(videoDir);
     const timer = setInterval(
       () => {
@@ -672,4 +664,7 @@ const FileMonitor: React.FC = () => {
 
   return <></>;
 };
+
+// Init the settings handler to avoid dpenendency loops
+setLoadVideoSidecar(loadVideoSidecar);
 export default FileMonitor;

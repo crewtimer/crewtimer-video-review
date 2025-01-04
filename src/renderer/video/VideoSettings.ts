@@ -3,7 +3,6 @@ import { AppImage } from 'renderer/shared/AppTypes';
 import { N_IMAGE, N_VIDEO_FILE, N_VIDEO_DIR } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
 import { generateTestPattern } from '../util/ImageUtils';
-import { OpenFileStatus } from './VideoTypes';
 
 export interface VideoPosition {
   frameNum: number;
@@ -204,9 +203,6 @@ export const [useImage, setImage, getImage] = UseMemDatum<AppImage>(
   N_IMAGE,
   generateTestPattern(),
 );
-
-export const [useFileStatusList, setFileStatusList, getFileStatusList] =
-  UseDatum<OpenFileStatus[]>([]);
 
 export const [useAutoZoomPending, setAutoZoomPending, getAutoZoomPending] =
   UseDatum<undefined | Point>(undefined);

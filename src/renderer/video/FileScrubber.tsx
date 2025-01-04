@@ -16,7 +16,6 @@ import {
 import {
   getSelectedIndex,
   setVideoFile,
-  useFileStatusList,
   useJumpToEndPending,
   useSelectedIndex,
 } from './VideoSettings';
@@ -24,6 +23,7 @@ import TimeRangeIcons from './TimeRangeIcons';
 import TimeSegments from './TimeSegments';
 import { useClickerData } from './UseClickerData';
 import { TimeObject, TimeSegment } from './VideoTypes';
+import { useFileStatusList } from './VideoFileStatus';
 
 interface SxPropsArgs {
   sx?: SxProps<Theme>;
@@ -37,8 +37,6 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   const [scoredWaypoint] = useWaypoint();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
   const [jumpToEndPending, setJumpToEndPending] = useJumpToEndPending();
-
-  // console.log(`lapdata: ${Object.keys(lapdata || {}).length}`);
 
   useEffect(() => {
     if (jumpToEndPending) {

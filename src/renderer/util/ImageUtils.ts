@@ -1,4 +1,3 @@
-import { getVideoScaling, setVideoScaling } from '../video/VideoSettings';
 import { AppImage } from '../shared/AppTypes';
 
 /**
@@ -57,16 +56,16 @@ export function generateTestPattern(): AppImage {
 }
 
 export const sharpenImageData = (
-  data: Uint8ClampedArray,
+  data: Uint8Array,
   width: number,
   height: number,
-): Uint8ClampedArray => {
+): Uint8Array => {
   const sharpenKernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
 
   const applyKernel = (
     x: number,
     y: number,
-    d: Uint8ClampedArray,
+    d: Uint8Array,
     w: number,
   ): [number, number, number] => {
     const weight = (kx: number, ky: number): number =>
@@ -92,7 +91,7 @@ export const sharpenImageData = (
     ];
   };
 
-  const newData = new Uint8ClampedArray(data);
+  const newData = new Uint8Array(data);
 
   for (let y = 1; y < height - 1; y += 1) {
     for (let x = 1; x < width - 1; x += 1) {
@@ -107,76 +106,33 @@ export const sharpenImageData = (
   return newData;
 };
 
-type ScalingParams = {
-  srcWidth?: number;
-  srcHeight?: number;
-  destWidth?: number;
-  destHeight?: number;
-  srcCenterPoint?: { x: number; y: number };
-
-  zoomX?: number; // Horizontal zoom factor
-  zoomY?: number; // Vertical zoom factor
-};
-
 /**
- * Assume: Draws an image onto a canvas such that:
- *  1. The image is contained (no cropping) by default.
- *  2. Additional zoom factors (zoomX, zoomY) can be applied.
- *  3. (x,y) in the source is placed in the horizontal center (x0)
- *     and, if the image is taller than the canvas, tries to center y0 vertically.
- *  4. If there's extra vertical space (scaledHeight < destHeight), we pin top at y=0.
- *  5. If offsetY is positive (i.e., there's a "gap" at the top), we shift the image up (offsetY=0).
+ * Converts the given RGBA pixel data to grayscale.
+ *
+ * @param data   - The input pixel data in RGBA format (4 bytes per pixel).
+ * @param width  - Image width in pixels.
+ * @param height - Image height in pixels.
+ * @returns A new Uint8Array containing the grayscale RGBA data.
  */
-export function updateVideoScaling(scaling: ScalingParams) {
-  const {
-    srcWidth,
-    srcHeight,
-    destWidth,
-    destHeight,
-    srcCenterPoint,
-    zoomX,
-    zoomY,
-  } = { ...getVideoScaling(), ...scaling };
-  // 1) Compute base scale to "contain" the image
-  const baseScale = Math.min(destWidth / srcWidth, destHeight / srcHeight);
-  // 2) Multiply by user zoom factors
-  const scaleX = baseScale * zoomX;
-  const scaleY = baseScale * zoomY;
+export const convertToGrayscale = (data: Uint8Array): Uint8Array => {
+  // We expect data.length to be width * height * 4 (RGBA per pixel).
+  const output = new Uint8Array(data.length);
 
-  // 3) Horizontal offset => center x0 in the destination
-  //    offsetX + (x0 * scaleX) = destWidth/2
-  const destX = destWidth / 2 - srcCenterPoint.x * scaleX;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const a = data[i + 3]; // alpha channel
 
-  // 4) Vertical offset
-  //    - If scaledHeight < destHeight, top-align (offsetY=0).
-  //    - Otherwise, center y0 => offsetY + (y0*scaleY) = destHeight/2.
-  //    - Also clamp to 0 if offsetY > 0 (shift image up if there's a gap at the top).
-  const scaledHeight = srcHeight * scaleY;
+    // A common grayscale formula (luminosity method):
+    // gray = 0.299*R + 0.587*G + 0.114*B
+    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
 
-  let destY: number;
-  if (scaledHeight < destHeight) {
-    // Extra vertical space => top-align
-    destY = 0;
-  } else {
-    // Otherwise, center y0
-    destY = destHeight / 2 - srcCenterPoint.y * scaleY;
-
-    // If the calculation yields a positive offset => "gap" at the top => shift up
-    if (destY > 0) {
-      destY = 0;
-    }
+    output[i] = gray; // R
+    output[i + 1] = gray; // G
+    output[i + 2] = gray; // B
+    output[i + 3] = a; // preserve alpha
   }
-  setVideoScaling({
-    srcWidth,
-    srcHeight,
-    destWidth,
-    destHeight,
-    srcCenterPoint,
-    zoomX,
-    zoomY,
-    destX,
-    destY,
-    scaleX,
-    scaleY,
-  });
-}
+
+  return output;
+};
