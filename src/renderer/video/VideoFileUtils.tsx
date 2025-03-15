@@ -91,6 +91,8 @@ type VideoFrameRequest = {
   saveAs?: string; // optional filename in which to save a png image of the frame
 };
 
+let openFilename = '';
+
 const doRequestVideoFrame = async ({
   videoFile,
   frameNum,
@@ -108,25 +110,33 @@ const doRequestVideoFrame = async ({
   try {
     let imageStart: AppImage | undefined;
     let imageEnd: AppImage | undefined;
+
     // Check if the file is already open
-    const openFileStatus = getFileStatusByName(videoFile);
-    if (!openFileStatus) {
+    const videoFileStatus = getFileStatusByName(videoFile);
+    if (!videoFileStatus) {
       setVideoError(`Unable to open file: ${videoFile}`);
       return;
     }
-    if (openFileStatus.open && openFileStatus.filename !== videoFile) {
-      // Changing files, close the old file
-      VideoUtils.closeFile(openFileStatus.filename);
-      openFileStatus.open = false;
-      openFileStatus.filename = '';
+
+    if (videoFile !== openFilename) {
+      // close the old file
+      const openFileStatus = getFileStatusByName(openFilename);
+      if (openFileStatus?.open) {
+        await VideoUtils.closeFile(openFilename);
+        openFileStatus.open = false;
+        updateFileStatus(openFileStatus);
+        openFilename = '';
+      }
     }
 
-    if (!openFileStatus.open) {
+    if (!videoFileStatus.open) {
       const openStatus = await VideoUtils.openFile(videoFile);
       if (openStatus.status !== 'OK') {
         setVideoError(`Unable to open file: ${videoFile}`);
         return;
       }
+
+      openFilename = videoFile;
       imageStart = await VideoUtils.getFrame(videoFile, 1, 0);
       if (!imageStart) {
         setVideoError(`Unable to get frame 1: ${videoFile}`);
@@ -182,7 +192,7 @@ const doRequestVideoFrame = async ({
 
     let seekPos =
       seekPercent !== undefined
-        ? Math.round(1 + (openFileStatus.numFrames - 1) * seekPercent)
+        ? Math.round(1 + (videoFileStatus.numFrames - 1) * seekPercent)
         : frameNum !== undefined
           ? frameNum
           : 1;
@@ -191,23 +201,24 @@ const doRequestVideoFrame = async ({
     if (toTimestamp) {
       // seek one more time to get the requested frame
       const tsMilli = timeToMilli(toTimestamp);
-      const delta = openFileStatus.endTime - openFileStatus.startTime;
-      const tzOffsetMinutes = openFileStatus.tzOffset;
+      const delta = videoFileStatus.endTime - videoFileStatus.startTime;
+      const tzOffsetMinutes = videoFileStatus.tzOffset;
 
       // calc the desired time in utc milliseconds
-      const fileStartUtcMilli = Math.trunc(openFileStatus.startTime / 1000);
+      const fileStartUtcMilli = Math.trunc(videoFileStatus.startTime / 1000);
       utcMilli =
         fileStartUtcMilli -
         (fileStartUtcMilli % (24 * 60 * 60 * 1000)) +
         tsMilli -
         tzOffsetMinutes * 60 * 1000;
       const startTime =
-        (openFileStatus.startTime + tzOffsetMinutes * 60 * 1000000) %
+        (videoFileStatus.startTime + tzOffsetMinutes * 60 * 1000000) %
         (24 * 60 * 60 * 1000000);
 
       let seekFrame =
         1 +
-        ((tsMilli * 1000 - startTime) / delta) * (openFileStatus.numFrames - 1);
+        ((tsMilli * 1000 - startTime) / delta) *
+          (videoFileStatus.numFrames - 1);
 
       if (getHyperZoomFactor() <= 1) {
         seekFrame = Math.round(seekFrame);
@@ -216,7 +227,7 @@ const doRequestVideoFrame = async ({
     }
 
     if (seekPos !== 0 || !imageStart) {
-      seekPos = Math.max(1, Math.min(openFileStatus.numFrames, seekPos));
+      seekPos = Math.max(1, Math.min(videoFileStatus.numFrames, seekPos));
 
       // const blend =
       //   zoom && zoom.width > 0 && zoom.height > 0 && (zoom.x > 0 || zoom.y > 0);
@@ -236,10 +247,10 @@ const doRequestVideoFrame = async ({
       }
     }
 
-    imageStart.fileStartTime = openFileStatus.startTime / 1000;
-    imageStart.fileEndTime = openFileStatus.endTime / 1000;
-    imageStart.tzOffset = openFileStatus.tzOffset;
-    imageStart.sidecar = openFileStatus.sidecar;
+    imageStart.fileStartTime = videoFileStatus.startTime / 1000;
+    imageStart.fileEndTime = videoFileStatus.endTime / 1000;
+    imageStart.tzOffset = videoFileStatus.tzOffset;
+    imageStart.sidecar = videoFileStatus.sidecar;
     setImage(imageStart);
     if (fromClick) {
       // force a jump in the VideoScrubber
