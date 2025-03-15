@@ -4,6 +4,7 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import { TimeObject, TimeSegment } from './VideoTypes';
 import { parseTimeToSeconds } from '../util/StringUtils';
+import Blinking from 'renderer/Blinking';
 
 /**
  * Finds the TimeSegment where the given timestamp in microseconds falls between startTsMicro and endTsMicro.
@@ -80,12 +81,13 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
   const endSeconds = parseTimeToSeconds(endTime);
 
   // Filter times to only include those within the start and end times.
-  const validTimes = showBeyondRange
-    ? times
-    : times.filter((timeObj) => {
-        const timeSeconds = parseTimeToSeconds(timeObj.Time);
-        return timeSeconds >= startSeconds && timeSeconds <= endSeconds;
-      });
+  let timeAfterEnd = false;
+  const validTimes = times.filter((timeObj) => {
+    const timeSeconds = parseTimeToSeconds(timeObj.Time);
+    timeAfterEnd ||= timeSeconds > endSeconds;
+    return timeSeconds >= startSeconds && timeSeconds <= endSeconds;
+  });
+  timeAfterEnd = timeAfterEnd && showBeyondRange;
 
   return (
     <Box
@@ -110,17 +112,10 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
           relativePosition = 101;
         }
 
-        let color = iconColor || '#d2122e';
-        // if (showBeyondRange) {
-        //   color = '#d2122e80';
-        // }
+        const color = iconColor || '#d2122e';
         const key = `${timeObj.Time}-${index}`;
         if (relativePosition < 0 || relativePosition > 100) {
-          if (!showBeyondRange) {
-            return <Box key={key} sx={{ display: 'none' }} />;
-          }
-          color = 'blue';
-          relativePosition = Math.max(0, Math.min(100, relativePosition));
+          return <Box key={key} sx={{ display: 'none' }} />;
         }
 
         return (
@@ -143,6 +138,27 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
           </Box>
         );
       })}
+      {timeAfterEnd && (
+        <Blinking>
+          <Box
+            sx={{
+              position: 'absolute',
+              left: `${100}%`,
+              top: '-50%',
+              marginLeft: '-12px',
+              transform: 'translate(-50%, -50%) rotate(-90deg)',
+              fontSize: '10px',
+              height: '10px',
+              color: iconColor,
+              zIndex: 3,
+              pointerEvents: 'none',
+            }}
+            onClick={() => console.log(`out of bounds timestamp`)}
+          >
+            <ArrowDropDownIcon />
+          </Box>
+        </Blinking>
+      )}
     </Box>
   );
 };
