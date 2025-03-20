@@ -57,12 +57,13 @@ Build the module and upload to github:
 
 ```bash
 yarn install
-yarn prebuild
+yarn build:mac     # if on mac
+yarn build:windows # if on windows
 ```
 
 The result is placed into a file such as prebuilds/crewtimer_video_reader-v1.0.2-napi-v6-win32-x64.tar.gz.
 
-The `yarn prebuild` command will also upload the binary module to github if a ~/.prebuildrc file with a github token is present such as 
+The command will also upload the binary module to github if a ~/.prebuildrc file with a github token is present such as 
 
 ```txt
 upload=ghp_kQ04DpisXo2hTiLt2syssyssysysysysysy

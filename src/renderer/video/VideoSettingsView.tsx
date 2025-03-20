@@ -25,6 +25,7 @@ import { setToast } from 'renderer/Toast';
 import { setDialogConfig } from '../util/ConfirmDialog';
 import {
   getVideoFile,
+  useAutoNextTimestamp,
   useMouseWheelInverted,
   useTravelRightToLeft,
   useVideoSettings,
@@ -62,6 +63,7 @@ export const VideoSettingsDialog = () => {
   const [videoSettings, setVideoSettings] = useVideoSettings();
   const [wheelInverted, setWheelInverted] = useMouseWheelInverted();
   const [rightToLeft, setRightToLeft] = useTravelRightToLeft();
+  const [autoNextTimestamp, setAutoNextTimestamp] = useAutoNextTimestamp();
 
   // Handler to update the wheelFactor state
   // const handleSliderChange = (_event: Event, newValue: number | number[]) => {
@@ -139,7 +141,7 @@ export const VideoSettingsDialog = () => {
                   minWidth: 160,
                 }}
                 margin="dense"
-                size="medium"
+                size="small"
               >
                 <InputLabel id="travel-direction-label">
                   Travel Direction
@@ -147,7 +149,7 @@ export const VideoSettingsDialog = () => {
                 <Select
                   labelId="travel-direction-label"
                   value={rightToLeft ? 1 : 0}
-                  label="Hyperzoom Resolution"
+                  label="Travel Direction"
                   onChange={(event: SelectChangeEvent<number | string>) => {
                     console.log(event.target.value as number);
                     setRightToLeft((event.target.value as number) === 1);
@@ -171,7 +173,7 @@ export const VideoSettingsDialog = () => {
                   minWidth: 160,
                 }}
                 margin="dense"
-                size="medium"
+                size="small"
               >
                 <InputLabel id="lane-position-label">Lane Position</InputLabel>
                 <Select
@@ -215,6 +217,7 @@ export const VideoSettingsDialog = () => {
               label="Enable Auto-Zoom with shift-click"
               control={
                 <Checkbox
+                  size="small"
                   checked={videoSettings.enableAutoZoom}
                   onChange={() => {
                     setVideoSettings(
@@ -236,29 +239,31 @@ export const VideoSettingsDialog = () => {
                 label="Invert wheel direction"
                 control={
                   <Checkbox
+                    size="small"
                     checked={wheelInverted}
                     onChange={() => setWheelInverted(!wheelInverted)}
                   />
                 }
               />
             </Tooltip>
-            {/* <Typography variant="body1" mr={2}>
-              Wheel Factor
-            </Typography>
-            <Box display="flex" alignItems="center">
-              <Typography variant="body1" mr={2}>
-                {wheelFactor}
-              </Typography>
-              <Tooltip title="Adjust wheel sensitivity">
-                <Slider
-                  min={1}
-                  max={200}
-                  value={wheelFactor}
-                  onChange={handleSliderChange}
-                  aria-labelledby="wheel-factor-slider"
-                />
-              </Tooltip>
-            </Box> */}
+          </Box>
+          <Box className={classes.settings}>
+            <Tooltip
+              title="After recording a time, automatically select the next available timestamp"
+              placement="right"
+            >
+              <FormControlLabel
+                labelPlacement="end"
+                label="Auto next timestamp"
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={autoNextTimestamp}
+                    onChange={() => setAutoNextTimestamp(!autoNextTimestamp)}
+                  />
+                }
+              />
+            </Tooltip>
           </Box>
         </Grid>
         <Grid item xs={12} sm={12}>

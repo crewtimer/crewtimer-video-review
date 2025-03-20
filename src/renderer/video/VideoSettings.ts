@@ -143,6 +143,10 @@ export const resetVideoZoom = () => {
 export const [useMouseWheelFactor, setMouseWheelFactor, getMouseWheelFactor] =
   UseStoredDatum<number>('wheelFactor', 4);
 export const [useMouseWheelInverted] = UseStoredDatum('wheelInvert', false);
+export const [useAutoNextTimestamp, , getAutoNextTimestamp] = UseStoredDatum(
+  'autoNextTimestamp',
+  true,
+);
 
 export const [useVideoDir, setVideoDir, getVideoDir] = UseStoredDatum(
   N_VIDEO_DIR,

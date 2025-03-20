@@ -20,7 +20,7 @@ const HyperZoomSelector = () => {
       <FormControl
         sx={{ marginTop: '0.5em', marginBottom: '0.5em', minWidth: 160 }}
         margin="dense"
-        size="medium"
+        size="small"
       >
         <InputLabel id="hyperzoom-resolution-label">
           Hyperzoom Resolution

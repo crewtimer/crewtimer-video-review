@@ -9,6 +9,7 @@ import uuidgen from 'short-uuid';
 import { setToast } from 'renderer/Toast';
 import { getMobileConfig, getWaypoint } from 'renderer/util/UseSettings';
 import {
+  getAutoNextTimestamp,
   getVideoBow,
   getVideoEvent,
   getVideoTimestamp,
@@ -24,6 +25,7 @@ export const performAddSplit = () => {
   const waypoint = getWaypoint();
   const gate = gateFromWaypoint(waypoint);
   const videoTimestamp = getVideoTimestamp();
+  const autoNextTimestamp = getAutoNextTimestamp();
   const disabled = !videoBow || !videoTimestamp || !selectedEvent;
   const activeEvent = mobileConfig?.eventList?.find(
     (event) => event.EventNum === selectedEvent,
@@ -105,5 +107,7 @@ export const performAddSplit = () => {
     severity: 'info',
     msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,
   });
-  seekToNextTimePoint(lap);
+  if (autoNextTimestamp) {
+    seekToNextTimePoint(lap);
+  }
 };

@@ -35,4 +35,5 @@ export interface FileStatus {
   tzOffset: number;
   tzName?: string;
   sidecar: KeyMap;
+  numClicks?: number;
 }
