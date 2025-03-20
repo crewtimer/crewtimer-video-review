@@ -17,7 +17,8 @@
     "rebuild": "node-gyp rebuild",
     "uploadall": "prebuild --upload-all $GITHUB_TOKEN",
     "upload": "prebuild --verbose --runtime napi",
-    "build": "node-gyp rebuild"
+    "build": "node-gyp rebuild",
+    "clean": "rm -rf node_modules yarn.lock prebuilds build"
   },
   "keywords": [],
   "author": "Glenn Engel (glenne)",
