@@ -1,11 +1,20 @@
 import React from 'react';
-import { Box, Button, SxProps, Theme, Tooltip } from '@mui/material';
+import {
+  Box,
+  Button,
+  IconButton,
+  Stack,
+  SxProps,
+  Theme,
+  Tooltip,
+} from '@mui/material';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import makeStyles from '@mui/styles/makeStyles';
 import FileList from '../FileList';
 import { useDirList } from './VideoFileUtils';
 import { useVideoDir } from './VideoSettings';
 
-const { openDirDialog } = window.Util;
+const { openDirDialog, openFileExplorer } = window.Util;
 
 const useStyles = makeStyles((_theme) => ({
   button: { margin: '0.5em', fontSize: 10 },
@@ -52,19 +61,31 @@ const VideoSideBar: React.FC<CustomTableProps> = ({ sx, height }) => {
         ...sx,
       }}
     >
-      <Tooltip title={videoDir} placement="bottom">
-        <Button
-          size="small"
-          variant="contained"
-          color="secondary"
-          className={classes.button}
-          onClick={() => {
-            chooseDir();
-          }}
-        >
-          Choose Folder
-        </Button>
-      </Tooltip>
+      <Stack direction="row">
+        <Tooltip title={videoDir} placement="bottom">
+          <Button
+            size="small"
+            variant="contained"
+            color="secondary"
+            className={classes.button}
+            onClick={() => {
+              chooseDir();
+            }}
+          >
+            Folder
+          </Button>
+        </Tooltip>
+        <Tooltip title="Explore Recording Folder">
+          <IconButton
+            color="primary"
+            aria-label="Open Folder"
+            onClick={() => openFileExplorer(videoDir)}
+            size="small"
+          >
+            <OpenInNewIcon />
+          </IconButton>
+        </Tooltip>
+      </Stack>
       <FileList files={dirList} height={height - 8 - 35} />
     </Box>
   );

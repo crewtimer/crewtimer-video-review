@@ -17,6 +17,7 @@ import ListItemText from '@mui/material/ListItemText';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import InfoIcon from '@mui/icons-material/Info';
 import { Button, Stack, Link } from '@mui/material';
 import { useFirebaseDatum } from './util/UseFirebase';
@@ -30,10 +31,12 @@ import {
 } from './util/UseSettings';
 import icon from '../assets/icons/crewtimer-review2-white.svg';
 import { setDialogConfig } from './util/ConfirmDialog';
-import { addSidecarFiles } from './video/VideoFileUtils';
+import { addSidecarFiles, archiveVideoFiles } from './video/VideoFileUtils';
 import { ProgressBarComponent } from './util/ProgressBarComponent';
 import { initiateImageArchive } from './video/ImageArchive';
 import TimezoneSelector from './util/TimezoneSelector';
+import { useFileStatusList } from './video/VideoFileStatus';
+import { getVideoDir } from './video/VideoSettings';
 
 const AboutText = `CrewTimer Video Review ${window.platform.appVersion}`;
 
@@ -64,6 +67,7 @@ export default function Nav() {
   const [msgOpen, setMsgOpen] = useState(false);
   const [msg, setMsg] = useState('');
   const [shiftMenu, setShiftMenu] = useState(false);
+  const [fileStatusList] = useFileStatusList();
   const latestVersion =
     useFirebaseDatum<string, string>(
       '/global/config/video-review/latestVersion',
@@ -132,6 +136,26 @@ export default function Nav() {
     setAnchorEl(null);
     const connectProps = getConnectionProps(mobileID);
     window.open(connectProps.resulturl, '_blank');
+  };
+
+  const handleArchiveData = () => {
+    setAnchorEl(null);
+    const archiveCandidates = fileStatusList.filter(
+      (item) => (item.numClicks || 0) === 0,
+    );
+    const filesToArchive = archiveCandidates.length;
+    setDialogConfig({
+      title: 'Archive Video Files',
+      message: filesToArchive
+        ? `Archive ${archiveCandidates.length} files without associated timestamps to "${getVideoDir()}/archive" folder'?`
+        : 'No candidate files were found to archive',
+      button: filesToArchive ? 'Archive Files' : undefined,
+      showCancel: true,
+      handleConfirm: () => {
+        archiveVideoFiles(archiveCandidates);
+        setToast({ severity: 'info', msg: 'Files archived.' });
+      },
+    });
   };
 
   return (
@@ -225,6 +249,12 @@ export default function Nav() {
                     <HistoryToggleOffIcon />
                   </ListItemIcon>
                   <ListItemText primary="Clear Local History" />
+                </MenuItem>
+                <MenuItem onClick={handleArchiveData}>
+                  <ListItemIcon>
+                    <DeleteForeverIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Archive Video Files" />
                 </MenuItem>
                 {shiftMenu && (
                   <MenuItem onClick={handleAddSidecarFiles}>

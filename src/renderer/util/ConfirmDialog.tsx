@@ -29,6 +29,7 @@ export interface ConfirmDialogProps {
   button?: string;
   showCancel: boolean;
   handleConfirm?: () => void;
+  onClose?: () => void;
 }
 
 export const [useConfirmDialog, setDialogConfig] = UseDatum<
@@ -48,6 +49,9 @@ export function ConfirmDialog() {
 
   const handleClose = () => {
     setConfig(undefined);
+    if (config?.onClose) {
+      config?.onClose();
+    }
   };
 
   const onConfirmTextChange: ChangeEventHandler<

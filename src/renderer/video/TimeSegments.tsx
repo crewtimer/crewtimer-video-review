@@ -1,7 +1,7 @@
 import React from 'react';
 import Box from '@mui/material/Box';
 import Tooltip from '@mui/material/Tooltip';
-import { TimeSegment } from './VideoTypes';
+import { FileStatus, TimeSegment } from './VideoTypes';
 
 /**
  * Props for the TimeSegments component.
@@ -17,6 +17,7 @@ type TimeSegmentsProps = {
   startTime: string;
   /** The end time in HH:MM:SS.sss format for the range. */
   endTime: string;
+  fileStatusList?: FileStatus[];
 };
 
 /**
@@ -31,6 +32,7 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
   onChange,
   startTime,
   endTime,
+  fileStatusList,
 }) => {
   /**
    * Handles the click event on a segment, marking it as active.
@@ -73,6 +75,19 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
         const widthPercent = segment.pct * 100;
         const title = `${segment.label} ${segment.startTime} - ${segment.endTime}`;
         const key = `$title}-${index}`;
+        const numClicks = fileStatusList?.[index]?.numClicks || 0;
+        const style =
+          numClicks === 0
+            ? {
+                backgroundImage: `
+          linear-gradient(45deg, #ccc 25%, transparent 25%),
+          linear-gradient(-45deg, #ccc 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, #ccc 75%),
+          linear-gradient(-45deg, transparent 75%, #ccc 75%)
+        `,
+                backgroundSize: '4px 4px',
+              }
+            : {};
         return (
           <Tooltip key={key} title={title} enterTouchDelay={0} placement="top">
             <Box
@@ -82,10 +97,12 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
                 backgroundColor: index === activeIndex ? '#00ffff' : '#f0f0f0',
                 borderRight: '1px solid #888',
                 borderLeft: '1px solid #888',
+
                 paddingLeft: '-1px',
                 paddingRight: '-px',
                 minWidth: '2px',
                 cursor: 'pointer',
+                ...style,
               }}
             />
           </Tooltip>

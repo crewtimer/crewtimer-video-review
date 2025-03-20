@@ -2,9 +2,9 @@ import React from 'react';
 import Box from '@mui/material/Box';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
-import { TimeObject, TimeSegment } from './VideoTypes';
-import { parseTimeToSeconds } from '../util/StringUtils';
 import Blinking from 'renderer/Blinking';
+import { FileStatus, TimeObject, TimeSegment } from './VideoTypes';
+import { parseTimeToSeconds } from '../util/StringUtils';
 
 /**
  * Finds the TimeSegment where the given timestamp in microseconds falls between startTsMicro and endTsMicro.
@@ -16,15 +16,15 @@ import Blinking from 'renderer/Blinking';
 function findTimeSegment(
   segments: TimeSegment[],
   timestampMicro: number,
-): TimeSegment | undefined {
+): { segment: TimeSegment | undefined; segmentIndex: number } {
   if (segments.length === 0) {
-    return undefined;
+    return { segment: undefined, segmentIndex: -1 };
   }
   if (
     timestampMicro < segments[0].startTsMicro ||
     timestampMicro > segments[segments.length - 1].endTsMicro
   ) {
-    return undefined;
+    return { segment: undefined, segmentIndex: -1 };
   }
   let low = 0;
   let high = segments.length - 1;
@@ -38,11 +38,11 @@ function findTimeSegment(
     } else if (timestampMicro > segment.endTsMicro) {
       low = mid + 1;
     } else {
-      return segment; // The timestamp falls within the current segment
+      return { segment, segmentIndex: mid }; // The timestamp falls within the current segment
     }
   }
 
-  return undefined; // No matching segment found
+  return { segment: undefined, segmentIndex: -1 }; // No matching segment found
 }
 
 /**
@@ -60,6 +60,8 @@ type TimeRangeIconsProps = {
   showBeyondRange?: boolean;
   iconColor?: string;
   iconType?: 'upper' | 'lower';
+  fileStatusList?: FileStatus[];
+  resetClickTally?: boolean;
 };
 
 /**
@@ -76,6 +78,8 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
   showBeyondRange,
   iconColor,
   iconType = 'lower',
+  fileStatusList,
+  resetClickTally,
 }) => {
   const startSeconds = parseTimeToSeconds(startTime);
   const endSeconds = parseTimeToSeconds(endTime);
@@ -88,6 +92,11 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
     return timeSeconds >= startSeconds && timeSeconds <= endSeconds;
   });
   timeAfterEnd = timeAfterEnd && showBeyondRange;
+  if (resetClickTally) {
+    fileStatusList?.forEach((fileStatus) => {
+      fileStatus.numClicks = 0;
+    });
+  }
 
   return (
     <Box
@@ -101,13 +110,20 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
         const timeSeconds = parseTimeToSeconds(timeObj.Time);
         const timeMicroSeconds = timeSeconds * 1000000;
         let relativePosition = 101;
-        const segment = findTimeSegment(segments, timeMicroSeconds);
+        const { segment, segmentIndex } = findTimeSegment(
+          segments,
+          timeMicroSeconds,
+        );
         if (segment) {
           relativePosition =
             (segment.pctOffset +
               (segment.pct * (timeMicroSeconds - segment.startTsMicro)) /
                 (segment.endTsMicro - segment.startTsMicro)) *
             100;
+          const fileStatus = fileStatusList?.[segmentIndex];
+          if (fileStatus) {
+            fileStatus.numClicks = (fileStatus.numClicks || 0) + 1;
+          }
         } else {
           relativePosition = 101;
         }

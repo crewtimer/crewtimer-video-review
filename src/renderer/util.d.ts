@@ -7,6 +7,14 @@ export interface OpenFileReturn {
   filePath: string;
 }
 
+export interface RenameFileReturn {
+  error: string;
+}
+
+export interface MkdirReturn {
+  error: string;
+}
+
 export interface DirListReturn {
   error: string;
   files: string[];
@@ -20,7 +28,10 @@ declare global {
       openFileDialog(): Promise<OpenFileReturn>;
       openDirDialog(title: string, defaultPath: string): Promise<OpenDirReturn>;
       getFilesInDirectory(dirPath: string): Promise<DirListReturn>;
+      openFileExplorer(path: string): Promise<void>;
       deleteFile(filename: string): Promise<CloseFileReturn>;
+      renameFile(from: string, to: string): Promise<RenameFileReturn>;
+      mkdir(directory: string): Promise<MkdirReturn>;
       readJsonFile<T = KeyMap>(
         filePath: string,
       ): Promise<{ status: string; error?: string; json?: T }>;

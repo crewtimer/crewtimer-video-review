@@ -1,6 +1,6 @@
 {
   "name": "crewtimer_video_reader",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "A node electron utility to read mp4 files for CrewTimer Video Review",
   "main": "index.js",
   "types": "index.d.ts",
@@ -8,19 +8,17 @@
     "install": "prebuild-install --verbose -r napi || yarn rebuild",
     "install-prebuild": "prebuild-install --verbose -r napi",
     "prebuild": "prebuild --runtime napi --all --verbose",
-
     "build:mac-x64": "prebuild --napi --napi-version 6 --runtime napi --arch x64 --platform darwin",
     "build:mac-arm": "prebuild --napi --napi-version 6 --runtime napi --arch arm64 --platform darwin",
-    "build:mac" : "yarn build:mac-x64 && yarn build:mac-arm",
+    "build:mac": "yarn build:mac-x64 && yarn build:mac-arm",
     "build:win": "node-gyp rebuild --arch=x64 --target_platform=win32",
     "build:opencv": "bash ./scripts/build-opencv.sh",
     "build:ffmpeg": "bash ./scripts/build-ffmpeg.sh",
-
     "rebuild": "node-gyp rebuild",
     "uploadall": "prebuild --upload-all $GITHUB_TOKEN",
     "upload": "prebuild --verbose --runtime napi",
     "build": "node-gyp rebuild"
-    },
+  },
   "keywords": [],
   "author": "Glenn Engel (glenne)",
   "license": "ISC",

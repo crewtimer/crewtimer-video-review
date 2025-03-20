@@ -174,7 +174,10 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
                     color: 'white',
                     paddingLeft: '0.25em',
                   }
-                : { fontSize: 10, paddingLeft: '0.25em' }
+                : {
+                    fontSize: 10,
+                    paddingLeft: '0.25em',
+                  }
             }
           >
             <Tooltip title={filename} placement="left">

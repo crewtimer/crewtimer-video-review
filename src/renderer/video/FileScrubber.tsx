@@ -142,6 +142,8 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           endTime={endTime}
           iconColor="#2e7d32"
           iconType="lower"
+          fileStatusList={fileStatusList}
+          resetClickTally
         />
         <TimeRangeIcons
           segments={segmentList}
@@ -151,6 +153,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           showBeyondRange
           iconColor="#d2122e"
           iconType="upper"
+          fileStatusList={fileStatusList}
         />
 
         <Box
@@ -173,6 +176,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
             onChange={(newValue, pct, fromClick) => {
               moveToFileIndex(newValue, pct, fromClick);
             }}
+            fileStatusList={fileStatusList}
           />
         </Box>
       </Box>

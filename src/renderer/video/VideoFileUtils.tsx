@@ -30,6 +30,7 @@ import {
   useVideoDir,
   VideoGuidesKeys,
   VideoSidecar,
+  getVideoDir,
 } from './VideoSettings';
 import { FileStatus } from './VideoTypes';
 import {
@@ -78,6 +79,42 @@ export const getDirectory = (fullFilename: string): string => {
   // If no slash is found, return an empty string indicating the file is in the current directory
   return index >= 0 ? fullFilename.substring(0, index) : '';
 };
+
+/**
+ * Inserts an extra directory before the filename in a given file path.
+ * Works in a browser/Electron renderer context without using Node.js path module.
+ *
+ * @param filePath - The absolute or relative path to the file (Linux or Windows format).
+ * @param extraDir - The name of the extra directory to insert.
+ * @returns The modified path with the extra directory inserted.
+ *
+ * @example
+ * insertDirectoryBeforeFilename("/foo/bar.png", "archive");
+ * // Output: "/foo/archive/bar.png"
+ *
+ * @example
+ * insertDirectoryBeforeFilename("C:\\Users\\User\\file.txt", "backup");
+ * // Output: "C:\\Users\\User\\backup\\file.txt"
+ */
+function insertDirectoryBeforeFilename(
+  filePath: string,
+  extraDir: string,
+): string {
+  // Detect whether the path uses Windows or Unix-style delimiters
+  const isWindows = filePath.includes('\\');
+  const separator = isWindows ? '\\' : '/';
+
+  // Find the last occurrence of the separator to separate the path from the filename
+  const lastIndex = filePath.lastIndexOf(separator);
+
+  // Extract directory path and filename
+  const dirName = lastIndex !== -1 ? filePath.substring(0, lastIndex) : '';
+  const fileName =
+    lastIndex !== -1 ? filePath.substring(lastIndex + 1) : filePath;
+
+  // Construct the new path
+  return `${dirName}${separator}${extraDir}${separator}${fileName}`;
+}
 
 // Define the structure for video frame request parameters.
 type VideoFrameRequest = {
@@ -674,6 +711,52 @@ const FileMonitor: React.FC = () => {
   }, [videoDir, initializing, jumpToEndPending]);
 
   return <></>;
+};
+
+export const archiveVideoFiles = async (fileList: FileStatus[]) => {
+  if (fileList.length === 0) {
+    return;
+  }
+  try {
+    const newDir = getDirectory(
+      insertDirectoryBeforeFilename(fileList[0].filename, 'archive'),
+    );
+    await window.Util.mkdir(newDir);
+    for (let i = 0; i < fileList.length; i += 1) {
+      const { filename } = fileList[i];
+      if (filename === openFilename) {
+        // close the old file so we can delete if necessary
+        console.log('===== Closing open file ======');
+        const openFileStatus = getFileStatusByName(openFilename);
+        if (openFileStatus?.open) {
+          await VideoUtils.closeFile(openFilename);
+          openFileStatus.open = false;
+          updateFileStatus(openFileStatus);
+          openFilename = '';
+        }
+      }
+
+      const fromFile = replaceFileSuffix(filename, 'json');
+      let toFile = insertDirectoryBeforeFilename(fromFile, 'archive');
+
+      let result = await window.Util.renameFile(fromFile, toFile).catch(
+        (_e) => {
+          /* ignore */
+        },
+      );
+      toFile = insertDirectoryBeforeFilename(filename, 'archive');
+      result = await window.Util.renameFile(filename, toFile).catch((e) =>
+        showErrorDialog(e),
+      );
+      if (result && result.error) {
+        showErrorDialog(result.error);
+        break;
+      }
+    }
+    await refreshDirList(getVideoDir());
+  } catch (e) {
+    /* ignore */
+  }
 };
 
 // Init the settings handler to avoid dpenendency loops
