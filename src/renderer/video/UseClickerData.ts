@@ -36,10 +36,12 @@ const onDataRxTransformer = (
       eventSet.add(event.EventNum);
     });
 
+    // Remove entries that are deleted or have no matching day value if day is set
     sorted = sorted.filter(
       (lap) =>
         lap.State !== 'Deleted' &&
-        (lap.EventNum === '?' || eventSet.has(lap.EventNum)),
+        ((lap.EventNum === '?' && (!day || lap.Day === day)) ||
+          eventSet.has(lap.EventNum)),
     );
     sorted.forEach((lap) => {
       lap.seconds = parseTimeToSeconds(lap.Time || '00:00:00.000');
