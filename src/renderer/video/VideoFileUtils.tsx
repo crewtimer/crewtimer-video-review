@@ -609,7 +609,7 @@ export const refreshDirList = async (videoDir: string) => {
 
     const files = result.files
       .filter((file) => videoFileRegex.test(file))
-      .filter((file) => !file.includes('tmp'));
+      .filter((file) => !file.includes('tmp') && !file.startsWith('._'));
 
     // Sort files by the embedded time in the filename
     const fileInfo = files.map((file) => ({
