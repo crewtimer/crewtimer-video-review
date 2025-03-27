@@ -32,6 +32,8 @@ import {
   getHyperZoomFactor,
   setAutoZoomPending,
   getAutoZoomPending,
+  getBowInfo,
+  setVideoEvent,
 } from './VideoSettings';
 import VideoOverlay, {
   getNearEdge,
@@ -396,7 +398,13 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       );
       if (result.closestLine >= 0) {
         const lane = laneLines[result.closestLine].lane.label.split(' ')[1];
-        setVideoBow(lane);
+        const bowInfo = getBowInfo()[lane];
+        if (bowInfo) {
+          setVideoBow(bowInfo.Bow);
+          setVideoEvent(bowInfo.eventNum);
+        } else {
+          setVideoBow(lane);
+        }
       }
     },
     [image.width],

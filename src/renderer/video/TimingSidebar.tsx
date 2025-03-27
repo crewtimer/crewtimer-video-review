@@ -48,6 +48,8 @@ import makeStyles from '@mui/styles/makeStyles';
 import {
   getSortPlace,
   resetVideoZoom,
+  ResultRowType,
+  setBowInfo,
   setVideoBow,
   usePlaceSort,
   useVideoBow,
@@ -64,28 +66,16 @@ const useStyles = makeStyles((/* _theme */) => ({
   },
 }));
 
-interface RowType {
-  id: string;
-  eventName: string;
-  eventNum: string;
-  label: string;
-  Bow: string;
-  Crew: string;
-  Time: string;
-  event: Event;
-  entry?: Entry;
-}
-
 const [useRenderRequired, setRenderRequired, getRenderRequired] = UseDatum(0);
 
 const timingFontSize = 12;
 
 const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
   element: Element;
-  row: RowType;
+  row: ResultRowType;
 } | null>(null);
 
-const TimestampCell = ({ row }: { row: RowType }) => {
+const TimestampCell = ({ row }: { row: ResultRowType }) => {
   const [lap] = useEntryResult(row.id);
   const time = lap?.State === 'Deleted' ? '' : lap?.Time || '';
   const timeChange = time !== row.Time;
@@ -141,7 +131,7 @@ const TimestampCell = ({ row }: { row: RowType }) => {
     </Stack>
   );
 };
-const TimestampCol = ({ row }: { row: RowType }) => {
+const TimestampCol = ({ row }: { row: ResultRowType }) => {
   return row.eventName ? (
     <Typography
       sx={{
@@ -158,9 +148,9 @@ const TimestampCol = ({ row }: { row: RowType }) => {
   );
 };
 
-export const RenderHeaderCell: React.FC<RenderHeaderCellProps<RowType>> = ({
-  column,
-}) => {
+export const RenderHeaderCell: React.FC<
+  RenderHeaderCellProps<ResultRowType>
+> = ({ column }) => {
   const [placeSort, setPlaceSort] = usePlaceSort();
   return (
     <Stack direction="row" onClick={() => setPlaceSort(!placeSort)}>
@@ -186,9 +176,9 @@ export const RenderHeaderCell: React.FC<RenderHeaderCellProps<RowType>> = ({
   );
 };
 
-export const RenderTimeHeaderCell: React.FC<RenderHeaderCellProps<RowType>> = ({
-  column,
-}) => {
+export const RenderTimeHeaderCell: React.FC<
+  RenderHeaderCellProps<ResultRowType>
+> = ({ column }) => {
   return (
     <Typography
       sx={{
@@ -206,10 +196,10 @@ function sanitizeFirebaseKey(s: string) {
   return s.replace(/[#$/[.\]]/g, '-');
 }
 
-const columns = (width: number): readonly Column<RowType>[] => {
+const columns = (width: number): readonly Column<ResultRowType>[] => {
   const col2Width = 80 + 14 + 16;
   const col1Width = width - col2Width - 20;
-  const RenderCell = ({ row }: { row: RowType }) => {
+  const RenderCell = ({ row }: { row: ResultRowType }) => {
     const key = sanitizeFirebaseKey(
       `1-${row.entry?.EventNum}-${row.entry?.Bow}`,
     );
@@ -369,7 +359,7 @@ const generateEventRows = (
   includeEventName: boolean,
   includeEntries: boolean,
 ) => {
-  const rows: RowType[] = [];
+  const rows: ResultRowType[] = [];
   if (!event) {
     return rows;
   }
@@ -432,7 +422,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       events = events.filter((event) => event.Day === day);
     }
 
-    const filteredRows: RowType[] = [];
+    const filteredRows: ResultRowType[] = [];
     events.forEach((event) => {
       generateEventRows(gate, event, true, false).forEach((row) => {
         filteredRows.push(row);
@@ -479,9 +469,15 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       ),
     );
   }
+  const bowInfo: { [lane: string]: ResultRowType } = {};
+  activeEventRows.forEach((evtRow) => {
+    bowInfo[evtRow.Bow.replace(/^[a-zA-Z]*/, '')] = evtRow;
+    bowInfo[evtRow.Bow] = evtRow;
+  });
+  setBowInfo(bowInfo); // stash for use by guide lane clicks (Video.tsx)
 
   const onRowClick = (
-    args: CellClickArgs<RowType, unknown>,
+    args: CellClickArgs<ResultRowType, unknown>,
     _event: CellMouseEvent,
   ) => {
     setSelectedEvent(args.row.eventNum);

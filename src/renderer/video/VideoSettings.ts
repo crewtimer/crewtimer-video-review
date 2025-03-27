@@ -2,6 +2,7 @@ import { UseDatum } from 'react-usedatum';
 import { AppImage } from 'renderer/shared/AppTypes';
 import { N_IMAGE, N_VIDEO_FILE, N_VIDEO_DIR } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
+import { Entry } from 'crewtimer-common';
 import { generateTestPattern } from '../util/ImageUtils';
 
 export interface VideoPosition {
@@ -47,6 +48,18 @@ export interface VideoGuides {
   laneBelowGuide: boolean;
   enableLaneGuides: boolean;
   enableAutoZoom: boolean;
+}
+
+export interface ResultRowType {
+  id: string;
+  eventName: string;
+  eventNum: string;
+  label: string;
+  Bow: string;
+  Crew: string;
+  Time: string;
+  event: Event;
+  entry?: Entry;
 }
 
 /** Contents of the json video sidecar file */
@@ -123,7 +136,9 @@ export const [useVideoEvent, setVideoEvent, getVideoEvent] = UseDatum('');
 export const [usePlaceSort, setPlaceSort, getSortPlace] = UseDatum(true);
 export const [useSelectedIndex, setSelectedIndex, getSelectedIndex] =
   UseDatum(0);
-
+export const [useBowInfo, setBowInfo, getBowInfo] = UseDatum<{
+  [lane: string]: ResultRowType;
+}>({});
 export const [useTravelRightToLeft, , getTravelRightToLeft] = UseStoredDatum(
   'travelRightToLeft',
   false,
