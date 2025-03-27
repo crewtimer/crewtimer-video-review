@@ -167,6 +167,11 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
       // setShowBlowup(!isZooming());
       setShowBlowup(!getNearEdge());
       break;
+    case 'z':
+    case 'Z':
+    case '/':
+      resetVideoZoom();
+      break;
 
     default:
       break; // ignore
