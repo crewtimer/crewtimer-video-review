@@ -57,6 +57,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   const jumpToEnd = () => {
     // Trigger a file split, then read the files and jump to the end
     triggerFileSplit();
+    setJumpToEndPending(true);
   };
 
   // Calc the time segment list

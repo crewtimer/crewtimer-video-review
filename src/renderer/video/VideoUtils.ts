@@ -18,13 +18,13 @@ import {
   getVideoScaling,
   getVideoSettings,
   resetVideoZoom,
-  setJumpToEndPending,
   setSelectedIndex,
   setVideoBow,
   setVideoEvent,
   setVideoFile,
   setVideoFrameNum,
   VideoScaling,
+  setJumpToEndPending,
 } from './VideoSettings';
 import { TimeObject } from './VideoTypes';
 import { parseTimeToSeconds } from '../util/StringUtils';
@@ -76,7 +76,6 @@ export const triggerFileSplit = () => {
     ts: new Date().getTime(),
   };
   window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
-  setJumpToEndPending(true);
 };
 
 /**
@@ -345,6 +344,7 @@ export const nextFile = () => {
   const dirList = getDirList();
   if (getSelectedIndex() === dirList.length - 1) {
     triggerFileSplit();
+    setJumpToEndPending(true);
   } else {
     moveToFileIndex(getSelectedIndex() + 1, 0, true);
   }
