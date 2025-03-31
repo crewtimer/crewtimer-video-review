@@ -506,7 +506,10 @@ export const translateMouseEvent2Src = (
  * After finding an initial candidate, it checks subsequent points until it finds one with a different `Bow`
  * value than `from.Bow`.
  */
-export const seekToNextTimePoint = (from: Lap): TimeObject | undefined => {
+export const seekToNextTimePoint = (from: {
+  Time: string;
+  Bow: string;
+}): TimeObject | undefined => {
   const timePoints = getClickerData();
   let left = 0;
   let right = timePoints.length - 1;

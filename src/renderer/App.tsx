@@ -9,7 +9,8 @@ import { ConfirmDialog } from './util/ConfirmDialog';
 import { setInitializing } from './util/UseSettings';
 import VideoDataMonitor from './video/VideoDataMonitor';
 import FileMonitor from './video/VideoFileUtils';
-import { triggerFileSplit } from './video/VideoUtils';
+import { seekToNextTimePoint, triggerFileSplit } from './video/VideoUtils';
+import { getVideoBow, getVideoTimestamp } from './video/VideoSettings';
 
 const { startLapStorage } = window.LapStorage;
 const { stopLapStorage } = window.LapStorage;
@@ -45,6 +46,11 @@ export default function App() {
       if (event.key === ' ') {
         event.preventDefault();
         triggerFileSplit();
+      } else if (event.key === 'Tab') {
+        event.preventDefault();
+        const ts = getVideoTimestamp();
+        const bow = getVideoBow();
+        seekToNextTimePoint({ Time: ts, Bow: bow });
       }
     };
 
