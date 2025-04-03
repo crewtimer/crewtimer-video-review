@@ -26,10 +26,9 @@ import {
   moveToFrame,
   notifiyGuideChanged,
   Point,
-  translateMouseEvent2Src,
+  translateMouseEventCoords,
   translateSrcCanvas2DestCanvas,
 } from './VideoUtils';
-import { updateVideoScaling } from '../util/ImageScaling';
 
 export const [useOverlayActive, setOverlayActive] = UseDatum(false);
 export const [useAdjustingOverlay, , getAdjustingOverlay] = UseDatum(false);
@@ -75,7 +74,6 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       count: 0,
       velocity: 0,
     });
-    const scaleButtons = useRef({ x: 0, y: 0, width: 1, height: 1 });
     const isZooming = useCallback(
       () => videoScaling.zoomY !== 1,
       [videoScaling.zoomY],
@@ -254,25 +252,19 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
             case Dir.Horiz:
               {
                 // Range check the guides
-                guide.pt1 = Math.max(
-                  10,
-                  Math.min(image.height - 10, guide.pt1),
-                );
-                guide.pt2 = Math.max(
-                  10,
-                  Math.min(image.height - 10, guide.pt2),
-                );
+                guide.pt1 = Math.max(0, Math.min(1, guide.pt1));
+                guide.pt2 = Math.max(0, Math.min(1, guide.pt2));
                 let fromScaled = translateSrcCanvas2DestCanvas(
                   {
                     x: 0,
-                    y: guide.pt1,
+                    y: guide.pt1 * videoScaling.srcHeight,
                   },
                   videoScaling,
                 );
                 let toScaled = translateSrcCanvas2DestCanvas(
                   {
                     x: videoScaling.srcWidth - 1,
-                    y: guide.pt2,
+                    y: guide.pt2 * videoScaling.srcHeight,
                   },
                   videoScaling,
                 );
@@ -284,14 +276,14 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                 fromScaled = translateSrcCanvas2DestCanvas(
                   {
                     x: 0,
-                    y: guide.pt1,
+                    y: guide.pt1 * videoScaling.srcHeight,
                   },
                   videoScaling,
                 );
                 toScaled = translateSrcCanvas2DestCanvas(
                   {
                     x: videoScaling.srcWidth - 1,
-                    y: guide.pt2,
+                    y: guide.pt2 * videoScaling.srcHeight,
                   },
                   videoScaling,
                 );
@@ -333,13 +325,16 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
 
     const handleMouseDown = (event: React.MouseEvent) => {
       const rect = canvasRef.current?.getBoundingClientRect();
-      const { pt, withinBounds } = translateMouseEvent2Src(event, rect);
+      const { dx, dy, x, y, withinBounds } = translateMouseEventCoords(
+        event,
+        rect,
+      );
       if (!withinBounds) {
         return;
       }
       const image = getImage();
       const scaling = getVideoScaling();
-      const margin = (20 * (scaling.scaleX + scaling.scaleY)) / 2;
+      const margin = 20; // (20 * (scaling.scaleX + scaling.scaleY)) / 2;
 
       // if (rect) {
       //   const x = event.clientX - (rect?.left ?? 0);
@@ -351,10 +346,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       // }
 
       if (
-        pt.y < margin ||
-        pt.y > scaling.srcHeight - margin ||
-        pt.x < margin ||
-        pt.x > scaling.srcWidth - margin
+        dy < margin ||
+        dy > scaling.srcHeight * scaling.scaleY - margin ||
+        dx < margin ||
+        dx > scaling.destHeight * scaling.scaleX - margin
       ) {
         // find first guide within margin px
         const nearest: { index: number; dist: number } = {
@@ -366,24 +361,27 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
             return;
           }
           // Convert guide coordinates to screen coords and check for distance
-          const guidept1 =
+          let guidept1 =
             guide.dir === Dir.Vert
               ? { x: image.width / 2 + guide.pt1, y: 0 }
-              : { x: 0, y: guide.pt1 };
-          const guidept2 =
+              : { x: 0, y: guide.pt1 * image.height };
+          let guidept2 =
             guide.dir === Dir.Vert
               ? { x: image.width / 2 + guide.pt2, y: image.height }
-              : { x: image.width, y: guide.pt2 };
+              : { x: image.width, y: guide.pt2 * image.height };
           if (guide.dir === Dir.Vert && guidept2.y > scaling.srcHeight) {
             guidept2.y = scaling.srcHeight;
           }
+
+          guidept1 = translateSrcCanvas2DestCanvas(guidept1);
+          guidept2 = translateSrcCanvas2DestCanvas(guidept2);
           const dist1 = Math.sqrt(
-            (guidept1.x - pt.x) * (guidept1.x - pt.x) +
-              (guidept1.y - pt.y) * (guidept1.y - pt.y),
+            (guidept1.x - x) * (guidept1.x - x) +
+              (guidept1.y - y) * (guidept1.y - y),
           );
           const dist2 = Math.sqrt(
-            (guidept2.x - pt.x) * (guidept2.x - pt.x) +
-              (guidept2.y - pt.y) * (guidept2.y - pt.y),
+            (guidept2.x - x) * (guidept2.x - x) +
+              (guidept2.y - y) * (guidept2.y - y),
           );
 
           if (dist1 < margin || dist2 < margin) {
@@ -401,7 +399,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           setOverlayActive(true);
           event.preventDefault();
           event.stopPropagation();
-          if (pt.y < margin || pt.x < margin) {
+          if (dy < margin || dx < margin) {
             setDragHandle({ pos: 'pt1', guide: nearestGuide });
           } else {
             setDragHandle({ pos: 'pt2', guide: nearestGuide });
@@ -412,7 +410,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
 
     const handleMouseMove = (event: React.MouseEvent) => {
       const rect = canvasRef.current?.getBoundingClientRect();
-      const { pt, withinBounds } = translateMouseEvent2Src(event, rect);
+      const { dx, dy, pt, withinBounds } = translateMouseEventCoords(
+        event,
+        rect,
+      );
 
       if (dragging && dragHandle) {
         const shift = event.shiftKey;
@@ -430,15 +431,15 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
             dragHandle.guide.pt2 = xpos;
           }
         } else {
-          const ypos = Math.round(pt.y);
+          const ypos = dy / videoScaling.destImageHeight;
           if (shift) {
             dragHandle.guide.pt1 = ypos;
-            dragHandle.guide.pt2 = ypos;
+            dragHandle.guide.pt2 = dragHandle.guide.pt1;
           } else if (dragHandle.pos === 'pt1') {
             // dragging pt1, keep angle between pt1 and pt2
             const delta = dragHandle.guide.pt2 - dragHandle.guide.pt1;
             dragHandle.guide.pt1 = ypos;
-            dragHandle.guide.pt2 = ypos + delta;
+            dragHandle.guide.pt2 = Math.max(0, Math.min(1, ypos + delta));
           } else {
             dragHandle.guide.pt2 = ypos;
           }
@@ -450,15 +451,15 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
 
         let overButtons = false;
         if (rect) {
-          const x = event.clientX - (rect?.left ?? 0);
-          const y = event.clientY - (rect?.top ?? 0);
-          if (y < 50 && x > rect.width - 100) {
+          if (dy < 50 && dx > rect.width - 100) {
             overButtons = true;
           }
         }
 
-        const nearVerticalEdge = pt.y < 20 || pt.y > vScaling.srcHeight - 20;
-        const nearHorizontalEdge = pt.x < 20 || pt.x > vScaling.srcWidth - 20;
+        const nearVerticalEdge =
+          dy < 20 || dy > vScaling.srcHeight * vScaling.scaleY - 20;
+        const nearHorizontalEdge =
+          dx < 20 || dx > vScaling.srcWidth * vScaling.scaleX - 20;
 
         const isNearEdge =
           !overButtons &&

@@ -25,6 +25,8 @@ export interface VideoScaling {
   scaleY: number; /// transform from src canvas to dest canvas
   destX: number; /// X offset in dest canvas units of image
   destY: number; /// Y offset in dest canvas units of image
+  destImageWidth: number; /// Width of the image rendered in dest units
+  destImageHeight: number; /// Height of the image rendered in dest units
 }
 
 export enum Dir {
@@ -105,6 +107,8 @@ export const [useVideoScaling, setVideoScaling, getVideoScaling] =
     destY: 0,
     destWidth: 1,
     destHeight: 1,
+    destImageWidth: 1,
+    destImageHeight: 1,
     srcCenterPoint: { x: 0, y: 0 },
     srcWidth: 1,
     srcHeight: 1,
@@ -191,16 +195,16 @@ export const [useVideoSettings, setVideoSettings, getVideoSettings] =
     enableAutoZoom: true,
     guides: [
       { dir: Dir.Vert, pt1: 0, pt2: 0, label: 'Finish', enabled: true },
-      { dir: Dir.Horiz, pt1: 200, pt2: 200, label: 'Lane 0', enabled: false },
-      { dir: Dir.Horiz, pt1: 210, pt2: 210, label: 'Lane 1', enabled: false },
-      { dir: Dir.Horiz, pt1: 220, pt2: 220, label: 'Lane 2', enabled: false },
-      { dir: Dir.Horiz, pt1: 230, pt2: 230, label: 'Lane 3', enabled: false },
-      { dir: Dir.Horiz, pt1: 240, pt2: 240, label: 'Lane 4', enabled: false },
-      { dir: Dir.Horiz, pt1: 250, pt2: 250, label: 'Lane 5', enabled: false },
-      { dir: Dir.Horiz, pt1: 260, pt2: 260, label: 'Lane 6', enabled: false },
-      { dir: Dir.Horiz, pt1: 270, pt2: 270, label: 'Lane 7', enabled: false },
-      { dir: Dir.Horiz, pt1: 280, pt2: 280, label: 'Lane 8', enabled: false },
-      { dir: Dir.Horiz, pt1: 290, pt2: 290, label: 'Lane 9', enabled: false },
+      { dir: Dir.Horiz, pt1: 0.08, pt2: 0.08, label: 'Lane 0', enabled: false },
+      { dir: Dir.Horiz, pt1: 0.16, pt2: 0.16, label: 'Lane 1', enabled: false },
+      { dir: Dir.Horiz, pt1: 0.24, pt2: 0.24, label: 'Lane 2', enabled: false },
+      { dir: Dir.Horiz, pt1: 0.32, pt2: 0.32, label: 'Lane 3', enabled: false },
+      { dir: Dir.Horiz, pt1: 0.4, pt2: 0.4, label: 'Lane 4', enabled: false },
+      { dir: Dir.Horiz, pt1: 0.48, pt2: 0.48, label: 'Lane 5', enabled: false },
+      { dir: Dir.Horiz, pt1: 0.56, pt2: 0.56, label: 'Lane 6', enabled: false },
+      { dir: Dir.Horiz, pt1: 0.64, pt2: 0.64, label: 'Lane 7', enabled: false },
+      { dir: Dir.Horiz, pt1: 0.72, pt2: 0.72, label: 'Lane 8', enabled: false },
+      { dir: Dir.Horiz, pt1: 0.8, pt2: 0.8, label: 'Lane 9', enabled: false },
       {
         dir: Dir.Horiz,
         pt1: 300,
@@ -225,3 +229,45 @@ export const [useImage, setImage, getImage] = UseMemDatum<AppImage>(
 
 export const [useAutoZoomPending, setAutoZoomPending, getAutoZoomPending] =
   UseDatum<undefined | Point>(undefined);
+
+/**
+ * Detect if version 0 guide config which is pixel based and change it to be percentage of y axis isntead.
+ *
+ * @param guides An array of GuideLine
+ * @returns true if any guides were modified, false if not
+ */
+export const normalizeGuides = (guides: GuideLine[]) => {
+  let max = 0;
+  guides.forEach((guide) => {
+    if (guide.dir === Dir.Vert) {
+      return;
+    }
+    max = Math.max(guide.pt1, guide.pt2, max);
+  });
+
+  if (max > 1) {
+    // convert from pixels to percentage
+    // guess video frame height
+    if (max > 1080) {
+      max = 2160;
+    } else if (max > 720) {
+      max = 1080;
+    } else {
+      max = 720;
+    }
+    guides.forEach((guide) => {
+      guide.pt1 /= max;
+      guide.pt2 /= max;
+    });
+    return true;
+  }
+  return false;
+};
+
+export const validateVideoSettings = () => {
+  const videoSettings = getVideoSettings();
+  const guidesModified = normalizeGuides(videoSettings.guides);
+  if (guidesModified) {
+    setVideoSettings(videoSettings, true);
+  }
+};

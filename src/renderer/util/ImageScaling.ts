@@ -64,6 +64,8 @@ export function updateVideoScaling(scaling: ScalingParams) {
     srcHeight,
     destWidth,
     destHeight,
+    destImageWidth: srcWidth * scaleY,
+    destImageHeight: srcHeight * scaleX,
     srcCenterPoint,
     zoomX,
     zoomY,

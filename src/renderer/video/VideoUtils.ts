@@ -1,5 +1,4 @@
 import React from 'react';
-import { Lap } from 'crewtimer-common';
 import { Rect } from 'renderer/shared/AppTypes';
 import { ExtendedLap, getClickerData } from './UseClickerData';
 import {
@@ -103,7 +102,13 @@ export const notifiyGuideChanged = () => {
     ts: new Date().getTime(),
     guide: { pt1: vert.pt1, pt2: vert.pt2 },
   };
-  window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
+  window.VideoUtils.sendMulticast(
+    JSON.stringify(msg),
+    '239.215.23.42',
+    52342,
+  ).catch(() => {
+    /* ignore */
+  });
 };
 
 /**
@@ -473,12 +478,14 @@ export const translateMouseCoords2SourceCanvas = (point: Point): Point => {
  * @param {DomRect | undefined} rect - The bounding rectangle of the element being referenced.
  *
  * @returns {{ x: number, y: number, pt: { x: number, y: number }, withinBounds: boolean }} An object containing:
+ *   - dx: The x offset in dest canvas units from the left edge of the image
+ *   - dy: The y offset in dest canvas units from the top edge of the image
  *   - x: The x-coordinate relative to the source canvas.
  *   - y: The y-coordinate relative to the source canvas.
  *   - pt: The point object with x and y coordinates transformed to the source canvas.
  *   - withinBounds: A boolean indicating if the point is within the bounds of the source canvas.
  */
-export const translateMouseEvent2Src = (
+export const translateMouseEventCoords = (
   event: React.MouseEvent,
   rect: DOMRect | undefined,
 ) => {
@@ -486,12 +493,14 @@ export const translateMouseEvent2Src = (
   const y = event.clientY - (rect?.top ?? 0);
   const pt = translateMouseCoords2SourceCanvas({ x, y });
   const videoScaling = getVideoScaling();
+  const dx = x - videoScaling.destX;
+  const dy = y - videoScaling.destY;
   const withinBounds =
     pt.y <= videoScaling.srcHeight &&
     pt.x <= videoScaling.srcWidth &&
     pt.x >= 0 &&
     pt.y >= 0;
-  return { x, y, pt, withinBounds };
+  return { dx, dy, x, y, pt, withinBounds };
 };
 
 /**

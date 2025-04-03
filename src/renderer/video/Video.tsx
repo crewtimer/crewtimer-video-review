@@ -48,7 +48,7 @@ import {
   moveLeft,
   moveRight,
   moveToFrame,
-  translateMouseEvent2Src,
+  translateMouseEventCoords,
 } from './VideoUtils';
 import FileScrubber from './FileScrubber';
 import { setGenerateImageSnapshotCallback } from './ImageButton';
@@ -392,8 +392,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       const laneLines = getVideoSettings()
         .guides.filter((lane) => lane.dir === Dir.Horiz && lane.enabled)
         .map((lane) => ({
-          pt1: { x: 0, y: lane.pt1 },
-          pt2: { x: image.width, y: lane.pt2 },
+          pt1: { x: 0, y: lane.pt1 * image.height },
+          pt2: { x: image.width, y: lane.pt2 * image.height },
           lane,
         }));
       const result = findClosestLineAndPosition(
@@ -412,7 +412,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         }
       }
     },
-    [image.width],
+    [image.height, image.width],
   );
 
   const handleDragStart = (
@@ -447,7 +447,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         y,
         pt: srcCoords,
         withinBounds,
-      } = translateMouseEvent2Src(event, rect);
+      } = translateMouseEventCoords(event, rect);
       if (!withinBounds) {
         return;
       }
@@ -483,7 +483,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const handleMouseMove = useCallback(
     (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
       const rect = canvasRef.current?.getBoundingClientRect();
-      const { x, y, pt: srcCoords } = translateMouseEvent2Src(event, rect);
+      const { x, y, pt: srcCoords } = translateMouseEventCoords(event, rect);
 
       setShowBlowup(event.shiftKey && !getNearEdge());
       if (event.shiftKey) {

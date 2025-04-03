@@ -31,6 +31,7 @@ import {
   VideoGuidesKeys,
   VideoSidecar,
   getVideoDir,
+  normalizeGuides,
 } from './VideoSettings';
 import { FileStatus } from './VideoTypes';
 import {
@@ -457,6 +458,7 @@ const loadVideoSidecar = (
               (videoSettings as any)[key] = videoSidecar[key];
             }
           });
+          normalizeGuides(videoSettings.guides);
 
           if (videoSidecar.guide && !videoSidecar.guides) {
             // Provide default from video sidecar if not already set

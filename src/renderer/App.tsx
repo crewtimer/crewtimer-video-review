@@ -10,7 +10,11 @@ import { setInitializing } from './util/UseSettings';
 import VideoDataMonitor from './video/VideoDataMonitor';
 import FileMonitor from './video/VideoFileUtils';
 import { seekToNextTimePoint, triggerFileSplit } from './video/VideoUtils';
-import { getVideoBow, getVideoTimestamp } from './video/VideoSettings';
+import {
+  getVideoBow,
+  getVideoTimestamp,
+  validateVideoSettings,
+} from './video/VideoSettings';
 
 const { startLapStorage } = window.LapStorage;
 const { stopLapStorage } = window.LapStorage;
@@ -32,7 +36,10 @@ export default function App() {
       setInitProgress(100);
 
       // Wait for stored data to be loaded
-      setTimeout(() => setInitializing(false), 200);
+      setTimeout(() => {
+        validateVideoSettings();
+        setInitializing(false);
+      }, 200);
     };
     doInit();
     return () => {
