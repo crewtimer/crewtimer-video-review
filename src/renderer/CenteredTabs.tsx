@@ -5,7 +5,9 @@ import {
   HistoryTwoTone,
   VideoSettings,
   OndemandVideo,
+  HelpOutline,
 } from '@mui/icons-material';
+
 import { Box, Tooltip } from '@mui/material';
 import CrewTimerRower from 'assets/icons/CrewTimerRower';
 import Setup from './Setup';
@@ -14,6 +16,8 @@ import { useInitializing, useTabPosition } from './util/UseSettings';
 import { Toast } from './Toast';
 import Video from './video/Video';
 import { VideoSettingsDialog } from './video/VideoSettingsView';
+import HelpMarkdown from './doc/HelpMarkdown.md';
+import Markdown from './doc/Markdown';
 
 const useStyles = makeStyles({
   root: {
@@ -21,6 +25,8 @@ const useStyles = makeStyles({
     display: 'flex',
   },
 });
+
+const HelpPage = () => <Markdown md={HelpMarkdown} />;
 
 export default function CenteredTabs() {
   const classes = useStyles();
@@ -45,6 +51,8 @@ export default function CenteredTabs() {
     Page = Status;
   } else if (tabPosition === 'System Config') {
     Page = Setup;
+  } else if (tabPosition === 'Help') {
+    Page = HelpPage;
   } else {
     tabPosition = 'System Config';
   }
@@ -97,6 +105,14 @@ export default function CenteredTabs() {
               </Tooltip>
             }
             value="System Config"
+          />
+          <Tab
+            icon={
+              <Tooltip title="Help">
+                <HelpOutline />
+              </Tooltip>
+            }
+            value="Help"
           />
         </Tabs>
       </div>

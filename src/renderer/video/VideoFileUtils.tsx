@@ -592,7 +592,9 @@ export const saveVideoSidecar = () => {
       laneBelowGuide,
     };
     if (!content.file) {
-      return Promise.reject(new Error('Missing file property in sidecar'));
+      return Promise.reject(
+        new Error(`Missing property 'file' in sidecar for ${videoFile}`),
+      );
     }
     return storeJsonFile(replaceFileSuffix(videoFile, 'json'), content);
   }
