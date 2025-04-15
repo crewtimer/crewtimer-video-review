@@ -219,6 +219,7 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
     }
     auto file = args.Get("file").As<Napi::String>().Utf8Value();
     auto frameNum = args.Get("frameNum").As<Napi::Number>().DoubleValue();
+    // std::cerr << "Grabbing frame at " << frameNum << std::endl;
     auto tsMilli = args.Get("tsMilli").As<Napi::Number>().Int64Value();
     auto ffreader = videoReaders.find(file);
     if (ffreader == videoReaders.end())

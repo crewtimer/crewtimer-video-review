@@ -312,8 +312,6 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
     return frame;
   }
 
-  int delta = 16;
-
   // if we have not grabbed a single frame before first seek, let's read the
   // first frame and get some valuable information during the process
   if (firstFrameNumber < 0 && getTotalFrames() > 1)
@@ -325,6 +323,24 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
     }
   }
 
+  // If we're close to the correct position, seek forward frame by frame
+  int64_t seekDelta = frameNumber - currentFrameNumber;
+  if (seekDelta > 0 && seekDelta < 30)
+  {
+    while (currentFrameNumber < frameNumber)
+    {
+      if (!grabFrame())
+      {
+        break;
+      }
+    }
+    if (currentFrameNumber == frameNumber)
+    {
+      return frame; // We found it!
+    }
+  }
+
+  int delta = 16;
   auto fps = getFps();
 
   for (;;)

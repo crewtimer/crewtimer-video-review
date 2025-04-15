@@ -151,7 +151,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           (wheelInverted ? -1 : 1) *
           Math.sign(event.deltaY) *
           (wheelTracking.current.velocity < 1 ? 1 : isZooming() ? 2 : 3);
-        setTimeout(() => moveToFrame(getVideoFrameNum(), delta), 10);
+        setTimeout(() => moveToFrame(getVideoFrameNum(), delta), 1);
       },
       [isZooming, wheelInverted],
     );

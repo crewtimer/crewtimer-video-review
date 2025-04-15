@@ -120,7 +120,7 @@ class FrameInfoList
 private:
   std::list<std::shared_ptr<FrameInfo>>
       frameList;             ///< List of FrameInfo objects.
-  const size_t maxSize = 32; ///< Maximum size of the list.
+  const size_t maxSize = 60; ///< Maximum size of the list.
 
 public:
   /**
@@ -138,13 +138,15 @@ public:
                            });
     if (it != frameList.end())
     {
-      frameList.erase(it);
+      // frameList.erase(it);
+      return;
     }
     else if (frameList.size() >= maxSize)
     {
       frameList.pop_back();
     }
 
+    // std::cerr << "Adding to cache " << frame->frameNum << std::endl;
     frameList.push_front(frame);
   }
 
