@@ -12,7 +12,7 @@ import { ipcMain } from 'electron';
 export function extractTimestampFromFrame(
   image: Uint8Array,
   row: number,
-  width: number
+  width: number,
 ): number {
   let number = 0n; // Initialize the 64-bit number as a BigInt
 
@@ -72,7 +72,7 @@ ipcMain.handle('video:closeFile', (_event, filePath) => {
 
 ipcMain.handle(
   'video:getFrame',
-  (_event, filePath, frameNum, tsMilli, zoom, blend, saveAs) => {
+  (_event, filePath, frameNum, tsMilli, zoom, blend, saveAs, closeTo) => {
     try {
       // console.log('Grabbing frame', zoom);
       // console.log('Grabbing frame', filePath, frameNum);
@@ -84,6 +84,7 @@ ipcMain.handle(
         zoom: zoom || { x: 0, y: 0, width: 0, height: 0 },
         blend: blend || false,
         saveAs: saveAs || '',
+        closeTo: closeTo || false,
       } as unknown as GrabFrameMessage);
       if (ret.status === 'OK') {
         // row 0 should be black
@@ -102,5 +103,5 @@ ipcMain.handle(
     } catch (err) {
       return { status: `${err instanceof Error ? err.message : err}` };
     }
-  }
+  },
 );

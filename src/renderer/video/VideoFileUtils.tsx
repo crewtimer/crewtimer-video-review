@@ -127,6 +127,7 @@ type VideoFrameRequest = {
   zoom?: Rect; // The zoom window, Optional.
   blend?: boolean; // Whether to blend the frame with the previous frame, Optional.
   saveAs?: string; // optional filename in which to save a png image of the frame
+  closeTo?: boolean; // Optional true to only get 'close' to the requested frame
 };
 
 let openFilename = '';
@@ -140,6 +141,7 @@ const doRequestVideoFrame = async ({
   zoom,
   blend,
   saveAs,
+  closeTo,
 }: VideoFrameRequest) => {
   if (!videoFile) {
     return;
@@ -277,6 +279,7 @@ const doRequestVideoFrame = async ({
         zoom,
         blend,
         saveAs,
+        closeTo,
       );
       if (!imageStart) {
         setImage(generateTestPattern());
@@ -336,6 +339,7 @@ function createRequestVideoFrameHandler() {
     zoom,
     blend,
     saveAs,
+    closeTo,
   }: VideoFrameRequest): Promise<void> => {
     // Start processing the request
     currentRequest = (async () => {
@@ -348,6 +352,7 @@ function createRequestVideoFrameHandler() {
         zoom,
         blend,
         saveAs,
+        closeTo,
       });
     })();
 
@@ -382,6 +387,7 @@ function createRequestVideoFrameHandler() {
     zoom,
     blend,
     saveAs,
+    closeTo,
   }: VideoFrameRequest): Promise<void> => {
     if (!getDirList().includes(videoFile)) {
       return Promise.resolve();
@@ -400,6 +406,7 @@ function createRequestVideoFrameHandler() {
             zoom,
             blend,
             saveAs,
+            closeTo,
           })
             .then(resolve)
             .catch(reject);
@@ -416,6 +423,7 @@ function createRequestVideoFrameHandler() {
       zoom,
       blend,
       saveAs,
+      closeTo,
     });
   };
 
@@ -571,6 +579,7 @@ export const seekToTimestamp = (timestamp: string, fromClick?: boolean) => {
       toTimestamp: timestamp,
       blend: true,
       saveAs: '',
+      closeTo: false,
     }).catch(showErrorDialog);
   }
 };

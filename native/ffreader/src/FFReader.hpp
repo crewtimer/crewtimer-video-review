@@ -1,6 +1,7 @@
 #include <string>
 
-extern "C" {
+extern "C"
+{
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
@@ -9,7 +10,8 @@ extern "C" {
 // This class heavily leveraged from
 // https://github.com/opencv/opencv/blob/a8ec6586118c3f8e8f48549a85f2da7a5b78bcc9/modules/videoio/src/cap_ffmpeg_impl.hpp#L1473
 
-class FFVideoReader {
+class FFVideoReader
+{
   AVFormatContext *formatContext;
   AVCodecContext *codecContext;
   SwsContext *swsContext;
@@ -37,6 +39,6 @@ public:
   void closeFile(void);
   double getFps(void) const;
   int64_t getTotalFrames() const;
-  AVFrame *seekToFrame(int64_t frameNumber);
-  const AVFrame *getRGBAFrame(int64_t frameNumber);
+  AVFrame *seekToFrame(int64_t frameNumber, bool closeTo = false);
+  const AVFrame *getRGBAFrame(int64_t frameNumber, bool closeTo = false);
 };

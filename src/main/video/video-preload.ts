@@ -36,7 +36,8 @@ contextBridge.exposeInMainWorld('VideoUtils', {
     utcMilli: number,
     zoom?: Rect,
     blend?: boolean,
-    saveAs?: string
+    saveAs?: string,
+    closeTo?: boolean,
   ) => {
     try {
       const result = (await ipcRenderer.invoke(
@@ -46,7 +47,8 @@ contextBridge.exposeInMainWorld('VideoUtils', {
         utcMilli,
         zoom,
         blend,
-        saveAs
+        saveAs,
+        closeTo,
       )) as AppImage;
       if (result.status !== 'OK') {
         throw new Error(result.status);
@@ -62,7 +64,7 @@ contextBridge.exposeInMainWorld('VideoUtils', {
         'video:sendMulticast',
         msg,
         dest,
-        port
+        port,
       );
       if (result.status !== 'OK') {
         throw new Error(result.status);

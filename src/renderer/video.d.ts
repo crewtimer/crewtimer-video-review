@@ -13,6 +13,7 @@ declare global {
         zoom?: Rect,
         blend?: boolean,
         saveAs?: String,
+        closeTo?: boolean,
       ): Promise<AppImage>;
       sendMulticast(
         msg: string,

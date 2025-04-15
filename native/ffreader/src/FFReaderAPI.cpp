@@ -4,7 +4,8 @@
 #include <napi.h>
 #include <node.h>
 
-extern "C" {
+extern "C"
+{
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
@@ -31,10 +32,12 @@ static int debugLevel = 0;
  * @return The extracted timestamp in milliseconds
  */
 uint64_t extractTimestampFromFrame(const std::vector<uint8_t> &image, int row,
-                                   int width) {
+                                   int width)
+{
   uint64_t number = 0; // Initialize the 64-bit number
 
-  for (int col = 0; col < 64; col++) {
+  for (int col = 0; col < 64; col++)
+  {
     const uint8_t pixel1 =
         image[4 *
               (row * width + col * 2)]; // Get the pixel at the current column
@@ -47,10 +50,14 @@ uint64_t extractTimestampFromFrame(const std::vector<uint8_t> &image, int row,
     number = (number << 1) | bit;
   }
 
-  if (row == 0) {
-    if (number == 0) {
+  if (row == 0)
+  {
+    if (number == 0)
+    {
       return extractTimestampFromFrame(image, row + 1, width);
-    } else {
+    }
+    else
+    {
       return 0;
     }
   }
@@ -60,25 +67,30 @@ uint64_t extractTimestampFromFrame(const std::vector<uint8_t> &image, int row,
 
 static std::shared_ptr<FrameInfo>
 getFrame(const std::unique_ptr<FFVideoReader> &ffreader,
-         const std::string &filename, double frameNum) {
-  auto key = formatKey(filename, frameNum, false, {0, 0, 0, 0});
+         const std::string &filename, double frameNum, bool closeTo = false)
+{
+  auto key = formatKey(filename, frameNum, false, {0, 0, 0, 0}, closeTo);
   auto frame = frameInfoList.getFrame(key);
-  if (frame == nullptr) {
+  if (frame == nullptr)
+  {
     // std::cout << "Reading frame: " << key << " frameNum: " << frameNum
     //           << std::endl;
-    auto rgbaFrame = ffreader->getRGBAFrame(frameNum);
-    if (!rgbaFrame) {
+    auto rgbaFrame = ffreader->getRGBAFrame(frameNum, closeTo);
+    if (!rgbaFrame)
+    {
       return nullptr;
     }
     auto totalBytes = rgbaFrame->height * rgbaFrame->width * 4;
     auto linesize = rgbaFrame->linesize[0];
     auto pixbytes = rgbaFrame->width * 4;
-    if (pixbytes != linesize) {
+    if (pixbytes != linesize)
+    {
       // remove extra bytes at the end of each frame line as
       // the html canvas expects compacted data
       uint8_t *destdata = rgbaFrame->data[0] + pixbytes;
       uint8_t *srcdata = rgbaFrame->data[0] + linesize;
-      for (int i = 1; i < rgbaFrame->height; i++) {
+      for (int i = 1; i < rgbaFrame->height; i++)
+      {
         memcpy(destdata, srcdata, pixbytes);
         destdata += pixbytes;
         srcdata += linesize;
@@ -86,7 +98,7 @@ getFrame(const std::unique_ptr<FFVideoReader> &ffreader,
     }
 
     // Add Frame to cache
-    frame = std::make_shared<FrameInfo>(frameNum, filename);
+    frame = std::make_shared<FrameInfo>(frameNum, filename, closeTo);
     frame->width = rgbaFrame->width;
     frame->height = rgbaFrame->height;
     frame->fps = ffreader->getFps();
@@ -102,7 +114,8 @@ getFrame(const std::unique_ptr<FFVideoReader> &ffreader,
         (5000 + timestamp100ns) / 10000; // Round 64-bit number to milliseconds
     auto tsMicro = (5 + timestamp100ns) / 10;
 
-    if (tsMicro == 0) {
+    if (tsMicro == 0)
+    {
       tsMilli = uint64_t(0.5 + ((frameNum - 1) * 1000) / (frame->fps));
     }
     frame->tsMicro = tsMicro;
@@ -112,39 +125,46 @@ getFrame(const std::unique_ptr<FFVideoReader> &ffreader,
   return frame;
 }
 
-Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
+Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
+{
   // std::cerr << "nativeVideoExecutor add-on" << std::endl;
 
   Napi::Env env = info.Env();
   Napi::Object ret = Napi::Object::New(env);
   ret.Set("status", Napi::String::New(env, "OK"));
-  if (info.Length() < 1) {
+  if (info.Length() < 1)
+  {
     Napi::TypeError::New(env, "Wrong number of arguments")
         .ThrowAsJavaScriptException();
     return ret;
   }
 
   auto args = info[0].As<Napi::Object>();
-  if (!args.Has("op")) {
+  if (!args.Has("op"))
+  {
     Napi::TypeError::New(env, "Missing op field").ThrowAsJavaScriptException();
     return ret;
   }
 
   auto op = args.Get("op").As<Napi::String>().Utf8Value();
 
-  if (op == "debug") {
+  if (op == "debug")
+  {
     debugLevel = args.Get("debugLevel").As<Napi::Number>().Int32Value();
   }
 
-  if (op == "closeFile") {
-    if (!args.Has("file")) {
+  if (op == "closeFile")
+  {
+    if (!args.Has("file"))
+    {
       Napi::TypeError::New(env, "Missing file field")
           .ThrowAsJavaScriptException();
       return ret;
     }
     auto file = args.Get("file").As<Napi::String>().Utf8Value();
     auto ffreader = videoReaders.find(file);
-    if (ffreader == videoReaders.end()) {
+    if (ffreader == videoReaders.end())
+    {
       std::cerr << "File not open opening " << file << std::endl;
       Napi::TypeError::New(env, "File not open").ThrowAsJavaScriptException();
       return ret;
@@ -154,22 +174,26 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
     return ret;
   }
 
-  if (op == "openFile") {
-    if (!args.Has("file")) {
+  if (op == "openFile")
+  {
+    if (!args.Has("file"))
+    {
       Napi::TypeError::New(env, "Missing file field")
           .ThrowAsJavaScriptException();
       return ret;
     }
     auto file = args.Get("file").As<Napi::String>().Utf8Value();
 
-    if (videoReaders.count(file)) {
+    if (videoReaders.count(file))
+    {
       // std::cerr << "File already open, using existing file" << std::endl;
       ret.Set("status", Napi::String::New(env, "OK"));
       return ret;
     }
     std::unique_ptr<FFVideoReader> ffreader(new FFVideoReader());
     auto error = ffreader->openFile(file);
-    if (error) {
+    if (error)
+    {
       Napi::TypeError::New(env, "Failed to open file")
           .ThrowAsJavaScriptException();
       return ret;
@@ -179,13 +203,16 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
     return ret;
   }
 
-  if (op == "grabFrameAt") {
-    if (!args.Has("frameNum")) {
+  if (op == "grabFrameAt")
+  {
+    if (!args.Has("frameNum"))
+    {
       Napi::TypeError::New(env, "Missing frameNum field")
           .ThrowAsJavaScriptException();
       return ret;
     }
-    if (!args.Has("file")) {
+    if (!args.Has("file"))
+    {
       Napi::TypeError::New(env, "Missing file field")
           .ThrowAsJavaScriptException();
       return ret;
@@ -194,55 +221,67 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
     auto frameNum = args.Get("frameNum").As<Napi::Number>().DoubleValue();
     auto tsMilli = args.Get("tsMilli").As<Napi::Number>().Int64Value();
     auto ffreader = videoReaders.find(file);
-    if (ffreader == videoReaders.end()) {
+    if (ffreader == videoReaders.end())
+    {
       std::cerr << "File not open opening " << file << std::endl;
       Napi::TypeError::New(env, "File not open").ThrowAsJavaScriptException();
       return ret;
     }
     auto roi = noZoom;
     std::string saveAs;
-    if (args.Has("saveAs")) {
+    if (args.Has("saveAs"))
+    {
       saveAs = args.Get("saveAs").As<Napi::String>().Utf8Value();
-      if (debugLevel > 1) {
+      if (debugLevel > 1)
+      {
         std::cout << "saveAs: " << saveAs << std::endl;
       }
     }
 
-    if (args.Has("zoom")) {
+    if (args.Has("zoom"))
+    {
       auto zoom = args.Get("zoom").As<Napi::Object>();
       auto x = zoom.Get("x").As<Napi::Number>().Int32Value();
       auto y = zoom.Get("y").As<Napi::Number>().Int32Value();
       auto zwidth = zoom.Get("width").As<Napi::Number>().Int32Value();
       auto zheight = zoom.Get("height").As<Napi::Number>().Int32Value();
       roi = {x, y, zwidth, zheight};
-      if (debugLevel > 1) {
+      if (debugLevel > 1)
+      {
         std::cout << "roi: " << roi.x << "," << roi.y << " " << roi.width << "x"
                   << roi.height << std::endl;
       }
     }
     auto blend =
         args.Has("blend") && args.Get("blend").As<Napi::Boolean>().Value();
+    auto closeTo =
+        args.Has("closeTo") && args.Get("closeTo").As<Napi::Boolean>().Value();
 
     auto hasZoom =
         (roi.width > 0) && (roi.height > 0) && ((roi.x > 0 || roi.y > 0));
 
-    auto key = formatKey(file, frameNum, hasZoom, roi);
+    auto key = formatKey(file, frameNum, hasZoom, roi, closeTo);
     auto frameInfo = frameInfoList.getFrame(key);
-    if (!frameInfo) {
+    if (!frameInfo)
+    {
       // Nothing in cache, generate a new result
       auto intPart = static_cast<int>(frameNum);
       double fractionalPart = frameNum - intPart; // Extract fractional part
       auto fractionalFrame =
           ((fractionalPart > 0.01) && (fractionalPart < 0.99));
-      if (!fractionalFrame) {
+      if (!fractionalFrame)
+      {
         intPart = std::round(
             frameNum); // ensure a frameNum like 123.9999 ends up 124.
       }
-      if (fractionalFrame) {
+      if (fractionalFrame)
+      {
         auto frameA = getFrame(ffreader->second, file, intPart);
         auto frameB = getFrame(ffreader->second, file, intPart + 1);
-        if (frameA && frameB) {
-          if (tsMilli) {
+        if (frameA && frameB)
+        {
+          if (tsMilli)
+          {
             // refine the fractional part now that we know the exact frame times
             // involved.
             fractionalPart = double(tsMilli * 1000 - frameA->tsMicro) /
@@ -253,12 +292,14 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
             // std::cout << tsMilli << std::endl
             //           << frameA->tsMicro << std::endl
             //           << frameB->tsMicro << std::endl;
-            if (std::abs(fractionalPart) >= 1.0) {
+            if (std::abs(fractionalPart) >= 1.0)
+            {
               std::cout << "Restricting fractional part to 1.0" << std::endl;
               fractionalPart = 0;
             }
           }
-          if (!hasZoom) {
+          if (!hasZoom)
+          {
             // std::cout << "restricting roi"
             //           << " roi width=" << roi.width << std::endl;
             // Use a slice around the center
@@ -271,17 +312,20 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
           roi.height = std::min(roi.height, frameA->height);
           roi.x = std::max(0, roi.x);
           roi.y = std::max(0, roi.y);
-          if (roi.x + roi.width > frameA->width) {
+          if (roi.x + roi.width > frameA->width)
+          {
             roi.x = frameA->width - roi.width;
           }
-          if (roi.y + roi.height > frameA->height) {
+          if (roi.y + roi.height > frameA->height)
+          {
             roi.y = frameA->height - roi.height;
           }
 
           // std::cout << "A framenum=" << frameA->frameNum
           //           << " B framenum=" << frameB->frameNum
           //           << " frac=" << fractionalPart << std::endl;
-          if (debugLevel) {
+          if (debugLevel)
+          {
             std::cout << __FILE__ << ":" << __LINE__
                       << " Generating interpolated frame at " << fractionalPart
                       << "% zoom=" << (hasZoom ? "true" : "false")
@@ -291,7 +335,9 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
                                                 roi, blend);
           frameA->motion = frameInfo->motion;
           frameA->roi = frameInfo->roi;
-        } else {
+        }
+        else
+        {
           std::cerr << "Failed to grab frames " << file << ": " << intPart
                     << " and " << intPart + 1 << std::endl;
           // Make a copy for cache purposes
@@ -301,17 +347,23 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
         }
         frameInfo->key = key;
         frameInfoList.addFrame(frameInfo);
-      } else {
-        frameInfo = getFrame(ffreader->second, file, intPart);
-        if (frameInfo) {
-          if (hasZoom) {
+      }
+      else
+      {
+        frameInfo = getFrame(ffreader->second, file, intPart, closeTo);
+        if (frameInfo)
+        {
+          if (hasZoom)
+          {
             frameInfo = std::make_shared<FrameInfo>(*frameInfo);
             frameInfo->data =
                 std::make_shared<std::vector<uint8_t>>(*(frameInfo->data));
             frameInfo->key = key;
             frameInfoList.addFrame(frameInfo);
           }
-        } else {
+        }
+        else
+        {
           std::string msg = "Failed to grab frame " + std::to_string(frameNum);
           std::cerr << msg << std::endl;
           Napi::TypeError::New(env, msg.c_str()).ThrowAsJavaScriptException();
@@ -323,7 +375,8 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
       // }
     }
 
-    if (!saveAs.empty()) {
+    if (!saveAs.empty())
+    {
       saveFrameAsPNG(frameInfo, saveAs);
     }
 
@@ -346,25 +399,30 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
     motion.Set("valid", Napi::Boolean::New(env, frameInfo->motion.valid));
     ret.Set("motion", motion);
 
-    if (debugLevel > 1) {
+    if (debugLevel > 1)
+    {
       std::cout << "Grabbed frame: " << frameNum << " WxH=" << frameInfo->width
                 << "x" << frameInfo->height << std::endl;
     }
     return ret;
   }
 
-  if (op == "sendMulticast") {
-    if (!args.Has("dest")) {
+  if (op == "sendMulticast")
+  {
+    if (!args.Has("dest"))
+    {
       Napi::TypeError::New(env, "Missing dest ip field")
           .ThrowAsJavaScriptException();
       return ret;
     }
-    if (!args.Has("port")) {
+    if (!args.Has("port"))
+    {
       Napi::TypeError::New(env, "Missing port field")
           .ThrowAsJavaScriptException();
       return ret;
     }
-    if (!args.Has("msg")) {
+    if (!args.Has("msg"))
+    {
       Napi::TypeError::New(env, "Missing msg field")
           .ThrowAsJavaScriptException();
       return ret;
@@ -374,9 +432,12 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
     auto msg = args.Get("msg").As<Napi::String>().Utf8Value();
 
     auto error = sendMulticast(msg, dest, port);
-    if (error == 0) {
+    if (error == 0)
+    {
       ret.Set("status", Napi::String::New(env, "OK"));
-    } else {
+    }
+    else
+    {
       ret.Set("status", Napi::String::New(env, "Failed"));
     }
     return ret;
@@ -389,7 +450,8 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info) {
 }
 
 // Initialize the addon
-Napi::Object Init(Napi::Env env, Napi::Object exports) {
+Napi::Object Init(Napi::Env env, Napi::Object exports)
+{
   exports.Set(Napi::String::New(env, "nativeVideoExecutor"),
               Napi::Function::New(env, nativeVideoExecutor));
 

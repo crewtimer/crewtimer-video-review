@@ -7,21 +7,24 @@
 #include <string>
 #include <vector>
 
-struct ImageMotion {
+struct ImageMotion
+{
   double x;
   double y;
   uint64_t dt;
   bool valid;
 };
 
-struct FrameRect {
+struct FrameRect
+{
   int x;
   int y;
   int width;
   int height;
 
   // Overload the == operator
-  bool operator==(const FrameRect &other) const {
+  bool operator==(const FrameRect &other) const
+  {
     return x == other.x && y == other.y && width == other.width &&
            height == other.height;
   }
@@ -30,14 +33,16 @@ struct FrameRect {
   bool operator!=(const FrameRect &other) const { return !(*this == other); }
 
   // Overload the << operator for easy printing
-  friend std::ostream &operator<<(std::ostream &os, const FrameRect &rect) {
+  friend std::ostream &operator<<(std::ostream &os, const FrameRect &rect)
+  {
     os << "(x: " << rect.x << ", y: " << rect.y << ", " << rect.width << "x"
        << rect.height << ")";
     return os;
   }
 };
 
-struct InterpResult {
+struct InterpResult
+{
   std::shared_ptr<class FrameInfo> blendedFrame;
   std::shared_ptr<class FrameInfo> shiftedFrame;
 };
@@ -50,13 +55,16 @@ struct InterpResult {
  * @param frameNum The frame number.
  * @param hasZoom The frame will have zoom applied.
  * @param roi Zoom region of interest (if hasZoom)
+ * @param closeTo True if only a 'get close' seek is used
  * @return A formatted string combining the file and frame number.
  */
 inline std::string formatKey(const std::string &file, float frameNum,
-                             bool hasZoom, FrameRect roi) {
+                             bool hasZoom, FrameRect roi, bool closeTo)
+{
   std::ostringstream oss;
-  oss << file << "-" << std::fixed << std::setprecision(6) << frameNum;
-  if (hasZoom) {
+  oss << file << "-" << std::fixed << std::setprecision(6) << frameNum << (closeTo ? "-true" : "-false");
+  if (hasZoom)
+  {
     oss << "-" << roi.x << "-" << roi.y << "-" << roi.width << "-"
         << roi.height;
   }
@@ -69,7 +77,8 @@ inline std::string formatKey(const std::string &file, float frameNum,
  * @class FrameInfo
  * @brief A class to store information about a video frame.
  */
-class FrameInfo {
+class FrameInfo
+{
 public:
   float frameNum;  ///< The frame number.
   int numFrames;   ///< The total number of frames.
@@ -95,9 +104,10 @@ public:
    * @param frameNum The frame number.
    * @param file The file associated with the frame.
    */
-  FrameInfo(int frameNum, const std::string &file)
-      : frameNum(frameNum), file(file) {
-    key = formatKey(file, frameNum, false, {0, 0, 0, 0});
+  FrameInfo(int frameNum, const std::string &file, bool closeTo)
+      : frameNum(frameNum), file(file)
+  {
+    key = formatKey(file, frameNum, false, {0, 0, 0, 0}, closeTo);
   }
 };
 
@@ -105,7 +115,8 @@ public:
  * @class FrameInfoList
  * @brief A class to manage a list of FrameInfo objects with a maximum size.
  */
-class FrameInfoList {
+class FrameInfoList
+{
 private:
   std::list<std::shared_ptr<FrameInfo>>
       frameList;             ///< List of FrameInfo objects.
@@ -117,15 +128,20 @@ public:
    * updated. If the list is full, the oldest frame is removed.
    * @param frame Shared pointer to the FrameInfo object to be added.
    */
-  void addFrame(const std::shared_ptr<FrameInfo> &frame) {
+  void addFrame(const std::shared_ptr<FrameInfo> &frame)
+  {
     // Check if frame is already in the list and remove it
     auto it = std::find_if(frameList.begin(), frameList.end(),
-                           [&frame](const std::shared_ptr<FrameInfo> &f) {
+                           [&frame](const std::shared_ptr<FrameInfo> &f)
+                           {
                              return f->key == frame->key;
                            });
-    if (it != frameList.end()) {
+    if (it != frameList.end())
+    {
       frameList.erase(it);
-    } else if (frameList.size() >= maxSize) {
+    }
+    else if (frameList.size() >= maxSize)
+    {
       frameList.pop_back();
     }
 
@@ -137,11 +153,14 @@ public:
    * @param key The key of the frame to retrieve.
    * @return Shared pointer to the FrameInfo object, or nullptr if not found.
    */
-  std::shared_ptr<FrameInfo> getFrame(const std::string &key) {
+  std::shared_ptr<FrameInfo> getFrame(const std::string &key)
+  {
     auto it = std::find_if(
         frameList.begin(), frameList.end(),
-        [&key](const std::shared_ptr<FrameInfo> &f) { return f->key == key; });
-    if (it != frameList.end()) {
+        [&key](const std::shared_ptr<FrameInfo> &f)
+        { return f->key == key; });
+    if (it != frameList.end())
+    {
       return *it;
     }
     return nullptr;

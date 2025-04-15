@@ -1,6 +1,7 @@
 #include "FFReader.hpp"
 
-extern "C" {
+extern "C"
+{
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
@@ -28,11 +29,13 @@ constexpr static size_t max_read_attempts = 4096;
 constexpr static size_t max_decode_attempts = 64;
 constexpr static double eps_zero = 0.000025;
 
-static double inline r2d(AVRational r) {
+static double inline r2d(AVRational r)
+{
   return r.num == 0 || r.den == 0 ? 0. : (double)r.num / (double)r.den;
 }
 
-FFVideoReader::FFVideoReader() {
+FFVideoReader::FFVideoReader()
+{
   formatContext = nullptr;
   codecContext = nullptr;
   swsContext = nullptr;
@@ -44,24 +47,29 @@ FFVideoReader::FFVideoReader() {
 
 FFVideoReader::~FFVideoReader() { closeFile(); }
 
-void FFVideoReader::closeFile(void) {
+void FFVideoReader::closeFile(void)
+{
   if (packet)
     av_packet_free(&packet);
   if (frame)
     av_frame_free(&frame);
 
-  if (formatContext) {
+  if (formatContext)
+  {
     avformat_close_input(&formatContext);
     avformat_free_context(formatContext);
   }
-  if (codecContext) {
+  if (codecContext)
+  {
     avcodec_close(codecContext);
     avcodec_free_context(&codecContext);
   }
-  if (swsContext) {
+  if (swsContext)
+  {
     sws_freeContext(swsContext);
   }
-  if (rgbaFrame) {
+  if (rgbaFrame)
+  {
     av_frame_free(&rgbaFrame);
   }
   formatContext = nullptr;
@@ -76,19 +84,23 @@ void FFVideoReader::closeFile(void) {
   firstFrameNumber = -1;
 }
 
-double FFVideoReader::dts_to_sec(int64_t dts) const {
+double FFVideoReader::dts_to_sec(int64_t dts) const
+{
   return (double)(dts - formatContext->streams[videoStreamIndex]->start_time) *
          r2d(formatContext->streams[videoStreamIndex]->time_base);
 }
-int64_t FFVideoReader::dts_to_frame_number(int64_t dts) const {
+int64_t FFVideoReader::dts_to_frame_number(int64_t dts) const
+{
   double sec = dts_to_sec(dts);
   return (int64_t)(getFps() * sec + 0.5);
 }
 
-double FFVideoReader::getDurationSec() const {
+double FFVideoReader::getDurationSec() const
+{
   double sec = (double)formatContext->duration / (double)AV_TIME_BASE;
 
-  if (sec < eps_zero) {
+  if (sec < eps_zero)
+  {
     sec = (double)formatContext->streams[videoStreamIndex]->duration *
           r2d(formatContext->streams[videoStreamIndex]->time_base);
   }
@@ -96,30 +108,36 @@ double FFVideoReader::getDurationSec() const {
   return sec;
 }
 
-int64_t FFVideoReader::getTotalFrames() const {
+int64_t FFVideoReader::getTotalFrames() const
+{
   int64_t nbf = formatContext->streams[videoStreamIndex]->nb_frames;
 
-  if (nbf == 0) {
+  if (nbf == 0)
+  {
     nbf = (int64_t)floor(getDurationSec() * getFps() + 0.5);
   }
   return nbf;
 }
-double FFVideoReader::getFps(void) const {
+double FFVideoReader::getFps(void) const
+{
   double fps = r2d(formatContext->streams[videoStreamIndex]->r_frame_rate);
 
-  if (fps < eps_zero) {
+  if (fps < eps_zero)
+  {
     fps = r2d(av_guess_frame_rate(
         formatContext, formatContext->streams[videoStreamIndex], NULL));
   }
 
-  if (fps < eps_zero) {
+  if (fps < eps_zero)
+  {
     fps = 1.0 / r2d(formatContext->streams[videoStreamIndex]->time_base);
   }
 
   return fps;
 }
 
-int FFVideoReader::openFile(const std::string filename) {
+int FFVideoReader::openFile(const std::string filename)
+{
   // av_log_set_level(AV_LOG_DEBUG);
   closeFile();
   packet = av_packet_alloc();
@@ -127,7 +145,8 @@ int FFVideoReader::openFile(const std::string filename) {
   formatContext = avformat_alloc_context();
   int ret =
       avformat_open_input(&formatContext, filename.c_str(), nullptr, nullptr);
-  if (ret != 0) {
+  if (ret != 0)
+  {
     avformat_free_context(formatContext);
     formatContext = nullptr;
     char err[160];
@@ -137,20 +156,24 @@ int FFVideoReader::openFile(const std::string filename) {
     return -1;
   }
 
-  if (avformat_find_stream_info(formatContext, nullptr) < 0) {
+  if (avformat_find_stream_info(formatContext, nullptr) < 0)
+  {
     std::cerr << "Error: Couldn't find stream information\n";
     return -1;
   }
 
   videoStreamIndex = -1;
-  for (unsigned int i = 0; i < formatContext->nb_streams; i++) {
-    if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+  for (unsigned int i = 0; i < formatContext->nb_streams; i++)
+  {
+    if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
+    {
       videoStreamIndex = i;
       break;
     }
   }
 
-  if (videoStreamIndex == -1) {
+  if (videoStreamIndex == -1)
+  {
     std::cerr << "Error: Couldn't find a video stream\n";
     return -1;
   }
@@ -170,30 +193,36 @@ int FFVideoReader::openFile(const std::string filename) {
   return firstFrame ? 0 : -1;
 }
 
-AVFrame *FFVideoReader::grabFrame() {
+AVFrame *FFVideoReader::grabFrame()
+{
   size_t cur_read_attempts = 0;
   size_t cur_decode_attempts = 0;
-  if (avcodec_receive_frame(codecContext, frame) == 0) {
+  if (avcodec_receive_frame(codecContext, frame) == 0)
+  {
     return frame;
   }
   picture_pts = AV_NOPTS_VALUE_;
   auto valid = false;
-  while (!valid) {
+  while (!valid)
+  {
     av_packet_unref(packet);
 
     auto ret = av_read_frame(formatContext, packet);
     if (ret == AVERROR(EAGAIN))
       continue;
 
-    if (ret == AVERROR_EOF) {
+    if (ret == AVERROR_EOF)
+    {
       // flush cached frames from video decoder
       packet->data = NULL;
       packet->size = 0;
       packet->stream_index = videoStreamIndex;
     }
-    if (packet->stream_index != videoStreamIndex) {
+    if (packet->stream_index != videoStreamIndex)
+    {
       av_packet_unref(packet);
-      if (++cur_read_attempts > max_read_attempts) {
+      if (++cur_read_attempts > max_read_attempts)
+      {
         std::cerr << "packet read max attempts exceeded, if your video have "
                      "multiple streams (video, audio) try to increase attempt "
                      "limit "
@@ -205,17 +234,24 @@ AVFrame *FFVideoReader::grabFrame() {
     }
 
     // Decode video frame
-    if (avcodec_send_packet(codecContext, packet) < 0) {
+    if (avcodec_send_packet(codecContext, packet) < 0)
+    {
       break;
     }
     ret = avcodec_receive_frame(codecContext, frame);
 
-    if (ret >= 0) {
+    if (ret >= 0)
+    {
       valid = true;
-    } else if (ret == AVERROR(EAGAIN)) {
+    }
+    else if (ret == AVERROR(EAGAIN))
+    {
       continue;
-    } else {
-      if (++cur_decode_attempts > max_decode_attempts) {
+    }
+    else
+    {
+      if (++cur_decode_attempts > max_decode_attempts)
+      {
         std::cerr << "frame decode max attempts exceeded, try to increase "
                      "attempt limit"
                      "(current value is "
@@ -225,8 +261,10 @@ AVFrame *FFVideoReader::grabFrame() {
     }
   }
 
-  if (valid) {
-    if (picture_pts == AV_NOPTS_VALUE_) {
+  if (valid)
+  {
+    if (picture_pts == AV_NOPTS_VALUE_)
+    {
 
       picture_pts = packet->pts != AV_NOPTS_VALUE_ && packet->pts != 0
                         ? packet->pts
@@ -242,82 +280,131 @@ AVFrame *FFVideoReader::grabFrame() {
   return valid ? frame : nullptr;
 }
 
-AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber) {
-
+/**
+ * @brief Seeks to a specific frame number in the video stream.
+ *
+ * This method attempts to position the reader at the specified frame number.
+ * Due to the limitations of FFmpeg's seeking (which typically seeks to the nearest
+ * preceding keyframe), the function uses a backoff strategy controlled by the `delta`
+ * variable to seek slightly earlier than the desired frame and then decode forward
+ * until the requested frame is reached.
+ *
+ * The method adaptively increases `delta` (the number of frames to seek backward)
+ * if the initially guessed seek position is not close enough to decode to the
+ * desired frame. This makes seeking more robust, especially for formats like H.264
+ * that are not easily frame-seekable.
+ *
+ * @param frameNumber The target frame number to seek to.
+ * @param closeTo If true, performs only the initial seek to a nearby keyframe
+ *                and does not decode forward to the exact frame. Useful for fast
+ *                scrubbing (e.g., scroll bar previews).
+ * @return A pointer to the AVFrame at or near the desired frame number,
+ *         or nullptr if seeking fails.
+ *
+ * @note The function may decode multiple frames in order to reach the exact frame.
+ *       It also sets internal state such as `currentFrameNumber` and `picture_pts`.
+ */
+AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
+{
   frameNumber = std::min(frameNumber, getTotalFrames());
-  if (frameNumber == currentFrameNumber) {
+  if (frameNumber == currentFrameNumber)
+  {
     return frame;
   }
+
   int delta = 16;
 
   // if we have not grabbed a single frame before first seek, let's read the
   // first frame and get some valuable information during the process
-  if (firstFrameNumber < 0 && getTotalFrames() > 1) {
+  if (firstFrameNumber < 0 && getTotalFrames() > 1)
+  {
     auto res = grabFrame();
-    if (!res) {
+    if (!res)
+    {
       return nullptr;
     }
   }
 
   auto fps = getFps();
 
-  for (;;) {
+  for (;;)
+  {
     int64_t _frame_number_temp = std::max(frameNumber - delta, (int64_t)0);
     double sec = (double)_frame_number_temp / fps;
     int64_t time_stamp = formatContext->streams[videoStreamIndex]->start_time;
     double time_base = r2d(formatContext->streams[videoStreamIndex]->time_base);
     time_stamp += (int64_t)(sec / time_base + 0.5);
+
     if (getTotalFrames() > 1)
-      av_seek_frame(formatContext, videoStreamIndex, time_stamp,
-                    AVSEEK_FLAG_BACKWARD);
+      av_seek_frame(formatContext, videoStreamIndex, time_stamp, AVSEEK_FLAG_BACKWARD);
     avcodec_flush_buffers(codecContext);
-    if (frameNumber > 0) {
+
+    if (frameNumber > 0)
+    {
       auto res = grabFrame();
-      if (!res) {
+      if (!res)
+      {
         return nullptr;
       }
 
-      if (frameNumber > 1) {
-        currentFrameNumber =
-            dts_to_frame_number(picture_pts) - firstFrameNumber;
+      if (closeTo)
+      {
+        // Don't decode forward — just stop here
+        currentFrameNumber = dts_to_frame_number(picture_pts) - firstFrameNumber;
+        return frame;
+      }
 
-        // printf("_frame_number = %d, frame_number = %d, delta = %d\n",
-        //       (int)_frame_number, (int)frame_number, delta);
+      if (frameNumber > 1)
+      {
+        currentFrameNumber = dts_to_frame_number(picture_pts) - firstFrameNumber;
 
-        if (currentFrameNumber < 0 || currentFrameNumber > frameNumber - 1) {
+        if (currentFrameNumber < 0 || currentFrameNumber > frameNumber - 1)
+        {
           if (_frame_number_temp == 0 || delta >= INT_MAX / 4)
             break;
           delta = delta < 16 ? delta * 2 : delta * 3 / 2;
           continue;
         }
-        while (currentFrameNumber < frameNumber - 1) {
-          if (!grabFrame()) {
+
+        while (currentFrameNumber < frameNumber - 1)
+        {
+          if (!grabFrame())
+          {
             return nullptr;
           }
         }
+
         currentFrameNumber++;
         break;
-      } else {
+      }
+      else
+      {
         currentFrameNumber = 1;
         break;
       }
-    } else {
+    }
+    else
+    {
       currentFrameNumber = 0;
       break;
     }
   }
+
   return frame;
 }
 
 // Function to convert an AVFrame to RGBA
-const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame) {
+const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame)
+{
   // Create a context for the conversion if it doesn't exist
-  if (!swsContext) {
+  if (!swsContext)
+  {
     swsContext = sws_getContext(
         frame->width, frame->height, (AVPixelFormat)frame->format, // Source
-        frame->width, frame->height, AV_PIX_FMT_RGBA, // Destination
+        frame->width, frame->height, AV_PIX_FMT_RGBA,              // Destination
         SWS_BILINEAR, nullptr, nullptr, nullptr);
-    if (!swsContext) {
+    if (!swsContext)
+    {
       std::cerr << "Could not initialize the conversion context!" << std::endl;
       return nullptr;
     }
@@ -325,13 +412,16 @@ const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame) {
 
   // Allocate memory for the output frame
   if (!rgbaFrame || frame->width != rgbaFrame->width ||
-      frame->height != rgbaFrame->height) {
-    if (rgbaFrame) {
+      frame->height != rgbaFrame->height)
+  {
+    if (rgbaFrame)
+    {
       av_frame_free(&rgbaFrame);
       rgbaFrame = nullptr;
     }
     rgbaFrame = av_frame_alloc();
-    if (!rgbaFrame) {
+    if (!rgbaFrame)
+    {
       std::cerr << "Could not allocate memory for RGBA frame!" << std::endl;
       return nullptr;
     }
@@ -341,7 +431,8 @@ const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame) {
     (rgbaFrame)->height = frame->height;
 
     // Allocate the buffers for the frame data
-    if (av_frame_get_buffer(rgbaFrame, 32) < 0) {
+    if (av_frame_get_buffer(rgbaFrame, 32) < 0)
+    {
       std::cerr << "Could not allocate frame data!" << std::endl;
       av_frame_free(&rgbaFrame);
       rgbaFrame = nullptr;
@@ -358,13 +449,15 @@ const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame) {
   return rgbaFrame;
 }
 
-const AVFrame *FFVideoReader::getRGBAFrame(int64_t frameNumber) {
+const AVFrame *FFVideoReader::getRGBAFrame(int64_t frameNumber, bool closeTo)
+{
   // std::cout << "getRGBAFrame: " << frameNumber << std::endl;
   if (frameNumber < 1 || frameNumber > getTotalFrames())
     return nullptr;
 
-  auto frame = seekToFrame(frameNumber);
-  if (!frame) {
+  auto frame = seekToFrame(frameNumber, closeTo);
+  if (!frame)
+  {
     return nullptr;
   }
   return ConvertFrameToRGBA(frame);
@@ -378,15 +471,18 @@ const AVFrame *FFVideoReader::getRGBAFrame(int64_t frameNumber) {
 
 static std::map<std::string, std::unique_ptr<FFVideoReader>> videoReaders;
 
-int main(int argc, char *argv[]) {
-  if (argc < 2) {
+int main(int argc, char *argv[])
+{
+  if (argc < 2)
+  {
     std::cerr << "Usage: " << argv[0] << " <filename>\n";
     return -1;
   }
 
   const char *filename = argv[1];
 
-  if (videoReaders.count(filename)) {
+  if (videoReaders.count(filename))
+  {
     std::cerr << "File already open\n";
     return -1;
   }
@@ -397,7 +493,8 @@ int main(int argc, char *argv[]) {
 
   auto reader = new FFVideoReader();
 
-  if (reader->openFile(filename) < 0) {
+  if (reader->openFile(filename) < 0)
+  {
     std::cerr << "Error: Couldn't open video file\n";
     return -1;
   }
@@ -406,9 +503,11 @@ int main(int argc, char *argv[]) {
 
   AVFrame *frame = nullptr;
   int totalFrames = 0;
-  do {
+  do
+  {
     frame = reader->seekToFrame(totalFrames);
-    if (!frame) {
+    if (!frame)
+    {
       std::cerr << "Error: Couldn't seek to frame " << totalFrames << std::endl;
       break;
     }
@@ -425,11 +524,13 @@ int main(int argc, char *argv[]) {
   reader->openFile(filename);
   reader->getRGBAFrame(10);
 
-  for (int i = 1; i <= 1000; i++) {
+  for (int i = 1; i <= 1000; i++)
+  {
     if (i % 100 == 0)
       std::cout << "iteration = " << i << std::endl;
     reader->openFile(filename);
-    if (!reader->getRGBAFrame(10)) {
+    if (!reader->getRGBAFrame(10))
+    {
       std::cout << "Error: Couldn't seek to frame " << i << std::endl;
       break;
     }

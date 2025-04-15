@@ -37,3 +37,4 @@ CrewTimer.db
 *.mp4
 *.mkv
 *.dSym
+.qodo
