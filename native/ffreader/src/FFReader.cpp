@@ -49,6 +49,17 @@ FFVideoReader::~FFVideoReader() { closeFile(); }
 
 void FFVideoReader::closeFile(void)
 {
+  while (recentFrames.size())
+  {
+    auto oldest = recentFrames.front();
+    av_frame_free(&oldest.second);
+    recentFrames.pop_front();
+  }
+
+  picture_pts = AV_NOPTS_VALUE_;
+  currentFrameNumber = -1;
+  firstFrameNumber = -1;
+
   if (packet)
     av_packet_free(&packet);
   if (frame)
@@ -84,17 +95,48 @@ void FFVideoReader::closeFile(void)
   firstFrameNumber = -1;
 }
 
+/**
+ * @brief Converts a given DTS (Decoding Timestamp) to seconds.
+ *
+ * This function subtracts the stream's start_time from the provided DTS
+ * and multiplies it by the stream's time base in order to convert the
+ * timestamp to a value in seconds.
+ *
+ * @param dts The Decoding Timestamp to be converted.
+ * @return The time in seconds corresponding to the given DTS.
+ */
 double FFVideoReader::dts_to_sec(int64_t dts) const
 {
   return (double)(dts - formatContext->streams[videoStreamIndex]->start_time) *
          r2d(formatContext->streams[videoStreamIndex]->time_base);
 }
+
+/**
+ * @brief Converts a given DTS to a frame number based on the current FPS.
+ *
+ * This function first converts the DTS to seconds using dts_to_sec(),
+ * then multiplies by getFps() to get the frame index. The 0.5 added before
+ * casting ensures proper rounding to the nearest integer frame.
+ *
+ * @param dts The Decoding Timestamp to be converted.
+ * @return The estimated frame number corresponding to the given DTS.
+ */
 int64_t FFVideoReader::dts_to_frame_number(int64_t dts) const
 {
   double sec = dts_to_sec(dts);
   return (int64_t)(getFps() * sec + 0.5);
 }
 
+/**
+ * @brief Retrieves the duration of the video in seconds.
+ *
+ * This function first attempts to get the duration from the
+ * AVFormatContext. If that value is invalid or too small, it
+ * falls back to the stream-specific duration multiplied by the
+ * time base of the video stream.
+ *
+ * @return The total duration of the video in seconds.
+ */
 double FFVideoReader::getDurationSec() const
 {
   double sec = (double)formatContext->duration / (double)AV_TIME_BASE;
@@ -108,6 +150,16 @@ double FFVideoReader::getDurationSec() const
   return sec;
 }
 
+/**
+ * @brief Estimates or retrieves the total number of frames in the video.
+ *
+ * This function first checks nb_frames in the video stream. If nb_frames
+ * is zero (which is common for certain codecs or container formats), the
+ * method approximates total frames by multiplying getDurationSec() and
+ * getFps().
+ *
+ * @return The estimated or reported total number of frames in the video.
+ */
 int64_t FFVideoReader::getTotalFrames() const
 {
   int64_t nbf = formatContext->streams[videoStreamIndex]->nb_frames;
@@ -118,6 +170,17 @@ int64_t FFVideoReader::getTotalFrames() const
   }
   return nbf;
 }
+
+/**
+ * @brief Retrieves or estimates the video’s frames per second (FPS).
+ *
+ * This function attempts multiple ways to determine a reliable FPS:
+ * 1. r_frame_rate from the video stream.
+ * 2. av_guess_frame_rate() if r_frame_rate is invalid.
+ * 3. The reciprocal of the stream's time_base if still invalid.
+ *
+ * @return The best-estimate FPS of the video.
+ */
 double FFVideoReader::getFps(void) const
 {
   double fps = r2d(formatContext->streams[videoStreamIndex]->r_frame_rate);
@@ -136,6 +199,20 @@ double FFVideoReader::getFps(void) const
   return fps;
 }
 
+/**
+ * @brief Opens a specified video file and prepares for decoding.
+ *
+ * This function allocates and initializes the necessary FFmpeg structures
+ * (AVPacket, AVFrame, AVFormatContext, and AVCodecContext) for the provided file.
+ * It attempts to locate and open a video stream, then discovers relevant
+ * stream information (including codec parameters). Finally, it performs
+ * an initial seek to frame 0 to prepare for subsequent frame decoding.
+ *
+ * @param filename The path to the video file to be opened.
+ * @return 0 if successful, or -1 on error (e.g., unable to open the file,
+ *         find stream information, locate a video stream, or properly
+ *         decode the first frame).
+ */
 int FFVideoReader::openFile(const std::string filename)
 {
   // av_log_set_level(AV_LOG_DEBUG);
@@ -193,91 +270,157 @@ int FFVideoReader::openFile(const std::string filename)
   return firstFrame ? 0 : -1;
 }
 
+/**
+ * @brief Decodes and returns the next video frame from the open media file.
+ *
+ * This method first checks if there is already a decoded frame waiting in the codec's internal
+ * buffer via avcodec_receive_frame(). If not, it reads packets from the format context until
+ * a valid video frame is decoded.
+ *
+ * Once a valid frame is obtained, it updates the internal timestamp (picture_pts) to either
+ * the packet's PTS or DTS (falling back to DTS if PTS is invalid). Using this timestamp, the
+ * method computes the frame index with dts_to_frame_number() and stores it in currentFrameNumber.
+ * On the very first decoded frame, firstFrameNumber is set as the zero-point for the frame index.
+ *
+ * In addition, this method deep-copies the newly decoded frame and adds it to a ring buffer
+ * (recentFrames), which can hold up to 30 frames. This buffer allows short backward seeks
+ * without needing to re-read or re-decode from an earlier keyframe.
+ *
+ * @note If no valid frame is found or decoding fails, the method returns @c nullptr.
+ * @note The ring buffer logic is optional and is primarily used to facilitate short backward seeks.
+ *
+ * @return A pointer to the newly decoded AVFrame if successful, or @c nullptr if decoding fails.
+ */
 AVFrame *FFVideoReader::grabFrame()
 {
   size_t cur_read_attempts = 0;
   size_t cur_decode_attempts = 0;
-  if (avcodec_receive_frame(codecContext, frame) == 0)
-  {
-    return frame;
-  }
-  picture_pts = AV_NOPTS_VALUE_;
-  auto valid = false;
-  while (!valid)
-  {
-    av_packet_unref(packet);
 
-    auto ret = av_read_frame(formatContext, packet);
-    if (ret == AVERROR(EAGAIN))
-      continue;
-
-    if (ret == AVERROR_EOF)
-    {
-      // flush cached frames from video decoder
-      packet->data = NULL;
-      packet->size = 0;
-      packet->stream_index = videoStreamIndex;
-    }
-    if (packet->stream_index != videoStreamIndex)
+  // First, check if the decoder already has a frame in its buffer
+  if (avcodec_receive_frame(codecContext, frame) != 0)
+  {
+    // Otherwise, read packets until we decode a valid frame
+    picture_pts = AV_NOPTS_VALUE_;
+    bool valid = false;
+    while (!valid)
     {
       av_packet_unref(packet);
-      if (++cur_read_attempts > max_read_attempts)
+
+      int ret = av_read_frame(formatContext, packet);
+      if (ret == AVERROR(EAGAIN))
+        continue;
+
+      if (ret == AVERROR_EOF)
       {
-        std::cerr << "packet read max attempts exceeded, if your video have "
-                     "multiple streams (video, audio) try to increase attempt "
-                     "limit "
-                     "(current value is "
-                  << max_read_attempts << ")" << std::endl;
+        // Flush cached frames from decoder
+        packet->data = nullptr;
+        packet->size = 0;
+        packet->stream_index = videoStreamIndex;
+      }
+
+      if (packet->stream_index != videoStreamIndex)
+      {
+        // Not our video packet, ignore it
+        av_packet_unref(packet);
+        if (++cur_read_attempts > max_read_attempts)
+        {
+          std::cerr << "packet read max attempts exceeded\n";
+          break;
+        }
+        continue;
+      }
+
+      // Send the packet to the decoder
+      if (avcodec_send_packet(codecContext, packet) < 0)
+      {
+        // Error sending
         break;
       }
-      continue;
-    }
 
-    // Decode video frame
-    if (avcodec_send_packet(codecContext, packet) < 0)
-    {
-      break;
-    }
-    ret = avcodec_receive_frame(codecContext, frame);
-
-    if (ret >= 0)
-    {
-      valid = true;
-    }
-    else if (ret == AVERROR(EAGAIN))
-    {
-      continue;
-    }
-    else
-    {
-      if (++cur_decode_attempts > max_decode_attempts)
+      // Now try to receive a decoded frame
+      ret = avcodec_receive_frame(codecContext, frame);
+      if (ret >= 0)
       {
-        std::cerr << "frame decode max attempts exceeded, try to increase "
-                     "attempt limit"
-                     "(current value is "
-                  << max_decode_attempts << ")" << std::endl;
-        break;
+        valid = true; // We got a frame
       }
+      else if (ret == AVERROR(EAGAIN))
+      {
+        // Need more packets
+        continue;
+      }
+      else
+      {
+        // Some other error
+        if (++cur_decode_attempts > max_decode_attempts)
+        {
+          std::cerr << "frame decode max attempts exceeded\n";
+          break;
+        }
+      }
+    }
+
+    // If we didn't get a valid frame, return null
+    if (!valid)
+    {
+      return nullptr;
     }
   }
 
-  if (valid)
+  // Compute the presentation timestamp if it's not yet set
+  if (picture_pts == AV_NOPTS_VALUE_)
   {
-    if (picture_pts == AV_NOPTS_VALUE_)
-    {
-
-      picture_pts = packet->pts != AV_NOPTS_VALUE_ && packet->pts != 0
-                        ? packet->pts
-                        : packet->dts;
-      currentFrameNumber++;
-    }
+    // If PTS is valid and nonzero, use that; otherwise, fall back on DTS
+    picture_pts = (packet->pts != AV_NOPTS_VALUE_ && packet->pts != 0)
+                      ? packet->pts
+                      : packet->dts;
   }
 
-  if (valid && firstFrameNumber < 0)
-    firstFrameNumber = dts_to_frame_number(picture_pts);
+  // Calculate currentFrameNumber based on DTS
 
-  // return if we have a new frame or not
-  return valid ? frame : nullptr;
+  // Set the anchor if this is our first valid frame
+  if (firstFrameNumber < 0)
+  {
+    firstFrameNumber = dts_to_frame_number(picture_pts);
+  }
+
+  currentFrameNumber = dts_to_frame_number(picture_pts) - firstFrameNumber;
+
+  // Deep-copy the newly decoded frame into our ring buffer
+  AVFrame *copy = av_frame_alloc();
+  av_frame_ref(copy, frame);
+  recentFrames.emplace_back(currentFrameNumber, copy);
+
+  // Keep the ring buffer at a maximum of 30 frames
+  while (recentFrames.size() > 30)
+  {
+    auto oldest = recentFrames.front();
+    av_frame_free(&oldest.second);
+    recentFrames.pop_front();
+  }
+
+  // std::cout << "DEBUG: Grabbed frame =>\n"
+  //           << "  packet->pts  = " << packet->pts << "\n"
+  //           << "  packet->dts  = " << packet->dts << "\n"
+  //           << "  picture_pts  = " << picture_pts << "\n"
+  //           << "  frame->pts   = " << frame->pts << "\n"
+  //           << "  currentFrameNumber = " << currentFrameNumber << "\n"
+  //           << "  firstFrameNumber   = " << firstFrameNumber << "\n"
+  //           << "  dts_to_frame_number(picture_pts) = "
+  //           << dts_to_frame_number(picture_pts) << "\n"
+  //           << "  maxFrames = " << getTotalFrames() << "\n";
+
+  // if (formatContext && formatContext->streams[videoStreamIndex])
+  // {
+  //   std::cout << "  stream start_time   = "
+  //             << formatContext->streams[videoStreamIndex]->start_time
+  //             << "\n"
+  //             << "  formatContext->start_time = "
+  //             << formatContext->start_time << "\n"
+  //             << std::endl;
+  // }
+
+  // Return the newly decoded frame
+  return frame;
 }
 
 /**
@@ -323,23 +466,37 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
     }
   }
 
-  // If we're close to the correct position, seek forward frame by frame
-  int64_t seekDelta = frameNumber - currentFrameNumber;
-  if (seekDelta > 0 && seekDelta < 30)
+  if (!closeTo)
   {
-    while (currentFrameNumber < frameNumber)
+    // Check our ring buffer
+    for (auto it = recentFrames.rbegin(); it != recentFrames.rend(); ++it)
     {
-      if (!grabFrame())
+      if (it->first == frameNumber)
       {
-        break;
+        // Found it in buffer – set currentFrameNumber & copy the frame
+        av_frame_ref(frame, it->second);
+        currentFrameNumber = frameNumber;
+        return frame;
       }
     }
-    if (currentFrameNumber == frameNumber)
+
+    // If we're close to the correct position, seek forward frame by frame
+    int64_t seekDelta = frameNumber - currentFrameNumber;
+    if (seekDelta > 0 && seekDelta < 32)
     {
-      return frame; // We found it!
+      while (currentFrameNumber < frameNumber)
+      {
+        if (!grabFrame())
+        {
+          break;
+        }
+      }
+      if (currentFrameNumber == frameNumber)
+      {
+        return frame; // We found it!
+      }
     }
   }
-
   int delta = 16;
   auto fps = getFps();
 
@@ -366,15 +523,12 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
       if (closeTo)
       {
         // Don't decode forward — just stop here
-        currentFrameNumber = dts_to_frame_number(picture_pts) - firstFrameNumber;
         return frame;
       }
 
       if (frameNumber > 1)
       {
-        currentFrameNumber = dts_to_frame_number(picture_pts) - firstFrameNumber;
-
-        if (currentFrameNumber < 0 || currentFrameNumber > frameNumber - 1)
+        if (currentFrameNumber < 0 || currentFrameNumber > frameNumber)
         {
           if (_frame_number_temp == 0 || delta >= INT_MAX / 4)
             break;
@@ -382,15 +536,13 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
           continue;
         }
 
-        while (currentFrameNumber < frameNumber - 1)
+        while (currentFrameNumber < frameNumber)
         {
           if (!grabFrame())
           {
             return nullptr;
           }
         }
-
-        currentFrameNumber++;
         break;
       }
       else
@@ -409,7 +561,19 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
   return frame;
 }
 
-// Function to convert an AVFrame to RGBA
+/**
+ * @brief Converts a decoded frame to an RGBA-formatted AVFrame.
+ *
+ * This method uses an swsContext (created on demand) to convert the input
+ * frame from its native format (e.g., YUV) into RGBA. If swsContext is not
+ * yet initialized, it is allocated for the dimensions and pixel formats
+ * of the current frame. The output frame (rgbaFrame) is also allocated
+ * if necessary, ensuring it matches the dimensions of the source.
+ *
+ * @param frame A pointer to the decoded frame in its original format.
+ * @return A pointer to the RGBA-formatted AVFrame, or @c nullptr if the
+ *         conversion context or memory allocation fails.
+ */
 const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame)
 {
   // Create a context for the conversion if it doesn't exist
@@ -426,7 +590,7 @@ const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame)
     }
   }
 
-  // Allocate memory for the output frame
+  // Allocate memory for the output frame if needed
   if (!rgbaFrame || frame->width != rgbaFrame->width ||
       frame->height != rgbaFrame->height)
   {
@@ -441,12 +605,11 @@ const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame)
       std::cerr << "Could not allocate memory for RGBA frame!" << std::endl;
       return nullptr;
     }
-    // Set the fields of the frame
-    (rgbaFrame)->format = AV_PIX_FMT_RGBA;
-    (rgbaFrame)->width = frame->width;
-    (rgbaFrame)->height = frame->height;
+    rgbaFrame->format = AV_PIX_FMT_RGBA;
+    rgbaFrame->width = frame->width;
+    rgbaFrame->height = frame->height;
 
-    // Allocate the buffers for the frame data
+    // Allocate buffers for the RGBA data
     if (av_frame_get_buffer(rgbaFrame, 32) < 0)
     {
       std::cerr << "Could not allocate frame data!" << std::endl;
@@ -457,21 +620,36 @@ const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame)
   }
 
   // Perform the conversion
-  sws_scale(swsContext, frame->data, frame->linesize, 0,
-            frame->height,                           // Source
-            (rgbaFrame)->data, (rgbaFrame)->linesize // Destination
+  sws_scale(swsContext,
+            frame->data, frame->linesize, 0, frame->height, // Source
+            rgbaFrame->data, rgbaFrame->linesize            // Destination
   );
 
   return rgbaFrame;
 }
 
+/**
+ * @brief Retrieves a frame at a specified index and converts it to RGBA format.
+ *
+ * First, this method attempts to seek to the given frame number (zero-based or one-based
+ * depends on your usage). If @p closeTo is true, it may stop at a nearby keyframe. If the
+ * seek succeeds, the resulting frame is passed to ConvertFrameToRGBA(). If the seek fails
+ * or the frame index is out of bounds, the method returns @c nullptr.
+ *
+ * @param frameNumber The target frame index to retrieve.
+ * @param closeTo A boolean indicating whether to stop at a nearby keyframe (true) or
+ *                decode forward to the exact frame (false).
+ * @return A pointer to an AVFrame in RGBA format, or @c nullptr if seeking or conversion fails.
+ *
+ * @note The frame numbering convention (whether 0-based or 1-based) depends on your codebase.
+ *       This method checks if @p frameNumber is between 1 and getTotalFrames() by default.
+ */
 const AVFrame *FFVideoReader::getRGBAFrame(int64_t frameNumber, bool closeTo)
 {
-  // std::cout << "getRGBAFrame: " << frameNumber << std::endl;
   if (frameNumber < 1 || frameNumber > getTotalFrames())
     return nullptr;
 
-  auto frame = seekToFrame(frameNumber, closeTo);
+  AVFrame *frame = seekToFrame(frameNumber - 1, closeTo);
   if (!frame)
   {
     return nullptr;
