@@ -76,9 +76,11 @@ const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
 } | null>(null);
 
 const TimestampCell = ({ row }: { row: ResultRowType }) => {
+  console.log(`==RenderA ${row.id}=${row.Time}`);
   const [lap] = useEntryResult(row.id);
   const time = lap?.State === 'Deleted' ? '' : lap?.Time || '';
   const timeChange = time !== row.Time;
+  console.log(`==RenderB ${row.id}=${row.Time}`);
 
   // Re-render the parent component if the time changes
   const sortPlace = getSortPlace();
@@ -237,13 +239,15 @@ const columns = (width: number): readonly Column<ResultRowType>[] => {
       name: 'Entry',
       width: col1Width,
       renderHeaderCell: RenderHeaderCell,
-      renderCell: RenderCell,
+      renderCell: ({ row }: { row: ResultRowType }) => <RenderCell row={row} />,
     },
     {
       key: 'ts',
       name: 'Time',
       width: col2Width,
-      renderCell: TimestampCol,
+      renderCell: ({ row }: { row: ResultRowType }) => (
+        <TimestampCol row={row} />
+      ),
       renderHeaderCell: RenderTimeHeaderCell,
     },
   ];
@@ -651,6 +655,8 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       <ContextMenu />
       <div style={{ flexGrow: 'auto' }}>
         <DataGrid
+          // Each row needs to be unique key so the virtualization doesn't reuse any UseKeyedDatum values between rows (#53)
+          rowKeyGetter={(row) => `${selectedEvent}-${row.Bow}`}
           columns={columnConfig}
           rows={activeEventRows}
           onCellClick={onRowClick}
