@@ -1,21 +1,35 @@
-import { useEffect, useState, useRef, useReducer } from 'react';
+/* eslint-disable no-unused-vars */
+import { useMemo, useEffect } from 'react';
+import { UseDatum } from 'react-usedatum';
+
+// Version 1.0.5 April 16, 2025
+
 /**
  * Generate a hook to keep track of a keyed value (usually a uuid).
  *
- * @param getCurrentValue A function to query the current value based on a key
+ * @param initialValueProp A function to query the current value based on a key
  * @returns [useFunction, setFunction, clearFunction, getKeyListFunction]
  *
  * Usage: const [useKeyedBoolean, setKeyedBoolean, clearKeyedBoolean, getKeyList ] = UseKeyedDatum<boolean>( (key:string)=>mylookup(key))
  */
 export const UseKeyedDatum = <T,>(
-  getCurrentValue?: (key: string) => T | undefined,
+  // eslint-disable-next-line no-unused-vars
+  initialValueProp: T | ((key: string) => T),
+  // eslint-disable-next-line no-unused-vars
+  onChange?: (key: string, current: T, prior: T) => void,
 ) => {
-  const valueCache = new Map<string, T | undefined>();
-  const callbackCache = new Map<
-    string,
-    Map<number, (value: T | undefined, force?: boolean) => void>
-  >();
-  const idCounter = 0;
+  const wrapperDatum = () => UseDatum<T>(false as unknown as T); // used for typing only
+  const lookupCache = new Map<string, Set<ReturnType<typeof wrapperDatum>>>();
+  const valueCache = new Map<string, T>();
+  const getCurrentValue = (key: string) => {
+    const cacheValue = valueCache.get(key);
+    if (cacheValue) {
+      return cacheValue;
+    }
+    return typeof initialValueProp === 'function'
+      ? (initialValueProp as (key: string) => T)(key)
+      : initialValueProp;
+  };
 
   /**
    * Update the value corresponding to key.  If the value is different than the
@@ -23,24 +37,18 @@ export const UseKeyedDatum = <T,>(
    *
    * @param key The key to use
    * @param value The new value
-   * @param force
    */
-  const updateFunc = (key: string, value: T | undefined, force?: boolean) => {
-    if (!key) {
-      return;
-    }
-    const callbackMap = callbackCache.get(key);
-    if (callbackMap) {
-      for (const callback of callbackMap.values()) {
-        callback(value, force);
-      }
-    }
-
-    // Update valueCache even if no callbacks
+  const updateFunc = (key: string, value: T, force?: boolean) => {
     if (value === undefined) {
       valueCache.delete(key);
     } else {
       valueCache.set(key, value);
+    }
+    const datumSet = lookupCache.get(key);
+    if (datumSet) {
+      datumSet.forEach((datum) => datum[1](value, true || force));
+    } else {
+      // console.log(`No datum to update for ${key}`);
     }
   };
 
@@ -49,85 +57,56 @@ export const UseKeyedDatum = <T,>(
    * The return value is similar to react useState().
    *
    * @param key The key to monitor
-   * @returns [T, (newValue:T, force?:boolean)=>void]
+   * @returns [T, (newValue:T, force?:boolean)]
    */
   const useFunc = (key: string) => {
-    if (!valueCache.has(key)) {
-      // Is there a helper function to get the value?
-      const currentValue = getCurrentValue?.(key);
-      if (currentValue !== undefined) {
-        valueCache.set(key, currentValue);
+    const useDatumMemoized = useMemo(() => {
+      const initialValue = getCurrentValue(key);
+      const datum = UseDatum<T>(
+        initialValue,
+        (current, prior) => {
+          onChange?.(key, current, prior);
+        },
+        // { trace: key },
+      );
+      let datumSet = lookupCache.get(key);
+      if (!datumSet) {
+        datumSet = new Set<ReturnType<typeof wrapperDatum>>();
+        lookupCache.set(key, datumSet);
       }
-    }
-    const value = valueCache.get(key);
-    const [, setValue] = useState<T | undefined>(value);
-    const [, forceRender] = useReducer((s) => s + 1, 0);
-    const id = useRef(0);
-    if (id.current === 0) {
-      id.current = idCounter + 1;
-    }
-    let callbackMap = callbackCache.get(key);
-    if (!callbackMap) {
-      callbackMap = new Map<
-        number,
-        (value: T | undefined, force?: boolean) => void
-      >();
-      callbackCache.set(key, callbackMap);
-    }
 
-    if (!callbackMap.has(id.current)) {
-      callbackMap.set(id.current, (val: T | undefined, force?: boolean) => {
-        if (val === undefined) {
-          valueCache.delete(key);
-        } else {
-          valueCache.set(key, val);
-        }
-        setValue(val);
-        if (force) {
-          forceRender();
-        }
-      });
-    }
-
+      datumSet.add(datum);
+      return datum;
+    }, [key]);
     useEffect(() => {
       return () => {
-        const map = callbackCache.get(key);
-        map?.delete(id.current);
-        // valueCache.delete(key); // do not delete, retain values
+        const datumSet = lookupCache.get(key);
+        datumSet?.delete(useDatumMemoized);
+        if (datumSet?.size === 0) {
+          lookupCache.delete(key);
+        }
       };
-    }, [key]);
-    return [value, updateFunc] as [typeof value, typeof updateFunc];
+    }, [key, useDatumMemoized]);
+
+    const [val /* ,_setter */] = useDatumMemoized[0]();
+    const wrappedSetFunc = (value: T) => {
+      updateFunc(key, value);
+    };
+    return [val, wrappedSetFunc] as [typeof val, typeof wrappedSetFunc];
   };
 
   /**
    * Set all stored values to a specific value
    *
-   * @param clearValue The new value to apply
+   * @param value The new value to apply
    */
-  const clearFunc = (clearValue: T | undefined): void => {
-    // Trigger update callbacks
-    callbackCache.forEach((callbackMap) => {
-      for (const callback of callbackMap.values()) {
-        callback(clearValue);
-      }
-    });
-    // Ensure valueCache is updated even if there are no callbacks
-    valueCache.forEach((value, key) => {
-      if (value === undefined) {
-        valueCache.delete(key);
-      } else {
-        valueCache.set(key, value);
-      }
-    });
-  };
-
-  /**
-   *
-   * @param key The key to query
-   * @returns The current value
-   */
-  const getFunc = (key: string) => {
-    return valueCache.get(key);
+  const clearFunc = (value: T): void => {
+    for (const key of valueCache.keys()) {
+      valueCache.set(key, value);
+    }
+    lookupCache.forEach((datumSet) =>
+      datumSet.forEach((datum) => datum[1](value)),
+    );
   };
 
   /**
@@ -136,26 +115,44 @@ export const UseKeyedDatum = <T,>(
    * @returns An array of keys in use
    */
   const getKeysFunc = () => {
-    return callbackCache.keys();
+    return lookupCache.keys();
+  };
+
+  const getValueByKeyFunc = (key: string) => {
+    const datumSet = lookupCache.get(key);
+    // All datums in a set of listeners have the same value so just use the first one.
+    const first = datumSet?.values().next().value;
+    const value = first?.[2]() as T;
+    return value !== undefined ? value : getCurrentValue(key);
   };
 
   const dumpContents = () => {
-    console.log(JSON.stringify(valueCache, null, 2));
+    valueCache.forEach((value, key) =>
+      console.log(`valueCache[${key}]=${JSON.stringify(value)}`),
+    );
+    lookupCache.forEach((datumSet, datumKey) =>
+      datumSet.forEach((datum) =>
+        // eslint-disable-next-line no-console
+        console.log(`${datumKey}=${JSON.stringify(datum[2](), null, 2)}`),
+      ),
+    );
   };
 
   return [
     useFunc,
     updateFunc,
-    getFunc,
+    getValueByKeyFunc,
     clearFunc,
     getKeysFunc,
     dumpContents,
   ] as [
     typeof useFunc,
     typeof updateFunc,
-    typeof getFunc,
+    typeof getValueByKeyFunc,
     typeof clearFunc,
     typeof getKeysFunc,
     typeof dumpContents,
   ];
 };
+
+export default UseKeyedDatum;

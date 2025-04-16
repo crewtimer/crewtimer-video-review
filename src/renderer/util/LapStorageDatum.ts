@@ -20,7 +20,7 @@ export const [
   clearEntryResults,
   getEntryResultKeys,
   dumpEntryResults,
-] = UseKeyedDatum<Lap | undefined>();
+] = UseKeyedDatum<Lap | undefined>(undefined);
 
 export const setEntryResultAndPublish = (key: string, lap: Lap) => {
   setEntryResult(key, lap, true);
