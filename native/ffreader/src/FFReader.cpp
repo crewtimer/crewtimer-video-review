@@ -467,72 +467,75 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
     return frame;
   }
 
-  // Check our ring buffer
-  for (auto it = recentFrames.rbegin(); it != recentFrames.rend(); ++it)
+  auto fps = getFps(); // needed below
+
+  if (!closeTo)
   {
-    if (it->first == frameNumber)
+
+    // Check our ring buffer
+    for (auto it = recentFrames.rbegin(); it != recentFrames.rend(); ++it)
     {
-      // Found it in buffer – set currentFrameNumber & copy the frame
-      av_frame_ref(frame, it->second);
-      currentFrameNumber = frameNumber;
+      if (it->first == frameNumber)
+      {
+        // Found it in buffer – set currentFrameNumber & copy the frame
+        av_frame_ref(frame, it->second);
+        currentFrameNumber = frameNumber;
+        return frame;
+      }
+    }
+
+    // If we're close to the correct position, seek forward frame by frame
+    int64_t seekDelta = frameNumber - currentFrameNumber;
+    if (seekDelta > 0 && seekDelta < 32)
+    {
+      while (currentFrameNumber < frameNumber)
+      {
+        if (!grabFrame())
+        {
+          break;
+        }
+      }
+      if (currentFrameNumber == frameNumber)
+      {
+        return frame; // We found it!
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // Fast path: small *backward* jump (|seekDelta| < 32) not found in ring buffer
+    // --------------------------------------------------------------------------
+    if (seekDelta < 0 && -seekDelta < 32)
+    {
+      /* -------------------------------------------------------------
+       * Strategy:
+       *   1. Seek to the exact timestamp of the requested frameNumber
+       *      using AVSEEK_FLAG_BACKWARD (never overshoots).
+       *   2. Flush decoder.
+       *   3. Decode forward with grabFrame() until we land on frameNumber.
+       *      (= at most 31 calls, so still cheap).
+       * ------------------------------------------------------------- */
+
+      int64_t start_pts = formatContext->streams[videoStreamIndex]->start_time;
+      double tb = r2d(formatContext->streams[videoStreamIndex]->time_base);
+      double sec = static_cast<double>(frameNumber) / std::max(fps, 1e-6);
+      int64_t ts = start_pts + static_cast<int64_t>(sec / tb + 0.5);
+
+      if (av_seek_frame(formatContext, videoStreamIndex, ts, AVSEEK_FLAG_BACKWARD) < 0)
+        return nullptr; // seek failed (corrupt file?)
+      avcodec_flush_buffers(codecContext);
+
+      if (!grabFrame()) // decode first frame after seek
+        return nullptr;
+
+      // We may still be a little before target; step forward a few frames
+      while (currentFrameNumber < frameNumber)
+        if (!grabFrame())
+          return nullptr;
+
+      /* At this point currentFrameNumber == frameNumber and frame points to it */
       return frame;
     }
   }
-
-  // If we're close to the correct position, seek forward frame by frame
-  int64_t seekDelta = frameNumber - currentFrameNumber;
-  if (seekDelta > 0 && seekDelta < 32)
-  {
-    while (currentFrameNumber < frameNumber)
-    {
-      if (!grabFrame())
-      {
-        break;
-      }
-    }
-    if (currentFrameNumber == frameNumber)
-    {
-      return frame; // We found it!
-    }
-  }
-
-  auto fps = getFps(); // needed below
-
-  // --------------------------------------------------------------------------
-  // Fast path: small *backward* jump (|seekDelta| < 32) not found in ring buffer
-  // --------------------------------------------------------------------------
-  if (seekDelta < 0 && -seekDelta < 32)
-  {
-    /* -------------------------------------------------------------
-     * Strategy:
-     *   1. Seek to the exact timestamp of the requested frameNumber
-     *      using AVSEEK_FLAG_BACKWARD (never overshoots).
-     *   2. Flush decoder.
-     *   3. Decode forward with grabFrame() until we land on frameNumber.
-     *      (= at most 31 calls, so still cheap).
-     * ------------------------------------------------------------- */
-
-    int64_t start_pts = formatContext->streams[videoStreamIndex]->start_time;
-    double tb = r2d(formatContext->streams[videoStreamIndex]->time_base);
-    double sec = static_cast<double>(frameNumber) / std::max(fps, 1e-6);
-    int64_t ts = start_pts + static_cast<int64_t>(sec / tb + 0.5);
-
-    if (av_seek_frame(formatContext, videoStreamIndex, ts, AVSEEK_FLAG_BACKWARD) < 0)
-      return nullptr; // seek failed (corrupt file?)
-    avcodec_flush_buffers(codecContext);
-
-    if (!grabFrame()) // decode first frame after seek
-      return nullptr;
-
-    // We may still be a little before target; step forward a few frames
-    while (currentFrameNumber < frameNumber)
-      if (!grabFrame())
-        return nullptr;
-
-    /* At this point currentFrameNumber == frameNumber and frame points to it */
-    return frame;
-  }
-
   //
   // Not found in ring buffer or seek from last position. Fall back to av_seek_frame search.
   //
