@@ -170,6 +170,7 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
     case 'z':
     case 'Z':
     case '/':
+    case 'Escape':
       resetVideoZoom();
       break;
 
