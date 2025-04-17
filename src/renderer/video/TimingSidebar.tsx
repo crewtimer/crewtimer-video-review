@@ -76,11 +76,9 @@ const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
 } | null>(null);
 
 const TimestampCell = ({ row }: { row: ResultRowType }) => {
-  console.log(`==RenderA ${row.id}=${row.Time}`);
   const [lap] = useEntryResult(row.id);
   const time = lap?.State === 'Deleted' ? '' : lap?.Time || '';
   const timeChange = time !== row.Time;
-  console.log(`==RenderB ${row.id}=${row.Time}`);
 
   // Re-render the parent component if the time changes
   const sortPlace = getSortPlace();
