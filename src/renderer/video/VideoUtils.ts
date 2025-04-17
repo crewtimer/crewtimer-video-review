@@ -516,9 +516,12 @@ export const translateMouseEventCoords = (
  * value than `from.Bow`.
  */
 export const seekToNextTimePoint = (from: {
-  Time: string;
+  Time?: string;
   Bow: string;
 }): TimeObject | undefined => {
+  if (!from.Time) {
+    return undefined;
+  }
   const timePoints = getClickerData();
   let left = 0;
   let right = timePoints.length - 1;
