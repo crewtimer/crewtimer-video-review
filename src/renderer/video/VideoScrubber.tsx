@@ -185,8 +185,9 @@ const VideoScrubber = () => {
   ) => {
     const click = findNearestClick(event);
     if (!click) {
-      setVideoFrameNum(sliderValueEvent.current);
-      requestVideoFrame({ videoFile, frameNum: sliderValueEvent.current });
+      const frameNum = Math.round(sliderValueEvent.current);
+      setVideoFrameNum(frameNum);
+      requestVideoFrame({ videoFile, frameNum });
       return;
     }
     resetVideoZoom();
@@ -285,6 +286,9 @@ const VideoScrubber = () => {
               onMouseDown={onMouseDown}
               onMouseUp={onMouseUp}
               onMouseMove={onMouseMove}
+              onKeyDown={(event) => {
+                event.preventDefault(); // avoid responding to arrow keys
+              }}
               aria-labelledby="video-scrubber"
               sx={{
                 // marginLeft: '1em',
