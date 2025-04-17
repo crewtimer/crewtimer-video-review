@@ -283,7 +283,7 @@ int FFVideoReader::openFile(const std::string filename)
  * On the very first decoded frame, firstFrameNumber is set as the zero-point for the frame index.
  *
  * In addition, this method deep-copies the newly decoded frame and adds it to a ring buffer
- * (recentFrames), which can hold up to 30 frames. This buffer allows short backward seeks
+ * (recentFrames), which can hold up to 32 frames. This buffer allows short backward seeks
  * without needing to re-read or re-decode from an earlier keyframe.
  *
  * @note If no valid frame is found or decoding fails, the method returns @c nullptr.
@@ -390,8 +390,8 @@ AVFrame *FFVideoReader::grabFrame()
   av_frame_ref(copy, frame);
   recentFrames.emplace_back(currentFrameNumber, copy);
 
-  // Keep the ring buffer at a maximum of 30 frames
-  while (recentFrames.size() > 30)
+  // Keep the ring buffer at a maximum of 32 frames
+  while (recentFrames.size() > 32)
   {
     auto oldest = recentFrames.front();
     av_frame_free(&oldest.second);
@@ -449,12 +449,7 @@ AVFrame *FFVideoReader::grabFrame()
  */
 AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
 {
-  frameNumber = std::min(frameNumber, getTotalFrames());
-  if (frameNumber == currentFrameNumber)
-  {
-    return frame;
-  }
-
+  frameNumber = std::min(frameNumber, getTotalFrames() - 1);
   // if we have not grabbed a single frame before first seek, let's read the
   // first frame and get some valuable information during the process
   if (firstFrameNumber < 0 && getTotalFrames() > 1)
@@ -466,40 +461,82 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
     }
   }
 
-  if (!closeTo)
+  // Fast return: we’re already there
+  if (frameNumber == currentFrameNumber)
   {
-    // Check our ring buffer
-    for (auto it = recentFrames.rbegin(); it != recentFrames.rend(); ++it)
-    {
-      if (it->first == frameNumber)
-      {
-        // Found it in buffer – set currentFrameNumber & copy the frame
-        av_frame_ref(frame, it->second);
-        currentFrameNumber = frameNumber;
-        return frame;
-      }
-    }
+    return frame;
+  }
 
-    // If we're close to the correct position, seek forward frame by frame
-    int64_t seekDelta = frameNumber - currentFrameNumber;
-    if (seekDelta > 0 && seekDelta < 32)
+  // Check our ring buffer
+  for (auto it = recentFrames.rbegin(); it != recentFrames.rend(); ++it)
+  {
+    if (it->first == frameNumber)
     {
-      while (currentFrameNumber < frameNumber)
-      {
-        if (!grabFrame())
-        {
-          break;
-        }
-      }
-      if (currentFrameNumber == frameNumber)
-      {
-        return frame; // We found it!
-      }
+      // Found it in buffer – set currentFrameNumber & copy the frame
+      av_frame_ref(frame, it->second);
+      currentFrameNumber = frameNumber;
+      return frame;
     }
   }
-  int delta = 16;
-  auto fps = getFps();
 
+  // If we're close to the correct position, seek forward frame by frame
+  int64_t seekDelta = frameNumber - currentFrameNumber;
+  if (seekDelta > 0 && seekDelta < 32)
+  {
+    while (currentFrameNumber < frameNumber)
+    {
+      if (!grabFrame())
+      {
+        break;
+      }
+    }
+    if (currentFrameNumber == frameNumber)
+    {
+      return frame; // We found it!
+    }
+  }
+
+  auto fps = getFps(); // needed below
+
+  // --------------------------------------------------------------------------
+  // Fast path: small *backward* jump (|seekDelta| < 32) not found in ring buffer
+  // --------------------------------------------------------------------------
+  if (seekDelta < 0 && -seekDelta < 32)
+  {
+    /* -------------------------------------------------------------
+     * Strategy:
+     *   1. Seek to the exact timestamp of the requested frameNumber
+     *      using AVSEEK_FLAG_BACKWARD (never overshoots).
+     *   2. Flush decoder.
+     *   3. Decode forward with grabFrame() until we land on frameNumber.
+     *      (= at most 31 calls, so still cheap).
+     * ------------------------------------------------------------- */
+
+    int64_t start_pts = formatContext->streams[videoStreamIndex]->start_time;
+    double tb = r2d(formatContext->streams[videoStreamIndex]->time_base);
+    double sec = static_cast<double>(frameNumber) / std::max(fps, 1e-6);
+    int64_t ts = start_pts + static_cast<int64_t>(sec / tb + 0.5);
+
+    if (av_seek_frame(formatContext, videoStreamIndex, ts, AVSEEK_FLAG_BACKWARD) < 0)
+      return nullptr; // seek failed (corrupt file?)
+    avcodec_flush_buffers(codecContext);
+
+    if (!grabFrame()) // decode first frame after seek
+      return nullptr;
+
+    // We may still be a little before target; step forward a few frames
+    while (currentFrameNumber < frameNumber)
+      if (!grabFrame())
+        return nullptr;
+
+    /* At this point currentFrameNumber == frameNumber and frame points to it */
+    return frame;
+  }
+
+  //
+  // Not found in ring buffer or seek from last position. Fall back to av_seek_frame search.
+  //
+  int delta = closeTo ? 0 : 16;
   for (;;)
   {
     int64_t _frame_number_temp = std::max(frameNumber - delta, (int64_t)0);
@@ -509,53 +546,46 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
     time_stamp += (int64_t)(sec / time_base + 0.5);
 
     if (getTotalFrames() > 1)
-      av_seek_frame(formatContext, videoStreamIndex, time_stamp, AVSEEK_FLAG_BACKWARD);
-    avcodec_flush_buffers(codecContext);
-
-    if (frameNumber > 0)
     {
-      auto res = grabFrame();
-      if (!res)
+      if (av_seek_frame(formatContext, videoStreamIndex, time_stamp, AVSEEK_FLAG_BACKWARD) < 0)
       {
         return nullptr;
       }
-
-      if (closeTo)
-      {
-        // Don't decode forward — just stop here
-        return frame;
-      }
-
-      if (frameNumber > 1)
-      {
-        if (currentFrameNumber < 0 || currentFrameNumber > frameNumber)
-        {
-          if (_frame_number_temp == 0 || delta >= INT_MAX / 4)
-            break;
-          delta = delta < 16 ? delta * 2 : delta * 3 / 2;
-          continue;
-        }
-
-        while (currentFrameNumber < frameNumber)
-        {
-          if (!grabFrame())
-          {
-            return nullptr;
-          }
-        }
-        break;
-      }
-      else
-      {
-        currentFrameNumber = 1;
-        break;
-      }
     }
-    else
+    avcodec_flush_buffers(codecContext);
+
+    auto res = grabFrame();
+    if (!res)
     {
-      currentFrameNumber = 0;
-      break;
+      return nullptr;
     }
+
+    // Don't decode forward — just stop here if 'closeTo' requested or the last grabFrame is where we want to go
+    if (closeTo || (frameNumber == currentFrameNumber))
+    {
+      return frame;
+    }
+
+    if (currentFrameNumber < 0 || currentFrameNumber > frameNumber)
+    {
+      // Increase delta and try seeking again
+      if (_frame_number_temp == 0 || delta >= INT_MAX / 4)
+      {
+        return nullptr;
+      }
+      delta = delta < 16 ? delta * 2 : delta * 3 / 2;
+      continue;
+    }
+
+    // read forward until we reach the desired frame
+    while (currentFrameNumber < frameNumber)
+    {
+      if (!grabFrame())
+      {
+        return nullptr;
+      }
+    }
+    break;
   }
 
   return frame;
@@ -636,7 +666,7 @@ const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame)
  * seek succeeds, the resulting frame is passed to ConvertFrameToRGBA(). If the seek fails
  * or the frame index is out of bounds, the method returns @c nullptr.
  *
- * @param frameNumber The target frame index to retrieve.
+ * @param frameNumber The target frame index to retrieve - 1 to N.
  * @param closeTo A boolean indicating whether to stop at a nearby keyframe (true) or
  *                decode forward to the exact frame (false).
  * @return A pointer to an AVFrame in RGBA format, or @c nullptr if seeking or conversion fails.
@@ -646,14 +676,17 @@ const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame)
  */
 const AVFrame *FFVideoReader::getRGBAFrame(int64_t frameNumber, bool closeTo)
 {
+  // 1 to N based frameNumber
   if (frameNumber < 1 || frameNumber > getTotalFrames())
     return nullptr;
 
+  // 0 to N-1 based frameNumber
   AVFrame *frame = seekToFrame(frameNumber - 1, closeTo);
   if (!frame)
   {
     return nullptr;
   }
+std:
   return ConvertFrameToRGBA(frame);
 }
 
