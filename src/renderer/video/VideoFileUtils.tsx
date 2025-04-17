@@ -182,31 +182,32 @@ const doRequestVideoFrame = async ({
         setVideoError(`Unable to get frame 1: ${videoFile}`);
         return;
       }
-      try {
-        imageEnd = await VideoUtils.getFrame(
-          videoFile,
-          imageStart.numFrames,
-          0,
-        );
-      } catch (e) {
-        /* ignore */
-      }
-      if (!imageEnd) {
-        // Sometimes the frame count is one too many (e.g. output.mp4 test file).  Try reducing count by one.
-        imageEnd = await VideoUtils.getFrame(
-          videoFile,
-          imageStart.numFrames - 1,
-          0,
-        );
-        imageStart.numFrames -= 1;
-        if (!imageEnd) {
-          // Still not found
-          setVideoError(
-            `Unable to get frame ${imageStart.numFrames}: ${videoFile}`,
+
+      // Sometimes the actaual number of frames is a bit less than noted
+      for (let excessFrames = 0; excessFrames < 10; excessFrames += 1) {
+        try {
+          imageEnd = await VideoUtils.getFrame(
+            videoFile,
+            imageStart.numFrames - excessFrames,
+            0,
           );
-          return;
+          imageStart.numFrames -= excessFrames;
+          break;
+        } catch (e) {
+          console.log(
+            `cant read frame ${imageStart.numFrames - excessFrames}, trying one less`,
+          );
+          /* ignore */
         }
       }
+
+      if (!imageEnd) {
+        setVideoError(
+          `Unable to get frame ${imageStart.numFrames}: ${videoFile}`,
+        );
+        return;
+      }
+
       const imageEndTime = imageEnd.tsMicro
         ? imageEnd.tsMicro
         : Math.trunc(
@@ -272,6 +273,16 @@ const doRequestVideoFrame = async ({
       // const blend =
       //   zoom && zoom.width > 0 && zoom.height > 0 && (zoom.x > 0 || zoom.y > 0);
 
+      if (!blend) {
+        seekPos = Math.round(seekPos);
+      }
+      // console.log(
+      //   `===GET FRAME=${JSON.stringify(
+      //     { videoFile, seekPos, utcMilli, zoom, blend, saveAs, closeTo },
+      //     null,
+      //     2,
+      //   )}`,
+      // );
       imageStart = await VideoUtils.getFrame(
         videoFile,
         seekPos,
@@ -577,7 +588,7 @@ export const seekToTimestamp = (timestamp: string, fromClick?: boolean) => {
       frameNum: 1,
       fromClick,
       toTimestamp: timestamp,
-      blend: true,
+      blend: fromClick !== true,
       saveAs: '',
       closeTo: false,
     }).catch(showErrorDialog);
