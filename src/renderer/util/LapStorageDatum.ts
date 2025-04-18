@@ -1,6 +1,6 @@
 import { Lap } from 'crewtimer-common';
 import { UseMemDatum } from '../store/UseElectronDatum';
-import { LapDatumName, LapListInitCount } from '../shared/Constants';
+import { LapDatumName } from '../shared/Constants';
 import { UseKeyedDatum } from './UseKeyedDatum';
 import {
   getVideoSettings,
@@ -11,7 +11,6 @@ import { showErrorDialog } from './ErrorDialog';
 import { saveVideoSidecar } from '../video/VideoFileUtils';
 
 export const [useLaps, setLaps, getLaps] = UseMemDatum<Lap[]>(LapDatumName, []);
-export const [useLapListInitCount] = UseMemDatum(LapListInitCount, 0);
 
 export const [
   useEntryResult,
