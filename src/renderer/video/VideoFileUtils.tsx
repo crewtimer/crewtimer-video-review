@@ -261,7 +261,7 @@ const doRequestVideoFrame = async ({
         ((tsMilli * 1000 - startTime) / delta) *
           (videoFileStatus.numFrames - 1);
 
-      if (getHyperZoomFactor() <= 1) {
+      if (getHyperZoomFactor() === 0) {
         seekFrame = Math.round(seekFrame);
       }
       seekPos = seekFrame;

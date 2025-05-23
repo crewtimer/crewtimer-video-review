@@ -117,6 +117,9 @@ const applyZoom = ({ srcPoint, zoom }: { srcPoint: Point; zoom: number }) => {
         ? { x: vScaling.srcWidth / 2, y: vScaling.srcHeight / 2 }
         : srcPoint,
   });
+  if (zoom > 1) {
+    moveToFrame(getVideoFrameNum(), 0, true);
+  }
 };
 
 const isZooming = () => getVideoScaling().zoomY !== 1;
