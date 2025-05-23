@@ -554,7 +554,7 @@ export const seekToNextTimePoint = (from: {
   }
 
   resetVideoZoom();
-  setTimeout(() => seekToTimestamp(result?.Time || '00:00:00.000', true), 100);
+  setTimeout(() => seekToTimestamp(result?.Time || '00:00:00.000'), 100);
   if (result.EventNum !== '?') {
     setVideoEvent(result.EventNum);
   }

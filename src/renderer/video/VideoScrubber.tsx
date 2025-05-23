@@ -124,7 +124,7 @@ const VideoScrubber = () => {
       // const item = relativePositions[index]?.data;
       // if (item) {
       //   setTimeout(() => {
-      //     seekToTimestamp(item.Time, true);
+      //     seekToTimestamp(item.Time);
       //     if (item.EventNum !== '?') {
       //       setSelectedEvent(item.EventNum);
       //     }
@@ -191,7 +191,7 @@ const VideoScrubber = () => {
       return;
     }
     resetVideoZoom();
-    setTimeout(() => seekToTimestamp(click.Time, true), 100);
+    setTimeout(() => seekToTimestamp(click.Time), 100);
     if (click.EventNum !== '?') {
       setSelectedEvent(click.EventNum);
     }

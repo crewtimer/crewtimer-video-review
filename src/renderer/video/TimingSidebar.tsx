@@ -494,7 +494,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       if (entry?.Time && entry?.State !== 'Deleted') {
         resetVideoZoom();
         const seekTime = entry.Time;
-        setTimeout(() => seekToTimestamp(seekTime, true), 100);
+        setTimeout(() => seekToTimestamp(seekTime), 100);
       }
     }
   };

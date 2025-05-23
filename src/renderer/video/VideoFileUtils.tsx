@@ -270,19 +270,6 @@ const doRequestVideoFrame = async ({
     if (seekPos !== 0 || !imageStart) {
       seekPos = Math.max(1, Math.min(videoFileStatus.numFrames, seekPos));
 
-      // const blend =
-      //   zoom && zoom.width > 0 && zoom.height > 0 && (zoom.x > 0 || zoom.y > 0);
-
-      if (!blend) {
-        seekPos = Math.round(seekPos);
-      }
-      // console.log(
-      //   `===GET FRAME=${JSON.stringify(
-      //     { videoFile, seekPos, utcMilli, zoom, blend, saveAs, closeTo },
-      //     null,
-      //     2,
-      //   )}`,
-      // );
       imageStart = await VideoUtils.getFrame(
         videoFile,
         seekPos,
@@ -568,7 +555,14 @@ export const addSidecarFiles = async () => {
   }
 };
 
-export const seekToTimestamp = (timestamp: string, fromClick?: boolean) => {
+/**
+ * Seeks to the specified timestamp by finding the corresponding video file,
+ * updating the selected index and video file, and requesting the first frame at that timestamp.
+ * If an error occurs during the frame request, an error dialog is shown.
+ *
+ * @param timestamp - The target timestamp in 'HH:MM:SS.sss' format to seek to.
+ */
+export const seekToTimestamp = (timestamp: string) => {
   const jumpTime = parseTimeToSeconds(timestamp);
   const dirs = getDirList();
   // search files till time is > file timestamp
@@ -586,9 +580,9 @@ export const seekToTimestamp = (timestamp: string, fromClick?: boolean) => {
     requestVideoFrame({
       videoFile: dirs[fileIndex],
       frameNum: 1,
-      fromClick,
+      fromClick: true,
       toTimestamp: timestamp,
-      blend: fromClick !== true,
+      blend: false,
       saveAs: '',
       closeTo: false,
     }).catch(showErrorDialog);
