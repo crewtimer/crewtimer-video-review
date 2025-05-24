@@ -330,20 +330,16 @@ export const downloadImageFromCanvasLayers = (
   downloadCanvasImage(combinedCanvas, filename);
 };
 
-export const moveToFileIndex = (
-  index: number,
-  seekPercent: number,
-  fromClick: boolean,
-) => {
+export const moveToFileIndex = (index: number, seekPercent: number) => {
   const dirList = getDirList();
   const selIndex = Math.max(0, Math.min(index, dirList.length - 1));
   const videoFile = dirList[index];
   setSelectedIndex(selIndex);
   setVideoFile(videoFile);
-  return requestVideoFrame({ videoFile, seekPercent, fromClick });
+  return requestVideoFrame({ videoFile, seekPercent });
 };
 export const prevFile = () => {
-  moveToFileIndex(getSelectedIndex() - 1, 1, true);
+  moveToFileIndex(getSelectedIndex() - 1, 1);
 };
 export const nextFile = () => {
   const dirList = getDirList();
@@ -351,7 +347,7 @@ export const nextFile = () => {
     triggerFileSplit();
     setJumpToEndPending(true);
   } else {
-    moveToFileIndex(getSelectedIndex() + 1, 0, true);
+    moveToFileIndex(getSelectedIndex() + 1, 0);
   }
 };
 export const moveToFrame = (

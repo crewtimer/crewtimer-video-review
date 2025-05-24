@@ -48,7 +48,6 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
         requestVideoFrame({
           videoFile,
           frameNum: 1,
-          fromClick: false,
         });
       }
     }
@@ -174,8 +173,8 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
             startTime={startTime}
             endTime={endTime}
             activeIndex={getSelectedIndex()}
-            onChange={(newValue, pct, fromClick) => {
-              moveToFileIndex(newValue, pct, fromClick);
+            onChange={(newValue, pct) => {
+              moveToFileIndex(newValue, pct);
             }}
             fileStatusList={fileStatusList}
           />

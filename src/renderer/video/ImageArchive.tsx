@@ -89,7 +89,7 @@ export const ImageArchive = () => {
     for (let i = 0; i < dirList.length; i += 1) {
       setProgressBar((i / dirList.length) * 100);
       // eslint-disable-next-line no-await-in-loop
-      await moveToFileIndex(i, 0, false);
+      await moveToFileIndex(i, 0);
       const image = dirList[i];
       const startTime = convertTimestampToString(
         image.startTime / 1000,
@@ -116,7 +116,6 @@ export const ImageArchive = () => {
         await requestVideoFrame({
           videoFile: image.filename,
           frameNum: 1,
-          fromClick: false,
           toTimestamp: timeObj.Time,
           blend: false,
           saveAs: filename,

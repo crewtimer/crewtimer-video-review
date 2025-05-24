@@ -122,7 +122,6 @@ type VideoFrameRequest = {
   videoFile: string; // The path or identifier of the video file.
   frameNum?: number; // The frame number to extract. Optional.
   seekPercent?: number; // Where in file to seek as percentage, Optional.
-  fromClick?: boolean; // Whether the request is from a click.
   toTimestamp?: string; // The timestamp to seek to (HHMMSS.sss), Optional.
   zoom?: Rect; // The zoom window, Optional.
   blend?: boolean; // Whether to blend the frame with the previous frame, Optional.
@@ -136,7 +135,6 @@ const doRequestVideoFrame = async ({
   videoFile,
   frameNum,
   seekPercent,
-  fromClick,
   toTimestamp,
   zoom,
   blend,
@@ -291,7 +289,8 @@ const doRequestVideoFrame = async ({
     imageStart.tzOffset = videoFileStatus.tzOffset;
     imageStart.sidecar = videoFileStatus.sidecar;
     setImage(imageStart);
-    if (fromClick) {
+
+    if (seekPercent !== undefined || toTimestamp !== undefined) {
       // force a jump in the VideoScrubber
       setVideoFrameNum(imageStart.frameNum);
     }
@@ -332,7 +331,6 @@ function createRequestVideoFrameHandler() {
     videoFile,
     frameNum,
     seekPercent,
-    fromClick,
     toTimestamp,
     zoom,
     blend,
@@ -345,7 +343,6 @@ function createRequestVideoFrameHandler() {
         videoFile,
         frameNum,
         seekPercent,
-        fromClick,
         toTimestamp,
         zoom,
         blend,
@@ -380,7 +377,6 @@ function createRequestVideoFrameHandler() {
     videoFile,
     frameNum,
     seekPercent,
-    fromClick,
     toTimestamp,
     zoom,
     blend,
@@ -399,7 +395,6 @@ function createRequestVideoFrameHandler() {
             videoFile,
             frameNum,
             seekPercent,
-            fromClick,
             toTimestamp,
             zoom,
             blend,
@@ -416,7 +411,6 @@ function createRequestVideoFrameHandler() {
       videoFile,
       frameNum,
       seekPercent,
-      fromClick,
       toTimestamp,
       zoom,
       blend,
@@ -580,7 +574,6 @@ export const seekToTimestamp = (timestamp: string) => {
     requestVideoFrame({
       videoFile: dirs[fileIndex],
       frameNum: 1,
-      fromClick: true,
       toTimestamp: timestamp,
       blend: false,
       saveAs: '',

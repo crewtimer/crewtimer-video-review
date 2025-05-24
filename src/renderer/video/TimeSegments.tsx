@@ -12,7 +12,7 @@ type TimeSegmentsProps = {
   /** The index of the active segment. */
   activeIndex: number;
   /** A callback function that is called when a segment is clicked. */
-  onChange: (index: number, pct: number, fromClick: boolean) => void;
+  onChange: (index: number, pct: number) => void;
   /** The start time in HH:MM:SS.sss format for the range. */
   startTime: string;
   /** The end time in HH:MM:SS.sss format for the range. */
@@ -47,7 +47,7 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
       const xRelativeToElement = clientX - elementLeft;
       pct = xRelativeToElement / (event.target.clientWidth - 1);
     }
-    onChange(index, pct, true);
+    onChange(index, pct);
   };
 
   const displaySegments =
