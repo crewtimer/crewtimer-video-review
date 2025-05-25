@@ -37,6 +37,7 @@ In windows explorer, navigate to the scripts/ folder and double click on the Cyg
 
 ## Building the prebuilt binary
 
+## Build setup
 Set up nvm/node:
 
 ```bash
@@ -45,7 +46,7 @@ nvm use 18
 npm i -g yarn
 ```
 
-Build ffmpeg and opencv:
+## Build ffmpeg and opencv
 
 ```bash
 cd crewtimer-video-review/native/ffreader
@@ -53,12 +54,20 @@ cd crewtimer-video-review/native/ffreader
 ./scripts/build-ffmpeg.sh
 ```
 
-Build the module and upload to github:
+## Build the module and upload to github
 
 ```bash
-yarn install
-yarn build:mac     # if on mac
-yarn build:windows # if on windows
+yarn clean && yarn install && yarn build:mac
+```
+
+For windows:
+```bash
+# on mac when sharing file system
+yarn clean
+
+# on windows bash shell
+cd y:/git/crewtimer-video-review/native/ffreader
+yarn install && yarn build:win && yarn prebuild
 ```
 
 The result is placed into a file such as prebuilds/crewtimer_video_reader-v1.0.2-napi-v6-win32-x64.tar.gz.

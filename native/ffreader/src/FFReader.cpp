@@ -362,6 +362,7 @@ AVFrame *FFVideoReader::grabFrame()
     // If we didn't get a valid frame, return null
     if (!valid)
     {
+      currentFrameNumber = -1; // mark as stale
       return nullptr;
     }
   }

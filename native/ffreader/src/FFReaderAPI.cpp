@@ -148,6 +148,10 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
 
   auto op = args.Get("op").As<Napi::String>().Utf8Value();
 
+  if (debugLevel > 1)
+  {
+    std::cout << "op=" << op << std::endl;
+  }
   if (op == "debug")
   {
     debugLevel = args.Get("debugLevel").As<Napi::Number>().Int32Value();
@@ -233,10 +237,10 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
     if (args.Has("saveAs"))
     {
       saveAs = args.Get("saveAs").As<Napi::String>().Utf8Value();
-      if (debugLevel > 1)
-      {
-        std::cout << "saveAs: " << saveAs << std::endl;
-      }
+    }
+    if (debugLevel > 1)
+    {
+      std::cout << "saveAs: " << saveAs << ", frameNum: " << frameNum << ", tsMilli: " << tsMilli << ", file:" << file << std::endl;
     }
 
     if (args.Has("zoom"))
