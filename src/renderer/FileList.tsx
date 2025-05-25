@@ -8,21 +8,19 @@ import DataGrid, {
   DataGridHandle,
 } from 'react-data-grid';
 import {
+  getDirList,
   getVideoDir,
   useSelectedIndex,
   useVideoFile,
 } from './video/VideoSettings';
-import {
-  getDirList,
-  refreshDirList,
-  requestVideoFrame,
-} from './video/VideoFileUtils';
+import { refreshDirList } from './video/VideoFileUtils';
 
 import 'react-data-grid/lib/styles.css';
 import { setDialogConfig } from './util/ConfirmDialog';
 import { showErrorDialog } from './util/ErrorDialog';
 import { replaceFileSuffix } from './util/Util';
 import { moveToFileIndex } from './video/VideoUtils';
+import { requestVideoFrame } from './video/RequestVideoFrame';
 
 interface FileListProps {
   height: number;
@@ -85,7 +83,6 @@ const ContextMenu: React.FC = () => {
           moveToFileIndex(
             row.id === getDirList().length - 1 ? row.id - 1 : row.id + 1,
             0,
-            false,
           );
           delay = 500; // wait for file switch to occur.
         }

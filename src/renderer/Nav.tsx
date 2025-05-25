@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import DebugIcon from '@mui/icons-material/BugReport';
 import Menu from '@mui/material/Menu';
 import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
 import CloudOffOutlinedIcon from '@mui/icons-material/CloudOffOutlined';
@@ -28,6 +29,7 @@ import {
   useMobileID,
   useFirebaseConnected,
   setProgressBar,
+  useDebugLevel,
 } from './util/UseSettings';
 import icon from '../assets/icons/crewtimer-review2-white.svg';
 import { setDialogConfig } from './util/ConfirmDialog';
@@ -37,6 +39,7 @@ import { initiateImageArchive } from './video/ImageArchive';
 import TimezoneSelector from './util/TimezoneSelector';
 import { useFileStatusList } from './video/VideoFileStatus';
 import { getVideoDir } from './video/VideoSettings';
+import { setUserMessages } from './util/UserMessage';
 
 const AboutText = `CrewTimer Video Review ${window.platform.appVersion}`;
 
@@ -68,6 +71,7 @@ export default function Nav() {
   const [msg, setMsg] = useState('');
   const [shiftMenu, setShiftMenu] = useState(false);
   const [fileStatusList] = useFileStatusList();
+  const [debugLevel, setDebugLevel] = useDebugLevel();
   const latestVersion =
     useFirebaseDatum<string, string>(
       '/global/config/video-review/latestVersion',
@@ -211,70 +215,70 @@ export default function Nav() {
               )}
             </Tooltip>
           </div>
-          {
-            <div>
-              <IconButton
-                aria-label="account of current user"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
-                onClick={handleMenu}
-                color="inherit"
-                size="large"
-              >
-                <MenuIcon />
-              </IconButton>
-              <Menu
-                id="menu-appbar"
-                anchorEl={anchorEl}
-                anchorOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-                keepMounted
-                transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-                open={open}
-                onClose={handleClose}
-              >
-                <MenuItem onClick={onViewResults}>
-                  <ListItemIcon>
-                    <VisibilityIcon />
-                  </ListItemIcon>
-                  <ListItemText primary="View Results" />
-                </MenuItem>
-                <MenuItem onClick={handleClearData}>
-                  <ListItemIcon>
-                    <HistoryToggleOffIcon />
-                  </ListItemIcon>
-                  <ListItemText primary="Clear Local History" />
-                </MenuItem>
-                <MenuItem onClick={handleArchiveData}>
-                  <ListItemIcon>
-                    <DeleteForeverIcon />
-                  </ListItemIcon>
-                  <ListItemText primary="Archive Video Files" />
-                </MenuItem>
-                {shiftMenu && (
-                  <MenuItem onClick={handleAddSidecarFiles}>
-                    <ListItemIcon>
-                      <CreateNewFolderIcon />
-                    </ListItemIcon>
-                    <ListItemText primary="Create/Update Sidecar Files" />
-                  </MenuItem>
-                )}
 
-                {shiftMenu && (
-                  <MenuItem onClick={handleCreateImageArchive}>
-                    <ListItemIcon>
-                      <CreateNewFolderIcon />
-                    </ListItemIcon>
-                    <ListItemText primary="Create Image Archive" />
-                  </MenuItem>
-                )}
+          <div>
+            <IconButton
+              aria-label="account of current user"
+              aria-controls="menu-appbar"
+              aria-haspopup="true"
+              onClick={handleMenu}
+              color="inherit"
+              size="large"
+            >
+              <MenuIcon />
+            </IconButton>
+            <Menu
+              id="menu-appbar"
+              anchorEl={anchorEl}
+              anchorOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              keepMounted
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              open={open}
+              onClose={handleClose}
+            >
+              <MenuItem onClick={onViewResults}>
+                <ListItemIcon>
+                  <VisibilityIcon />
+                </ListItemIcon>
+                <ListItemText primary="View Results" />
+              </MenuItem>
+              <MenuItem onClick={handleClearData}>
+                <ListItemIcon>
+                  <HistoryToggleOffIcon />
+                </ListItemIcon>
+                <ListItemText primary="Clear Local History" />
+              </MenuItem>
+              <MenuItem onClick={handleArchiveData}>
+                <ListItemIcon>
+                  <DeleteForeverIcon />
+                </ListItemIcon>
+                <ListItemText primary="Archive Video Files" />
+              </MenuItem>
+              {shiftMenu && (
+                <MenuItem onClick={handleAddSidecarFiles}>
+                  <ListItemIcon>
+                    <CreateNewFolderIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Create/Update Sidecar Files" />
+                </MenuItem>
+              )}
 
-                {/* <MenuItem
+              {shiftMenu && (
+                <MenuItem onClick={handleCreateImageArchive}>
+                  <ListItemIcon>
+                    <CreateNewFolderIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Create Image Archive" />
+                </MenuItem>
+              )}
+              {shiftMenu && (
+                <MenuItem
                   onClick={() => {
                     handleClose();
                     let newDebugLevel = debugLevel + 1;
@@ -293,31 +297,31 @@ export default function Nav() {
                     <DebugIcon />
                   </ListItemIcon>
                   <ListItemText primary="Toggle Debug" />
-                </MenuItem> */}
-                <MenuItem
-                  onClick={() => {
-                    handleClose();
-                    setToast({ severity: 'info', msg: AboutText });
-                  }}
-                >
-                  <ListItemIcon>
-                    <InfoIcon />
-                  </ListItemIcon>
-                  <ListItemText primary="About" />
                 </MenuItem>
-              </Menu>
-              <Snackbar
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                open={msgOpen}
-                onClose={() => setMsgOpen(false)}
-                autoHideDuration={4000}
-                ContentProps={{
-                  'aria-describedby': 'message-id',
+              )}
+              <MenuItem
+                onClick={() => {
+                  handleClose();
+                  setToast({ severity: 'info', msg: AboutText });
                 }}
-                message={<span id="message-id">{msg}</span>}
-              />
-            </div>
-          }
+              >
+                <ListItemIcon>
+                  <InfoIcon />
+                </ListItemIcon>
+                <ListItemText primary="About" />
+              </MenuItem>
+            </Menu>
+            <Snackbar
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              open={msgOpen}
+              onClose={() => setMsgOpen(false)}
+              autoHideDuration={4000}
+              ContentProps={{
+                'aria-describedby': 'message-id',
+              }}
+              message={<span id="message-id">{msg}</span>}
+            />
+          </div>
         </Toolbar>
       </AppBar>
       {/* Add space for 'fixed' Toolbar height */}

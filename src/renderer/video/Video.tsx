@@ -524,12 +524,14 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   }, [image.file]);
 
   useEffect(() => {
-    clearZoom();
-    // Trigger a reload of this frame as we exit zoom.
-    // This frame will be generated without alpha blending but simply moving the frame
-    // so it doesn't look fuzzy.
-    // const frameNum = getVideoFrameNum();
-    moveToFrame(getVideoFrameNum(), undefined, false); // keep to trigger refresh on exiting zoom
+    if (isZooming()) {
+      clearZoom();
+      // Trigger a reload of this frame as we exit zoom.
+      // This frame will be generated without alpha blending but simply moving the frame
+      // so it doesn't look fuzzy.
+      // const frameNum = getVideoFrameNum();
+      moveToFrame(getVideoFrameNum(), undefined, false); // trigger refresh on exiting zoom
+    }
   }, [resetZoomCount]);
 
   const handleMouseLeave = () => {

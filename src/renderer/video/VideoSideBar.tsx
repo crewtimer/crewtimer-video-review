@@ -11,8 +11,7 @@ import {
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import makeStyles from '@mui/styles/makeStyles';
 import FileList from '../FileList';
-import { useDirList } from './VideoFileUtils';
-import { useVideoDir } from './VideoSettings';
+import { useDirList, useVideoDir } from './VideoSettings';
 
 const { openDirDialog, openFileExplorer } = window.Util;
 

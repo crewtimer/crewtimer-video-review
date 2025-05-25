@@ -28,7 +28,7 @@ import DataGrid, {
   DataGridHandle,
   RenderHeaderCellProps,
 } from 'react-data-grid';
-import { Entry, Event, KeyMap } from 'crewtimer-common';
+import { Event, KeyMap } from 'crewtimer-common';
 import {
   getWaypoint,
   useDay,
@@ -56,7 +56,7 @@ import {
   useVideoEvent,
   useVideoTimestamp,
 } from './VideoSettings';
-import { seekToTimestamp } from './VideoFileUtils';
+import { seekToTimestamp } from './RequestVideoFrame';
 import { performAddSplit } from './AddSplitUtil';
 import { useEntryException } from './UseClickerData';
 

@@ -2,7 +2,7 @@ import { UseDatum } from 'react-usedatum';
 import { AppImage } from 'renderer/shared/AppTypes';
 import { N_IMAGE, N_VIDEO_FILE, N_VIDEO_DIR } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
-import { Entry } from 'crewtimer-common';
+import { Entry, Event } from 'crewtimer-common';
 import { generateTestPattern } from '../util/ImageUtils';
 
 export interface VideoPosition {
@@ -100,6 +100,8 @@ export const setLoadVideoSidecar = (func: typeof loadVideoSidecar) => {
   // eslint-disable-next-line no-import-assign
   loadVideoSidecar = func;
 };
+
+export const [useDirList, setDirList, getDirList] = UseDatum<string[]>([]);
 
 export const [useVideoScaling, setVideoScaling, getVideoScaling] =
   UseDatum<VideoScaling>({

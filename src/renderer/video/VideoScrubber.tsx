@@ -9,7 +9,6 @@ import { findClosestNumAndIndex } from 'renderer/util/Util';
 import ImageButton from './ImageButton';
 import TimeRangeIcons from './TimeRangeIcons';
 import { useClickerData } from './UseClickerData';
-import { requestVideoFrame, seekToTimestamp } from './VideoFileUtils';
 import {
   useVideoFrameNum,
   useVideoFile,
@@ -22,6 +21,7 @@ import {
 import { TimeObject, TimeSegment } from './VideoTypes';
 import { moveLeft, moveRight } from './VideoUtils';
 import { parseTimeToSeconds } from '../util/StringUtils';
+import { requestVideoFrame, seekToTimestamp } from './RequestVideoFrame';
 
 const VideoScrubber = () => {
   const [videoFrameNum, setVideoFrameNum] = useVideoFrameNum();

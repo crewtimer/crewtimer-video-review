@@ -7,7 +7,7 @@ import { setDialogConfig } from '../util/ConfirmDialog';
 import { ProgressBarComponent } from '../util/ProgressBarComponent';
 import { setProgressBar, useDay, useWaypoint } from '../util/UseSettings';
 import { useClickerData } from './UseClickerData';
-import { requestVideoFrame } from './VideoFileUtils';
+import { requestVideoFrame } from './RequestVideoFrame';
 import { moveToFileIndex } from './VideoUtils';
 import { UseStoredDatum } from '../store/UseElectronDatum';
 import { TimeObject } from './VideoTypes';

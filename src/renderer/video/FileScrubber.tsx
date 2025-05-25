@@ -6,7 +6,6 @@ import {
   convertTimestampToLocalMicros,
   convertTimestampToString,
 } from 'renderer/shared/Util';
-import { requestVideoFrame, useDirList } from './VideoFileUtils';
 import {
   moveToFileIndex,
   nextFile,
@@ -16,6 +15,7 @@ import {
 import {
   getSelectedIndex,
   setVideoFile,
+  useDirList,
   useJumpToEndPending,
   useSelectedIndex,
 } from './VideoSettings';
@@ -24,6 +24,7 @@ import TimeSegments from './TimeSegments';
 import { useClickerData } from './UseClickerData';
 import { TimeObject, TimeSegment } from './VideoTypes';
 import { useFileStatusList } from './VideoFileStatus';
+import { requestVideoFrame } from './RequestVideoFrame';
 
 interface SxPropsArgs {
   sx?: SxProps<Theme>;

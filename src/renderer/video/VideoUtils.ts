@@ -2,11 +2,6 @@ import React from 'react';
 import { Rect } from 'renderer/shared/AppTypes';
 import { ExtendedLap, getClickerData } from './UseClickerData';
 import {
-  getDirList,
-  requestVideoFrame,
-  seekToTimestamp,
-} from './VideoFileUtils';
-import {
   getAutoZoomPending,
   Dir,
   getHyperZoomFactor,
@@ -24,9 +19,11 @@ import {
   setVideoFrameNum,
   VideoScaling,
   setJumpToEndPending,
+  getDirList,
 } from './VideoSettings';
 import { TimeObject } from './VideoTypes';
 import { parseTimeToSeconds } from '../util/StringUtils';
+import { requestVideoFrame, seekToTimestamp } from './RequestVideoFrame';
 
 // Define types for points and lines for better type checking and readability
 export type Point = { x: number; y: number };
