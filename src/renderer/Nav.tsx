@@ -185,10 +185,10 @@ export default function Nav() {
                         Version: {latestVersion}: {latestText}.
                       </Typography>
                       <Link
-                        href="https://crewtimer.com/help/downloads"
+                        href="https://github.com/crewtimer/crewtimer-video-review/releases/latest"
                         target="_blank"
                       >
-                        https://crewtimer.com/help/downloads
+                        Download from github
                       </Link>
                     </Stack>
                   ),
