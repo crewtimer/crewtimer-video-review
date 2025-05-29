@@ -1,5 +1,6 @@
 import { Box, Typography, Stack, Tooltip, Button } from '@mui/material';
 import React, {
+  FC,
   useCallback,
   useEffect,
   useMemo,
@@ -8,7 +9,7 @@ import React, {
 } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import makeStyles from '@mui/styles/makeStyles';
-import Measure, { ContentRect } from 'react-measure';
+import _Measure, { ContentRect, MeasureProps } from 'react-measure';
 import { UseDatum } from 'react-usedatum';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import { convertTimestampToString } from '../shared/Util';
@@ -56,6 +57,9 @@ import VideoScrubber from './VideoScrubber';
 import { performAddSplit } from './AddSplitUtil';
 import Blowup from './Blowup';
 import { updateVideoScaling } from '../util/ImageScaling';
+
+// Avoid 'not a JSX component' warning
+const Measure = _Measure as unknown as FC<MeasureProps>;
 
 const useStyles = makeStyles({
   text: {

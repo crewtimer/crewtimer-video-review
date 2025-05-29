@@ -1,6 +1,6 @@
 import React, { FC, useEffect, useRef } from 'react';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
-import _AutoSizer, { Size } from 'react-virtualized-auto-sizer';
+import _AutoSizer, { Props, Size } from 'react-virtualized-auto-sizer';
 import makeStyles from '@mui/styles/makeStyles';
 import { Typography } from '@mui/material';
 import clsx from 'clsx';
@@ -9,7 +9,7 @@ import { Lap } from 'crewtimer-common';
 import { setEntryResultAndPublish, useLaps } from './util/LapStorageDatum';
 
 // https://github.com/bvaughn/react-virtualized/issues/1739
-const AutoSizer = _AutoSizer as unknown as FC;
+const AutoSizer = _AutoSizer as unknown as FC<Props>;
 
 export const colors = {
   deleted: '#808081',

@@ -57,7 +57,7 @@ export default function CenteredTabs() {
     tabPosition = 'System Config';
   }
   return (
-    <Box className={classes.root}>
+    <Box className={classes.root} sx={{ height: '100%' }}>
       {/* Keeep Tabs from scrolling by surround with fixed */}
       <div>
         <Tabs
