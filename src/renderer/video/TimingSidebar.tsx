@@ -59,6 +59,7 @@ import {
 import { seekToTimestamp } from './RequestVideoFrame';
 import { performAddSplit } from './AddSplitUtil';
 import { useEntryException } from './UseClickerData';
+import { setToast } from 'renderer/Toast';
 
 const useStyles = makeStyles((/* _theme */) => ({
   row: {
@@ -494,7 +495,15 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       if (entry?.Time && entry?.State !== 'Deleted') {
         resetVideoZoom();
         const seekTime = entry.Time;
-        setTimeout(() => seekToTimestamp(seekTime), 100);
+        setTimeout(() => {
+          const found = seekToTimestamp(seekTime);
+          if (!found) {
+            setToast({
+              severity: 'warning',
+              msg: 'Associated video file not found',
+            });
+          }
+        }, 100);
       }
     }
   };
