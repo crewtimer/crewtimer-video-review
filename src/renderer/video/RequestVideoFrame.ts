@@ -11,12 +11,9 @@ import {
   setVideoFile,
   getHyperZoomFactor,
 } from './VideoSettings';
-import {
-  getFileStatusByName,
-  updateFileStatus,
-  getFileStatusList,
-} from './VideoFileStatus';
+import { getFileStatusByName, updateFileStatus } from './VideoFileStatus';
 import { generateTestPattern } from '../util/ImageUtils';
+import { saveVideoSidecar } from './VideoFileUtils';
 
 const { VideoUtils } = window;
 
@@ -45,13 +42,19 @@ export type VideoFrameRequest = {
 // --- Helpers ---
 
 /**
- * Ensures the requested video file is open, closing any previously open file if necessary.
- * Updates file status and returns the up-to-date status.
+ * Ensures the specified video file is open and its status is up to date.
+ *
+ * If another file is currently open, it will be closed first. Attempts to open the given video file,
+ * retrieves its first and last frames to update metadata, and ensures the sidecar contains guide information.
+ * Updates and returns the file status, or returns undefined and sets a video error if the operation fails.
+ *
+ * @param videoFile - The filename of the video to open.
+ * @returns A promise resolving to the updated file status or undefined if opening fails.
  */
 async function ensureFileOpen(
   videoFile: string,
 ): Promise<ReturnType<typeof getFileStatusByName> | undefined> {
-  let videoFileStatus = getFileStatusByName(videoFile);
+  const videoFileStatus = getFileStatusByName(videoFile);
   if (!videoFileStatus) {
     setVideoError(`Unable to open file: ${videoFile}`);
     return undefined;
@@ -67,79 +70,89 @@ async function ensureFileOpen(
     }
   }
 
-  if (!videoFileStatus.open) {
-    const openStatus = await VideoUtils.openFile(videoFile);
-    if (openStatus.status !== 'OK') {
-      setVideoError(`Unable to open file: ${videoFile}`);
-      return undefined;
-    }
-
-    // Get first and last frames to update file status
-    const firstImage: AppImage | undefined = await VideoUtils.getFrame(
-      videoFile,
-      1,
-      0,
-    );
-    if (!firstImage) {
-      setVideoError(`Unable to get frame 1: ${videoFile}`);
-      return undefined;
-    }
-    openFilename = videoFile;
-
-    let lastImage: AppImage | undefined;
-    for (let excessFrames = 0; excessFrames < 10; excessFrames += 1) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        lastImage = await VideoUtils.getFrame(
-          videoFile,
-          firstImage.numFrames - excessFrames,
-          0,
-        );
-        firstImage.numFrames -= excessFrames;
-        break;
-      } catch {
-        // Try one less frame
-        console.log(
-          `cant read frame ${firstImage.numFrames - excessFrames}, trying one less`,
-        );
-      }
-    }
-    if (!lastImage) {
-      setVideoError(
-        `Unable to get frame ${firstImage.numFrames}: ${videoFile}`,
-      );
-      return undefined;
-    }
-
-    const lastImageTime = lastImage.tsMicro
-      ? lastImage.tsMicro
-      : Math.trunc(
-          firstImage.tsMicro +
-            (1000000 * firstImage.numFrames) / firstImage.fps,
-        );
-
-    const fileStatus = getFileStatusList().find(
-      (f) => f.filename === videoFile,
-    );
-    videoFileStatus = {
-      filename: videoFile,
-      open: true,
-      numFrames: firstImage.numFrames,
-      startTime: firstImage.tsMicro,
-      endTime: lastImageTime,
-      duration: lastImageTime - firstImage.tsMicro,
-      fps: firstImage.fps,
-      tzOffset: fileStatus?.tzOffset || -new Date().getTimezoneOffset(),
-      sidecar: fileStatus?.sidecar || {},
-    };
-    updateFileStatus(videoFileStatus);
+  if (videoFileStatus.open) {
+    return videoFileStatus;
   }
 
-  return videoFileStatus;
+  const openStatus = await VideoUtils.openFile(videoFile);
+  if (openStatus.status !== 'OK') {
+    setVideoError(`Unable to open file: ${videoFile}`);
+    return undefined;
+  }
+
+  // Get first and last frames to update file status
+  const firstImage: AppImage | undefined = await VideoUtils.getFrame(
+    videoFile,
+    1,
+    0,
+  );
+  if (!firstImage) {
+    setVideoError(`Unable to get frame 1: ${videoFile}`);
+    return undefined;
+  }
+  openFilename = videoFile;
+
+  let lastImage: AppImage | undefined;
+  for (let excessFrames = 0; excessFrames < 10; excessFrames += 1) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      lastImage = await VideoUtils.getFrame(
+        videoFile,
+        firstImage.numFrames - excessFrames,
+        0,
+      );
+      firstImage.numFrames -= excessFrames;
+      break;
+    } catch {
+      // Try one less frame
+      console.log(
+        `cant read frame ${firstImage.numFrames - excessFrames}, trying one less`,
+      );
+    }
+  }
+  if (!lastImage) {
+    setVideoError(`Unable to get frame ${firstImage.numFrames}: ${videoFile}`);
+    return undefined;
+  }
+
+  const lastImageTime = lastImage.tsMicro
+    ? lastImage.tsMicro
+    : Math.trunc(
+        firstImage.tsMicro + (1000000 * firstImage.numFrames) / firstImage.fps,
+      );
+
+  // Since we're opening the video file for viewing, ensure the sidecar has guides defined
+  if (!videoFileStatus.sidecar?.guides) {
+    // No guides, save current guide config
+    // Saving will update the sidecar content in videoFileStatus
+    await saveVideoSidecar(videoFile);
+  }
+
+  const newVideoFileStatus = {
+    filename: videoFile,
+    open: true,
+    numFrames: firstImage.numFrames,
+    startTime: firstImage.tsMicro,
+    endTime: lastImageTime,
+    duration: lastImageTime - firstImage.tsMicro,
+    fps: firstImage.fps,
+    tzOffset: videoFileStatus.tzOffset || -new Date().getTimezoneOffset(),
+    sidecar: videoFileStatus.sidecar || {},
+  };
+  updateFileStatus(newVideoFileStatus);
+
+  return newVideoFileStatus;
 }
 
 /**
- * Calculates the frame number to seek to, given the request and file status.
+ * Calculates the seek frame position and UTC time in milliseconds for a video file,
+ * based on the provided file status and one of frame number, seek percentage, or timestamp.
+ *
+ * @param status - The file status object retrieved by getFileStatusByName.
+ * @param frameNum - (Optional) The specific frame number to seek to.
+ * @param seekPercent - (Optional) The percentage (0-1) of the video to seek to.
+ * @param toTimestamp - (Optional) The timestamp string to seek to.
+ * @returns An object containing the calculated seek position (seekPos) and UTC milliseconds (utcMilli).
  */
 function calculateSeekFrame(
   status: ReturnType<typeof getFileStatusByName>,
@@ -192,7 +205,13 @@ function handleFrameError(videoFile: string, seekPos: number, error: any) {
 }
 
 /**
- * Main logic for requesting a video frame.
+ * Requests and retrieves a specific video frame based on the provided parameters.
+ *
+ * Ensures the video file is open, calculates the target frame position, and fetches the frame using internal utilities.
+ * Updates the application state with the retrieved image or handles errors if the frame cannot be obtained.
+ *
+ * @param {VideoFrameRequest} params - Parameters specifying the video file, frame selection criteria, and options.
+ * @returns {Promise<void>} Resolves when the frame is processed and state is updated.
  */
 const doRequestVideoFrame = async ({
   videoFile,
@@ -284,8 +303,13 @@ async function runQueue() {
 }
 
 /**
- * Requests a video frame. If a request is running, queue this one (replacing any previous queued request).
- * If a queued request is replaced, its promise is immediately rejected.
+ * Queues a request to extract a video frame based on the provided parameters.
+ *
+ * If a previous request is pending, it is resolved before queuing the new one.
+ * Returns a promise that resolves when the frame extraction is complete.
+ *
+ * @param params - The parameters specifying which video frame to request.
+ * @returns Promise that resolves when the frame has been processed.
  */
 export function requestVideoFrame(params: VideoFrameRequest): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -299,9 +323,11 @@ export function requestVideoFrame(params: VideoFrameRequest): Promise<void> {
 }
 
 /**
- * Seeks to the specified timestamp by finding the corresponding video file,
- * updating the selected index and video file, and requesting the first frame at that timestamp.
- * If an error occurs during the frame request, an error dialog is shown.
+ * Seeks the video to the specified timestamp by selecting the appropriate video file
+ * and requesting a video frame at that time. Updates the selected index and video file,
+ * and handles errors using the application's error dialog.
+ *
+ * @param timestamp - The target timestamp in 'HH:MM:SS.sss' format to seek to.
  */
 export const seekToTimestamp = (timestamp: string) => {
   const jumpTime = parseTimeToSeconds(timestamp);
