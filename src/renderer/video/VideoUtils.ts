@@ -547,12 +547,17 @@ export const seekToNextTimePoint = (from: {
   }
 
   resetVideoZoom();
-  setTimeout(() => seekToTimestamp(result?.Time || '00:00:00.000'), 100);
-  if (result.EventNum !== '?') {
-    setVideoEvent(result.EventNum);
-  }
-  if (result.Bow && result.Bow !== '*') {
-    setVideoBow(result.Bow);
-  }
+  setTimeout(() => {
+    const found = seekToTimestamp(result?.Time || '00:00:00.000');
+    if (found) {
+      if (result.EventNum !== '?') {
+        setVideoEvent(result.EventNum);
+      }
+      if (result.Bow && result.Bow !== '*') {
+        setVideoBow(result.Bow);
+      }
+    }
+  }, 10);
+
   return result as TimeObject;
 };

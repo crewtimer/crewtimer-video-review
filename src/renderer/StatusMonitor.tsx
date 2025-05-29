@@ -47,8 +47,7 @@ export default function StatusMonitor() {
   }, [mc?.info.ClearTS]);
 
   useEffect(() => {
-    timingLapdata.sort(timeSort);
-    for (const lap of timingLapdata) {
+    for (const lap of [...timingLapdata].sort(timeSort)) {
       if (lap.State !== 'Deleted') {
         const key = `${lap.Gate}_${lap.EventNum}_${lap.Bow}`;
         lap.keyid = key;

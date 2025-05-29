@@ -83,6 +83,20 @@ export function timeToMilli(time: string | undefined) {
   return Math.trunc(v * sign);
 }
 
+/**
+ * Returns local seconds since the most recent local midnight.
+ *
+ * @param utcSeconds   Unix-epoch time in seconds (UTC)
+ * @param offsetMin    Time-zone offset from UTC, in minutes.  -420 for PDT.
+ */
+export function secondsSinceLocalMidnight(
+  utcSeconds: number,
+  offsetMin: number,
+): number {
+  const localSeconds = utcSeconds + offsetMin * 60;
+  return ((localSeconds % 86400) + 86400) % 86400;
+}
+
 export function formatTime(date: Date, milliDigits = 3) {
   const milli =
     date.getHours() * 3600000 +
