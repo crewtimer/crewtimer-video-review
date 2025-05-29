@@ -636,13 +636,77 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
             value={selectedEvent}
             onChange={onEventChange}
             sx={{ fontSize: timingFontSize }}
+            MenuProps={{
+              PaperProps: {
+                sx: {
+                  backgroundColor: '#fff',
+                },
+              },
+              MenuListProps: {
+                sx: {
+                  fontSize: timingFontSize,
+                },
+              },
+            }}
+            renderValue={(selected) => {
+              const event = filteredEvents.find(
+                (evt) => evt.EventNum === selected,
+              );
+              const label = event
+                ? `${event.Event}${event.Start ? ` (${event.Start})` : ''}`
+                : '';
+              const needsTooltip = label.length > 30;
+              const valueSpan = (
+                <span
+                  style={{
+                    display: 'inline-block',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    verticalAlign: 'bottom',
+                  }}
+                >
+                  {label}
+                </span>
+              );
+              return needsTooltip ? (
+                <Tooltip title={label} placement="top" arrow>
+                  {valueSpan}
+                </Tooltip>
+              ) : (
+                valueSpan
+              );
+            }}
           >
             {filteredEvents.map((event) => (
-              <MenuItem key={event.EventNum} value={event.EventNum}>
-                {`${event.Event}${event.Start ? ` (${event.Start})` : ''}`}
+              <MenuItem
+                key={event.EventNum}
+                value={event.EventNum}
+                sx={{
+                  fontWeight:
+                    selectedEvent === event.EventNum ? 'bold' : 'normal',
+                  backgroundColor:
+                    selectedEvent === event.EventNum
+                      ? 'rgba(25, 118, 210, 0.15)'
+                      : 'inherit',
+                  color: selectedEvent === event.EventNum ? '#000' : 'inherit',
+                  '&.Mui-selected': {
+                    backgroundColor: 'rgba(25, 118, 210, 0.25) !important',
+                  },
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span>
+                  {`${event.Event}${event.Start ? ` (${event.Start})` : ''}`}
+                </span>
+                {selectedEvent === event.EventNum && (
+                  <span style={{ marginLeft: 8, color: '#1976d2' }}>✔</span>
+                )}
               </MenuItem>
             ))}
-            {/* Add more MenuItems here */}
           </Select>
         </FormControl>
         <Button
