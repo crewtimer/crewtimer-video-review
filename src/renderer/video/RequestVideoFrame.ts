@@ -1,5 +1,5 @@
 import { AppImage, Rect } from 'renderer/shared/AppTypes';
-import { timeToMilli } from 'renderer/util/Util';
+import { secondsSinceLocalMidnight, timeToMilli } from 'renderer/util/Util';
 import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { parseTimeToSeconds, extractTime } from 'renderer/util/StringUtils';
 import {
@@ -11,7 +11,11 @@ import {
   setVideoFile,
   getHyperZoomFactor,
 } from './VideoSettings';
-import { getFileStatusByName, updateFileStatus } from './VideoFileStatus';
+import {
+  getFileStatusByName,
+  getFileStatusList,
+  updateFileStatus,
+} from './VideoFileStatus';
 import { generateTestPattern } from '../util/ImageUtils';
 import { saveVideoSidecar } from './VideoFileUtils';
 
@@ -323,32 +327,40 @@ export function requestVideoFrame(params: VideoFrameRequest): Promise<void> {
 }
 
 /**
- * Seeks the video to the specified timestamp by selecting the appropriate video file
- * and requesting a video frame at that time. Updates the selected index and video file,
- * and handles errors using the application's error dialog.
+ * Seeks to the specified timestamp within the available video files.
+ * Determines the corresponding video file for the given timestamp, updates the selected index and video file,
+ * and requests the video frame at that timestamp. If the timestamp does not match any file, returns undefined.
  *
- * @param timestamp - The target timestamp in 'HH:MM:SS.sss' format to seek to.
+ * @param timestamp - The target timestamp in 'HH:MM:SS.sss' format.
+ * @returns The filename of the video file containing the timestamp, or undefined if not found.
  */
-export const seekToTimestamp = (timestamp: string) => {
+export const seekToTimestamp = (timestamp: string): string | undefined => {
   const jumpTime = parseTimeToSeconds(timestamp);
-  const dirs = getDirList();
-  let fileIndex = -1;
-  for (let i = 0; i < dirs.length; i += 1) {
-    const time = parseTimeToSeconds(extractTime(dirs[i]));
-    if (time > jumpTime) {
-      break;
-    }
-    fileIndex = i;
+  const fileStatusList = getFileStatusList();
+  const fileIndex = fileStatusList.findIndex((item) => {
+    const start = secondsSinceLocalMidnight(
+      item.startTime / 1000000, // usec to sec
+      item.tzOffset,
+    );
+    const end = secondsSinceLocalMidnight(
+      item.endTime / 1000000,
+      item.tzOffset,
+    );
+    return jumpTime >= start && jumpTime <= end;
+  });
+  if (fileIndex < 0) {
+    return undefined;
   }
-  if (fileIndex >= 0) {
-    setSelectedIndex(fileIndex);
-    setVideoFile(dirs[fileIndex]);
-    requestVideoFrame({
-      videoFile: dirs[fileIndex],
-      toTimestamp: timestamp,
-      blend: false,
-      saveAs: '',
-      closeTo: false,
-    }).catch(showErrorDialog);
-  }
+
+  const videoFile = fileStatusList[fileIndex].filename;
+  setSelectedIndex(fileIndex);
+  setVideoFile(videoFile);
+  requestVideoFrame({
+    videoFile,
+    toTimestamp: timestamp,
+    blend: false,
+    saveAs: '',
+    closeTo: false,
+  }).catch(showErrorDialog);
+  return videoFile;
 };
