@@ -97,4 +97,4 @@ export const useResultData = () => {
  * @returns {string | undefined} The current exception state.
  */
 export const [useEntryException, setEntryException, , clearEntryExceptions] =
-  UseKeyedDatum<string>();
+  UseKeyedDatum<string | undefined>(undefined);

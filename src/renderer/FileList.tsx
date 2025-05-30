@@ -20,7 +20,6 @@ import { setDialogConfig } from './util/ConfirmDialog';
 import { showErrorDialog } from './util/ErrorDialog';
 import { replaceFileSuffix } from './util/Util';
 import { moveToFileIndex } from './video/VideoUtils';
-import { requestVideoFrame } from './video/RequestVideoFrame';
 
 interface FileListProps {
   height: number;
@@ -142,13 +141,11 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
       return;
     }
     if (selectedIndex < 0) {
-      setSelectedIndex(0);
-      setVideoFile(files[0]);
+      moveToFileIndex(0, 0.5);
       return;
     }
     if (selectedIndex > files.length - 1) {
-      setSelectedIndex(files.length - 1);
-      setVideoFile(files[files.length - 1]);
+      moveToFileIndex(files.length - 1, 0.5);
       return;
     }
     dataGridRef.current?.scrollToCell({ rowIdx: selectedIndex, idx: 0 });
@@ -196,13 +193,14 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
       event.preventGridDefault();
       event.preventDefault();
       const index = args.row.id;
-      setSelectedIndex(index);
-      const filename = dispItems[index]?.filename || 'Unkown';
-      setVideoFile(filename);
-      requestVideoFrame({ videoFile: filename, frameNum: 1 });
-      // dataGridRef.current?.scrollToCell({ rowIdx: index, idx: 0 });
+      moveToFileIndex(index, 0.5);
+      dataGridRef.current?.scrollToCell({ rowIdx: index, idx: 0 });
+      // setSelectedIndex(index);
+      // const filename = dispItems[index]?.filename || 'Unkown';
+      // setVideoFile(filename);
+      // requestVideoFrame({ videoFile: filename, frameNum: 1 });
     },
-    [dispItems, setSelectedIndex, setVideoFile],
+    [],
   );
 
   const handleContextMenu = React.useCallback(

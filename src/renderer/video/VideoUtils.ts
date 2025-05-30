@@ -23,7 +23,11 @@ import {
 } from './VideoSettings';
 import { TimeObject } from './VideoTypes';
 import { parseTimeToSeconds } from '../util/StringUtils';
-import { requestVideoFrame, seekToTimestamp } from './RequestVideoFrame';
+import {
+  requestVideoFrame,
+  seekToClickInFile,
+  seekToTimestamp,
+} from './RequestVideoFrame';
 
 // Define types for points and lines for better type checking and readability
 export type Point = { x: number; y: number };
@@ -333,7 +337,7 @@ export const moveToFileIndex = (index: number, seekPercent: number) => {
   const videoFile = dirList[index];
   setSelectedIndex(selIndex);
   setVideoFile(videoFile);
-  return requestVideoFrame({ videoFile, seekPercent });
+  return seekToClickInFile(videoFile, seekPercent);
 };
 export const prevFile = () => {
   moveToFileIndex(getSelectedIndex() - 1, 1);

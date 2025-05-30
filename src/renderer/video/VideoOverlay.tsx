@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import { UseDatum } from 'react-usedatum';
 import { showErrorDialog } from '../util/ErrorDialog';
-import { saveVideoSidecar } from './VideoFileUtils';
+import { saveVideoSidecar } from './Sidecar';
 import {
   Dir,
   getImage,

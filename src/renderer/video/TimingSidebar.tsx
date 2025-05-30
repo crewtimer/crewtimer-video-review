@@ -45,6 +45,7 @@ import { gateFromWaypoint } from 'renderer/util/Util';
 import { UseDatum } from 'react-usedatum';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 import makeStyles from '@mui/styles/makeStyles';
+import { setToast } from 'renderer/Toast';
 import {
   getSortPlace,
   resetVideoZoom,
@@ -56,10 +57,9 @@ import {
   useVideoEvent,
   useVideoTimestamp,
 } from './VideoSettings';
-import { seekToTimestamp } from './RequestVideoFrame';
+import { seekToEvent, seekToTimestamp } from './RequestVideoFrame';
 import { performAddSplit } from './AddSplitUtil';
 import { useEntryException } from './UseClickerData';
-import { setToast } from 'renderer/Toast';
 
 const useStyles = makeStyles((/* _theme */) => ({
   row: {
@@ -532,6 +532,14 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
 
   const onEventChange = (event: SelectChangeEvent<string>) => {
     setSelectedEvent(event.target.value);
+    // Search lapdata for the first time in this event and jump to that timestamp
+    const eventNum = seekToEvent(event.target.value);
+    if (!eventNum) {
+      setToast({
+        severity: 'warning',
+        msg: `No times recorded for race ${event.target.value}`,
+      });
+    }
   };
 
   const prevEvent = () => {

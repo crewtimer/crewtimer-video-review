@@ -31,7 +31,7 @@ import {
   useVideoSettings,
 } from './VideoSettings';
 import HyperZoomSelector from '../util/HyperZoomSelector';
-import { saveVideoSidecar } from './VideoFileUtils';
+import { saveVideoSidecar } from './Sidecar';
 import { notifiyGuideChanged } from './VideoUtils';
 import { getFileStatusList } from './VideoFileStatus';
 

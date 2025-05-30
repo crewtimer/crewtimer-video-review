@@ -1,15 +1,18 @@
 import { AppImage, Rect } from 'renderer/shared/AppTypes';
 import { secondsSinceLocalMidnight, timeToMilli } from 'renderer/util/Util';
 import { showErrorDialog } from 'renderer/util/ErrorDialog';
-import { parseTimeToSeconds, extractTime } from 'renderer/util/StringUtils';
+import { parseTimeToSeconds } from 'renderer/util/StringUtils';
+import { convertTimestampToLocalMicros } from 'renderer/shared/Util';
+import { getWaypoint } from 'renderer/util/UseSettings';
 import {
   setVideoError,
   setVideoFrameNum,
   setImage,
-  getDirList,
   setSelectedIndex,
   setVideoFile,
   getHyperZoomFactor,
+  setVideoEvent,
+  setVideoBow,
 } from './VideoSettings';
 import {
   getFileStatusByName,
@@ -17,7 +20,8 @@ import {
   updateFileStatus,
 } from './VideoFileStatus';
 import { generateTestPattern } from '../util/ImageUtils';
-import { saveVideoSidecar } from './VideoFileUtils';
+import { getClickerData } from './UseClickerData';
+import { saveVideoSidecar } from './Sidecar';
 
 const { VideoUtils } = window;
 
@@ -363,4 +367,69 @@ export const seekToTimestamp = (timestamp: string): string | undefined => {
     closeTo: false,
   }).catch(showErrorDialog);
   return videoFile;
+};
+
+/**
+ * Seeks the video to the timestamp associated with the given event number.
+ *
+ * @param eventNum - The event number to seek to.
+ * @returns The event number if the seek was successful, otherwise undefined.
+ */
+export const seekToEvent = (eventNum: string) => {
+  const scoringWaypoint = getWaypoint();
+  let click = getClickerData(scoringWaypoint).find(
+    (item) => item.EventNum === eventNum,
+  );
+  if (!click) {
+    click = getClickerData().find((item) => item.EventNum === eventNum);
+  }
+  if (click && click.Time) {
+    seekToTimestamp(click.Time);
+    return eventNum;
+  }
+  return undefined;
+};
+
+/**
+ * Seeks to the nearest click event within the specified video file, using the current waypoint if available.
+ * If a relevant click is found, updates video event and bow state, and seeks to the click's timestamp.
+ * If no click is found, falls back to seeking to the given percentage within the file.
+ *
+ * @param videoFile - The name of the video file to seek within.
+ * @param seekPercent - The fallback seek position as a percentage if no click is found.
+ * @returns The result of seeking to the click timestamp or the fallback request.
+ */
+export const seekToClickInFile = (videoFile: string, seekPercent: number) => {
+  const info = getFileStatusByName(videoFile);
+  if (!info) {
+    console.log(`seekToClickInFile: info not found for ${videoFile}`);
+    return requestVideoFrame({ videoFile, seekPercent });
+  }
+  const start =
+    convertTimestampToLocalMicros(info.startTime, info.tzOffset) / 1000000;
+  const end =
+    convertTimestampToLocalMicros(info.endTime, info.tzOffset) / 1000000;
+
+  const scoringWaypoint = getWaypoint();
+  let click = getClickerData(scoringWaypoint).find(
+    (item) => item.seconds >= start && item.seconds <= end,
+  );
+  if (!click) {
+    click = getClickerData().find(
+      (item) => item.seconds >= start && item.seconds <= end,
+    );
+  }
+  if (click && click.Time) {
+    if (click.EventNum !== '?') {
+      setVideoEvent(click.EventNum);
+    }
+    if (click.Bow && click.Bow !== '*') {
+      setVideoBow(click.Bow);
+    }
+    seekToTimestamp(click.Time);
+    return Promise.resolve();
+  }
+
+  // no clicks found, just seek to the file falling back on percent
+  return requestVideoFrame({ videoFile, seekPercent });
 };
