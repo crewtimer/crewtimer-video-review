@@ -11,6 +11,7 @@ import { showErrorDialog } from '../util/ErrorDialog';
 import { saveVideoSidecar } from './Sidecar';
 import {
   Dir,
+  getHyperZoomFactor,
   getImage,
   getVideoFile,
   getVideoFrameNum,
@@ -23,6 +24,7 @@ import {
 } from './VideoSettings';
 import {
   drawText,
+  getTrackingRegion,
   moveToFrame,
   notifiyGuideChanged,
   Point,
@@ -218,9 +220,36 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       if (canvas && context) {
         canvas.width = videoScaling.destWidth;
         canvas.height = videoScaling.destHeight;
-
-        // Draw the vertical line
         context.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (videoScaling.zoomY > 1 && getHyperZoomFactor() > 0) {
+          // Draw region used for hyperZoom
+          const trackingRegion = getTrackingRegion(true);
+          const xy = translateSrcCanvas2DestCanvas(
+            {
+              x: trackingRegion.x,
+              y: trackingRegion.y,
+            },
+            videoScaling,
+          );
+          trackingRegion.width *= videoScaling.scaleX;
+          trackingRegion.height *= videoScaling.scaleY;
+
+          context.strokeStyle = '#000000';
+          context.strokeRect(
+            xy.x,
+            xy.y,
+            trackingRegion.width,
+            trackingRegion.height,
+          );
+          context.strokeStyle = '#ffffff';
+          context.strokeRect(
+            xy.x - 1,
+            xy.y - 1,
+            trackingRegion.width + 2,
+            trackingRegion.height + 2,
+          );
+        }
 
         courseConfig.guides.forEach((guide) => {
           if (

@@ -351,6 +351,35 @@ export const nextFile = () => {
     moveToFileIndex(getSelectedIndex() + 1, 0);
   }
 };
+
+/**
+ * Calculates and returns the tracking region near the finish line in video coordinates.
+ * The region also takes into consideration the travel direction with emphasis on the region
+ * after the finish line (usually open water) and a smaller regino before the finish to capture the bow.
+ *
+ * @param narrowRegion - If true, returns a narrower region; otherwise, returns the default width.
+ * @returns An object containing the x, y, width, and height of the tracking region.
+ */
+export const getTrackingRegion = (narrowRegion: boolean = false) => {
+  const finishLine = getFinishLine();
+  const videoScaling = getVideoScaling();
+  const pxBeforeFinish = 32;
+  const height = 150;
+  const width = narrowRegion ? 3 * pxBeforeFinish : 256;
+  const region = {
+    x: Math.max(
+      0,
+      videoScaling.srcWidth / 2 +
+        (finishLine.pt1 + finishLine.pt2) / 2 +
+        (getTravelRightToLeft() ? -pxBeforeFinish : -width + pxBeforeFinish),
+    ),
+    y: Math.max(0, videoScaling.srcCenterPoint.y - height / 2),
+    width,
+    height,
+  };
+  return region;
+};
+
 export const moveToFrame = (
   frameNum: number,
   offset?: number,
@@ -398,18 +427,7 @@ export const moveToFrame = (
         };
       } else {
         // Motion estimate around finish line
-        const finishLine = getFinishLine();
-        zoom = {
-          x: Math.max(
-            0,
-            videoScaling.srcWidth / 2 +
-              (finishLine.pt1 + finishLine.pt2) / 2 +
-              (getTravelRightToLeft() ? -16 : -240),
-          ),
-          y: Math.max(0, videoScaling.srcCenterPoint.y - 100),
-          width: 256,
-          height: 200,
-        };
+        zoom = getTrackingRegion();
       }
     }
 
@@ -423,10 +441,10 @@ export const moveToFrame = (
 };
 
 export const moveRight = () => {
-  moveToFrame(getVideoFrameNum(), 1);
+  moveToFrame(getVideoFrameNum(), -1);
 };
 export const moveLeft = () => {
-  moveToFrame(getVideoFrameNum(), -1);
+  moveToFrame(getVideoFrameNum(), 1);
 };
 
 /**
