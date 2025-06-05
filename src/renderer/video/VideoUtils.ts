@@ -334,9 +334,16 @@ export const downloadImageFromCanvasLayers = (
 export const moveToFileIndex = (index: number, seekPercent: number) => {
   const dirList = getDirList();
   const selIndex = Math.max(0, Math.min(index, dirList.length - 1));
-  const videoFile = dirList[index];
+  if (selIndex !== index && selIndex === getSelectedIndex()) {
+    // Do nothing.  The selected file isn't changing and the request was out of bounds
+    return Promise.resolve();
+  }
+  const videoFile = dirList[selIndex];
   setSelectedIndex(selIndex);
   setVideoFile(videoFile);
+  if (seekPercent <= 0 || seekPercent >= 1) {
+    return requestVideoFrame({ videoFile, seekPercent });
+  }
   return seekToClickInFile(videoFile, seekPercent);
 };
 export const prevFile = () => {
@@ -386,26 +393,28 @@ export const moveToFrame = (
   blend: boolean = true,
 ) => {
   const image = getImage();
-  if (frameNum < 1) {
-    prevFile();
-  } else if (frameNum > getImage().numFrames) {
-    nextFile();
-  } else {
-    const videoScaling = getVideoScaling();
-    const zoomFactor = videoScaling.zoomY;
-    const hyperZoomFactor = getHyperZoomFactor();
-    let videoFrameNum = frameNum;
+  const videoScaling = getVideoScaling();
+  const zoomFactor = videoScaling.zoomY;
+  const hyperZoomFactor = getHyperZoomFactor();
+  let videoFrameNum = frameNum;
 
-    if (offset !== undefined) {
-      if (zoomFactor < 3 || hyperZoomFactor === 0) {
-        videoFrameNum = Math.trunc(frameNum) + offset; // Math.round(frameNum + offset);
-      } else {
-        videoFrameNum =
-          frameNum + (offset * image.fps * hyperZoomFactor) / 1000;
-      }
+  if (offset !== undefined) {
+    if (zoomFactor < 3 || hyperZoomFactor === 0) {
+      videoFrameNum = Math.trunc(frameNum) + offset; // Math.round(frameNum + offset);
+    } else {
+      videoFrameNum = frameNum + (offset * image.fps * hyperZoomFactor) / 1000;
     }
 
-    setVideoFrameNum(videoFrameNum);
+    if (videoFrameNum < 1) {
+      prevFile();
+      return;
+    }
+    if (videoFrameNum > image.numFrames) {
+      nextFile();
+      return;
+    }
+
+    setVideoFrameNum(Math.min(image.numFrames, Math.max(1, videoFrameNum)));
     let zoom: Rect | undefined;
 
     // If we have an auto-zoom request pending, use those coords for the
@@ -441,10 +450,10 @@ export const moveToFrame = (
 };
 
 export const moveRight = () => {
-  moveToFrame(getVideoFrameNum(), -1);
+  moveToFrame(getVideoFrameNum(), 1);
 };
 export const moveLeft = () => {
-  moveToFrame(getVideoFrameNum(), 1);
+  moveToFrame(getVideoFrameNum(), -1);
 };
 
 /**

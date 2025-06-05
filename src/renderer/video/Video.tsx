@@ -12,6 +12,7 @@ import makeStyles from '@mui/styles/makeStyles';
 import _Measure, { ContentRect, MeasureProps } from 'react-measure';
 import { UseDatum } from 'react-usedatum';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import { AppImage } from 'renderer/shared/AppTypes';
 import { convertTimestampToString } from '../shared/Util';
 import VideoSideBar from './VideoSideBar';
 import {
@@ -35,6 +36,7 @@ import {
   getAutoZoomPending,
   getBowInfo,
   setVideoEvent,
+  getImage,
 } from './VideoSettings';
 import VideoOverlay, {
   getNearEdge,
@@ -57,6 +59,7 @@ import VideoScrubber from './VideoScrubber';
 import { performAddSplit } from './AddSplitUtil';
 import Blowup from './Blowup';
 import { updateVideoScaling } from '../util/ImageScaling';
+import { videoRequestQueueRunning } from './RequestVideoFrame';
 
 // Avoid 'not a JSX component' warning
 const Measure = _Measure as unknown as FC<MeasureProps>;
@@ -143,6 +146,43 @@ interface MouseState {
   imageLoaded: boolean;
 }
 
+let playIntervalTimer: NodeJS.Timeout | undefined;
+const playVideo = (dumpWhenFinished: boolean) => {
+  const history: [number, number][] = [];
+  const dumpResults = () => {
+    if (!dumpWhenFinished) {
+      return;
+    }
+    console.log(history.map((item) => item.join(',')).join('\n'));
+  };
+  if (playIntervalTimer) {
+    clearInterval(playIntervalTimer);
+    playIntervalTimer = undefined;
+    dumpResults();
+    return;
+  }
+
+  let lastImage = getImage();
+  playIntervalTimer = setInterval(() => {
+    const image = getImage();
+    if (image !== lastImage) {
+      const delta = image.timestamp - lastImage.timestamp;
+      // console.log(`${image.frameNum}, ${delta}`);
+      history.push([image.frameNum, delta]);
+      lastImage = image;
+    }
+    if (image.frameNum >= image.numFrames) {
+      clearInterval(playIntervalTimer);
+      playIntervalTimer = undefined;
+      dumpResults();
+    }
+
+    if (!videoRequestQueueRunning()) {
+      moveRight();
+    }
+  }, 10);
+};
+
 // Setting the window.removeEventListener in a useEffect for some reason ended up
 // with multiple callback calls.  As a workaround, try using a global variable to
 // gate the functions actions.
@@ -152,6 +192,12 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
     return;
   }
   switch (event.key) {
+    case 'P':
+      playVideo(true);
+      break;
+    case 'p':
+      playVideo(false);
+      break;
     case 'ArrowRight':
     case '>':
     case '.':
@@ -237,6 +283,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   );
 
   useEffect(() => {
+    console.log(
+      `frame ${image.frameNum}/${image.numFrames}, ${videoTimestamp} ts=${image.timestamp}`,
+    );
     // Refresh the offscreenCanvas if the image changes
     offscreenCanvas.current.width = image.width;
     offscreenCanvas.current.height = image.height;
@@ -268,7 +317,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     } else {
       mouseTracking.current.imageLoaded = false;
     }
-  }, [image]);
+  }, [image, videoTimestamp]);
 
   const drawContentDebounced = useDebouncedCallback(() => {
     if (mouseTracking.current.imageLoaded && canvasRef?.current) {

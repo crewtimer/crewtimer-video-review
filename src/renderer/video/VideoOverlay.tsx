@@ -31,6 +31,7 @@ import {
   translateMouseEventCoords,
   translateSrcCanvas2DestCanvas,
 } from './VideoUtils';
+import { videoRequestQueueRunning } from './RequestVideoFrame';
 
 export const [useOverlayActive, setOverlayActive] = UseDatum(false);
 export const [useAdjustingOverlay, , getAdjustingOverlay] = UseDatum(false);
@@ -103,8 +104,10 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
 
     const onWheelMove = useCallback(
       (event: React.WheelEvent<HTMLCanvasElement>) => {
+        if (videoRequestQueueRunning()) {
+          return; // ignore
+        }
         let scrollAmount;
-
         switch (event.deltaMode) {
           case 0: // Pixel-based scroll (likely from a trackpad)
             scrollAmount = event.deltaY;

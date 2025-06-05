@@ -289,6 +289,15 @@ let nextRequest: {
 } | null = null;
 
 /**
+ * Returns the current running state of the video request queue.
+ *
+ * @returns {boolean} True if the video request queue is running, otherwise false.
+ */
+export const videoRequestQueueRunning = () => {
+  return running;
+};
+
+/**
  * Runs the queue: processes the nextRequest if present.
  */
 async function runQueue() {
