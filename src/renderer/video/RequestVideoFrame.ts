@@ -147,6 +147,7 @@ async function ensureFileOpen(
     tzOffset: videoFileStatus.tzOffset || -new Date().getTimezoneOffset(),
     sidecar: videoFileStatus.sidecar || {},
   };
+  console.log(JSON.stringify(newVideoFileStatus, null, 2));
   updateFileStatus(newVideoFileStatus);
 
   return newVideoFileStatus;
@@ -266,6 +267,12 @@ const doRequestVideoFrame = async ({
       return;
     }
 
+    if (toTimestamp) {
+      image.frameNum = clampedSeekPos;
+      image.timestamp = utcMilli;
+    } else {
+      image.timestamp = Math.round(image.tsMicro / 1000);
+    }
     image.fileStartTime = status.startTime / 1000;
     image.fileEndTime = status.endTime / 1000;
     image.tzOffset = status.tzOffset;
