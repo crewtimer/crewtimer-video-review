@@ -15,6 +15,7 @@ import clsx from 'clsx';
 import { CircularProgress, InputLabel } from '@mui/material';
 import Tooltip from '@mui/material/Tooltip';
 import {
+  getWaypointList,
   useAuthOK,
   useAuthStatus,
   useDay,
@@ -130,13 +131,7 @@ export default function Setup() {
 
   const title = mc?.info.Title || '';
 
-  let waypointList = ['Start'];
-  const waypoints = mc?.info.Waypoints || '';
-  if (waypoints.length > 0) {
-    waypointList = waypointList.concat(waypoints.split(','));
-  }
-  waypointList = waypointList.concat(['Finish']);
-  waypointList = waypointList.map((waypoint) => waypoint.trim());
+  const waypointList = getWaypointList();
 
   const validWaypoint = !mc || waypointList.includes(timingWaypoint);
 

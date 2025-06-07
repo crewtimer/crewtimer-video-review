@@ -83,4 +83,15 @@ export const [useMobileConfigDate] = UseMemDatum<string>(
   MobileConfigDateKey,
   '',
 );
+
+export const getWaypointList = () => {
+  let waypointList = ['Start'];
+  const waypoints = getMobileConfig()?.info.Waypoints || '';
+  if (waypoints.length > 0) {
+    waypointList = waypointList.concat(waypoints.split(','));
+  }
+  waypointList = waypointList.concat(['Finish']);
+  waypointList = waypointList.map((waypoint) => waypoint.trim());
+  return waypointList;
+};
 export const [useInitializing, setInitializing] = UseDatum(true);
