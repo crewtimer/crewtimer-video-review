@@ -17,7 +17,14 @@ extern "C"
 #include "FrameUtils.hpp"
 #include "sendMulticast.hpp"
 
-static std::map<std::string, std::unique_ptr<FFVideoReader>> videoReaders;
+struct FileInfo
+{
+  std::unique_ptr<FFVideoReader> videoReader;
+  uint64_t firstFrameTimestampMilli;
+  uint64_t lastFrameTimestampMilli;
+  int32_t numFrames;
+};
+static std::map<std::string, FileInfo> fileInfoMap;
 static FrameInfoList frameInfoList;
 static FrameRect noZoom = {0, 0, 0, 0};
 static int debugLevel = 0;
@@ -102,7 +109,7 @@ getFrame(const std::unique_ptr<FFVideoReader> &ffreader,
     frame->width = rgbaFrame->width;
     frame->height = rgbaFrame->height;
     frame->fps = ffreader->getFps();
-    frame->totalFrames = ffreader->getTotalFrames();
+    frame->numFrames = ffreader->getTotalFrames();
     frame->totalBytes = totalBytes;
     frame->linesize = linesize;
     frame->data = std::make_shared<std::vector<std::uint8_t>>(
@@ -123,6 +130,117 @@ getFrame(const std::unique_ptr<FFVideoReader> &ffreader,
     frameInfoList.addFrame(frame);
   }
   return frame;
+}
+
+// Use 0 based indexing. getFrame() uses 1 based
+static std::shared_ptr<FrameInfo>
+getFrame0(const std::unique_ptr<FFVideoReader> &ffreader,
+          const std::string &filename, double frameNum, bool closeTo = false)
+{
+  if (debugLevel > 0)
+  {
+    std::cerr << "checking frame " << frameNum << std::endl;
+  }
+  return getFrame(ffreader, filename, frameNum + 1, closeTo);
+}
+
+/**
+ * @brief Finds the two adjacent video frames that bound a given timestamp.
+ *
+ * Given a desired timestamp (in milliseconds) and an estimated starting index (`guessIndex`)
+ * based on expected frame rate, this function efficiently locates two adjacent frames `A` and `B`
+ * such that:
+ *     A->timestamp <= desiredTimestamp < B->timestamp
+ *
+ * The search algorithm is a hybrid of exponential (galloping) search and binary search:
+ * - If the guess is below the desired timestamp, it gallops forward until it passes the bound.
+ * - If the guess is above, it gallops backward until it goes below the desired timestamp.
+ * - It then performs binary search in the identified interval to locate the exact bounding pair.
+ *
+ * This is efficient for near-uniformly spaced timestamps and takes advantage of the initial guess
+ * to reduce search time compared to plain binary search.
+ *
+ * Code derived from ChatGPT: https://chatgpt.com/share/6844827d-a244-8008-9cdb-b5e750c1ab17
+ *
+ * @param ffreader           Unique pointer to an FFVideoReader instance.
+ * @param filename           Name of the video file to search.
+ * @param desiredTimestamp The target timestamp in milliseconds to locate.
+ * @param guessIndex       An initial estimate of the frame index where the timestamp might be found.
+ *                         Can be computed as:
+ *                             guessIndex ≈ (desiredTimestamp - startTimestamp) * fps / 1000
+ * @param numFrames        Total number of frames in the video
+ *
+ * @return A pair of std::shared_ptr<FrameInfo> {A, B}, such that A->timestamp <= desiredTimestamp < B->timestamp.
+ *         Returns {nullptr, nullptr} if input is invalid or bounding frames could not be found.
+ *
+ * @note Assumes the frame timestamps are monotonically increasing and indexed 0 to numFrames-1.
+ *       Assumes getFrame(0)->numFrames gives the total number of frames.
+ */
+std::pair<std::shared_ptr<FrameInfo>, std::shared_ptr<FrameInfo>>
+findBoundingFrames(const std::unique_ptr<FFVideoReader> &ffreader,
+                   const std::string &filename, uint64_t desiredTimestamp,
+                   size_t guessIndex, size_t numFrames)
+{
+  guessIndex = std::min(std::max(guessIndex, size_t(0)), numFrames - 2);
+
+  auto guessFrame = getFrame0(ffreader, filename, guessIndex);
+  if (!guessFrame)
+    return {nullptr, nullptr};
+
+  size_t low, high;
+  // Gallop forward
+  if (guessFrame->timestamp <= desiredTimestamp)
+  {
+    low = guessIndex;
+    high = guessIndex + 1;
+    auto highFrame = getFrame0(ffreader, filename, high);
+    uint64_t lastTimestamp = guessFrame->timestamp;
+    while (high < numFrames && highFrame && highFrame->timestamp <= desiredTimestamp)
+    {
+      if (highFrame->timestamp <= lastTimestamp)
+        break; // Stop if timestamps aren't increasing
+      lastTimestamp = highFrame->timestamp;
+      low = high;
+      high = std::min(numFrames - 1, high + (high - guessIndex + 1));
+      highFrame = getFrame0(ffreader, filename, high);
+    }
+  }
+  // Gallop backward
+  else
+  {
+    high = guessIndex;
+    low = (guessIndex > 0) ? guessIndex - 1 : 0;
+    auto lowFrame = getFrame0(ffreader, filename, low);
+    uint64_t lastTimestamp = guessFrame->timestamp;
+    while (low > 0 && lowFrame && lowFrame->timestamp > desiredTimestamp)
+    {
+      if (lowFrame->timestamp >= lastTimestamp)
+        break; // Stop if timestamps aren't decreasing
+      lastTimestamp = lowFrame->timestamp;
+      high = low;
+      low = (low > 2 * (guessIndex - low + 1)) ? low - 2 * (guessIndex - low + 1) : 0;
+      lowFrame = getFrame0(ffreader, filename, low);
+    }
+  }
+
+  // Binary search refinement
+  while (low + 1 < high)
+  {
+    size_t mid = (low + high) / 2;
+    auto midFrame = getFrame0(ffreader, filename, mid);
+    if (!midFrame)
+      break; // corrupted frame
+    if (midFrame->timestamp <= desiredTimestamp)
+      low = mid;
+    else
+      high = mid;
+  }
+
+  auto A = getFrame0(ffreader, filename, low);
+  auto B = getFrame0(ffreader, filename, std::min(low + 1, numFrames - 1));
+  if (!A || !B)
+    return {nullptr, nullptr};
+  return {A, B};
 }
 
 Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
@@ -166,15 +284,15 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
       return ret;
     }
     auto file = args.Get("file").As<Napi::String>().Utf8Value();
-    auto ffreader = videoReaders.find(file);
-    if (ffreader == videoReaders.end())
+    auto it = fileInfoMap.find(file);
+    if (it == fileInfoMap.end())
     {
       std::cerr << "File not open opening " << file << std::endl;
       Napi::TypeError::New(env, "File not open").ThrowAsJavaScriptException();
       return ret;
     }
-    ffreader->second->closeFile();
-    videoReaders.erase(file);
+    it->second.videoReader->closeFile();
+    fileInfoMap.erase(file);
     return ret;
   }
 
@@ -188,12 +306,13 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
     }
     auto file = args.Get("file").As<Napi::String>().Utf8Value();
 
-    if (videoReaders.count(file))
+    if (fileInfoMap.count(file))
     {
       // std::cerr << "File already open, using existing file" << std::endl;
       ret.Set("status", Napi::String::New(env, "OK"));
       return ret;
     }
+
     std::unique_ptr<FFVideoReader> ffreader(new FFVideoReader());
     auto error = ffreader->openFile(file);
     if (error)
@@ -202,8 +321,38 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
           .ThrowAsJavaScriptException();
       return ret;
     }
+
+    auto frameA = getFrame(ffreader, file, 1);
+    if (!frameA)
+    {
+      Napi::TypeError::New(env, "Unable to get first frame info")
+          .ThrowAsJavaScriptException();
+      return ret;
+    }
+    auto frameB = getFrame(ffreader, file, frameA->numFrames);
+    if (!frameB)
+    {
+      std::cerr << "Unable to read frame " << frameA->numFrames << ". Doing one less" << std::endl;
+      frameB = getFrame(ffreader, file, frameA->numFrames - 1);
+    }
+    if (!frameB)
+    {
+      Napi::TypeError::New(env, "Unable to get last frame info")
+          .ThrowAsJavaScriptException();
+      return ret;
+    }
     ret.Set("status", Napi::String::New(env, "OK"));
-    videoReaders.emplace(file, std::move(ffreader));
+    // std::cerr << "timestamps = " << frameA->timestamp << "," << frameA->tsMicro << " - " << frameB->timestamp << "," << frameB->tsMicro << std::endl;
+
+    // Fill in the FileInfo struct
+    FileInfo info;
+    info.videoReader = std::move(ffreader);
+    info.firstFrameTimestampMilli = frameA->timestamp;
+    info.lastFrameTimestampMilli = frameB->timestamp;
+    info.numFrames = frameB->frameNum;
+
+    // Insert into the map with a filename as the key
+    fileInfoMap[file] = std::move(info);
     return ret;
   }
 
@@ -225,13 +374,15 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
     auto frameNum = args.Get("frameNum").As<Napi::Number>().DoubleValue();
     // std::cerr << "Grabbing frame at " << frameNum << std::endl;
     auto tsMilli = args.Get("tsMilli").As<Napi::Number>().Int64Value();
-    auto ffreader = videoReaders.find(file);
-    if (ffreader == videoReaders.end())
+    auto it = fileInfoMap.find(file);
+    if (it == fileInfoMap.end())
     {
       std::cerr << "File not open opening " << file << std::endl;
       Napi::TypeError::New(env, "File not open").ThrowAsJavaScriptException();
       return ret;
     }
+    auto &fileInfo = it->second;
+
     auto roi = noZoom;
     std::string saveAs;
     if (args.Has("saveAs"))
@@ -279,10 +430,54 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
         intPart = std::round(
             frameNum); // ensure a frameNum like 123.9999 ends up 124.
       }
+
+      if (tsMilli)
+      {
+        if (tsMilli < int64_t(fileInfo.firstFrameTimestampMilli) || tsMilli > int64_t(fileInfo.lastFrameTimestampMilli))
+        {
+          std::string msg = "Requested timestamp " + std::to_string(tsMilli) + " not within file bounds: " + "[" + std::to_string(fileInfo.firstFrameTimestampMilli) + "," + std::to_string(fileInfo.lastFrameTimestampMilli) + "]";
+          std::cerr << msg << std::endl;
+          Napi::TypeError::New(env, msg.c_str()).ThrowAsJavaScriptException();
+          return ret;
+        }
+        // find frames on either side of requested time
+        float delta = fileInfo.lastFrameTimestampMilli - fileInfo.firstFrameTimestampMilli;
+        auto seekFrameFloat = delta <= 0 ? 1 : 1 + ((tsMilli - fileInfo.firstFrameTimestampMilli) / delta) * (fileInfo.numFrames - 1);
+        intPart = static_cast<int>(seekFrameFloat);
+        fractionalPart = seekFrameFloat - intPart; // Extract fractional part
+        fractionalFrame =
+            ((fractionalPart > 0.01) && (fractionalPart < 0.99));
+
+        auto [frameA, frameB] = findBoundingFrames(fileInfo.videoReader, file, tsMilli, intPart, fileInfo.numFrames);
+
+        if (frameA && frameB)
+        {
+
+          if (debugLevel > 1)
+          {
+            std::cerr << "Found bounding frames at " << frameA->frameNum << ", " << frameB->frameNum << std::endl;
+          }
+          intPart = frameA->frameNum;
+          float delta = frameB->timestamp - frameA->timestamp;
+          if (delta <= 0)
+          {
+            std::string msg = "Malformed video frames detected at frame " + std::to_string(frameA->frameNum) + " and " + std::to_string(frameB->frameNum);
+            std::cerr << msg << std::endl;
+            Napi::TypeError::New(env, msg.c_str()).ThrowAsJavaScriptException();
+            return ret;
+          }
+
+          fractionalPart = (tsMilli - frameA->timestamp) / delta;
+          seekFrameFloat = intPart + fractionalPart;
+          fractionalFrame =
+              ((fractionalPart > 0.01) && (fractionalPart < 0.99));
+        }
+      }
+
       if (fractionalFrame)
       {
-        auto frameA = getFrame(ffreader->second, file, intPart);
-        auto frameB = getFrame(ffreader->second, file, intPart + 1);
+        auto frameA = getFrame(fileInfo.videoReader, file, intPart);
+        auto frameB = getFrame(fileInfo.videoReader, file, intPart + 1);
         if (frameA && frameB)
         {
           if (tsMilli)
@@ -305,8 +500,9 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
           }
           if (!hasZoom)
           {
-            // std::cout << "restricting roi"
-            //           << " roi width=" << roi.width << std::endl;
+            // GE: If we have no zoom do we want to trigger interpolate?
+            std::cout << "Not zooming.  restricting roi"
+                      << " roi width=" << roi.width << std::endl;
             // Use a slice around the center
             auto width = std::min(frameA->width, 256);
             roi = {frameA->width / 2 - width / 2, 0, width, frameA->height};
@@ -355,7 +551,7 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
       }
       else
       {
-        frameInfo = getFrame(ffreader->second, file, intPart, closeTo);
+        frameInfo = getFrame(fileInfo.videoReader, file, intPart, closeTo);
         if (frameInfo)
         {
           if (hasZoom)
@@ -391,7 +587,7 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
     ret.Set("height", Napi::Number::New(env, frameInfo->height));
     ret.Set("totalBytes", Napi::Number::New(env, frameInfo->totalBytes));
     ret.Set("frameNum", Napi::Number::New(env, frameInfo->frameNum));
-    ret.Set("numFrames", Napi::Number::New(env, frameInfo->totalFrames));
+    ret.Set("numFrames", Napi::Number::New(env, frameInfo->numFrames));
     ret.Set("fps", Napi::Number::New(env, frameInfo->fps));
     ret.Set("status", Napi::String::New(env, "OK"));
     ret.Set("file", Napi::String::New(env, frameInfo->file));
@@ -406,7 +602,7 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
 
     if (debugLevel > 1)
     {
-      std::cout << "Grabbed frame: " << frameNum << " WxH=" << frameInfo->width
+      std::cout << "Grabbed frame: " << frameInfo->frameNum << " ts=" << frameInfo->timestamp << " WxH=" << frameInfo->width
                 << "x" << frameInfo->height << std::endl;
     }
     return ret;

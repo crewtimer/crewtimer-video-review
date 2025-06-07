@@ -180,12 +180,12 @@ function calculateSeekFrame(
     const tsMilli = timeToMilli(toTimestamp);
     const delta = status.endTime - status.startTime;
     const tzOffsetMinutes = status.tzOffset;
-    const fileStartUtcMilli = Math.trunc(status.startTime / 1000);
+    const fileStartUtcMilli = Math.round(status.startTime / 1000);
     const utcMilli =
       fileStartUtcMilli -
       (fileStartUtcMilli % (24 * 60 * 60 * 1000)) +
-      tsMilli -
-      tzOffsetMinutes * 60 * 1000;
+      ((tsMilli - tzOffsetMinutes * 60 * 1000) % (24 * 60 * 60 * 1000));
+
     const startTime =
       (status.startTime + tzOffsetMinutes * 60 * 1000000) %
       (24 * 60 * 60 * 1000000);
@@ -193,6 +193,10 @@ function calculateSeekFrame(
     let seekFrame =
       1 +
       ((tsMilli * 1000 - startTime) / (delta || 1)) * (status.numFrames - 1);
+
+    console.log(
+      `toTimestamp ${JSON.stringify({ toTimestamp, tsMilli, seekFrame, delta, tzOffsetMinutes, fileStartUtcMilli, utcMilli, fileOffsetMilli: utcMilli - fileStartUtcMilli, fpsCalcFrame: (utcMilli - fileStartUtcMilli) / 16.666 }, null, 2)}`,
+    );
     if (getHyperZoomFactor() === 0) {
       seekFrame = Math.round(seekFrame);
     }
@@ -267,12 +271,12 @@ const doRequestVideoFrame = async ({
       return;
     }
 
-    if (toTimestamp) {
-      image.frameNum = clampedSeekPos;
-      image.timestamp = utcMilli;
-    } else {
-      image.timestamp = Math.round(image.tsMicro / 1000);
-    }
+    // if (toTimestamp) {
+    //   image.frameNum = clampedSeekPos;
+    //   image.timestamp = utcMilli;
+    // } else {
+    //   image.timestamp = Math.round(image.tsMicro / 1000);
+    // }
     image.fileStartTime = status.startTime / 1000;
     image.fileEndTime = status.endTime / 1000;
     image.tzOffset = status.tzOffset;

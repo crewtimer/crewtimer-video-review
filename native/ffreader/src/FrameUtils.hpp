@@ -80,11 +80,10 @@ inline std::string formatKey(const std::string &file, float frameNum,
 class FrameInfo
 {
 public:
-  float frameNum;  ///< The frame number.
-  int numFrames;   ///< The total number of frames.
-  double fps;      ///< Frames per second.
-  int totalBytes;  ///< Total bytes of the frame data.
-  int totalFrames; ///< Total frames in the video.
+  float frameNum; ///< The frame number.
+  int numFrames;  ///< The total number of frames.
+  double fps;     ///< Frames per second.
+  int totalBytes; ///< Total bytes of the frame data.
   std::shared_ptr<std::vector<uint8_t>>
       data;           ///< Shared pointer to the frame data.
   int width;          ///< Width of the frame.
