@@ -26,7 +26,6 @@ import {
   drawText,
   getTrackingRegion,
   moveToFrame,
-  notifiyGuideChanged,
   Point,
   translateMouseEventCoords,
   translateSrcCanvas2DestCanvas,
@@ -508,7 +507,6 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       if (dragging) {
         courseConfig.sidecarSource = getVideoFile();
         setVideoSettings(courseConfig, true);
-        notifiyGuideChanged();
         saveVideoSidecar().catch(showErrorDialog);
       }
       setDragging(false);

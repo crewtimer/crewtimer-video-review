@@ -1,5 +1,6 @@
 import React from 'react';
 import { Rect } from 'renderer/shared/AppTypes';
+import { getWaypoint, getWaypointList } from 'renderer/util/UseSettings';
 import { ExtendedLap, getClickerData } from './UseClickerData';
 import {
   getAutoZoomPending,
@@ -74,6 +75,18 @@ export const triggerFileSplit = () => {
     cmd: 'split-video',
     src: 'crewtimer-video-review',
     ts: new Date().getTime(),
+    wp: getWaypoint(),
+  };
+  window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
+};
+
+export const sendInfoMessage = () => {
+  const msg = {
+    cmd: 'info',
+    src: 'crewtimer-video-review',
+    ts: new Date().getTime(),
+    wp: getWaypoint(),
+    wplist: getWaypointList(),
   };
   window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
 };
@@ -91,26 +104,27 @@ export const getFinishLine = () => {
   return vert;
 };
 
-export const notifiyGuideChanged = () => {
-  const videoSettings = getVideoSettings();
-  const vert = videoSettings.guides.find((guide) => guide.dir === Dir.Vert);
-  if (!vert) {
-    return;
-  }
-  const msg = {
-    cmd: 'guide-config',
-    src: 'crewtimer-video-review',
-    ts: new Date().getTime(),
-    guide: { pt1: vert.pt1, pt2: vert.pt2 },
-  };
-  window.VideoUtils.sendMulticast(
-    JSON.stringify(msg),
-    '239.215.23.42',
-    52342,
-  ).catch(() => {
-    /* ignore */
-  });
-};
+// Deprecated.  The recorder no longer utilizes guide changes from the review app
+// export const notifiyGuideChanged = () => {
+//   const videoSettings = getVideoSettings();
+//   const vert = videoSettings.guides.find((guide) => guide.dir === Dir.Vert);
+//   if (!vert) {
+//     return;
+//   }
+//   const msg = {
+//     cmd: 'guide-config',
+//     src: 'crewtimer-video-review',
+//     ts: new Date().getTime(),
+//     guide: { pt1: vert.pt1, pt2: vert.pt2 },
+//   };
+//   window.VideoUtils.sendMulticast(
+//     JSON.stringify(msg),
+//     '239.215.23.42',
+//     52342,
+//   ).catch(() => {
+//     /* ignore */
+//   });
+// };
 
 /**
  * Draws text on the canvas with specified alignment and position relative to a horizontal line.

@@ -32,7 +32,6 @@ import {
 } from './VideoSettings';
 import HyperZoomSelector from '../util/HyperZoomSelector';
 import { saveVideoSidecar } from './Sidecar';
-import { notifiyGuideChanged } from './VideoUtils';
 import { getFileStatusList } from './VideoFileStatus';
 
 declare module '@mui/styles/defaultTheme' {
@@ -78,7 +77,6 @@ export const VideoSettingsDialog = () => {
       finishGuide.pt2 = 0;
       setVideoSettings(newSetting, true);
       saveVideoSidecar();
-      notifiyGuideChanged();
       setToast({
         severity: 'info',
         msg: `Finish guide set to center`,
@@ -98,7 +96,6 @@ export const VideoSettingsDialog = () => {
       finishGuide.pt2 = fileStatus.sidecar.guide.pt2;
       setVideoSettings(newSetting, true);
       saveVideoSidecar();
-      notifiyGuideChanged();
       setToast({
         severity: 'info',
         msg: `Finish guide set to recording default`,

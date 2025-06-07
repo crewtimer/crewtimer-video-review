@@ -9,7 +9,7 @@ import {
   useWaypoint,
 } from './util/UseSettings';
 import { useClickerData } from './video/UseClickerData';
-import { notifiyGuideChanged } from './video/VideoUtils';
+import { sendInfoMessage } from './video/VideoUtils';
 
 const { LapStorage } = window;
 
@@ -57,15 +57,14 @@ export default function StatusMonitor() {
   }, [timingLapdata]);
 
   useEffect(() => {
-    // Let recorder know the current guide settings periodically
-    // It's also notified if it changes
+    // Let recorder know the current waypoint configuration periodically
     if (initializing) {
       return undefined;
     }
-    notifiyGuideChanged();
+    sendInfoMessage();
     const timer = setInterval(() => {
-      notifiyGuideChanged();
-    }, 60000);
+      sendInfoMessage();
+    }, 15000);
     return () => clearInterval(timer);
   }, [initializing]);
   return <></>;
