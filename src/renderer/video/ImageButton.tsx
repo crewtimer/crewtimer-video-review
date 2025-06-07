@@ -15,7 +15,9 @@ const ImageButton: React.FC = () => {
       color="primary"
       aria-label="upload picture"
       component="span"
-      onClick={generateImageSnapshot}
+      onClick={() => {
+        generateImageSnapshot?.();
+      }}
     >
       <PhotoCamera />
     </IconButton>
