@@ -27,7 +27,7 @@ struct FileInfo
 static std::map<std::string, FileInfo> fileInfoMap;
 static FrameInfoList frameInfoList;
 static FrameRect noZoom = {0, 0, 0, 0};
-static int debugLevel = 0;
+static int debugLevel = 2;
 
 /**
  * @brief Extract a 64-bit 100ns UTC timestamp from the video frame.
@@ -111,7 +111,7 @@ getFrame(const std::unique_ptr<FFVideoReader> &ffreader,
     frame->fps = ffreader->getFps();
     frame->numFrames = ffreader->getTotalFrames();
     frame->totalBytes = totalBytes;
-    frame->linesize = linesize;
+    frame->linesize = pixbytes; // linesize has been adjusted
     frame->data = std::make_shared<std::vector<std::uint8_t>>(
         rgbaFrame->data[0], rgbaFrame->data[0] + totalBytes);
     frame->motion = {0, 0, 0, false};
@@ -121,6 +121,7 @@ getFrame(const std::unique_ptr<FFVideoReader> &ffreader,
         (5000 + timestamp100ns) / 10000; // Round 64-bit number to milliseconds
     auto tsMicro = (5 + timestamp100ns) / 10;
 
+    std::cerr << "Linesize=" << uint64_t(frame->linesize) << " pixbytes=" << pixbytes << std::endl;
     if (tsMicro == 0)
     {
       tsMilli = uint64_t(0.5 + ((frameNum - 1) * 1000) / (frame->fps));
@@ -527,11 +528,14 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
           //           << " frac=" << fractionalPart << std::endl;
           if (debugLevel)
           {
-            std::cout << __FILE__ << ":" << __LINE__
+            std::cerr << __FILE__ << ":" << __LINE__
                       << " Generating interpolated frame at " << fractionalPart
                       << "% zoom=" << (hasZoom ? "true" : "false")
-                      << " blend=" << (blend ? "true" : "false") << std::endl;
+                      << " blend=" << (blend ? "true" : "false") << " WxH=<<" << frameA->width << "x" << frameA->height << " linesize=" << uint64_t(frameA->linesize) << std::endl;
+            std::cerr << "FrameA=" << frameA->frameNum << "(" << frameA->timestamp << ")" << " FrameB=" << frameB->frameNum << "(" << frameB->timestamp << ")" << std::endl;
           }
+          // saveFrameAsPNG(frameA, "/tmp/frameA-" + std::to_string(frameA->frameNum) + ".png");
+          // saveFrameAsPNG(frameB, "/tmp/frameB-" + std::to_string(frameB->frameNum) + ".png");
           frameInfo = generateInterpolatedFrame(frameA, frameB, fractionalPart,
                                                 roi, blend);
           frameA->motion = frameInfo->motion;

@@ -1,6 +1,6 @@
 {
   "name": "crewtimer_video_reader",
-  "version": "1.0.15-ffreader",
+  "version": "1.0.16-ffreader",
   "description": "A node electron utility to read mp4 files for CrewTimer Video Review",
   "main": "index.js",
   "types": "index.d.ts",

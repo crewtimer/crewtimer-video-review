@@ -378,7 +378,7 @@ export const nextFile = () => {
  * The region also takes into consideration the travel direction with emphasis on the region
  * after the finish line (usually open water) and a smaller regino before the finish to capture the bow.
  *
- * @param narrowRegion - If true, returns a narrower region; otherwise, returns the default width.
+ * @param narrowRegion - If true, returns a narrower region used to draw an approximate bounding box; otherwise, returns the default width.
  * @returns An object containing the x, y, width, and height of the tracking region.
  */
 export const getTrackingRegion = (narrowRegion: boolean = false) => {

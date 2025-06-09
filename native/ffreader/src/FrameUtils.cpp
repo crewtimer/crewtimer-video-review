@@ -5,10 +5,12 @@
 #include <iostream>
 #include <memory>
 #include <opencv2/opencv.hpp>
+#include <opencv2/tracking/tracking.hpp>
 #include <string>
 #include <vector>
 
-extern "C" {
+extern "C"
+{
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
@@ -24,7 +26,8 @@ using namespace std;
  * @param src The input image (cv::Mat).
  * @param dst The output sharpened image (cv::Mat).
  */
-void sharpenImage(const cv::Mat &src, cv::Mat &dst) {
+void sharpenImage(const cv::Mat &src, cv::Mat &dst)
+{
   // Define the sharpening kernel
   cv::Mat kernel = (cv::Mat_<float>(3, 3) << 0, -1, 0, -1, 5, -1, 0, -1, 0);
 
@@ -40,18 +43,26 @@ void sharpenImage(const cv::Mat &src, cv::Mat &dst) {
  * for left-to-right).
  * @return The index of the first peak found, or -1 if no peak is found.
  */
-size_t findFirstPeak(const vector<int> &arr, int dir, int minLevel) {
-  if (dir > 0) { // Search from right to left
-    for (auto i = arr.size() - 1; i >= 12; i--) {
+size_t findFirstPeak(const vector<int> &arr, int dir, int minLevel)
+{
+  if (dir > 0)
+  { // Search from right to left
+    for (auto i = arr.size() - 1; i >= 12; i--)
+    {
       if (arr[i] > minLevel && arr[i] > arr[i - 1] && arr[i] > arr[i - 2] &&
-          arr[i] > arr[i - 3] && arr[i] > arr[i - 4] && arr[i] > arr[i - 10]) {
+          arr[i] > arr[i - 3] && arr[i] > arr[i - 4] && arr[i] > arr[i - 10])
+      {
         return i;
       }
     }
-  } else { // Search from left to right
-    for (size_t i = 0; i < arr.size() - 12; i++) {
+  }
+  else
+  { // Search from left to right
+    for (size_t i = 0; i < arr.size() - 12; i++)
+    {
       if (arr[i] > minLevel && arr[i] > arr[i + 1] && arr[i] > arr[i + 2] &&
-          arr[i] > arr[i + 3] && arr[i] > arr[i + 4] && arr[i] > arr[i + 10]) {
+          arr[i] > arr[i + 3] && arr[i] > arr[i + 4] && arr[i] > arr[i + 10])
+      {
         return i;
       }
     }
@@ -60,27 +71,37 @@ size_t findFirstPeak(const vector<int> &arr, int dir, int minLevel) {
   return 0; // No peak found
 }
 
-int findPeak(const vector<int> &hist) {
+int findPeak(const vector<int> &hist)
+{
   size_t negPeak = findFirstPeak(hist, -1, 60);
   size_t posPeak = findFirstPeak(hist, 1, 60);
-  if (negPeak == 0 && posPeak == 0) {
+  if (negPeak == 0 && posPeak == 0)
+  {
     return 1000;
   }
 
   // Ignore one pixel on either side of the zero point (10 slots)
-  if (posPeak < hist.size() / 2 + 10) {
+  if (posPeak < hist.size() / 2 + 10)
+  {
     // posPeak no good, how about neg peak?
-    if (negPeak <= hist.size() / 2 - 10) {
+    if (negPeak <= hist.size() / 2 - 10)
+    {
       return negPeak;
-    } else {
+    }
+    else
+    {
       return 1000;
     }
   }
-  if (negPeak > hist.size() / 2 - 10) {
+  if (negPeak > hist.size() / 2 - 10)
+  {
     // negPeak no good, how about pos peak?
-    if (posPeak > hist.size() / 2 + 10) {
+    if (posPeak > hist.size() / 2 + 10)
+    {
       return posPeak;
-    } else {
+    }
+    else
+    {
       return 1000;
     }
   }
@@ -95,14 +116,17 @@ int findPeak(const vector<int> &hist) {
  * @param flow The optical flow matrix.
  * @return An ImageMotion struct containing the x and y motion.
  */
-ImageMotion calculateMotion(const Mat &flow) {
+ImageMotion calculateMotion(const Mat &flow)
+{
   // Initialize histograms for x and y components of the flow
   vector<int> histx(2000, 0);
   vector<int> histy(2000, 0);
 
   // Populate histograms with flow data
-  for (int y = 0; y < flow.rows; y++) {
-    for (int x = 0; x < flow.cols; x++) {
+  for (int y = 0; y < flow.rows; y++)
+  {
+    for (int x = 0; x < flow.cols; x++)
+    {
       const Vec2f &flowAtXY = flow.at<Vec2f>(y, x);
       double fx = min(99.0f, max(-99.0f, flowAtXY[0]));
       histx[static_cast<int>(round(10 * fx)) + 1000]++;
@@ -112,12 +136,13 @@ ImageMotion calculateMotion(const Mat &flow) {
     }
   }
 
-  // for (auto i = 0; i < histx.size(); i++) {
-  //   if (histx[i]) {
-  //     std::cout << int(i - histx.size() / 2) << ": " << histx[i] <<
-  //     std::endl;
-  //   }
-  // }
+  for (auto i = 0; i < histx.size(); i++)
+  {
+    if (histx[i])
+    {
+      std::cout << int(i - histx.size() / 2) << ": " << histx[i] << std::endl;
+    }
+  }
 
   int maxX = findPeak(histx);
   int maxY = findPeak(histy);
@@ -134,7 +159,8 @@ ImageMotion calculateMotion(const Mat &flow) {
  * @return The shifted frame as a new Mat object.
  */
 Mat applySceneShift(const Mat &frame, const ImageMotion &motion,
-                    double percentage) {
+                    double percentage)
+{
   // Create the transformation matrix for affine transformation
   Mat M = (Mat_<double>(2, 3) << 1, 0, motion.x * percentage, 0, 1,
            motion.y * percentage);
@@ -160,7 +186,8 @@ Mat applySceneShift(const Mat &frame, const ImageMotion &motion,
  * @return cv::Mat The blended image.
  */
 cv::Mat applySceneShiftAndBlend(const cv::Mat &matA, const cv::Mat &matB,
-                                const ImageMotion &motion, float percentage) {
+                                const ImageMotion &motion, float percentage)
+{
   cv::Mat M_A = (cv::Mat_<double>(2, 3) << 1, 0, motion.x * percentage, 0, 1,
                  motion.y * percentage);
   cv::Mat M_B = (cv::Mat_<double>(2, 3) << 1, 0, -motion.x * (1 - percentage),
@@ -181,7 +208,8 @@ cv::Mat applySceneShiftAndBlend(const cv::Mat &matA, const cv::Mat &matB,
 }
 
 Mat calculateOpticalFlowBetweenFrames(const Mat &frame1, const Mat &frame2,
-                                      Rect roi) {
+                                      Rect roi)
+{
   Mat frame1Gray, frame2Gray;
   cvtColor(frame1, frame1Gray, COLOR_RGBA2GRAY);
   cvtColor(frame2, frame2Gray, COLOR_RGBA2GRAY);
@@ -190,8 +218,9 @@ Mat calculateOpticalFlowBetweenFrames(const Mat &frame1, const Mat &frame2,
   // calcOpticalFlowFarneback(frame1Gray(roi), frame2Gray(roi), flow, 0.5, 3,
   // 15,
   //                          3, 5, 1.2, 0);
-  calcOpticalFlowFarneback(frame1Gray(roi), frame2Gray(roi), flow, 0.5, 5, 25,
-                           3, 7, 1.5, 0);
+  // calcOpticalFlowFarneback(frame1Gray(roi), frame2Gray(roi), flow, 0.5, 5, 25,
+  //                          3, 7, 1.5, 0);
+  calcOpticalFlowFarneback(frame1Gray(roi), frame2Gray(roi), flow, 0.5, 6, 40, 5, 9, 1.5, 0);
 
   return flow;
 }
@@ -211,22 +240,80 @@ Mat calculateOpticalFlowBetweenFrames(const Mat &frame1, const Mat &frame2,
 const std::shared_ptr<FrameInfo>
 generateInterpolatedFrame(const std::shared_ptr<FrameInfo> frameA,
                           const std::shared_ptr<FrameInfo> frameB,
-                          double pctAtoB, FrameRect roi, bool blend) {
+                          double pctAtoB, FrameRect roi, bool blend)
+{
   Mat matA(frameA->height, frameA->width, CV_8UC4,
            (void *)frameA->data->data());
-  Mat matB(frameA->height, frameA->width, CV_8UC4,
+  Mat matB(frameB->height, frameB->width, CV_8UC4,
            (void *)frameB->data->data());
-
   ImageMotion motion = frameA->motion;
-  if (!motion.valid || motion.x == 0 || frameA->roi != roi) {
-    // std::cerr << "Calculating optical flow" << std::endl;
+
+  if (!motion.valid || motion.x == 0 || frameA->roi != roi && roi.width > 0 && roi.height > 0)
+  {
+
+    // // std::cerr << "Calculating optical flow" << std::endl;
     Mat flow = calculateOpticalFlowBetweenFrames(
         matA, matB, {roi.x, roi.y, roi.width, roi.height});
     motion = calculateMotion(flow);
-    frameA->motion = motion;
-    frameA->roi = roi;
+    std::cerr << "optical dx=" << motion.x << std::endl;
+    // frameA->motion = motion;
+    // frameA->roi = roi;
+
+    Mat frame1Gray, frame2Gray;
+    cv::Mat matA(frameA->height, frameA->width, CV_8UC4, (void *)frameA->data->data());
+    cv::Mat matB(frameB->height, frameB->width, CV_8UC4, (void *)frameB->data->data());
+
+    cv::Rect roi_rect(roi.x, roi.y, roi.width, roi.height);
+
+    cv::Mat matA_roi = matA(roi_rect);
+    cv::Mat matB_roi = matB(roi_rect);
+
+    cv::Mat matA_gray, matB_gray;
+    cv::cvtColor(matA_roi, matA_gray, cv::COLOR_RGBA2BGR);
+    cv::cvtColor(matB_roi, matB_gray, cv::COLOR_RGBA2BGR);
+
+    cv::TrackerCSRT::Params csrtParams;
+    // csrtParams.template_size = 80; // 80;
+    // csrtParams.padding = 0.3;
+    // csrtParams.psr_threshold = 0.1;
+    cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create(csrtParams); // cv::TrackerKCF::create();
+    cv::Rect bbox((0), (0), (matA_gray.cols), (matA_gray.rows));
+
+    tracker->init(matA_gray, bbox);
+    cv::Rect prevBox = bbox;
+    bool success = tracker->update(matB_gray, bbox);
+    if (success)
+    {
+      std::cerr << "pbox={" << prevBox.x << "," << prevBox.y << "," << prevBox.width << "," << prevBox.height << "}" << std::endl;
+      std::cerr << "bbox={" << bbox.x << "," << bbox.y << "," << bbox.width << "," << bbox.height << "}" << std::endl;
+      prevBox = bbox;
+      tracker->init(matA_gray, bbox);
+      success = tracker->update(matB_gray, bbox);
+    }
+
+    if (success)
+    {
+      std::cerr << "pbox={" << prevBox.x << "," << prevBox.y << "," << prevBox.width << "," << prevBox.height << "}" << std::endl;
+      std::cerr << "bbox={" << bbox.x << "," << bbox.y << "," << bbox.width << "," << bbox.height << "}" << std::endl;
+      // Compute velocity (e.g., center x-movement)
+      double dx = bbox.x + bbox.width / 2 - (prevBox.x + prevBox.width / 2);
+      double dy = bbox.y + bbox.height / 2 - (prevBox.y + prevBox.height / 2);
+      std::cerr << "dx=" << dx << " dy=" << dy << std::endl;
+      motion.x = dx;
+      motion.y = dy;
+      motion.valid = true;
+      frameA->motion = motion;
+      frameA->roi = roi;
+    }
+    else
+    {
+      std::cerr << "KCF Fail" << std::endl;
+      frameA->motion.valid = false;
+    }
   }
-  motion.y = 0;
+  std::cerr << "Motion=" << motion.x << "," << motion.y << " px/frame" << std::endl;
+
+  // motion.y = 0;
 
   // if (motion.x == 0) {
   //   // No motion detected
@@ -237,9 +324,12 @@ generateInterpolatedFrame(const std::shared_ptr<FrameInfo> frameA,
   // }
 
   Mat resultFrameMat;
-  if (blend) {
+  if (blend)
+  {
     resultFrameMat = applySceneShiftAndBlend(matA, matB, motion, pctAtoB);
-  } else {
+  }
+  else
+  {
     resultFrameMat = applySceneShift(matA, motion, pctAtoB);
   }
 
@@ -260,7 +350,8 @@ generateInterpolatedFrame(const std::shared_ptr<FrameInfo> frameA,
   return resultFrame;
 }
 
-void sharpenFrame(const std::shared_ptr<FrameInfo> frameA) {
+void sharpenFrame(const std::shared_ptr<FrameInfo> frameA)
+{
   // Convert the std::vector<uint8_t> to a cv::Mat
   cv::Mat img(frameA->height, frameA->width, CV_8UC4, frameA->data->data());
 
@@ -288,23 +379,27 @@ void sharpenFrame(const std::shared_ptr<FrameInfo> frameA) {
  * error message and return without saving an image.
  */
 void saveFrameAsPNG(const std::shared_ptr<FrameInfo> &frameInfo,
-                    const std::string &outputFileName) {
+                    const std::string &outputFileName)
+{
   if (!frameInfo || !frameInfo->data || frameInfo->data->empty() ||
-      frameInfo->width <= 0 || frameInfo->height <= 0) {
+      frameInfo->width <= 0 || frameInfo->height <= 0)
+  {
     std::cerr << "Invalid frame data or dimensions." << std::endl;
     return;
   }
 
   // Find the PNG encoder
   const AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_PNG);
-  if (!codec) {
+  if (!codec)
+  {
     std::cerr << "PNG codec not found." << std::endl;
     return;
   }
 
   // Create a codec context
   AVCodecContext *codecContext = avcodec_alloc_context3(codec);
-  if (!codecContext) {
+  if (!codecContext)
+  {
     std::cerr << "Could not allocate codec context." << std::endl;
     return;
   }
@@ -317,7 +412,8 @@ void saveFrameAsPNG(const std::shared_ptr<FrameInfo> &frameInfo,
   codecContext->time_base = {1, 25};       // Frame rate
 
   // Open the codec
-  if (avcodec_open2(codecContext, codec, nullptr) < 0) {
+  if (avcodec_open2(codecContext, codec, nullptr) < 0)
+  {
     std::cerr << "Could not open codec." << std::endl;
     avcodec_free_context(&codecContext);
     return;
@@ -325,7 +421,8 @@ void saveFrameAsPNG(const std::shared_ptr<FrameInfo> &frameInfo,
 
   // Allocate an AVFrame and set its properties
   AVFrame *frame = av_frame_alloc();
-  if (!frame) {
+  if (!frame)
+  {
     std::cerr << "Could not allocate frame." << std::endl;
     avcodec_free_context(&codecContext);
     return;
@@ -369,7 +466,8 @@ void saveFrameAsPNG(const std::shared_ptr<FrameInfo> &frameInfo,
 
   // Encode the frame into a PNG
   int ret = avcodec_send_frame(codecContext, frame);
-  if (ret < 0) {
+  if (ret < 0)
+  {
     std::cerr << "Error sending frame to codec." << std::endl;
     av_packet_free(&pkt);
     av_freep(&frame->data[0]);
@@ -379,7 +477,8 @@ void saveFrameAsPNG(const std::shared_ptr<FrameInfo> &frameInfo,
   }
 
   ret = avcodec_receive_packet(codecContext, pkt);
-  if (ret < 0) {
+  if (ret < 0)
+  {
     std::cerr << "Error receiving packet from codec." << std::endl;
     av_packet_free(&pkt);
     av_freep(&frame->data[0]);
@@ -390,7 +489,8 @@ void saveFrameAsPNG(const std::shared_ptr<FrameInfo> &frameInfo,
 
   // Write the encoded data to a file
   FILE *outputFile = fopen(outputFileName.c_str(), "wb");
-  if (!outputFile) {
+  if (!outputFile)
+  {
     std::cerr << "Could not open output file." << std::endl;
     av_packet_free(&pkt);
     av_freep(&frame->data[0]);

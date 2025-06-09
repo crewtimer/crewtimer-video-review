@@ -36,6 +36,7 @@
                 "../lib-build/ffmpeg-static-mac/lib/libswscale.a",
                 "../lib-build/opencv-static-mac/lib/libopencv_core.a",
                 "../lib-build/opencv-static-mac/lib/libopencv_imgproc.a",
+                "../lib-build/opencv-static-mac/lib/libopencv_tracking.a",
                 "../lib-build/opencv-static-mac/lib/libopencv_video.a"],
 
             'library_dirs': ['../lib-build/ffmpeg-static-mac/lib']

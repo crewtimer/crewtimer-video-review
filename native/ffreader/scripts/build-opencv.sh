@@ -29,7 +29,7 @@ fi
 
 # Check if the library has already been built
 if [ -f "$CHECK_FILE" ]; then
-  echo "OpenCV static library already built. Skipping build."
+  echo "OpenCV static library ($CHECK_FILE) already built. Skipping build."
   exit 0
 fi
 
@@ -65,8 +65,10 @@ cmake  \
       -DBUILD_SHARED_LIBS=OFF \
       -DBUILD_ZLIB=ON -DWITH_OPENEXR=ON \
       -DWITH_IPP=OFF -DWITH_ITT=OFF \
-       -DWITH_JPEG=OFF -DBUILD_JPEG=OFF -DBUILD_opencv_imgcodecs=ON \
-      -DBUILD_LIST=core,imgproc,video \
+      -DWITH_JPEG=OFF -DBUILD_JPEG=OFF -DBUILD_opencv_imgcodecs=ON \
+      -DBUILD_opencv_tracking=ON \
+      -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
+      -DBUILD_LIST=core,imgproc,video,tracking \
       ..
 
 # Compile and install OpenCV
