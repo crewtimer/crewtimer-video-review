@@ -344,13 +344,22 @@ void saveFrameAsPNG(const std::shared_ptr<FrameInfo> &frameInfo,
   }
 
   // Copy the RGBA data from FrameInfo into the frame
-  int bufferSize = av_image_get_buffer_size(codecContext->pix_fmt, frame->width,
-                                            frame->height, 1);
-  std::memcpy(frame->data[0], frameInfo->data->data(), bufferSize);
+  // int bufferSize = av_image_get_buffer_size(codecContext->pix_fmt, frame->width, frame->height, 1);
+  auto destlinesize = frame->linesize[0];
+  auto srclinesize = frameInfo->linesize;
+  uint8_t *srcdata = frameInfo->data->data();
+  uint8_t *destdata = frame->data[0];
+  for (int i = 0; i < frame->height; i++)
+  {
+    memcpy(destdata, srcdata, srclinesize);
+    srcdata += srclinesize;
+    destdata += destlinesize;
+  }
 
   // Create a packet to hold encoded data
   AVPacket *pkt = av_packet_alloc();
-  if (!pkt) {
+  if (!pkt)
+  {
     std::cerr << "Could not allocate packet." << std::endl;
     av_freep(&frame->data[0]);
     av_frame_free(&frame);
