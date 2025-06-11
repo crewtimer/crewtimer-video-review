@@ -44,7 +44,7 @@ Set up nvm/node:
 nvm install 18
 nvm use 18
 npm i -g yarn
-```
+```cd
 
 ## Build ffmpeg and opencv
 

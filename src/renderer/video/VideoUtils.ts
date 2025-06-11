@@ -384,9 +384,9 @@ export const nextFile = () => {
 export const getTrackingRegion = (narrowRegion: boolean = false) => {
   const finishLine = getFinishLine();
   const videoScaling = getVideoScaling();
-  const pxBeforeFinish = 32;
+  const pxBeforeFinish = videoScaling.srcWidth;
   const height = 150;
-  const width = narrowRegion ? 3 * pxBeforeFinish : 256;
+  const width = videoScaling.srcWidth; // narrowRegion ? 3 * pxBeforeFinish : 5 * pxBeforeFinish;
   const region = {
     x: Math.max(
       0,

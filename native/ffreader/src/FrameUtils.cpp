@@ -248,17 +248,8 @@ generateInterpolatedFrame(const std::shared_ptr<FrameInfo> frameA,
            (void *)frameB->data->data());
   ImageMotion motion = frameA->motion;
 
-  if (!motion.valid || motion.x == 0 || frameA->roi != roi && roi.width > 0 && roi.height > 0)
+  if ((!motion.valid || motion.x == 0 || frameA->roi != roi) && roi.width > 0 && roi.height > 0)
   {
-
-    // // std::cerr << "Calculating optical flow" << std::endl;
-    Mat flow = calculateOpticalFlowBetweenFrames(
-        matA, matB, {roi.x, roi.y, roi.width, roi.height});
-    motion = calculateMotion(flow);
-    std::cerr << "optical dx=" << motion.x << std::endl;
-    // frameA->motion = motion;
-    // frameA->roi = roi;
-
     Mat frame1Gray, frame2Gray;
     cv::Mat matA(frameA->height, frameA->width, CV_8UC4, (void *)frameA->data->data());
     cv::Mat matB(frameB->height, frameB->width, CV_8UC4, (void *)frameB->data->data());
@@ -278,6 +269,7 @@ generateInterpolatedFrame(const std::shared_ptr<FrameInfo> frameA,
     // csrtParams.psr_threshold = 0.1;
     cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create(csrtParams); // cv::TrackerKCF::create();
     cv::Rect bbox((0), (0), (matA_gray.cols), (matA_gray.rows));
+    auto bbox2 = bbox;
 
     tracker->init(matA_gray, bbox);
     cv::Rect prevBox = bbox;
@@ -304,11 +296,26 @@ generateInterpolatedFrame(const std::shared_ptr<FrameInfo> frameA,
       motion.valid = true;
       frameA->motion = motion;
       frameA->roi = roi;
+      std::cerr << "CSRT dx=" << motion.x << std::endl;
     }
     else
     {
-      std::cerr << "KCF Fail" << std::endl;
+      std::cerr << "CSRT Fail" << std::endl;
+      motion.valid = false;
       frameA->motion.valid = false;
+    }
+
+    Mat flow = calculateOpticalFlowBetweenFrames(
+        matA, matB, {roi.x, roi.y, roi.width, roi.height});
+    auto motionFlow = calculateMotion(flow);
+    std::cerr << "flow dx=" << motionFlow.x << std::endl;
+
+    if (!motion.valid || (motionFlow.valid && std::abs(motionFlow.x) > std::abs(motion.x)))
+    {
+      // prefer flow for smaller numbers
+      motion = motionFlow;
+      frameA->motion = motionFlow;
+      frameA->roi = roi;
     }
   }
   std::cerr << "Motion=" << motion.x << "," << motion.y << " px/frame" << std::endl;
@@ -433,7 +440,8 @@ void saveFrameAsPNG(const std::shared_ptr<FrameInfo> &frameInfo,
 
   // Allocate the frame buffer
   if (av_image_alloc(frame->data, frame->linesize, frame->width, frame->height,
-                     codecContext->pix_fmt, 32) < 0) {
+                     codecContext->pix_fmt, 32) < 0)
+  {
     std::cerr << "Could not allocate frame buffer." << std::endl;
     av_frame_free(&frame);
     avcodec_free_context(&codecContext);

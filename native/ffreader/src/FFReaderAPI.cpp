@@ -534,8 +534,11 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
                       << " blend=" << (blend ? "true" : "false") << " WxH=<<" << frameA->width << "x" << frameA->height << " linesize=" << uint64_t(frameA->linesize) << std::endl;
             std::cerr << "FrameA=" << frameA->frameNum << "(" << frameA->timestamp << ")" << " FrameB=" << frameB->frameNum << "(" << frameB->timestamp << ")" << std::endl;
           }
-          // saveFrameAsPNG(frameA, "/tmp/frameA-" + std::to_string(frameA->frameNum) + ".png");
-          // saveFrameAsPNG(frameB, "/tmp/frameB-" + std::to_string(frameB->frameNum) + ".png");
+          if (debugLevel > 3)
+          {
+            saveFrameAsPNG(frameA, "/tmp/frameA-" + std::to_string(frameA->frameNum) + ".png");
+            saveFrameAsPNG(frameB, "/tmp/frameB-" + std::to_string(frameB->frameNum) + ".png");
+          }
           frameInfo = generateInterpolatedFrame(frameA, frameB, fractionalPart,
                                                 roi, blend);
           frameA->motion = frameInfo->motion;
