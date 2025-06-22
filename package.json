@@ -51,6 +51,7 @@
     "kill": "kill -9 `lsof -i:1212 -t`",
     "build:native": "cd release/app && yarn add ../../native/ffreader",
     "cleanbasic": "ts-node ./.erb/scripts/clean.js && rm -rf release/build",
+    "copy:opencvdev": "cp -a native/ffreader/lib-build/opencv-static-mac/lib/libopencv* node_modules/electron/dist/Electron.app/Contents/Frameworks",
     "clean": "rm -rf .erb/node_modules .erb/dll node_modules src/node_modules release/build release/app/node_modules && yarn install"
   },
   "browserslist": [
@@ -237,7 +238,17 @@
       "hardenedRuntime": true,
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "extraFiles": [
+        {
+          "from": "native/recorder/lib-build/opencv-static-mac/lib",
+          "to": "Frameworks",
+          "filter": [
+            "libopencv*",
+            "libopencv.*"
+          ]
+        }
+      ]
     },
     "dmg": {
       "contents": [

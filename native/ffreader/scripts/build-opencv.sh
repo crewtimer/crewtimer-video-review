@@ -7,7 +7,7 @@ BASE_BUILD_DIR="$PWD/lib-build"
 # Determine the platform (macOS or Windows via WSL or others)
 if [[ "$OSTYPE" == "darwin"* ]]; then
   PLATFORM="mac"
-  CMAKE_ARCH_OPTS=-DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+  CMAKE_ARCH_OPTS=-DCMAKE_OSX_ARCHITECTURES="arm64"
 elif [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OS" == "Windows"* ]]; then
   PLATFORM="win"
   CMAKE_ARCH_OPTS="-Ax64"
@@ -29,7 +29,7 @@ fi
 
 # Check if the library has already been built
 if [ -f "$CHECK_FILE" ]; then
-  echo "OpenCV static library already built. Skipping build."
+  echo "OpenCV static library ($CHECK_FILE) already built. Skipping build."
   exit 0
 fi
 
@@ -60,14 +60,31 @@ echo "Configuring OpenCV for static linking..."
 cmake  \
       ${CMAKE_ARCH_OPTS} \
       -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" \
+      -DBUILD_LIST=core,imgproc,video,dnn,protobuf \
       -DBUILD_DOCS=OFF -DBUILD_PERF_TESTS=OFF -DBUILD_TESTS=OFF -DBUILD_EXAMPLES=OFF \
       -DCMAKE_BUILD_TYPE=Release \
-      -DBUILD_SHARED_LIBS=OFF \
+      -DBUILD_SHARED_LIBS=ON \
       -DBUILD_ZLIB=ON -DWITH_OPENEXR=ON \
       -DWITH_IPP=OFF -DWITH_ITT=OFF \
-       -DWITH_JPEG=OFF -DBUILD_JPEG=OFF -DBUILD_opencv_imgcodecs=ON \
-      -DBUILD_LIST=core,imgproc,video \
+      -DWITH_JPEG=OFF -DBUILD_JPEG=OFF \
+      -DWITH_PROTOBUF=ON \
+      -DBUILD_PROTOBUF_FROM_SOURCES=ON \
+      -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
       ..
+     
+      #
+      # -DBUILD_opencv_imgcodecs=ON -DWITH_PNG=ON \
+      # -DBUILD_opencv_tracking=ON \
+      # -DBUILD_opencv_dnn=ON \
+      # -DWITH_DNN=ON \
+      # ..
+      # -DENABLE_NEON=ON \
+      # -DWITH_PROTOBUF=ON \
+      # -DBUILD_PROTOBUF_FROM_SOURCES=ON \
+      # ..
+      # -DWITH_OPENCL=ON \
+      # -DOPENCV_DNN_OPENCL=ON \
+      # ..
 
 # Compile and install OpenCV
 echo "Building OpenCV..."
