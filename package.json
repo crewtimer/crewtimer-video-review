@@ -51,7 +51,7 @@
     "kill": "kill -9 `lsof -i:1212 -t`",
     "build:native": "cd release/app && yarn add ../../native/ffreader",
     "cleanbasic": "ts-node ./.erb/scripts/clean.js && rm -rf release/build",
-    "clean": "rm -rf .erb/node_modules .erb/dll node_modules src/node_modules release/build release/app/node_modules && yarn install"
+    "clean": "rm -rf .erb/node_modules .erb/dll node_modules src/node_modules release/build release/app/node_modules native/ffreader/prebuilds native/ffreader/build && yarn install"
   },
   "browserslist": [
     "extends browserslist-config-erb"

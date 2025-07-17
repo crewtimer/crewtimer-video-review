@@ -56,9 +56,10 @@
                 "../lib-build/opencv-static-win/staticlib/opencv_core490.lib",
                 "../lib-build/opencv-static-win/staticlib/opencv_imgproc490.lib",
                 "../lib-build/opencv-static-win/staticlib/opencv_video490.lib",
+                "../lib-build/vcpkg/installed/x64-windows-static/lib/zlib.lib",
                 "Bcrypt.lib", "Mfuuid.lib", "Strmiids.lib"
             ],
-          'library_dirs': ["../lib-build/ffmpeg-static-win/staticlib",
+          'library_dirs': ["../lib-build/ffmpeg-static-win/lib",
                            "../lib-build/opencv-static-win/staticlib"]
           }
         }],

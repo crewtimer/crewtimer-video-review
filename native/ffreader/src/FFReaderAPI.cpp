@@ -111,7 +111,7 @@ getFrame(const std::unique_ptr<FFVideoReader> &ffreader,
     frame->fps = ffreader->getFps();
     frame->numFrames = ffreader->getTotalFrames();
     frame->totalBytes = totalBytes;
-    frame->linesize = linesize;
+    frame->linesize = pixbytes;
     frame->data = std::make_shared<std::vector<std::uint8_t>>(
         rgbaFrame->data[0], rgbaFrame->data[0] + totalBytes);
     frame->motion = {0, 0, 0, false};
@@ -655,6 +655,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
 {
   exports.Set(Napi::String::New(env, "nativeVideoExecutor"),
               Napi::Function::New(env, nativeVideoExecutor));
+  std::cerr << "System built " __DATE__ "  " __TIME__ << std::endl;
 
   return exports;
 }

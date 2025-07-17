@@ -1,7 +1,9 @@
 import { Box, Typography, Button, TextField } from '@mui/material';
 import Stack from '@mui/material/Stack';
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import { milliToString, timeToMilli } from 'renderer/util/Util';
+import { UseDatum } from 'react-usedatum';
 import { convertTimestampToString } from '../shared/Util';
 import { setDialogConfig } from '../util/ConfirmDialog';
 import { ProgressBarComponent } from '../util/ProgressBarComponent';
@@ -18,10 +20,13 @@ const { openDirDialog } = window.Util;
 
 const [useArchiveFolder] = UseStoredDatum('ArchiveFolder', '/tmp');
 const [useArchivePrefix] = UseStoredDatum('ArchivePrefix', 'CT');
+const [useArchiveTimeOffset] = UseStoredDatum('ArchiveTimeOffset', 0);
+const [, setArchiveCancel, getArchiveCancel] = UseDatum(false);
 interface FolderInputProps {}
 const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
   const [folderPath, setFolderPath] = useArchiveFolder();
   const [prefix, setPrefix] = useArchivePrefix();
+  const [timeOffset, setTimeOffset] = useArchiveTimeOffset();
 
   const chooseDir = () => {
     openDirDialog('Choose Folder', folderPath)
@@ -42,6 +47,16 @@ const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
     setPrefix(newPrefix);
   };
 
+  const handleTimeOffsetChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    let newTimeOffset = Number(event.target.value);
+    if (!Number.isNaN(newTimeOffset)) {
+      newTimeOffset = Math.max(-10, Math.min(10, newTimeOffset));
+      setTimeOffset(newTimeOffset);
+    }
+  };
+
   return (
     <Box
       display="flex"
@@ -55,6 +70,13 @@ const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
         variant="outlined"
         value={prefix}
         onChange={handlePrefixChange}
+      />
+
+      <TextField
+        label="Time Offset"
+        variant="outlined"
+        value={timeOffset}
+        onChange={handleTimeOffsetChange}
       />
 
       {folderPath && (
@@ -79,14 +101,21 @@ export const ImageArchive = () => {
   const [folderPath] = useArchiveFolder();
   let [prefix] = useArchivePrefix();
   let [day] = useDay();
+  const [timeOffset] = useArchiveTimeOffset();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
   if (day) {
     day = `${day}-`;
   }
   prefix = prefix || 'CT';
+  const isWindows = folderPath.includes('\\');
+  const separator = isWindows ? '\\' : '/';
 
   const saveImageArchive = useCallback(async () => {
+    setArchiveCancel(false);
     for (let i = 0; i < dirList.length; i += 1) {
+      if (getArchiveCancel()) {
+        break;
+      }
       setProgressBar((i / dirList.length) * 100);
       // eslint-disable-next-line no-await-in-loop
       await moveToFileIndex(i, 0);
@@ -103,30 +132,45 @@ export const ImageArchive = () => {
       const endSeconds = parseTimeToSeconds(endTime);
 
       const filteredScoredTimes = scoredLapdata.filter((timeObj) => {
-        const timeSeconds = parseTimeToSeconds(timeObj.Time);
+        const timeSeconds = parseTimeToSeconds(timeObj.Time) + timeOffset;
         const valid = timeSeconds >= startSeconds && timeSeconds <= endSeconds;
         return valid;
       });
       for (let j = 0; j < filteredScoredTimes.length; j += 1) {
+        if (getArchiveCancel()) {
+          break;
+        }
         const timeObj = filteredScoredTimes[j];
-        const filename = `${folderPath}/${prefix}-${day}T${timeObj.Time}-B${
-          timeObj.Bow
-        }-E${timeObj.EventNum.replaceAll(' ', '_')}.png`.replaceAll(':', '');
+        const filename =
+          `${prefix}-${day}T${timeObj.Time}-B${timeObj.Bow}-E${timeObj.EventNum.replaceAll(' ', '_')}.png`.replaceAll(
+            ':',
+            '',
+          );
+        const saveAs = `${folderPath}${separator}${filename}`;
+        const toTimestamp = milliToString(
+          timeToMilli(timeObj.Time) + timeOffset * 1000,
+        );
+
+        console.log(`Saving image at ${toTimestamp} to ${saveAs}`);
         // eslint-disable-next-line no-await-in-loop
         await requestVideoFrame({
           videoFile: image.filename,
           frameNum: 1,
-          toTimestamp: timeObj.Time,
+          toTimestamp,
           blend: false,
-          saveAs: filename,
-        });
+          saveAs,
+        }).catch((reason) =>
+          console.log(
+            `Error saving: ${reason instanceof Error ? reason.message : String(reason)}`,
+          ),
+        );
         setProgressBar(
           ((i + j / filteredScoredTimes.length) / dirList.length) * 100,
         );
       }
     }
     setProgressBar(100);
-  }, [day, dirList, folderPath, prefix, scoredLapdata]);
+  }, [day, dirList, folderPath, prefix, scoredLapdata, timeOffset, separator]);
 
   useEffect(() => {
     saveImageArchive();
@@ -139,6 +183,9 @@ export const ImageArchive = () => {
 };
 
 export const initiateImageArchive = () => {
+  const onClose = () => {
+    setArchiveCancel(true);
+  };
   setDialogConfig({
     title: `Create Image Archive?`,
     message: `Proceed to create Image Archive?`,
@@ -152,7 +199,8 @@ export const initiateImageArchive = () => {
         title: 'Creating Image Archive',
         body: <ImageArchive />,
         button: 'OK',
-        showCancel: false,
+        showCancel: true,
+        onClose,
       });
     },
   });

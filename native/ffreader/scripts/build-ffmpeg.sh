@@ -3,6 +3,10 @@ set -e
 
 # Set the base build directory
 BASE_BUILD_DIR="$PWD/lib-build"
+if [[ "$OSTYPE" == "cygwin" ]]; then
+  BASE_BUILD_DIR=`cygpath -m "${BASE_BUILD_DIR}"`
+  echo BASE_BUILD_DIR=${BASE_BUILD_DIR}
+fi
 
 # Determine the platform (macOS or Windows via WSL or others)
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -27,19 +31,40 @@ BUILD_DIR="${DOWNLOAD_DIR}/build-${PLATFORM}"
 FFMPEG_URL="https://github.com/FFmpeg/FFmpeg/archive/refs/tags/${FFMPEG_VERSION}.zip"
 CHECK_FILE="${INSTALL_DIR}/lib/libswscale.a"  # File to check for existing build
 
-if [[ "$OSTYPE" == "cygwin" ]]; then
-  # INSTALL_DIR=`cygdrive "${INSTALL_DIR}"`
-  echo INSTALL_DIR=${INSTALL_DIR}
-fi
+# Parse arguments
+FORCE=0
+for arg in "$@"; do
+  if [[ "$arg" == "--force" ]]; then
+    FORCE=1
+  fi
+done
 
-# Check if the library has already been built
-if [ -f "$CHECK_FILE" ]; then
-  echo "FFMPEG static library already built. Skipping build."
+# Check if the library has already been built (unless --force is given)
+if [ $FORCE -eq 0 ] && [ -f "$CHECK_FILE" ]; then
+  echo "FFMPEG static library $CHECK_FILE already built. Skipping build without --force."
   exit 0
 fi
 
 # Create the base build directory if it doesn't exist
 mkdir -p "$BASE_BUILD_DIR"
+
+# Install vcpkg if not already present so we can easily install zlib
+if [[ "$PLATFORM" == "win" ]]; then
+  if [ ! -d "$BASE_BUILD_DIR/vcpkg" ]; then
+    echo "vcpkg not found in $BASE_BUILD_DIR. Installing vcpkg..."
+    git clone https://github.com/microsoft/vcpkg.git "$BASE_BUILD_DIR/vcpkg"
+    (cd "$BASE_BUILD_DIR/vcpkg" && ./bootstrap-vcpkg.sh)
+  else
+    echo "vcpkg already installed in $BASE_BUILD_DIR/vcpkg."
+  fi
+  if [ ! -f "$BASE_BUILD_DIR/vcpkg/installed/x64-windows-static/lib/zlib.lib" ]; then
+     (cd "$BASE_BUILD_DIR/vcpkg" && ./vcpkg install zlib:x64-windows-static)
+  fi
+
+  # ffmpeg configure needs to be able to find these packages
+  export "LIB=$LIB;$BASE_BUILD_DIR/vcpkg/installed/x64-windows-static/lib"
+  export "INCLUDE=$INCLUDE;$BASE_BUILD_DIR/vcpkg/installed/x64-windows-static/include"
+fi
 
 # Download FFMPEG if not already downloaded
 if [ ! -f "${BASE_BUILD_DIR}/ffmpeg-${FFMPEG_VERSION}.zip" ]; then
@@ -54,16 +79,11 @@ if [ ! -d "$DOWNLOAD_DIR" ]; then
   unzip -q "${BASE_BUILD_DIR}/ffmpeg-${FFMPEG_VERSION}.zip" -d "$BASE_BUILD_DIR"
 fi
 
-# Create build directory
-# mkdir -p "$BUILD_DIR"
-# cd "$BUILD_DIR"
-# echo "Building in ${BUILD_DIR}"
-
 # Configure FFMPEG build
 cd "${BASE_BUILD_DIR}/FFmpeg-${FFMPEG_VERSION}"
 pwd
 for ARCH in $ARCH_FLAGS; do
-    if [ -f "${INSTALL_DIR}-${ARCH}/lib/libswscale.a" ]; then
+    if [ $FORCE -eq 0 ] &&[ -f "${INSTALL_DIR}-${ARCH}/lib/libswscale.a" ]; then
       continue;
     fi
     if [[ "$PLATFORM" == "mac" ]]; then
@@ -75,25 +95,29 @@ for ARCH in $ARCH_FLAGS; do
       )
     fi
 
+    echo "CONFIGURE_OPTIONS=${CONFIGURE_OPTIONS[@]}"
+    echo "PWD=$PWD"
+
     echo "Configuring FFMPEG for static linking and $ARCH..."
     ./configure --prefix=${INSTALL_DIR}-${ARCH} \
         ${PLATFORM_FLAGS} \
         "${CONFIGURE_OPTIONS[@]}" \
-        --enable-static --enable-gpl --disable-network --disable-programs --disable-doc \
+        --disable-programs \
+        --enable-static --enable-gpl --disable-network --disable-doc \
         --disable-avdevice --disable-swresample --disable-postproc --disable-avfilter \
-        --disable-doc
+        --enable-encoder=png --enable-zlib
 
     # Compile and install FFMPEG
     echo "Building FFMPEG..."
     make -j4
-    
+
     echo "Installing FFMPEG..."
     make install
 
     make clean && make distclean
 done
 
-cp -a "${INSTALL_DIR}-x86_64/" "${INSTALL_DIR}"
+cp -a "${INSTALL_DIR}-x86_64/." "${INSTALL_DIR}"
 # rm "${INSTALL_DIR}/lib/"*.a
 for file in "${INSTALL_DIR}/lib/"*.a; do
     file=`basename "$file"`

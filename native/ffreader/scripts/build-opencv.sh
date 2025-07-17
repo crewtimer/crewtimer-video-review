@@ -3,6 +3,9 @@ set -e
 
 # Set the base build directory
 BASE_BUILD_DIR="$PWD/lib-build"
+if [[ "$OSTYPE" == "cygwin" ]]; then
+  BASE_BUILD_DIR=`cygpath -m  "${BASE_BUILD_DIR}"`
+fi
 
 # Determine the platform (macOS or Windows via WSL or others)
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -21,14 +24,22 @@ DOWNLOAD_DIR="${BASE_BUILD_DIR}/opencv-${OPENCV_VERSION}"
 INSTALL_DIR="${BASE_BUILD_DIR}/opencv-static-${PLATFORM}"
 BUILD_DIR="${DOWNLOAD_DIR}/build-${PLATFORM}"
 OPENCV_URL="https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.zip"
-CHECK_FILE="${INSTALL_DIR}/lib/libopencv_core.a"  # File to check for existing build
 
-if [[ "$OSTYPE" == "cygwin" ]]; then
-  INSTALL_DIR=`cygdrive "${INSTALL_DIR}"`
+# Parse arguments
+FORCE=0
+for arg in "$@"; do
+  if [[ "$arg" == "--force" ]]; then
+    FORCE=1
+  fi
+done
+
+CHECK_FILE="${INSTALL_DIR}/lib/libopencv_core.a"  # File to check for existing build
+if [[ "$PLATFORM" == "win"* ]]; then
+  CHECK_FILE="${INSTALL_DIR}/staticlib/opencv_video490.lib"  # File to check for existing build
 fi
 
 # Check if the library has already been built
-if [ -f "$CHECK_FILE" ]; then
+if [ $FORCE -eq 0 ] && [ -f "$CHECK_FILE" ]; then
   echo "OpenCV static library already built. Skipping build."
   exit 0
 fi
@@ -65,7 +76,7 @@ cmake  \
       -DBUILD_SHARED_LIBS=OFF \
       -DBUILD_ZLIB=ON -DWITH_OPENEXR=ON \
       -DWITH_IPP=OFF -DWITH_ITT=OFF \
-       -DWITH_JPEG=OFF -DBUILD_JPEG=OFF -DBUILD_opencv_imgcodecs=ON \
+      -DWITH_JPEG=OFF -DBUILD_JPEG=OFF -DBUILD_opencv_imgcodecs=ON \
       -DBUILD_LIST=core,imgproc,video \
       ..
 
