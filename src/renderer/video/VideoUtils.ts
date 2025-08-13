@@ -21,6 +21,7 @@ import {
   VideoScaling,
   setJumpToEndPending,
   getDirList,
+  getLastSeekTime,
 } from './VideoSettings';
 import { TimeObject } from './VideoTypes';
 import { parseTimeToSeconds } from '../util/StringUtils';
@@ -564,7 +565,10 @@ export const seekToNextTimePoint = (from: {
   let left = 0;
   let right = timePoints.length - 1;
   let result: ExtendedLap | undefined;
-  const s = parseTimeToSeconds(from.Time || '00:00:00.000');
+  // prefre starting search from the last seek position
+  const s = parseTimeToSeconds(
+    getLastSeekTime() || from.Time || '00:00:00.000',
+  );
 
   let mid: number = 0;
   while (left <= right) {

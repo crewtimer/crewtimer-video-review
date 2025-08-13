@@ -13,6 +13,7 @@ import {
   getHyperZoomFactor,
   setVideoEvent,
   setVideoBow,
+  setLastSeekTime,
 } from './VideoSettings';
 import {
   getFileStatusByName,
@@ -359,6 +360,7 @@ export function requestVideoFrame(params: VideoFrameRequest): Promise<void> {
  * @returns The filename of the video file containing the timestamp, or undefined if not found.
  */
 export const seekToTimestamp = (timestamp: string): string | undefined => {
+  setLastSeekTime(timestamp);
   const jumpTime = parseTimeToSeconds(timestamp);
   const fileStatusList = getFileStatusList();
   const fileIndex = fileStatusList.findIndex((item) => {
