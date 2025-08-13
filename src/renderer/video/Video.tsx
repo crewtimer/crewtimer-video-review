@@ -37,6 +37,7 @@ import {
   getBowInfo,
   setVideoEvent,
   getImage,
+  getVideoBow,
 } from './VideoSettings';
 import VideoOverlay, {
   getNearEdge,
@@ -487,7 +488,28 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       event.preventDefault();
       return;
     }
-    resetVideoZoom();
+    if (!isZooming()) {
+      const finish = getFinishLine();
+      const rect = canvasRef.current?.getBoundingClientRect();
+
+      const { pt: srcCoords, withinBounds } = translateMouseEventCoords(
+        event,
+        rect,
+      );
+      if (!withinBounds) {
+        return;
+      }
+
+      applyZoom({
+        zoom: 5,
+        srcPoint: {
+          x: getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
+          y: srcCoords.y,
+        },
+      });
+    } else {
+      resetVideoZoom();
+    }
   };
 
   const handleMouseDown = useCallback(
@@ -514,7 +536,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       mouseTracking.current.mouseDownClientY = y;
 
       const videoSettings = getVideoSettings();
-      if (videoSettings.enableLaneGuides) {
+      const videoBow = getVideoBow();
+      if (
+        videoSettings.enableLaneGuides &&
+        (isZooming() || videoBow === '?' || videoBow === '')
+      ) {
         selectLane(srcCoords);
       }
       if (event.shiftKey) {
@@ -522,16 +548,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           setAutoZoomPending(srcCoords);
           moveToFrame(getVideoFrameNum() + 0.5); // 0.5 to trigger calc of
         }
-      } else if (!isZooming()) {
-        const finish = getFinishLine();
-
-        applyZoom({
-          zoom: 5,
-          srcPoint: {
-            x: getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
-            y: srcCoords.y,
-          },
-        });
       }
     },
     [selectLane],
