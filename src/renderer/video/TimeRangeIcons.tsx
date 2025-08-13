@@ -87,6 +87,9 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
   // Filter times to only include those within the start and end times.
   let timeAfterEnd = false;
   const validTimes = times.filter((timeObj) => {
+    if (!timeObj.Time) {
+      return false;
+    }
     const timeSeconds = parseTimeToSeconds(timeObj.Time);
     timeAfterEnd ||= timeSeconds > endSeconds;
     return timeSeconds >= startSeconds && timeSeconds <= endSeconds;

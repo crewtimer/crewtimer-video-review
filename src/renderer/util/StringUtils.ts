@@ -1,4 +1,16 @@
+/**
+ * Extracts a time string in HH:MM:SS format from a given file name.
+ *
+ * Strips path and special characters, searches for a 6-digit sequence at the end of the file name,
+ * and formats it as a time string. Returns '00:00:00' if no valid time is found.
+ *
+ * @param fileName - The name of the file to extract the time from.
+ * @returns The extracted time in HH:MM:SS format, or '00:00:00' if not found.
+ */
 export function extractTime(fileName: string) {
+  if (!fileName) {
+    return '00:00:00';
+  }
   let name = fileName.replace(/[:\-_]/g, '').replace(/.*\//, ''); // strip path
   const lastIndex = name.lastIndexOf('.');
 
@@ -27,6 +39,9 @@ export function extractTime(fileName: string) {
  * @returns The time converted to seconds.
  */
 export const parseTimeToSeconds = (time: string): number => {
+  if (!time) {
+    return 0;
+  }
   const [hours, minutes, seconds] = time.split(':').map(parseFloat);
   const secs = hours * 3600 + minutes * 60 + seconds;
   return secs;
