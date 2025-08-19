@@ -12,9 +12,36 @@ import {
   N_MOBILE_ID,
   N_WAYPOINT,
 } from '../shared/Constants';
+import { timeToMilli } from './Util';
 
 const { LapStorage } = window;
 export const AUTH_OK = 'OK';
+
+export interface ClickOffset {
+  offsetMilli: number;
+  avgCount: number;
+}
+export const [useClickOffset, setClickOffset, getClickOffset] =
+  UseDatum<ClickOffset>({ offsetMilli: 0, avgCount: 0 });
+
+export const updateClickOffset = (timeA: string, timeB: string) => {
+  if (!timeA || !timeB) {
+    return;
+  }
+  const offset = timeToMilli(timeB) - timeToMilli(timeA);
+  if (Math.abs(offset) > 1000 || Math.abs(offset) < 10) {
+    return;
+  }
+  const clickOffset = getClickOffset();
+  if (clickOffset.avgCount < 5) {
+    clickOffset.avgCount++;
+  }
+  const avgCount = clickOffset.avgCount;
+  const offsetMilli =
+    ((avgCount - 1) * clickOffset.offsetMilli) / avgCount +
+    offset / clickOffset.avgCount;
+  setClickOffset({ avgCount, offsetMilli });
+};
 
 export const [useProgressBar, setProgressBar, getProgressBar] = UseDatum(0);
 

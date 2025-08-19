@@ -7,9 +7,14 @@ import {
 import { gateFromWaypoint } from 'renderer/util/Util';
 import uuidgen from 'short-uuid';
 import { setToast } from 'renderer/Toast';
-import { getMobileConfig, getWaypoint } from 'renderer/util/UseSettings';
+import {
+  getMobileConfig,
+  getWaypoint,
+  updateClickOffset,
+} from 'renderer/util/UseSettings';
 import {
   getAutoNextTimestamp,
+  getLastSeekTime,
   getVideoBow,
   getVideoEvent,
   getVideoTimestamp,
@@ -89,17 +94,20 @@ export const performAddSplit = () => {
       showCancel: true,
       handleConfirm: () => {
         delete lap.State;
+        updateClickOffset(getLastSeekTime().time, videoTimestamp);
         setEntryResultAndPublish(key, lap);
         setResetZoomCounter((c) => c + 1);
         setToast({
           severity: 'info',
           msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,
         });
-        seekToNextTimePoint(lap);
+        seekToNextTimePoint({ time: lap.Time, bow: lap.Bow });
       },
     });
     return;
   }
+
+  updateClickOffset(getLastSeekTime().time, videoTimestamp);
 
   setEntryResultAndPublish(key, lap);
   setResetZoomCounter((c) => c + 1);
@@ -108,6 +116,6 @@ export const performAddSplit = () => {
     msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,
   });
   if (autoNextTimestamp) {
-    seekToNextTimePoint(lap);
+    seekToNextTimePoint({ time: lap.Time, bow: lap.Bow });
   }
 };

@@ -1,9 +1,13 @@
 import { AppImage, Rect } from 'renderer/shared/AppTypes';
-import { secondsSinceLocalMidnight, timeToMilli } from 'renderer/util/Util';
+import {
+  milliToString,
+  secondsSinceLocalMidnight,
+  timeToMilli,
+} from 'renderer/util/Util';
 import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { parseTimeToSeconds } from 'renderer/util/StringUtils';
 import { convertTimestampToLocalMicros } from 'renderer/shared/Util';
-import { getWaypoint } from 'renderer/util/UseSettings';
+import { getClickOffset, getWaypoint } from 'renderer/util/UseSettings';
 import {
   setVideoError,
   setVideoFrameNum,
@@ -359,9 +363,20 @@ export function requestVideoFrame(params: VideoFrameRequest): Promise<void> {
  * @param timestamp - The target timestamp in 'HH:MM:SS.sss' format.
  * @returns The filename of the video file containing the timestamp, or undefined if not found.
  */
-export const seekToTimestamp = (timestamp: string): string | undefined => {
-  setLastSeekTime(timestamp);
-  const jumpTime = parseTimeToSeconds(timestamp);
+export const seekToTimestamp = ({
+  time,
+  offsetMilli,
+  bow,
+}: {
+  time: string;
+  offsetMilli?: number;
+  bow?: string;
+}): string | undefined => {
+  setLastSeekTime({ time: time, bow });
+  if (offsetMilli) {
+    time = milliToString(timeToMilli(time) + offsetMilli);
+  }
+  const jumpTime = parseTimeToSeconds(time);
   const fileStatusList = getFileStatusList();
   const fileIndex = fileStatusList.findIndex((item) => {
     const start = secondsSinceLocalMidnight(
@@ -383,7 +398,7 @@ export const seekToTimestamp = (timestamp: string): string | undefined => {
   setVideoFile(videoFile);
   requestVideoFrame({
     videoFile,
-    toTimestamp: timestamp,
+    toTimestamp: time,
     blend: false,
     saveAs: '',
     closeTo: false,
@@ -406,7 +421,7 @@ export const seekToEvent = (eventNum: string) => {
     click = getClickerData().find((item) => item.EventNum === eventNum);
   }
   if (click && click.Time) {
-    seekToTimestamp(click.Time);
+    seekToTimestamp({ time: click.Time });
     return eventNum;
   }
   return undefined;
@@ -424,7 +439,6 @@ export const seekToEvent = (eventNum: string) => {
 export const seekToClickInFile = (videoFile: string, seekPercent: number) => {
   const info = getFileStatusByName(videoFile);
   if (!info) {
-    console.log(`seekToClickInFile: info not found for ${videoFile}`);
     return requestVideoFrame({ videoFile, seekPercent });
   }
   const start =
@@ -448,10 +462,17 @@ export const seekToClickInFile = (videoFile: string, seekPercent: number) => {
     if (click.Bow && click.Bow !== '*') {
       setVideoBow(click.Bow);
     }
-    seekToTimestamp(click.Time);
+    seekToTimestamp({
+      time: click.Time,
+      bow: click.Bow,
+      offsetMilli: getClickOffset().offsetMilli,
+    });
     return Promise.resolve();
   }
 
+  // no click found, set last seek to beginning of file so tab will move forward from there
+  const time = milliToString(start * 1000);
+  setLastSeekTime({ time });
   // no clicks found, just seek to the file falling back on percent
   return requestVideoFrame({ videoFile, seekPercent });
 };

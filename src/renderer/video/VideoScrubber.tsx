@@ -4,8 +4,8 @@ import {
   convertTimestampToLocalMicros,
   convertTimestampToString,
 } from 'renderer/shared/Util';
-import { useWaypoint } from 'renderer/util/UseSettings';
-import { findClosestNumAndIndex } from 'renderer/util/Util';
+import { getClickOffset, getWaypoint, useWaypoint } from '../util/UseSettings';
+import { findClosestNumAndIndex, gateFromWaypoint } from '../util/Util';
 import ImageButton from './ImageButton';
 import TimeRangeIcons from './TimeRangeIcons';
 import { useClickerData } from './UseClickerData';
@@ -17,6 +17,7 @@ import {
   useVideoEvent,
   useVideoBow,
   resetVideoZoom,
+  setLastSeekTime,
 } from './VideoSettings';
 import { TimeObject, TimeSegment } from './VideoTypes';
 import { moveLeft, moveRight } from './VideoUtils';
@@ -64,6 +65,7 @@ const VideoScrubber = () => {
       ignoreNextChange.current = false;
       return;
     }
+
     setVideoFrameNum(newValue);
     requestVideoFrame({ videoFile, frameNum: newValue, closeTo: true });
   };
@@ -188,10 +190,21 @@ const VideoScrubber = () => {
       const frameNum = Math.round(sliderValueEvent.current);
       setVideoFrameNum(frameNum);
       requestVideoFrame({ videoFile, frameNum });
+      setLastSeekTime({ time: '', bow: '' });
       return;
     }
     resetVideoZoom();
-    setTimeout(() => seekToTimestamp(click.Time), 100);
+    const timeFromVideoReview = click.Gate === gateFromWaypoint(getWaypoint());
+
+    setTimeout(
+      () =>
+        seekToTimestamp({
+          time: click.Time,
+          offsetMilli: timeFromVideoReview ? 0 : getClickOffset().offsetMilli,
+          bow: click.Bow,
+        }),
+      100,
+    );
     if (click.EventNum !== '?') {
       setSelectedEvent(click.EventNum);
     }

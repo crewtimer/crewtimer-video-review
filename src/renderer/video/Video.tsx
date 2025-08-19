@@ -12,7 +12,6 @@ import makeStyles from '@mui/styles/makeStyles';
 import _Measure, { ContentRect, MeasureProps } from 'react-measure';
 import { UseDatum } from 'react-usedatum';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import { AppImage } from 'renderer/shared/AppTypes';
 import { convertTimestampToString } from '../shared/Util';
 import VideoSideBar from './VideoSideBar';
 import {

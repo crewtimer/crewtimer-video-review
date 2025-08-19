@@ -57,7 +57,7 @@ export default function App() {
         event.preventDefault();
         const ts = getVideoTimestamp();
         const bow = getVideoBow();
-        seekToNextTimePoint({ Time: ts, Bow: bow });
+        seekToNextTimePoint({ time: ts, bow });
       }
     };
 

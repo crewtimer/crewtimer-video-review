@@ -120,8 +120,10 @@ export const [useVideoScaling, setVideoScaling, getVideoScaling] =
     zoomY: 1,
   });
 
-export const [useLastSeekTime, setLastSeekTime, getLastSeekTime] =
-  UseDatum<string>('');
+export const [useLastSeekTime, setLastSeekTime, getLastSeekTime] = UseDatum<{
+  time: string;
+  bow?: string;
+}>({ time: '00:00:00' });
 
 export const [useJumpToEndPending, setJumpToEndPending] = UseDatum(false);
 

@@ -1,6 +1,10 @@
 import React from 'react';
 import { Rect } from 'renderer/shared/AppTypes';
-import { getWaypoint, getWaypointList } from 'renderer/util/UseSettings';
+import {
+  getClickOffset,
+  getWaypoint,
+  getWaypointList,
+} from 'renderer/util/UseSettings';
 import { ExtendedLap, getClickerData } from './UseClickerData';
 import {
   getAutoZoomPending,
@@ -30,6 +34,7 @@ import {
   seekToClickInFile,
   seekToTimestamp,
 } from './RequestVideoFrame';
+import { gateFromWaypoint } from 'renderer/util/Util';
 
 // Define types for points and lines for better type checking and readability
 export type Point = { x: number; y: number };
@@ -555,10 +560,11 @@ export const translateMouseEventCoords = (
  * value than `from.Bow`.
  */
 export const seekToNextTimePoint = (from: {
-  Time?: string;
-  Bow: string;
+  time?: string;
+  bow: string;
 }): TimeObject | undefined => {
-  if (!from.Time) {
+  console.log('seeking...', from);
+  if (!from.time) {
     return undefined;
   }
   const timePoints = getClickerData();
@@ -566,9 +572,15 @@ export const seekToNextTimePoint = (from: {
   let right = timePoints.length - 1;
   let result: ExtendedLap | undefined;
   // prefre starting search from the last seek position
-  const s = parseTimeToSeconds(
-    getLastSeekTime() || from.Time || '00:00:00.000',
-  );
+  let seekTime = from.time || '00:00:00.000';
+  const lastSeekTime = getLastSeekTime();
+
+  // If the last seek time was to a ? field, only go forward from specified time
+  if (lastSeekTime.bow !== '?' && lastSeekTime.time) {
+    seekTime = lastSeekTime.time;
+  }
+  console.log(JSON.stringify({ from, lastSeekTime, seekTime }));
+  const s = parseTimeToSeconds(seekTime);
 
   let mid: number = 0;
   while (left <= right) {
@@ -587,7 +599,7 @@ export const seekToNextTimePoint = (from: {
   }
 
   // Move forward in the array until finding a time point with a different Bow value
-  while (result.Bow === from.Bow || result.Bow === '*') {
+  while (result.Bow === from.bow || result.Bow === '*') {
     mid += 1;
     if (mid >= timePoints.length) {
       return undefined;
@@ -597,7 +609,13 @@ export const seekToNextTimePoint = (from: {
 
   resetVideoZoom();
   setTimeout(() => {
-    const found = seekToTimestamp(result?.Time || '00:00:00.000');
+    const timeFromVideoReview =
+      result?.Gate === gateFromWaypoint(getWaypoint());
+    const found = seekToTimestamp({
+      time: result?.Time || '00:00:00.000',
+      offsetMilli: timeFromVideoReview ? 0 : getClickOffset().offsetMilli,
+      bow: result.Bow || '',
+    });
     if (found) {
       if (result.EventNum !== '?') {
         setVideoEvent(result.EventNum);

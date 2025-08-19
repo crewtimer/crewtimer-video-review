@@ -496,7 +496,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
         resetVideoZoom();
         const seekTime = entry.Time;
         setTimeout(() => {
-          const found = seekToTimestamp(seekTime);
+          const found = seekToTimestamp({ time: seekTime, bow: entry.Bow });
           if (!found) {
             setToast({
               severity: 'warning',
