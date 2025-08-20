@@ -122,3 +122,8 @@ export const getWaypointList = () => {
   return waypointList;
 };
 export const [useInitializing, setInitializing] = UseDatum(true);
+
+export const [useLastInfoNag, setLastInfoNag, getLastInfoNag] = UseStoredDatum(
+  'lastInfoNag',
+  '',
+);

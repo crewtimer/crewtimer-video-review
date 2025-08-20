@@ -93,10 +93,6 @@ const useStyles = makeStyles((theme) => ({
     marginBottom: theme.spacing(1),
     marginRight: theme.spacing(2),
   },
-  formControl: {
-    margin: theme.spacing(1),
-    minWidth: 120,
-  },
   vertSpace: {
     marginTop: theme.spacing(1),
   },
@@ -135,7 +131,7 @@ export default function Setup() {
 
   const validWaypoint = !mc || waypointList.includes(timingWaypoint);
 
-  const dayList = mc?.info.DayList || [];
+  const dayList: string[] = mc?.info.DayList || [];
 
   useEffect(() => {
     if (!validWaypoint) {
@@ -288,8 +284,21 @@ export default function Setup() {
                     : 'Timing Waypoint Selection'}
                 </Typography>
               </Toolbar>
-              <Box className={classes.settings}>
-                <FormControl variant="standard" className={classes.formControl}>
+              {/* Combine Waypoint and Timing Hint Source selection in a flex row */}
+              <Box
+                className={classes.settings}
+                sx={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <FormControl
+                  variant="standard"
+                  margin="dense"
+                  size="small"
+                  sx={{
+                    marginTop: '1em',
+                    marginBottom: '0.5em',
+                    minWidth: 200,
+                  }}
+                >
                   <InputLabel shrink id="waypoint-label">
                     Waypoint
                   </InputLabel>
@@ -306,13 +315,44 @@ export default function Setup() {
                     ))}
                   </Select>
                 </FormControl>
+                <Tooltip
+                  title="Select the waypoint to use for timing hints."
+                  placement="right"
+                >
+                  <FormControl
+                    variant="standard"
+                    margin="dense"
+                    size="small"
+                    sx={{
+                      marginTop: '1em',
+                      marginBottom: '0.5em',
+                      minWidth: 200,
+                    }}
+                  >
+                    <InputLabel id="hint-select-label">
+                      Hint Waypoint
+                    </InputLabel>
+                    <Select
+                      labelId="hint-select-label"
+                      id="hint-select"
+                      value={videoSettings.timingHintSource || '---'}
+                      label="Hint Waypoint"
+                      onChange={onTimingHintSourceChange}
+                      displayEmpty
+                    >
+                      <MenuItem value="---">None</MenuItem>
+                      {waypointList.map((waypoint) => (
+                        <MenuItem key={waypoint} value={waypoint}>
+                          {waypoint}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Tooltip>
               </Box>
               {dayList.length !== 0 && (
                 <Box className={classes.settings}>
-                  <FormControl
-                    variant="standard"
-                    className={classes.formControl}
-                  >
+                  <FormControl variant="standard" sx={{ minWidth: 120 }}>
                     <InputLabel shrink id="day-label">
                       Day
                     </InputLabel>
@@ -331,48 +371,6 @@ export default function Setup() {
                   </FormControl>
                 </Box>
               )}
-              <Toolbar className={classes.header}>
-                <Typography
-                  variant="h6"
-                  display="inline"
-                  className={classes.smaller}
-                >
-                  Timing Hint Waypoint
-                </Typography>
-              </Toolbar>
-              <Box className={classes.settings}>
-                <Tooltip
-                  title="Select the waypoint to use for timing hints."
-                  placement="right"
-                >
-                  <FormControl
-                    sx={{
-                      marginTop: '1em',
-                      marginBottom: '0.5em',
-                      minWidth: 200,
-                    }}
-                    margin="dense"
-                    size="small"
-                  >
-                    <InputLabel id="hint-select-label">Waypoint</InputLabel>
-                    <Select
-                      labelId="hint-select-label"
-                      id="hint-select"
-                      value={videoSettings.timingHintSource || '---'}
-                      label="Waypoint"
-                      onChange={onTimingHintSourceChange}
-                      displayEmpty
-                    >
-                      <MenuItem value="---">None</MenuItem>
-                      {waypointList.map((waypoint) => (
-                        <MenuItem key={waypoint} value={waypoint}>
-                          {waypoint}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Tooltip>
-              </Box>
             </>
           )}
         </Card>

@@ -40,6 +40,7 @@ import TimezoneSelector from './util/TimezoneSelector';
 import { useFileStatusList } from './video/VideoFileStatus';
 import { getVideoDir } from './video/VideoSettings';
 import { setUserMessages } from './util/UserMessage';
+import { openNagScreen } from './NagScreen';
 
 const AboutText = `CrewTimer Video Review ${window.platform.appVersion}`;
 
@@ -299,6 +300,17 @@ export default function Nav() {
                   <ListItemText primary="Toggle Debug" />
                 </MenuItem>
               )}
+              <MenuItem
+                onClick={() => {
+                  handleClose();
+                  openNagScreen(true);
+                }}
+              >
+                <ListItemIcon>
+                  <InfoIcon />
+                </ListItemIcon>
+                <ListItemText primary="What's New" />
+              </MenuItem>
               <MenuItem
                 onClick={() => {
                   handleClose();

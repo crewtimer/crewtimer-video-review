@@ -15,6 +15,7 @@ import {
   getVideoTimestamp,
   validateVideoSettings,
 } from './video/VideoSettings';
+import { openNagScreen } from './NagScreen';
 
 const { startLapStorage } = window.LapStorage;
 const { stopLapStorage } = window.LapStorage;
@@ -39,6 +40,7 @@ export default function App() {
       setTimeout(() => {
         validateVideoSettings();
         setInitializing(false);
+        openNagScreen();
       }, 200);
     };
     doInit();
