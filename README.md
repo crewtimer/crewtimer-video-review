@@ -74,7 +74,7 @@ See also [the Electron React Boilerplate page](https://electron-react-boilerplat
 
 * CrewTimer.db '/Users/glenne/Library/Application Support/Electron/CrewTimer.db'
 * config.json debug: '/Users/glenne//Library/Application Support/Electron/config.json'
-* config.json installed: '/Users/glenne//Library/Application Support/crewtimer-fl-connector/config.json'
+* config.json installed: '/Users/glenne//Library/Application Support/crewtimer-video-review/config.json'
 
 ## Releasing new versions
 

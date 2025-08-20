@@ -690,7 +690,7 @@ const AVFrame *FFVideoReader::getRGBAFrame(int64_t frameNumber, bool closeTo)
   {
     return nullptr;
   }
-std:
+
   return ConvertFrameToRGBA(frame);
 }
 

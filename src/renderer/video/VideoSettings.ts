@@ -17,6 +17,7 @@ export interface VideoScaling {
   srcWidth: number; /// Width of source image
   srcHeight: number; /// Height of source image
   srcCenterPoint: Point; /// Center point in source image units
+  srcClickPoint: Point; /// Where user clicked to zoom
   zoomX: number; // x-axis zoom factor
   zoomY: number; // y-axis zoom factor
 

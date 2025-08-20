@@ -6,6 +6,7 @@ type ScalingParams = {
   destWidth?: number;
   destHeight?: number;
   srcCenterPoint?: { x: number; y: number };
+  srcClickPoint?: { x: number; y: number };
 
   zoomX?: number; // Horizontal zoom factor
   zoomY?: number; // Vertical zoom factor
@@ -27,6 +28,7 @@ export function updateVideoScaling(scaling: ScalingParams) {
     destWidth,
     destHeight,
     srcCenterPoint,
+    srcClickPoint,
     zoomX,
     zoomY,
   } = { ...getVideoScaling(), ...scaling };
@@ -67,6 +69,7 @@ export function updateVideoScaling(scaling: ScalingParams) {
     destImageWidth: srcWidth * scaleY,
     destImageHeight: srcHeight * scaleX,
     srcCenterPoint,
+    srcClickPoint,
     zoomX,
     zoomY,
     destX,

@@ -525,15 +525,16 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
           // std::cout << "A framenum=" << frameA->frameNum
           //           << " B framenum=" << frameB->frameNum
           //           << " frac=" << fractionalPart << std::endl;
+
+          frameInfo = generateInterpolatedFrame(frameA, frameB, fractionalPart,
+                                                roi, blend);
           if (debugLevel)
           {
             std::cout << __FILE__ << ":" << __LINE__
                       << " Generating interpolated frame at " << fractionalPart
                       << "% zoom=" << (hasZoom ? "true" : "false")
-                      << " blend=" << (blend ? "true" : "false") << std::endl;
+                      << " blend=" << (blend ? "true" : "false") << " motion=[" << frameInfo->motion.x << "," << frameInfo->motion.y << "," << frameInfo->motion.valid << "," << frameInfo->motion.dt << "]" << std::endl;
           }
-          frameInfo = generateInterpolatedFrame(frameA, frameB, fractionalPart,
-                                                roi, blend);
           frameA->motion = frameInfo->motion;
           frameA->roi = frameInfo->roi;
         }

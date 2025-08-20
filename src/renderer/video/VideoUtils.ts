@@ -382,26 +382,26 @@ export const nextFile = () => {
 /**
  * Calculates and returns the tracking region near the finish line in video coordinates.
  * The region also takes into consideration the travel direction with emphasis on the region
- * after the finish line (usually open water) and a smaller regino before the finish to capture the bow.
+ *  before the finish line (usually has the boat visible) and a smaller region after the finish
  *
- * @param narrowRegion - If true, returns a narrower region; otherwise, returns the default width.
  * @returns An object containing the x, y, width, and height of the tracking region.
  */
-export const getTrackingRegion = (narrowRegion: boolean = false) => {
+export const getTrackingRegion = () => {
   const finishLine = getFinishLine();
   const videoScaling = getVideoScaling();
+  // console.log('genTrackingRegion', getImage().motion);
+  const height = 32;
+  const width = 48;
   const pxBeforeFinish = 32;
-  const height = 150;
-  const width = narrowRegion ? 3 * pxBeforeFinish : 256;
   const region = {
     x: Math.max(
       0,
       videoScaling.srcWidth / 2 +
-        (finishLine.pt1 + finishLine.pt2) / 2 +
-        (getTravelRightToLeft() ? -pxBeforeFinish : -width + pxBeforeFinish),
+        (finishLine.pt1 + finishLine.pt2) / 2 -
+        (getTravelRightToLeft() ? width - pxBeforeFinish : pxBeforeFinish),
     ),
-    y: Math.max(0, videoScaling.srcCenterPoint.y - height / 2),
-    width,
+    y: Math.max(0, videoScaling.srcClickPoint.y - height / 2),
+    width: width,
     height,
   };
   return region;

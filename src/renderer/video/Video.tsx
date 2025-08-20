@@ -115,7 +115,15 @@ const useStyles = makeStyles({
 
 const [useShowBlowup, setShowBlowup] = UseDatum(false);
 
-const applyZoom = ({ srcPoint, zoom }: { srcPoint: Point; zoom: number }) => {
+const applyZoom = ({
+  srcPoint,
+  zoom,
+  srcClickPoint,
+}: {
+  srcPoint: Point;
+  srcClickPoint?: Point;
+  zoom: number;
+}) => {
   const vScaling = getVideoScaling();
   updateVideoScaling({
     zoomY: zoom,
@@ -123,6 +131,7 @@ const applyZoom = ({ srcPoint, zoom }: { srcPoint: Point; zoom: number }) => {
       zoom === 1
         ? { x: vScaling.srcWidth / 2, y: vScaling.srcHeight / 2 }
         : srcPoint,
+    srcClickPoint,
   });
   if (zoom > 1) {
     moveToFrame(getVideoFrameNum(), 0, true);
@@ -487,6 +496,13 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       event.preventDefault();
       return;
     }
+    const mousePositionX =
+      event.clientX - event.currentTarget.getBoundingClientRect().left;
+    if (mousePositionX < 30) {
+      event.preventDefault();
+      return;
+    }
+
     if (!isZooming()) {
       const finish = getFinishLine();
       const rect = canvasRef.current?.getBoundingClientRect();
@@ -505,6 +521,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           x: getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
           y: srcCoords.y,
         },
+        srcClickPoint: srcCoords,
       });
     } else {
       resetVideoZoom();

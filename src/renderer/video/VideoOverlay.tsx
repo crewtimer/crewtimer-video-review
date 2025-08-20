@@ -226,7 +226,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
 
         if (videoScaling.zoomY > 1 && getHyperZoomFactor() > 0) {
           // Draw region used for hyperZoom
-          const trackingRegion = getTrackingRegion(true);
+          const trackingRegion = getTrackingRegion();
           const xy = translateSrcCanvas2DestCanvas(
             {
               x: trackingRegion.x,

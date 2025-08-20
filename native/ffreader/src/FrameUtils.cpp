@@ -19,6 +19,211 @@ extern "C"
 using namespace cv;
 using namespace std;
 
+struct BowMatch
+{
+  cv::Point2f matched_center_xy; // center of best match in B
+  double score;                  // NCC score (higher is better for TM_CCOEFF_NORMED)
+  cv::Rect template_in_A;        // patch_w × patch_h rect in A (reporting)
+  cv::Rect search_roi_in_B;      // ROI searched in B
+  cv::Rect match_rect_in_B;      // patch_w × patch_h rect of best match in B
+};
+
+static inline cv::Mat toGray(const cv::Mat &img)
+{
+  if (img.channels() == 1)
+    return img;
+  cv::Mat g;
+  cv::cvtColor(img, g, cv::COLOR_BGR2GRAY);
+  return g;
+}
+
+// --- helper: subpixel refinement on the response map peak --------------------
+static inline cv::Point2f refinePeakSubpixel(const cv::Mat &res,
+                                             const cv::Point &bestTL,
+                                             bool is_sqdiff_method)
+{
+  // We want to refine the *peak*. For SQDIFF we invert the sign so max-peak logic works.
+  // Parabolic 1D interpolation formula:
+  //   delta = 0.5*(L - R) / (L - 2*C + R), where L=left, C=center, R=right
+  auto val = [&](int y, int x) -> double
+  {
+    double v = static_cast<double>(res.at<float>(y, x));
+    return is_sqdiff_method ? -v : v; // invert for SQDIFF to make peak be a maximum
+  };
+
+  int u = bestTL.x;
+  int v = bestTL.y;
+
+  // Need a 3x3 neighborhood inside res
+  if (u <= 0 || v <= 0 || u >= res.cols - 1 || v >= res.rows - 1)
+  {
+    return cv::Point2f(0.f, 0.f);
+  }
+
+  double c = val(v, u);
+  double lx = val(v, u - 1), rx = val(v, u + 1);
+  double ty = val(v - 1, u), by = val(v + 1, u);
+
+  double denom_x = (lx - 2.0 * c + rx);
+  double denom_y = (ty - 2.0 * c + by);
+
+  double dx = 0.0, dy = 0.0;
+  if (std::abs(denom_x) > 1e-12)
+    dx = 0.5 * (lx - rx) / denom_x;
+  if (std::abs(denom_y) > 1e-12)
+    dy = 0.5 * (ty - by) / denom_y;
+
+  // Clamp to a sensible range (subpixel offset cannot exceed one pixel)
+  dx = std::max(-1.0, std::min(1.0, dx));
+  dy = std::max(-1.0, std::min(1.0, dy));
+  return cv::Point2f(static_cast<float>(dx), static_cast<float>(dy));
+}
+
+/**
+ * Find the location in imgB that best matches a patch centered at xy_in_A in imgA.
+ * - Patch can be RECTANGULAR: patch_w × patch_h
+ * - Search limited to a window where the TEMPLATE CENTER stays within ±search_radius of (x,y)
+ * - Uses cv::matchTemplate (default TM_CCOEFF_NORMED)
+ *
+ * Assumes A and B have same scale/projection (consecutive frames or similar).
+ */
+BowMatch find_bow_in_image(
+    const cv::Mat &imgA,
+    const cv::Mat &imgB,
+    const cv::Point2f &xy_in_A,
+    int patch_w = 32,
+    int patch_h = 32,
+    int search_radius = 128,
+    int method = cv::TM_CCOEFF_NORMED)
+{
+  BowMatch out;
+  out.score = 0;
+
+  if (imgA.empty() || imgB.empty())
+  {
+    std::cerr << "Empty input image(s)." << std::endl;
+    return out;
+  }
+  if (patch_w <= 0 || patch_h <= 0)
+  {
+    std::cerr << "Patch dimensions must be positive." << std::endl;
+    return out;
+  }
+
+  cv::Mat grayA = (imgA.channels() == 1) ? imgA : (cv::Mat)cv::Mat();
+  if (grayA.empty())
+    cv::cvtColor(imgA, grayA, cv::COLOR_BGR2GRAY);
+  cv::Mat grayB = (imgB.channels() == 1) ? imgB : (cv::Mat)cv::Mat();
+  if (grayB.empty())
+    cv::cvtColor(imgB, grayB, cv::COLOR_BGR2GRAY);
+
+  const int half_w = patch_w / 2;
+  const int half_h = patch_h / 2;
+
+  // Template centered on (x,y) with padding
+  cv::Mat paddedA;
+  cv::copyMakeBorder(grayA, paddedA, half_h, half_h, half_w, half_w, cv::BORDER_REPLICATE);
+
+  const int x = cvRound(xy_in_A.x);
+  const int y = cvRound(xy_in_A.y);
+
+  cv::Rect tplRectInPadded(x, y, patch_w, patch_h);
+  if ((tplRectInPadded & cv::Rect(0, 0, paddedA.cols, paddedA.rows)) != tplRectInPadded)
+  {
+    std::cerr << "Template extraction failed; check coords/patch size." << std::endl;
+    return out;
+  }
+  cv::Mat templ = paddedA(tplRectInPadded).clone();
+
+  cv::Rect template_in_A(x - half_w, y - half_h, patch_w, patch_h);
+  template_in_A &= cv::Rect(0, 0, grayA.cols, grayA.rows);
+
+  // Search ROI: ensure template center stays within ±radius of (x,y)
+  int tl_min_x = x - search_radius - half_w;
+  int tl_max_x = x + search_radius - half_w;
+  int tl_min_y = y - search_radius - half_h;
+  int tl_max_y = y + search_radius - half_h;
+
+  int rx0 = std::max(0, tl_min_x);
+  int ry0 = std::max(0, tl_min_y);
+  int rx1 = std::min(grayB.cols, tl_max_x + patch_w);
+  int ry1 = std::min(grayB.rows, tl_max_y + patch_h);
+
+  if (rx1 - rx0 < patch_w)
+  {
+    rx0 = std::max(0, std::min(grayB.cols - patch_w, x - search_radius - half_w));
+    rx1 = rx0 + patch_w;
+  }
+  if (ry1 - ry0 < patch_h)
+  {
+    ry0 = std::max(0, std::min(grayB.rows - patch_h, y - search_radius - half_h));
+    ry1 = ry0 + patch_h;
+  }
+
+  cv::Rect searchROI(rx0, ry0, rx1 - rx0, ry1 - ry0);
+  if (searchROI.width < patch_w || searchROI.height < patch_h)
+  {
+    std::cerr << "Search ROI smaller than template." << std::endl;
+    return out;
+  }
+
+  cv::Mat roiB = grayB(searchROI);
+
+  // Match
+  cv::Mat res;
+  cv::matchTemplate(roiB, templ, res, method);
+
+  double minVal = 0, maxVal = 0;
+  cv::Point minLoc, maxLoc;
+  cv::minMaxLoc(res, &minVal, &maxVal, &minLoc, &maxLoc);
+  bool is_sqdiff = (method == cv::TM_SQDIFF || method == cv::TM_SQDIFF_NORMED);
+
+  cv::Point bestTL = is_sqdiff ? minLoc : maxLoc;
+  double score = is_sqdiff ? (1.0 - minVal) : maxVal;
+
+  // --- Subpixel refinement on response map peak ---
+  cv::Point2f peakOffset = refinePeakSubpixel(res, bestTL, is_sqdiff);
+
+  // Map refined top-left back to image B coordinates
+  cv::Point2f match_tl_in_B = cv::Point2f(static_cast<float>(searchROI.x + bestTL.x),
+                                          static_cast<float>(searchROI.y + bestTL.y)) +
+                              peakOffset;
+
+  cv::Rect2f match_rect_in_B_f(match_tl_in_B.x, match_tl_in_B.y,
+                               static_cast<float>(patch_w), static_cast<float>(patch_h));
+  cv::Point2f matched_center_xy(match_rect_in_B_f.x + 0.5f * patch_w,
+                                match_rect_in_B_f.y + 0.5f * patch_h);
+
+  // Package results (keep integer ROI/templ rects as cv::Rect; match_rect can be rounded if needed)
+  out.matched_center_xy = matched_center_xy;
+  out.score = score;
+  out.template_in_A = template_in_A;
+  out.search_roi_in_B = searchROI;
+  out.match_rect_in_B = cv::Rect(cvRound(match_rect_in_B_f.x),
+                                 cvRound(match_rect_in_B_f.y),
+                                 patch_w, patch_h);
+  return out;
+}
+
+// Optional utility to annotate the match on B
+void annotate_match_on_B(cv::Mat &imgB_color,
+                         const BowMatch &m,
+                         const cv::Point2f &xy_in_A,
+                         int search_radius = 128)
+{
+  if (imgB_color.channels() == 1)
+    cv::cvtColor(imgB_color, imgB_color, cv::COLOR_GRAY2BGR);
+
+  // Search circle around the original A point coords (assumes same projection for B)
+  cv::circle(imgB_color,
+             cv::Point(cv::saturate_cast<int>(xy_in_A.x),
+                       cv::saturate_cast<int>(xy_in_A.y)),
+             search_radius, cv::Scalar(200, 200, 200), 1, cv::LINE_AA);
+
+  // Match rectangle and center dot
+  cv::rectangle(imgB_color, m.match_rect_in_B, cv::Scalar(0, 255, 255), 1, cv::LINE_AA);
+  cv::circle(imgB_color, m.matched_center_xy, 4, cv::Scalar(0, 255, 0), -1, cv::LINE_AA);
+}
 /**
  * @brief Sharpens the input image using a convolution kernel.
  *
@@ -32,120 +237,6 @@ void sharpenImage(const cv::Mat &src, cv::Mat &dst)
 
   // Apply the filter
   cv::filter2D(src, dst, src.depth(), kernel);
-}
-
-/**
- * Finds the first peak in an array.
- *
- * @param arr The array of integers to search through.
- * @param dir The direction to search in (positive for right-to-left, negative
- * for left-to-right).
- * @return The index of the first peak found, or -1 if no peak is found.
- */
-size_t findFirstPeak(const vector<int> &arr, int dir, int minLevel)
-{
-  if (dir > 0)
-  { // Search from right to left
-    for (auto i = arr.size() - 1; i >= 12; i--)
-    {
-      if (arr[i] > minLevel && arr[i] > arr[i - 1] && arr[i] > arr[i - 2] &&
-          arr[i] > arr[i - 3] && arr[i] > arr[i - 4] && arr[i] > arr[i - 10])
-      {
-        return i;
-      }
-    }
-  }
-  else
-  { // Search from left to right
-    for (size_t i = 0; i < arr.size() - 12; i++)
-    {
-      if (arr[i] > minLevel && arr[i] > arr[i + 1] && arr[i] > arr[i + 2] &&
-          arr[i] > arr[i + 3] && arr[i] > arr[i + 4] && arr[i] > arr[i + 10])
-      {
-        return i;
-      }
-    }
-  }
-
-  return 0; // No peak found
-}
-
-int findPeak(const vector<int> &hist)
-{
-  size_t negPeak = findFirstPeak(hist, -1, 60);
-  size_t posPeak = findFirstPeak(hist, 1, 60);
-  if (negPeak == 0 && posPeak == 0)
-  {
-    return 1000;
-  }
-
-  // Ignore one pixel on either side of the zero point (10 slots)
-  if (posPeak < hist.size() / 2 + 10)
-  {
-    // posPeak no good, how about neg peak?
-    if (negPeak <= hist.size() / 2 - 10)
-    {
-      return negPeak;
-    }
-    else
-    {
-      return 1000;
-    }
-  }
-  if (negPeak > hist.size() / 2 - 10)
-  {
-    // negPeak no good, how about pos peak?
-    if (posPeak > hist.size() / 2 + 10)
-    {
-      return posPeak;
-    }
-    else
-    {
-      return 1000;
-    }
-  }
-  auto peak = (hist[negPeak] > hist[posPeak]) ? negPeak : posPeak;
-
-  return peak;
-}
-
-/**
- * Calculates the motion vectors from the optical flow data.
- *
- * @param flow The optical flow matrix.
- * @return An ImageMotion struct containing the x and y motion.
- */
-ImageMotion calculateMotion(const Mat &flow)
-{
-  // Initialize histograms for x and y components of the flow
-  vector<int> histx(2000, 0);
-  vector<int> histy(2000, 0);
-
-  // Populate histograms with flow data
-  for (int y = 0; y < flow.rows; y++)
-  {
-    for (int x = 0; x < flow.cols; x++)
-    {
-      const Vec2f &flowAtXY = flow.at<Vec2f>(y, x);
-      double fx = min(99.0f, max(-99.0f, flowAtXY[0]));
-      histx[static_cast<int>(round(10 * fx)) + 1000]++;
-
-      double fy = min(99.0f, max(-99.0f, flowAtXY[1]));
-      histy[static_cast<int>(round(10 * fy)) + 1000]++;
-    }
-  }
-
-  // for (auto i = 0; i < histx.size(); i++) {
-  //   if (histx[i]) {
-  //     std::cout << int(i - histx.size() / 2) << ": " << histx[i] <<
-  //     std::endl;
-  //   }
-  // }
-
-  int maxX = findPeak(histx);
-  int maxY = findPeak(histy);
-
-  return {(maxX - 1000) / 10.0, (maxY - 1000) / 10.0, 0, true};
 }
 
 /**
@@ -205,23 +296,6 @@ cv::Mat applySceneShiftAndBlend(const cv::Mat &matA, const cv::Mat &matB,
   return blended;
 }
 
-Mat calculateOpticalFlowBetweenFrames(const Mat &frame1, const Mat &frame2,
-                                      Rect roi)
-{
-  Mat frame1Gray, frame2Gray;
-  cvtColor(frame1, frame1Gray, COLOR_RGBA2GRAY);
-  cvtColor(frame2, frame2Gray, COLOR_RGBA2GRAY);
-
-  Mat flow;
-  // calcOpticalFlowFarneback(frame1Gray(roi), frame2Gray(roi), flow, 0.5, 3,
-  // 15,
-  //                          3, 5, 1.2, 0);
-  calcOpticalFlowFarneback(frame1Gray(roi), frame2Gray(roi), flow, 0.5, 5, 25,
-                           3, 7, 1.5, 0);
-
-  return flow;
-}
-
 /**
  * @brief Generate a time/position frame between the two provided frames
  *
@@ -247,30 +321,31 @@ generateInterpolatedFrame(const std::shared_ptr<FrameInfo> frameA,
   ImageMotion motion = frameA->motion;
   if (!motion.valid || motion.x == 0 || frameA->roi != roi)
   {
-    // std::cerr << "Calculating optical flow" << std::endl;
-    Mat flow = calculateOpticalFlowBetweenFrames(
-        matA, matB, {roi.x, roi.y, roi.width, roi.height});
-    motion = calculateMotion(flow);
-    frameA->motion = motion;
-    frameA->roi = roi;
-  }
-  motion.y = 0;
+    cv::Point2f bow_in_A(roi.x + roi.width / 2, roi.y + roi.height / 2); // example click
+    BowMatch m = find_bow_in_image(matA, matB, bow_in_A, roi.width, roi.height, 128, cv::TM_CCOEFF_NORMED);
 
-  // if (motion.x == 0) {
-  //   // No motion detected
-  //   std::cout << "No motion detected" << std::endl;
-  //   auto result = pctAtoB >= 0.5 ? frameB : frameA;
-  //   result->motion = motion;
-  //   return result;
-  // }
+    // std::cout << "Calculating motino for roi=" << roi.x + roi.width / 2 << "," << roi.y + roi.height / 2 << "=" << m.score << std::endl;
+    if (m.score > 0.65)
+    {
+      cv::Point2f v = m.matched_center_xy - bow_in_A;
+      motion = {v.x, v.y, 0, true};
+      if (std::abs(v.x) > 1)
+      {
+        frameA->motion = motion;
+        // std::cout << "V=" << v.x << "," << v.y << " motion=" << frameA->motion.x << "," << frameA->motion.y << std::endl;
+        frameA->roi = roi;
+      }
+    }
+  }
 
   Mat resultFrameMat;
-  if (blend)
+  if (blend && motion.valid)
   {
     resultFrameMat = applySceneShiftAndBlend(matA, matB, motion, pctAtoB);
   }
   else
   {
+    std::cout << "Scene shift " << pctAtoB << "%" << std::endl;
     resultFrameMat = applySceneShift(matA, motion, pctAtoB);
   }
 
