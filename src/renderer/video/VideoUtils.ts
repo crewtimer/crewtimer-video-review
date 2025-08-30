@@ -7,7 +7,6 @@ import {
 } from 'renderer/util/UseSettings';
 import { ExtendedLap, getClickerData } from './UseClickerData';
 import {
-  getAutoZoomPending,
   Dir,
   getHyperZoomFactor,
   getImage,
@@ -109,28 +108,6 @@ export const getFinishLine = () => {
   }
   return vert;
 };
-
-// Deprecated.  The recorder no longer utilizes guide changes from the review app
-// export const notifiyGuideChanged = () => {
-//   const videoSettings = getVideoSettings();
-//   const vert = videoSettings.guides.find((guide) => guide.dir === Dir.Vert);
-//   if (!vert) {
-//     return;
-//   }
-//   const msg = {
-//     cmd: 'guide-config',
-//     src: 'crewtimer-video-review',
-//     ts: new Date().getTime(),
-//     guide: { pt1: vert.pt1, pt2: vert.pt2 },
-//   };
-//   window.VideoUtils.sendMulticast(
-//     JSON.stringify(msg),
-//     '239.215.23.42',
-//     52342,
-//   ).catch(() => {
-//     /* ignore */
-//   });
-// };
 
 /**
  * Draws text on the canvas with specified alignment and position relative to a horizontal line.
@@ -393,6 +370,7 @@ export const getTrackingRegion = () => {
   const height = 32;
   const width = 48;
   const pxBeforeFinish = 32;
+
   const region = {
     x: Math.max(
       0,
@@ -424,49 +402,32 @@ export const moveToFrame = (
     } else {
       videoFrameNum = frameNum + (offset * image.fps * hyperZoomFactor) / 1000;
     }
-
-    if (videoFrameNum < 1) {
-      prevFile();
-      return;
-    }
-    if (videoFrameNum > image.numFrames) {
-      nextFile();
-      return;
-    }
-
-    setVideoFrameNum(Math.min(image.numFrames, Math.max(1, videoFrameNum)));
-    let zoom: Rect | undefined;
-
-    // If we have an auto-zoom request pending, use those coords for the
-    // frame velocity calc.  Otherwise use a grid around the finish line
-    const autoZoomCoords = getAutoZoomPending();
-
-    if (videoScaling.zoomY !== 1 || autoZoomCoords) {
-      // If we are zooming, specigy the coordinates for the motion detection zoom to utilize
-      if (autoZoomCoords) {
-        // An auto-zoom request is pending for specific coordinates
-        zoom = {
-          x: Math.max(
-            0,
-            autoZoomCoords.x + (getTravelRightToLeft() ? -16 : -240),
-          ),
-          y: Math.max(0, autoZoomCoords.y - 25),
-          width: 256,
-          height: 100,
-        };
-      } else {
-        // Motion estimate around finish line
-        zoom = getTrackingRegion();
-      }
-    }
-
-    requestVideoFrame({
-      videoFile: image.file,
-      frameNum: videoFrameNum,
-      zoom,
-      blend,
-    });
   }
+
+  if (videoFrameNum < 1) {
+    prevFile();
+    return;
+  }
+  if (videoFrameNum > image.numFrames) {
+    nextFile();
+    return;
+  }
+
+  setVideoFrameNum(Math.min(image.numFrames, Math.max(1, videoFrameNum)));
+  let zoom: Rect | undefined;
+
+  if (videoScaling.zoomY !== 1) {
+    // If we are zooming, specify the coordinates for the motion detection zoom to utilize
+    // Motion estimate around finish line
+    zoom = getTrackingRegion();
+  }
+
+  requestVideoFrame({
+    videoFile: image.file,
+    frameNum: videoFrameNum,
+    zoom,
+    blend,
+  });
 };
 
 export const moveRight = () => {
@@ -528,6 +489,7 @@ export const translateMouseCoords2SourceCanvas = (point: Point): Point => {
  *   - y: The y-coordinate relative to the source canvas.
  *   - pt: The point object with x and y coordinates transformed to the source canvas.
  *   - withinBounds: A boolean indicating if the point is within the bounds of the source canvas.
+ *   - overButtons: A boolean indicating if the point is over the button region of the image
  */
 export const translateMouseEventCoords = (
   event: React.MouseEvent,
@@ -544,7 +506,10 @@ export const translateMouseEventCoords = (
     pt.x <= videoScaling.srcWidth &&
     pt.x >= 0 &&
     pt.y >= 0;
-  return { dx, dy, x, y, pt, withinBounds };
+  // Assume buttons are within 100x60 screen pix of upper right
+  const overButtons =
+    withinBounds && y < 60 && x > videoScaling.destWidth - 100;
+  return { dx, dy, x, y, pt, withinBounds, overButtons };
 };
 
 /**

@@ -30,9 +30,6 @@ import {
   getVideoScaling,
   Point,
   useVideoScaling,
-  getHyperZoomFactor,
-  setAutoZoomPending,
-  getAutoZoomPending,
   getBowInfo,
   setVideoEvent,
   getImage,
@@ -59,7 +56,11 @@ import VideoScrubber from './VideoScrubber';
 import { performAddSplit } from './AddSplitUtil';
 import Blowup from './Blowup';
 import { updateVideoScaling } from '../util/ImageScaling';
-import { videoRequestQueueRunning } from './RequestVideoFrame';
+import {
+  performAutoZoomSeek,
+  videoRequestQueueRunning,
+} from './RequestVideoFrame';
+import { useSingleAndDoubleClick } from '../util/UseSingleAndDoubleClick';
 
 // Avoid 'not a JSX component' warning
 const Measure = _Measure as unknown as FC<MeasureProps>;
@@ -125,6 +126,8 @@ const applyZoom = ({
   zoom: number;
 }) => {
   const vScaling = getVideoScaling();
+  const autoZoomed = zoom === 1 ? false : vScaling.autoZoomed;
+
   updateVideoScaling({
     zoomY: zoom,
     srcCenterPoint:
@@ -132,6 +135,7 @@ const applyZoom = ({
         ? { x: vScaling.srcWidth / 2, y: vScaling.srcHeight / 2 }
         : srcPoint,
     srcClickPoint,
+    autoZoomed,
   });
   if (zoom > 1) {
     moveToFrame(getVideoFrameNum(), 0, true);
@@ -145,6 +149,7 @@ const clearZoom = () => {
     zoomX: 1,
     zoomY: 1,
     srcCenterPoint: getVideoScaling().srcCenterPoint,
+    autoZoomed: false,
   });
 };
 
@@ -418,36 +423,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     return () => setGenerateImageSnapshotCallback(undefined);
   }, [videoTimestamp, width]);
 
-  useEffect(() => {
-    const zoomPoint = getAutoZoomPending();
-
-    if (zoomPoint && image.motion.valid) {
-      setAutoZoomPending(undefined);
-      if (Math.abs(image.motion.x) > 0.1 && Math.abs(image.motion.x) < 15) {
-        // Calculate movement
-        const finish = getFinishLine();
-        const dx = image.width / 2 + finish.pt1 - zoomPoint.x;
-        const ticks = dx / image.motion.x;
-        console.log(`Ticks: ${ticks} (${dx} / ${image.motion.x})`);
-        // subtract 0.5 as that was used to trigger calc of dx
-        let destFrame = getVideoFrameNum() + ticks - 0.5;
-        if (getHyperZoomFactor() === 0) {
-          destFrame = Math.round(destFrame);
-        }
-        moveToFrame(destFrame);
-        applyZoom({
-          zoom: 5,
-          srcPoint: {
-            x: getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
-            y: zoomPoint.y,
-          },
-        });
-      } else {
-        console.log(`Failed to auto-zoom rx frame=${image.frameNum}`);
-      }
-    }
-  }, [image]);
-
   const videoOverlay = useMemo(
     () => <VideoOverlay ref={videoOverlayRef} width={width} height={height} />,
     [width, height],
@@ -487,6 +462,28 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     event.preventDefault();
   };
 
+  const handleSingleClick = (
+    event: React.MouseEvent<HTMLDivElement, MouseEvent>,
+  ) => {
+    const videoSettings = getVideoSettings();
+    if (
+      (event.shiftKey || getVideoScaling().autoZoomed) &&
+      videoSettings.enableAutoZoom &&
+      !getNearEdge()
+    ) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+
+      const { pt: srcCoords, withinBounds } = translateMouseEventCoords(
+        event,
+        rect,
+      );
+      if (!withinBounds) {
+        return;
+      }
+      performAutoZoomSeek(srcCoords);
+    }
+  };
+
   const handleDoubleClick = (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>,
   ) => {
@@ -515,18 +512,27 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         return;
       }
 
-      applyZoom({
-        zoom: 5,
-        srcPoint: {
-          x: getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
-          y: srcCoords.y,
-        },
-        srcClickPoint: srcCoords,
-      });
+      if (getVideoSettings().enableAutoZoom && event.shiftKey) {
+        performAutoZoomSeek(srcCoords);
+      } else {
+        applyZoom({
+          zoom: 5,
+          srcPoint: {
+            x: getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
+            y: srcCoords.y,
+          },
+          srcClickPoint: srcCoords,
+        });
+      }
     } else {
       resetVideoZoom();
     }
   };
+
+  const { onSingleClick, onDoubleClick } = useSingleAndDoubleClick(
+    handleSingleClick,
+    handleDoubleClick,
+  );
 
   const handleMouseDown = useCallback(
     (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
@@ -558,12 +564,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         (isZooming() || videoBow === '?' || videoBow === '')
       ) {
         selectLane(srcCoords);
-      }
-      if (event.shiftKey) {
-        if (videoSettings.enableAutoZoom) {
-          setAutoZoomPending(srcCoords);
-          moveToFrame(getVideoFrameNum() + 0.5); // 0.5 to trigger calc of
-        }
       }
     },
     [selectLane],
@@ -661,7 +661,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         onMouseUp={overlayActive ? undefined : handleMouseUp}
         onMouseLeave={handleMouseLeave}
         onDragStart={overlayActive ? undefined : handleDragStart}
-        onDoubleClick={handleDoubleClick}
+        onDoubleClick={onDoubleClick}
+        onClick={onSingleClick}
         onContextMenu={handleRightClick}
         sx={{
           // margin: '16px', // Use state variable for padding
@@ -715,7 +716,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
                   m: 0,
                   minWidth: 30,
                 }}
-                onClick={() => {
+                onClick={(
+                  event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+                ) => {
                   let { zoomX } = getVideoScaling();
                   if (zoomX >= 16) {
                     zoomX = 1;
@@ -723,6 +726,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
                     zoomX *= 2;
                   }
                   updateVideoScaling({ zoomX });
+                  event.preventDefault();
+                  event.stopPropagation();
                 }}
               >
                 {scaleText}

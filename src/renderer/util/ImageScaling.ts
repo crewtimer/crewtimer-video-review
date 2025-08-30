@@ -10,6 +10,7 @@ type ScalingParams = {
 
   zoomX?: number; // Horizontal zoom factor
   zoomY?: number; // Vertical zoom factor
+  autoZoomed?: boolean;
 };
 
 /**
@@ -31,6 +32,7 @@ export function updateVideoScaling(scaling: ScalingParams) {
     srcClickPoint,
     zoomX,
     zoomY,
+    autoZoomed,
   } = { ...getVideoScaling(), ...scaling };
   // 1) Compute base scale to "contain" the image
   const baseScale = Math.min(destWidth / srcWidth, destHeight / srcHeight);
@@ -76,5 +78,6 @@ export function updateVideoScaling(scaling: ScalingParams) {
     destY,
     scaleX,
     scaleY,
+    autoZoomed,
   });
 }

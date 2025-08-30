@@ -68,13 +68,15 @@ See also [the Electron React Boilerplate page](https://electron-react-boilerplat
 
 * CrewTimer.db No longer correct: C:\\Users\\glenne\\AppData\\Local\\Programs\\crewtimer-fl-connector\\CrewTimer.db
 * Images and assets C:\\Users\\glenne\\AppData\\Local\\Programs\\crewtimer-fl-connector\\resources\assets
-* config.json C:\\Users\\glenne\\AppData\Roaming\\CrewTimer Video Reviewor\\config.json
+* config.json C:\\Users\\glenne\\AppData\Roaming\\CrewTimer Video Review\\config.json
+* applog.txt  C:\\Users\\glenne\\AppData\Roaming\\CrewTimer Video Review\\applog.txt
 
 ### MacOS
 
 * CrewTimer.db '/Users/glenne/Library/Application Support/Electron/CrewTimer.db'
 * config.json debug: '/Users/glenne//Library/Application Support/Electron/config.json'
 * config.json installed: '/Users/glenne//Library/Application Support/crewtimer-video-review/config.json'
+* applog.txt installed: '/Users/glenne//Library/Application Support/crewtimer-video-review/applog.txt'
 
 ## Releasing new versions
 

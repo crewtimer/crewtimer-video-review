@@ -20,6 +20,7 @@ export interface VideoScaling {
   srcClickPoint: Point; /// Where user clicked to zoom
   zoomX: number; // x-axis zoom factor
   zoomY: number; // y-axis zoom factor
+  autoZoomed: boolean; /// True if current scaling is due to an auto-zoom action
 
   // Calculated from above parms
   scaleX: number; /// transform from src canvas to dest canvas
@@ -119,6 +120,8 @@ export const [useVideoScaling, setVideoScaling, getVideoScaling] =
     scaleY: 1,
     zoomX: 1,
     zoomY: 1,
+    srcClickPoint: { x: 0, y: 0 },
+    autoZoomed: false,
   });
 
 export const [useLastSeekTime, setLastSeekTime, getLastSeekTime] = UseDatum<{
@@ -234,9 +237,6 @@ export const [useImage, setImage, getImage] = UseMemDatum<AppImage>(
   N_IMAGE,
   generateTestPattern(),
 );
-
-export const [useAutoZoomPending, setAutoZoomPending, getAutoZoomPending] =
-  UseDatum<undefined | Point>(undefined);
 
 /**
  * Detect if version 0 guide config which is pixel based and change it to be percentage of y axis isntead.

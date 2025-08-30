@@ -351,6 +351,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       width,
       height,
       videoScaling,
+      videoScaling.zoomX,
       drawLine,
     ]);
 
@@ -441,10 +442,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
 
     const handleMouseMove = (event: React.MouseEvent) => {
       const rect = canvasRef.current?.getBoundingClientRect();
-      const { dx, dy, pt, withinBounds } = translateMouseEventCoords(
-        event,
-        rect,
-      );
+      const { dx, dy, pt, withinBounds, overButtons } =
+        translateMouseEventCoords(event, rect);
 
       if (dragging && dragHandle) {
         const shift = event.shiftKey;
@@ -479,13 +478,6 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         setCourseConfig({ ...courseConfig });
       } else {
         const vScaling = getVideoScaling();
-
-        let overButtons = false;
-        if (rect) {
-          if (dy < 50 && dx > rect.width - 100) {
-            overButtons = true;
-          }
-        }
 
         const nearVerticalEdge =
           dy < 20 || dy > vScaling.srcHeight * vScaling.scaleY - 20;

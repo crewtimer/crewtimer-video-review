@@ -18,6 +18,9 @@ import {
   setVideoEvent,
   setVideoBow,
   setLastSeekTime,
+  getVideoFile,
+  getVideoFrameNum,
+  getVideoScaling,
 } from './VideoSettings';
 import {
   getFileStatusByName,
@@ -27,6 +30,8 @@ import {
 import { generateTestPattern } from '../util/ImageUtils';
 import { getClickerData } from './UseClickerData';
 import { saveVideoSidecar } from './Sidecar';
+import { updateVideoScaling } from 'renderer/util/ImageScaling';
+import { getFinishLine, getTrackingRegion, moveToFrame } from './VideoUtils';
 
 const { VideoUtils } = window;
 
@@ -292,15 +297,17 @@ const doRequestVideoFrame = async ({
       setVideoFrameNum(image.frameNum);
     }
     setVideoError(undefined);
+    return image;
   } catch (e) {
     handleFrameError(videoFile, frameNum ?? 1, e);
   }
+  return;
 };
 
 let running = false;
 let nextRequest: {
   params: VideoFrameRequest;
-  resolve: () => void;
+  resolve: (frame: AppImage | undefined) => void;
   reject: (e: any) => void;
 } | null = null;
 
@@ -326,8 +333,8 @@ async function runQueue() {
     nextRequest = null;
     try {
       // eslint-disable-next-line no-await-in-loop
-      await doRequestVideoFrame(params);
-      resolve();
+      const frame = await doRequestVideoFrame(params);
+      resolve(frame);
     } catch (e) {
       reject(e);
     }
@@ -344,11 +351,13 @@ async function runQueue() {
  * @param params - The parameters specifying which video frame to request.
  * @returns Promise that resolves when the frame has been processed.
  */
-export function requestVideoFrame(params: VideoFrameRequest): Promise<void> {
-  return new Promise((resolve, reject) => {
+export function requestVideoFrame(
+  params: VideoFrameRequest,
+): Promise<AppImage | undefined> {
+  return new Promise<AppImage | undefined>((resolve, reject) => {
     // If a request is already queued, resolve its promise
     if (nextRequest) {
-      nextRequest.resolve();
+      nextRequest.resolve(undefined);
     }
     nextRequest = { params, resolve, reject };
     runQueue();
@@ -475,4 +484,76 @@ export const seekToClickInFile = (videoFile: string, seekPercent: number) => {
   setLastSeekTime({ time });
   // no clicks found, just seek to the file falling back on percent
   return requestVideoFrame({ videoFile, seekPercent });
+};
+
+/**
+ * Performs an auto-zoom and seek operation on a video based on provided source coordinates.
+ *
+ * Updates the video scaling settings centered at the specified coordinates, then requests a video frame
+ * zoomed around that area. If significant motion is detected in the frame (from video analysis),
+ * the function estimates the required frame jump to center the tracked region and seeks to the new frame,
+ * adjusting the zoom as needed.
+ *
+ * @param srcCoords - The point (with x and y) within the video frame to center the auto-zoom operation.
+ * @returns {Promise<void>} Resolves when the operation is complete and video/UI state is updated.
+ */
+export const performAutoZoomSeek = async (srcCoords: Point) => {
+  // First measure the velocity in px/frame at the point of interest
+  // srcCoords.x = 2528;
+  // srcCoords.y = 276;
+  updateVideoScaling({ srcClickPoint: srcCoords });
+  const frameNum = getVideoFrameNum();
+  // Use a larger analysis window when zoomed out
+  const zoom = getVideoScaling().autoZoomed
+    ? { x: srcCoords.x, y: srcCoords.y, width: 48, height: 32 }
+    : { x: srcCoords.x, y: srcCoords.y, width: 64, height: 48 };
+  console.log(
+    'roi',
+    JSON.stringify({
+      frame: frameNum.toFixed(2),
+      x: srcCoords.x.toFixed(1),
+      y: srcCoords.y.toFixed(1),
+    }),
+  );
+  const image = await requestVideoFrame({
+    videoFile: getVideoFile(),
+    frameNum: Math.floor(frameNum) + 0.1, // 0.1 to trigger dx measurement
+    zoom: zoom,
+    blend: true,
+    closeTo: true,
+  });
+
+  // If we have valid motiion
+  if (
+    image?.motion.valid &&
+    Math.abs(image.motion.x) > 2 &&
+    Math.abs(image.motion.x) < 60
+  ) {
+    // Calculate movement necessary to get to the finish line
+    // FUTURE: calculate as time instead using both dx and dt
+    const finish = getFinishLine();
+    const dx = image.width / 2 + finish.pt1 - srcCoords.x;
+    let frames = Math.min(120, dx / image.motion.x);
+    console.log(
+      `dx=${image.motion.x} dt=${image.motion.dt} dframe=${frames.toFixed(1)}`,
+    );
+    if (Math.abs(frames) > 5) {
+      // Apply some compression to avoid overshoot and seek to exact frame
+      frames = Math.floor(5 + (frames - 5) * 0.95);
+    }
+
+    // Move to approximate frame
+    let destFrame = frameNum + frames;
+    if (getHyperZoomFactor() === 0) {
+      destFrame = Math.round(destFrame);
+    }
+    moveToFrame(destFrame);
+    updateVideoScaling({
+      zoomY: 5,
+      srcCenterPoint: getTrackingRegion(),
+      autoZoomed: true,
+    });
+  } else {
+    console.log(`Failed to auto-zoom rx frame=${getVideoFrameNum()}`);
+  }
 };
