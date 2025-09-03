@@ -1,5 +1,5 @@
 ### Version 1.0.30
- - Added shift-click and shift-double-click action to auto-zoom and move boat to finish line. Once zoomed, single click to auto-zoom again.
+ - Added shift-click and shift-double-click action to auto-zoom and move boat to finish line. Once zoomed, single-click will auto-zoom again.
 
 ### Version 1.0.29
 

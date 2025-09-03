@@ -81,7 +81,7 @@ See also [the Electron React Boilerplate page](https://electron-react-boilerplat
 ## Releasing new versions
 
 1. Edit [release/app/package.json](release/app/package.json) and adjust version info
-2. Execute `yarn clean && yarn install && yarn macbuild && yarn winbuild`
+2. Execute `yarn clean && yarn install && yarn build:mac && yarn build:win`
 3. Look in release/ for the dmg and exe files
 4. Copy the dmg and exe to a Releases set on github
 
