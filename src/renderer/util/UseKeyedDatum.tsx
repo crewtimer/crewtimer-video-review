@@ -2,7 +2,7 @@
 import { useMemo, useEffect } from 'react';
 import { UseDatum } from 'react-usedatum';
 
-// Version 1.0.9 May 7, 2025
+// Version 1.0.10 Sep 17, 2025
 
 /**
  * Generate a hook to keep track of a keyed value (usually a uuid).
@@ -100,13 +100,16 @@ export const UseKeyedDatum = <T,>(
    * @param value The new value to apply
    */
   const clear = (value: T): void => {
-    Object.keys(valueCache).forEach((key) => {
-      if (value === undefined) {
+    if (value === undefined) {
+      // Remove all keys from valueCache
+      Array.from(valueCache.keys()).forEach((key) => {
         valueCache.delete(key);
-      } else {
+      });
+    } else {
+      valueCache.forEach((_v, key) => {
         valueCache.set(key, value);
-      }
-    });
+      });
+    }
     datumSetCache.forEach((datumSet) =>
       datumSet.forEach((datum) => datum[1](value)),
     );
