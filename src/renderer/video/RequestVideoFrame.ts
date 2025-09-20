@@ -1,4 +1,4 @@
-import { AppImage, Rect } from 'renderer/shared/AppTypes';
+import { AppImage, VideoFrameRequest } from 'renderer/shared/AppTypes';
 import {
   milliToString,
   secondsSinceLocalMidnight,
@@ -40,21 +40,6 @@ let openFilename = '';
 export const getOpenFilename = () => openFilename;
 export const setOpenFilename = (filename: string) => {
   openFilename = filename;
-};
-
-/**
- * Represents a request for a specific video frame.
- * Only one of frameNum, seekPercent, or toTimestamp should be specified.
- */
-export type VideoFrameRequest = {
-  videoFile: string; // The path or identifier of the video file.
-  frameNum?: number; // The frame number to extract (optional).
-  seekPercent?: number; // Where in file to seek as percentage (optional).
-  toTimestamp?: string; // The timestamp to seek to (HHMMSS.sss) (optional).
-  zoom?: Rect; // The zoom window (optional).
-  blend?: boolean; // Whether to blend the frame with the previous frame (optional).
-  saveAs?: string; // Optional filename in which to save a PNG image of the frame.
-  closeTo?: boolean; // Optional: true to only get 'close' to the requested frame.
 };
 
 // --- Helpers ---
@@ -99,11 +84,11 @@ async function ensureFileOpen(
   }
 
   // Get first and last frames to update file status
-  const firstImage: AppImage | undefined = await VideoUtils.getFrame(
+  const firstImage: AppImage | undefined = await VideoUtils.getFrame({
     videoFile,
-    1,
-    0,
-  );
+    frameNum: 1,
+    tsMilli: 0,
+  });
   if (!firstImage) {
     setVideoError(`Unable to get frame 1: ${videoFile}`);
     return undefined;
@@ -114,11 +99,11 @@ async function ensureFileOpen(
   for (let excessFrames = 0; excessFrames < 10; excessFrames += 1) {
     try {
       // eslint-disable-next-line no-await-in-loop
-      lastImage = await VideoUtils.getFrame(
+      lastImage = await VideoUtils.getFrame({
         videoFile,
-        firstImage.numFrames - excessFrames,
-        0,
-      );
+        frameNum: firstImage.numFrames - excessFrames,
+        tsMilli: 0,
+      });
       firstImage.numFrames -= excessFrames;
       break;
     } catch {
@@ -236,48 +221,35 @@ function handleFrameError(videoFile: string, seekPos: number, error: any) {
  * @param {VideoFrameRequest} params - Parameters specifying the video file, frame selection criteria, and options.
  * @returns {Promise<void>} Resolves when the frame is processed and state is updated.
  */
-const doRequestVideoFrame = async ({
-  videoFile,
-  frameNum,
-  seekPercent,
-  toTimestamp,
-  zoom,
-  blend,
-  saveAs,
-  closeTo,
-}: VideoFrameRequest) => {
-  if (!videoFile) return;
+const doRequestVideoFrame = async (request: VideoFrameRequest) => {
+  if (!request.videoFile) return;
 
   try {
-    const status = await ensureFileOpen(videoFile);
+    const status = await ensureFileOpen(request.videoFile);
     if (!status) return;
 
     const { seekPos, utcMilli } = calculateSeekFrame(
       status,
-      frameNum,
-      seekPercent,
-      toTimestamp,
+      request.frameNum,
+      request.seekPercent,
+      request.toTimestamp,
     );
     const clampedSeekPos = Math.max(1, Math.min(status.numFrames, seekPos));
 
     let image: AppImage | undefined;
     try {
-      image = await VideoUtils.getFrame(
-        videoFile,
-        clampedSeekPos,
-        utcMilli,
-        zoom,
-        blend,
-        saveAs,
-        closeTo,
-      );
+      image = await VideoUtils.getFrame({
+        ...request,
+        frameNum: clampedSeekPos,
+        tsMilli: utcMilli,
+      });
     } catch (e) {
-      handleFrameError(videoFile, clampedSeekPos, e);
+      handleFrameError(request.videoFile, clampedSeekPos, e);
       return;
     }
 
     if (!image) {
-      handleFrameError(videoFile, clampedSeekPos, 'No image returned');
+      handleFrameError(request.videoFile, clampedSeekPos, 'No image returned');
       return;
     }
 
@@ -293,13 +265,16 @@ const doRequestVideoFrame = async ({
     image.sidecar = status.sidecar;
     setImage(image);
 
-    if (seekPercent !== undefined || toTimestamp !== undefined) {
+    if (
+      request.seekPercent !== undefined ||
+      request.toTimestamp !== undefined
+    ) {
       setVideoFrameNum(image.frameNum);
     }
     setVideoError(undefined);
     return image;
   } catch (e) {
-    handleFrameError(videoFile, frameNum ?? 1, e);
+    handleFrameError(request.videoFile, request.frameNum ?? 1, e);
   }
   return;
 };

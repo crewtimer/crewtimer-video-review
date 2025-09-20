@@ -24,3 +24,19 @@ export interface Rect {
   width: number;
   height: number;
 }
+
+/**
+ * Represents a request for a specific video frame.
+ * Only one of frameNum, seekPercent, or toTimestamp should be specified.
+ */
+export type VideoFrameRequest = {
+  videoFile: string; // The path or identifier of the video file.
+  frameNum?: number; // The frame number to extract (optional).
+  seekPercent?: number; // Where in file to seek as percentage (optional).
+  tsMilli?: number; // The timestamp to seek to (in milliseconds) (optional).
+  toTimestamp?: string; // The timestamp to seek to (HHMMSS.sss) (optional).
+  zoom?: Rect; // The zoom window (optional).
+  blend?: boolean; // Whether to blend the frame with the previous frame (optional).
+  saveAs?: string; // Optional filename in which to save a PNG image of the frame.
+  closeTo?: boolean; // Optional: true to only get 'close' to the requested frame.
+};

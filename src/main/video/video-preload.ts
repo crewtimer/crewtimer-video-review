@@ -4,7 +4,7 @@
  * Add ```import './video/video-preload';``` to preload.ts to integrate with main
  */
 import { contextBridge, ipcRenderer } from 'electron';
-import { AppImage, Rect } from 'renderer/shared/AppTypes';
+import { AppImage, Rect, VideoFrameRequest } from 'renderer/shared/AppTypes';
 
 contextBridge.exposeInMainWorld('VideoUtils', {
   openFile: async (filePath: string) => {
@@ -30,25 +30,11 @@ contextBridge.exposeInMainWorld('VideoUtils', {
       throw err;
     }
   },
-  getFrame: async (
-    filePath: string,
-    frameNum: number,
-    utcMilli: number,
-    zoom?: Rect,
-    blend?: boolean,
-    saveAs?: string,
-    closeTo?: boolean,
-  ) => {
+  getFrame: async (request: VideoFrameRequest) => {
     try {
       const result = (await ipcRenderer.invoke(
         'video:getFrame',
-        filePath,
-        frameNum,
-        utcMilli,
-        zoom,
-        blend,
-        saveAs,
-        closeTo,
+        request,
       )) as AppImage;
       if (result.status !== 'OK') {
         throw new Error(result.status);

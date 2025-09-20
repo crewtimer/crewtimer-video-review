@@ -97,6 +97,14 @@ export function secondsSinceLocalMidnight(
   return ((localSeconds % 86400) + 86400) % 86400;
 }
 
+/**
+ * Formats a Date object as a time string (e.g., MM:SS.mmm or HH:MM:SS.mmm),
+ * using only the time-of-day portion. Milliseconds precision is configurable.
+ *
+ * @param date        The Date object to format. Only the time-of-day is used.
+ * @param milliDigits Number of digits to show for milliseconds (0-3). Defaults to 3.
+ * @returns           Formatted time string (e.g., "01:23.456" or "12:34:56.7").
+ */
 export function formatTime(date: Date, milliDigits = 3) {
   const milli =
     date.getHours() * 3600000 +

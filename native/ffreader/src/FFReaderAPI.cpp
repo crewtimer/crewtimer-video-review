@@ -27,7 +27,7 @@ struct FileInfo
 static std::map<std::string, FileInfo> fileInfoMap;
 static FrameInfoList frameInfoList;
 static FrameRect noZoom = {0, 0, 0, 0};
-static int debugLevel = 0;
+static int debugLevel = 1;
 
 /**
  * @brief Extract a 64-bit 100ns UTC timestamp from the video frame.
@@ -358,22 +358,23 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
 
   if (op == "grabFrameAt")
   {
-    if (!args.Has("frameNum"))
+    auto request = args.Get("request").As<Napi::Object>();
+    if (!request.Has("frameNum"))
     {
       Napi::TypeError::New(env, "Missing frameNum field")
           .ThrowAsJavaScriptException();
       return ret;
     }
-    if (!args.Has("file"))
+    if (!request.Has("videoFile"))
     {
-      Napi::TypeError::New(env, "Missing file field")
+      Napi::TypeError::New(env, "Missing videoFile field")
           .ThrowAsJavaScriptException();
       return ret;
     }
-    auto file = args.Get("file").As<Napi::String>().Utf8Value();
-    auto frameNum = args.Get("frameNum").As<Napi::Number>().DoubleValue();
+    auto file = request.Get("videoFile").As<Napi::String>().Utf8Value();
+    auto frameNum = request.Get("frameNum").As<Napi::Number>().DoubleValue();
     // std::cerr << "Grabbing frame at " << frameNum << std::endl;
-    auto tsMilli = args.Get("tsMilli").As<Napi::Number>().Int64Value();
+    auto tsMilli = request.Get("tsMilli").As<Napi::Number>().Int64Value();
     auto it = fileInfoMap.find(file);
     if (it == fileInfoMap.end())
     {
@@ -385,18 +386,18 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
 
     auto roi = noZoom;
     std::string saveAs;
-    if (args.Has("saveAs"))
+    if (request.Has("saveAs"))
     {
-      saveAs = args.Get("saveAs").As<Napi::String>().Utf8Value();
+      saveAs = request.Get("saveAs").As<Napi::String>().Utf8Value();
     }
     if (debugLevel > 1)
     {
       std::cout << "saveAs: " << saveAs << ", frameNum: " << frameNum << ", tsMilli: " << tsMilli << ", file:" << file << std::endl;
     }
 
-    if (args.Has("zoom"))
+    if (request.Has("zoom") && request.Get("zoom").IsObject())
     {
-      auto zoom = args.Get("zoom").As<Napi::Object>();
+      auto zoom = request.Get("zoom").As<Napi::Object>();
       auto x = zoom.Get("x").As<Napi::Number>().Int32Value();
       auto y = zoom.Get("y").As<Napi::Number>().Int32Value();
       auto zwidth = zoom.Get("width").As<Napi::Number>().Int32Value();
@@ -409,9 +410,9 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
       }
     }
     auto blend =
-        args.Has("blend") && args.Get("blend").As<Napi::Boolean>().Value();
+        request.Has("blend") && request.Get("blend").As<Napi::Boolean>().Value();
     auto closeTo =
-        args.Has("closeTo") && args.Get("closeTo").As<Napi::Boolean>().Value();
+        request.Has("closeTo") && request.Get("closeTo").As<Napi::Boolean>().Value();
 
     auto hasZoom =
         (roi.width > 0) && (roi.height > 0) && ((roi.x > 0 || roi.y > 0));
