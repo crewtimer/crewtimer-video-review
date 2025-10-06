@@ -477,11 +477,18 @@ export const performAutoZoomSeek = async (srcCoords: Point) => {
   // srcCoords.x = 2528;
   // srcCoords.y = 276;
   updateVideoScaling({ srcClickPoint: srcCoords });
+
+  // A height of 48 seems to work well for 1080p. Scale for other sizes.
+  const zoomHeight =
+    Math.round((48 * getVideoScaling().srcHeight) / 1080 / 4) * 4;
+  const zoomWidth = Math.round((1.5 * zoomHeight) / 4) * 4;
+  const zoom = {
+    x: srcCoords.x,
+    y: srcCoords.y,
+    width: zoomWidth,
+    height: zoomHeight,
+  };
   const frameNum = getVideoFrameNum();
-  // Use a larger analysis window when zoomed out
-  const zoom = getVideoScaling().autoZoomed
-    ? { x: srcCoords.x, y: srcCoords.y, width: 48, height: 32 }
-    : { x: srcCoords.x, y: srcCoords.y, width: 64, height: 48 };
   console.log(
     'roi',
     JSON.stringify({
