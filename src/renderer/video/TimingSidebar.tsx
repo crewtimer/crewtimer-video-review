@@ -18,9 +18,15 @@ import {
   IconButton,
   Menu,
   Tooltip,
+  ToggleButton,
+  ToggleButtonGroup,
   Box,
 } from '@mui/material';
+import GridViewIcon from '@mui/icons-material/GridView';
+import ViewListIcon from '@mui/icons-material/ViewList';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import SortIcon from '@mui/icons-material/Sort';
 import DataGrid, {
   CellClickArgs,
   CellMouseEvent,
@@ -41,18 +47,20 @@ import {
   setEntryResultAndPublish,
   useEntryResult,
 } from 'renderer/util/LapStorageDatum';
-import { gateFromWaypoint } from 'renderer/util/Util';
+import { gateFromWaypoint, timeToMilli } from 'renderer/util/Util';
 import { UseDatum } from 'react-usedatum';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 import makeStyles from '@mui/styles/makeStyles';
 import { setToast } from 'renderer/Toast';
 import {
-  getSortPlace,
+  getTimeSort,
   resetVideoZoom,
   ResultRowType,
   setBowInfo,
   setVideoBow,
-  usePlaceSort,
+  setVideoEvent,
+  useShowGridView,
+  useTimeSort,
   useVideoBow,
   useVideoEvent,
   useVideoTimestamp,
@@ -66,11 +74,8 @@ const useStyles = makeStyles((/* _theme */) => ({
     background: '#556cd6',
   },
 }));
-
 const [useRenderRequired, setRenderRequired, getRenderRequired] = UseDatum(0);
-
 const timingFontSize = 12;
-
 const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
   element: Element;
   row: ResultRowType;
@@ -82,12 +87,12 @@ const TimestampCell = ({ row }: { row: ResultRowType }) => {
   const timeChange = time !== row.Time;
 
   // Re-render the parent component if the time changes
-  const sortPlace = getSortPlace();
+  const sortByTime = getTimeSort();
   useEffect(() => {
-    if (timeChange && sortPlace) {
+    if (timeChange && sortByTime) {
       setRenderRequired(getRenderRequired() + 1);
     }
-  }, [timeChange, sortPlace]);
+  }, [timeChange, sortByTime]);
 
   const handleMenu: React.MouseEventHandler<HTMLDivElement> = (event) => {
     setContextMenuAnchor({ element: event.currentTarget, row });
@@ -149,12 +154,15 @@ const TimestampCol = ({ row }: { row: ResultRowType }) => {
   );
 };
 
+// BowButton: small component for individual bow buttons. Shows exception text (if any)
+// and supports compact wrapping when exception text exists.
+
 export const RenderHeaderCell: React.FC<
   RenderHeaderCellProps<ResultRowType>
 > = ({ column }) => {
-  const [placeSort, setPlaceSort] = usePlaceSort();
+  const [timeSort, setTimeSort] = useTimeSort();
   return (
-    <Stack direction="row" onClick={() => setPlaceSort(!placeSort)}>
+    <Stack direction="row" onClick={() => setTimeSort(!timeSort)}>
       <Typography
         sx={{
           paddingLeft: '0.5em',
@@ -163,15 +171,6 @@ export const RenderHeaderCell: React.FC<
         }}
       >
         {column.name}
-      </Typography>
-      <Typography
-        sx={{
-          paddingLeft: '0.5em',
-          fontSize: '12px',
-          marginTop: '2px',
-        }}
-      >
-        {placeSort ? 'time ▲' : '▲'}
       </Typography>
     </Stack>
   );
@@ -196,6 +195,115 @@ export const RenderTimeHeaderCell: React.FC<
 function sanitizeFirebaseKey(s: string) {
   return s.replace(/[#$/[.\]]/g, '-');
 }
+
+// BowButton: small component for individual bow buttons. Shows exception text (if any)
+// and supports compact wrapping when exception text exists.
+const BowButton: React.FC<{
+  gate: string;
+  eventNum: string;
+  bow: string;
+  width: number;
+  buttonRef?: (el: HTMLButtonElement | null) => void;
+}> = ({ gate, eventNum, bow, width, buttonRef }) => {
+  const [selectedEvent] = useVideoEvent();
+  const [videoBow] = useVideoBow();
+  // compute derived properties here
+  const entryKey = `${gate}_${eventNum}_${bow}`;
+  const [lap] = useEntryResult(entryKey);
+  const hasTime = !!(lap && lap.State !== 'Deleted' && lap.Time);
+  const tooltipTitle = hasTime
+    ? `${lap.Time}${lap.Crew ? ` • ${lap.Crew}` : ''}`
+    : '';
+  const sanitizedKey = sanitizeFirebaseKey(`1-${eventNum}-${bow}`);
+  const [exception] = useEntryException(sanitizedKey ?? '');
+  const compact = !!exception;
+  const isCurrent = String(eventNum) === String(selectedEvent);
+  const isSelected = isCurrent && videoBow === bow;
+
+  const sx: any = {
+    minWidth: 0,
+    width,
+    maxWidth: width,
+    overflow: 'hidden',
+    textOverflow: 'clip',
+    whiteSpace: compact ? 'normal' : 'nowrap',
+    fontSize: compact ? 10 : undefined,
+    lineHeight: compact ? '1.1rem' : undefined,
+    padding: 0,
+  };
+
+  if (isSelected) {
+    // show as a normal primary-colored button when selected and empty
+    if (hasTime) {
+      sx.backgroundColor = '#9ea6ca';
+    } else {
+      sx.backgroundColor = 'primary.main';
+    }
+    sx.color = 'primary.contrastText';
+    // remove emphasized border/glow
+    sx.border = undefined;
+    sx.boxShadow = undefined;
+    sx['&:hover'] = {
+      backgroundColor: 'primary.dark',
+    };
+    // if there's an exception, give a light pink background
+  } else if (hasTime) {
+    sx.backgroundColor = '#ccc';
+    sx.color = 'text.secondary';
+    sx.opacity = 0.8;
+  } else {
+    sx.backgroundColor = '#ffffff';
+    // if there's an exception, give a light pink background
+    if (exception) {
+      sx.backgroundColor = '#fdd8';
+    }
+  }
+
+  return (
+    <Tooltip title={tooltipTitle} arrow>
+      <Button
+        size="small"
+        variant={isSelected && hasTime ? 'contained' : 'outlined'}
+        sx={sx}
+        onClick={() => {
+          setVideoEvent(eventNum);
+          setVideoBow(bow);
+        }}
+        onContextMenu={(e: React.MouseEvent<HTMLButtonElement>) => {
+          e.preventDefault();
+          if (hasTime) {
+            // construct a minimal ResultRowType-like object so ContextMenu can act on it
+            const row = {
+              id: entryKey,
+              eventName: '',
+              eventNum,
+              label: `${bow}`,
+              Crew: lap?.Crew || '',
+              Bow: bow,
+              Time: hasTime ? lap?.Time || '' : '',
+              event: undefined,
+              entry: { Bow: bow, Crew: lap?.Crew || '', EventNum: eventNum },
+            } as unknown as ResultRowType;
+            setContextMenuAnchor({ element: e.currentTarget as Element, row });
+          }
+        }}
+        ref={buttonRef}
+      >
+        <span
+          style={{
+            display: 'inline-block',
+            width: '100%',
+            overflow: 'hidden',
+            textOverflow: 'clip',
+          }}
+        >
+          {bow}
+          {exception ? ` ${exception}` : ''}
+        </span>
+      </Button>
+    </Tooltip>
+  );
+};
 
 const columns = (width: number): readonly Column<ResultRowType>[] => {
   const col2Width = 80 + 14 + 16;
@@ -302,7 +410,12 @@ const AddSplitButton: React.FC = () => {
       size="small"
       variant="contained"
       color="success"
-      sx={{ margin: '0.5em', marginTop: 0, marginBottom: '1em' }}
+      sx={{
+        height: 28,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
       onClick={performAddSplit}
     >
       Add Split
@@ -315,18 +428,19 @@ const ContextMenu: React.FC = () => {
   const handleClose = () => {
     setContextMenuAnchor(null);
   };
+  const row = anchorEl?.row;
+  if (!row || !row.entry) {
+    return <></>;
+  }
+  const lap = getEntryResult(row.id);
   const onDelete = () => {
     handleClose();
-    const row = anchorEl?.row;
-    if (!row || !row.entry) {
-      return;
-    }
-    const lap = getEntryResult(row.id);
+
     if (lap) {
       setDialogConfig({
         title: `Delete Time`,
         message: `OK to delete time ${lap.Time} for Bow ${lap.Bow}?`,
-        button: 'Delete',
+        button: `Delete Timestamp`,
         showCancel: true,
         handleConfirm: () => {
           lap.State = 'Deleted';
@@ -351,8 +465,198 @@ const ContextMenu: React.FC = () => {
       open={anchorEl !== null}
       onClose={handleClose}
     >
-      <MenuItem onClick={onDelete}>Delete</MenuItem>
+      <MenuItem onClick={onDelete}>
+        Delete {lap?.Bow} ({lap?.Time})
+      </MenuItem>
     </Menu>
+  );
+};
+
+// Bow Grid view: render prior, current and next event (header + bows)
+const BowGridView: React.FC<{
+  events: Event[]; // events to render (usually activeEvents)
+  selectedEvent?: string;
+  allEvents: Event[]; // full filteredEvents list for computing neighbors
+  orderByTime?: boolean;
+  sidebarWidth?: number;
+}> = ({
+  events: _events,
+  selectedEvent,
+  allEvents,
+  orderByTime = false,
+  sidebarWidth,
+}) => {
+  // compute a button width based on the sidebar width: try to fit 5 buttons per row
+  const buttonWidth = useMemo(() => {
+    let sw = 300;
+    if (typeof sidebarWidth === 'number' && sidebarWidth > 0) {
+      sw = sidebarWidth;
+    }
+    // allow 40px for padding/margins, then divide by 5, clamp minimum 48
+    return Math.floor((sw - 60) / 5);
+  }, [sidebarWidth]);
+  const [videoBow] = useVideoBow();
+  const [waypoint] = useWaypoint();
+  const gate = gateFromWaypoint(waypoint);
+  const sectionRefs = React.useRef<Record<string, HTMLDivElement | null>>(
+    {} as Record<string, HTMLDivElement | null>,
+  );
+  const buttonRefs = React.useRef<Record<string, HTMLButtonElement | null>>(
+    {} as Record<string, HTMLButtonElement | null>,
+  );
+
+  // Keep the selected event section and selected bow visible
+  React.useEffect(() => {
+    if (!selectedEvent) return;
+    const sec = sectionRefs.current[String(selectedEvent)];
+    if (sec && typeof sec.scrollIntoView === 'function') {
+      sec.scrollIntoView({ block: 'nearest' });
+    }
+    if (videoBow) {
+      const btn = buttonRefs.current[`${selectedEvent}_${videoBow}`];
+      if (btn && typeof btn.scrollIntoView === 'function') {
+        try {
+          btn.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'center',
+          });
+        } catch (e) {
+          // fallback
+          btn.scrollIntoView({ block: 'nearest' });
+        }
+      }
+    }
+  }, [selectedEvent, videoBow]);
+
+  // Build a sliding window: include prior events until we collect >=20 prior entries (or run out), include current, and include 3 after
+  const sections = useMemo(() => {
+    if (!selectedEvent) return [] as (Event | undefined)[];
+    const idx = allEvents.findIndex((e) => e.EventNum === selectedEvent);
+    if (idx === -1) return [] as (Event | undefined)[];
+
+    // collect prior events backwards until we have at least 20 prior 'Bow' entries
+    const prior: Event[] = [];
+    let priorEntries = 0;
+    for (let i = idx - 1; i >= 0; i -= 1) {
+      const ev = allEvents[i];
+      const count = ev?.eventItems?.length || 0;
+      prior.unshift(ev);
+      priorEntries += count;
+      if (priorEntries >= 20) break;
+    }
+
+    const afterCount = 3;
+    const out: (Event | undefined)[] = [];
+
+    // append prior events (may be 0..n)
+    for (const p of prior) out.push(p);
+
+    // add current
+    out.push(allEvents[idx]);
+
+    // append after events up to afterCount
+    for (let j = 1; j <= afterCount; j += 1) {
+      const ai = idx + j;
+      if (ai <= allEvents.length - 1) out.push(allEvents[ai]);
+    }
+
+    return out;
+  }, [allEvents, selectedEvent]);
+
+  const renderEventSection = (ev: Event, idx: number) => {
+    let bows = ev.eventItems.map((it) => it?.Bow).filter(Boolean) as string[];
+    if (orderByTime) {
+      // Map bows to their recorded times (empty times sort last)
+      bows = bows.slice().sort((a, b) => {
+        const la = getEntryResult(`${gate}_${ev.EventNum}_${a}`);
+        const lb = getEntryResult(`${gate}_${ev.EventNum}_${b}`);
+        const ta = la && la.State !== 'Deleted' && la.Time ? la.Time : '';
+        const tb = lb && lb.State !== 'Deleted' && lb.Time ? lb.Time : '';
+        if (ta && tb) {
+          return timeToMilli(ta) - timeToMilli(tb);
+        }
+        if (ta) return -1; // a has time, b doesn't -> a first
+        if (tb) return 1; // b has time, a doesn't -> b first
+        return 0;
+      });
+    }
+    const rows: string[][] = [];
+    for (let i = 0; i < bows.length; i += 5) rows.push(bows.slice(i, i + 5));
+    const isCurrent = String(ev.EventNum) === String(selectedEvent);
+    return (
+      <Box
+        key={String(ev.EventNum)}
+        ref={(el: HTMLDivElement | null) => {
+          sectionRefs.current[String(ev.EventNum)] = el;
+        }}
+        sx={{
+          // marginBottom: '0.75em',
+          ...(idx > 0
+            ? {
+                borderTop: '1px solid rgba(0,0,0,0.2)',
+                pt: 0,
+                // backgroundColor: '#f0f0f0',
+              }
+            : {}),
+          ...(isCurrent
+            ? {
+                backgroundColor: 'rgba(25,118,210,0.04)',
+                // borderLeft: '4px solid rgba(25,118,210,0.18)',
+                // pl: 1,
+              }
+            : {}),
+        }}
+      >
+        <Typography
+          sx={{
+            fontWeight: 'bold',
+            fontSize: 13,
+            marginBottom: '0.25em',
+            color: isCurrent ? 'primary.main' : 'text.primary',
+            px: 0.5,
+            ...(isCurrent
+              ? {}
+              : {
+                  backgroundColor: '#f0f0f0',
+                  py: '1px',
+                  borderRadius: 0.5,
+                }),
+          }}
+        >
+          {ev.Event}
+        </Typography>
+        {rows.map((r) => (
+          <Stack
+            key={`${ev.EventNum}-${r[0] ?? ''}-${r[r.length - 1] ?? ''}`}
+            direction="row"
+            spacing={1}
+            sx={{ marginBottom: '0.25em', flexWrap: 'wrap', pl: 1 }}
+          >
+            {r.map((bow) => {
+              return (
+                <BowButton
+                  eventNum={String(ev.EventNum)}
+                  key={bow}
+                  gate={gate}
+                  bow={bow}
+                  width={buttonWidth}
+                  buttonRef={(el: HTMLButtonElement | null) => {
+                    buttonRefs.current[`${ev.EventNum}_${bow}`] = el;
+                  }}
+                />
+              );
+            })}
+          </Stack>
+        ))}
+      </Box>
+    );
+  };
+
+  return (
+    <Box sx={{ border: '1px solid rgba(0,0,0,0.2)' }}>
+      {sections.map((s, i) => (s ? renderEventSection(s, i) : null))}
+    </Box>
   );
 };
 
@@ -410,11 +714,12 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   const [mobileConfig] = useMobileConfig();
   const [day] = useDay();
   const [waypoint] = useWaypoint();
-  const [placeSort] = usePlaceSort();
   const [selectedEvent, setSelectedEvent] = useVideoEvent();
   const datagridRef = useRef<DataGridHandle | null>(null);
   const [, setTabPosition] = useTabPosition();
   useRenderRequired();
+  const [gridView, setGridView] = useShowGridView();
+  const [orderByTime, setOrderByTime] = useTimeSort();
 
   const gate = gateFromWaypoint(waypoint);
   const { rows, filteredEvents } = useMemo(() => {
@@ -434,12 +739,30 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
     return { rows: filteredRows, filteredEvents: events };
   }, [mobileConfig?.eventList, day, gate]);
 
+  // Find the active event from selection, or pick the last event that has a recorded time
   let activeEvent = filteredEvents.find(
     (event) => event.EventNum === selectedEvent,
   );
-  if (activeEvent === undefined && filteredEvents.length > 0) {
-    activeEvent = filteredEvents[0];
-    if (activeEvent !== undefined) {
+  const findLastEventWithTime = (events: Event[]) => {
+    for (let i = events.length - 1; i >= 0; i -= 1) {
+      const ev = events[i];
+      // Check if any entry for this event has a recorded time
+      for (const entry of ev.eventItems) {
+        const key = `${gateFromWaypoint(waypoint)}_${ev.EventNum}_${entry?.Bow}`;
+        const lap = getEntryResult(key);
+        if (lap && lap.State !== 'Deleted' && lap.Time) {
+          return ev;
+        }
+      }
+    }
+    return undefined as Event | undefined;
+  };
+
+  if (!activeEvent && filteredEvents.length > 0) {
+    // Prefer the last event that has a recorded time, otherwise default to first
+    const lastWithTime = findLastEventWithTime(filteredEvents);
+    activeEvent = lastWithTime || filteredEvents[0];
+    if (activeEvent) {
       const newSelectedEvent = activeEvent;
       setTimeout(() => setSelectedEvent(newSelectedEvent.EventNum), 10);
     }
@@ -460,17 +783,13 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   const activeEventRows = activeEvents
     .map((event) => generateEventRows(gate, event, false, true))
     .flat();
-  if (placeSort) {
-    activeEventRows.sort((a, b) =>
-      (a.Time || '99:99:99.999').localeCompare(
-        b.Time || '99:99:99.999',
-        undefined,
-        {
-          numeric: true,
-          sensitivity: 'base',
-        },
-      ),
-    );
+  if (orderByTime) {
+    // console.log(JSON.stringify(activeEventRows, null, 2));
+    activeEventRows.sort((a, b) => {
+      const ta = a?.Time?.match(/[0-9]/) ? timeToMilli(a.Time) : Infinity;
+      const tb = b?.Time?.match(/[0-9]/) ? timeToMilli(b.Time) : Infinity;
+      return ta - tb;
+    });
   }
   const bowInfo: { [lane: string]: ResultRowType } = {};
   activeEventRows.forEach((evtRow) => {
@@ -533,13 +852,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   const onEventChange = (event: SelectChangeEvent<string>) => {
     setSelectedEvent(event.target.value);
     // Search lapdata for the first time in this event and jump to that timestamp
-    const eventNum = seekToEvent(event.target.value);
-    if (!eventNum) {
-      setToast({
-        severity: 'warning',
-        msg: `No times recorded for race ${event.target.value}`,
-      });
-    }
+    seekToEvent(event.target.value);
   };
 
   const prevEvent = () => {
@@ -606,7 +919,102 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
         ...sx,
       }}
     >
-      <AddSplitButton />
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        sx={{
+          mb: '1em',
+          mt: '0.25em',
+          height: 28,
+          flexWrap: 'nowrap',
+          width: '100%',
+        }}
+      >
+        {/* Fixed area */}
+        <Box sx={{ flex: '0 0 96px' }}>
+          <AddSplitButton />
+        </Box>
+
+        {/* Group 1 shares leftover */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <ToggleButtonGroup
+            value={gridView ? 'grid' : 'list'}
+            exclusive
+            onChange={() => setGridView((v) => !v)}
+            sx={{
+              width: '100%',
+              height: 28,
+              minWidth: 0,
+              '& .MuiToggleButton-root': {
+                flex: 1,
+                minWidth: 0, // override the default 48px
+                px: 0.5,
+                py: 0,
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent', // no gray background
+                  color: 'primary.main', // uses theme primary color
+                  borderColor: 'primary.main', // primary border
+                  '&:hover': {
+                    backgroundColor: 'action.hover', // optional subtle hover
+                  },
+                },
+              },
+            }}
+          >
+            <Tooltip title="Show entries as a grid" arrow>
+              <ToggleButton value="grid" aria-label="Grid view">
+                <GridViewIcon sx={{ fontSize: 20 }} />
+              </ToggleButton>
+            </Tooltip>
+            <Tooltip title="Show entries as a list" arrow>
+              <ToggleButton value="list" aria-label="List view">
+                <ViewListIcon sx={{ fontSize: 20 }} />
+              </ToggleButton>
+            </Tooltip>
+          </ToggleButtonGroup>
+        </Box>
+
+        {/* Group 2 shares leftover */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <ToggleButtonGroup
+            value={orderByTime ? 'time' : 'natural'}
+            exclusive
+            onChange={() => setOrderByTime((v) => !v)}
+            sx={{
+              width: '100%',
+              height: 28,
+              minWidth: 0,
+              '& .MuiToggleButton-root': {
+                flex: 1,
+                minWidth: 0,
+                px: 0.5,
+                py: 0,
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent', // no gray background
+                  color: 'primary.main', // uses theme primary color
+                  borderColor: 'primary.main', // primary border
+                  '&:hover': {
+                    backgroundColor: 'action.hover', // optional subtle hover
+                  },
+                },
+              },
+            }}
+          >
+            <Tooltip title="Sort by time (if recorded)" arrow>
+              <ToggleButton value="time" aria-label="Sort by time">
+                <AccessTimeIcon sx={{ fontSize: 20 }} />
+              </ToggleButton>
+            </Tooltip>
+            <Tooltip title="Sort by schedule order" arrow>
+              <ToggleButton value="natural" aria-label="Sort by schedule order">
+                <SortIcon sx={{ fontSize: 20 }} />
+              </ToggleButton>
+            </Tooltip>
+          </ToggleButtonGroup>
+        </Box>
+      </Stack>
+
       <Stack direction="row" alignItems="center">
         <VideoBow />
         <VideoTimestamp />
@@ -670,7 +1078,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
                     display: 'inline-block',
                     maxWidth: '100%',
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis',
+                    textOverflow: 'clip',
                     whiteSpace: 'nowrap',
                     verticalAlign: 'bottom',
                   }}
@@ -733,16 +1141,28 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       </Stack>
       <ContextMenu />
       <div style={{ flexGrow: 'auto' }}>
-        <DataGrid
-          // Each row needs to be unique key so the virtualization doesn't reuse any UseKeyedDatum values between rows (#53)
-          rowKeyGetter={(row) => `${selectedEvent}-${row.Bow}`}
-          columns={columnConfig}
-          rows={activeEventRows}
-          onCellClick={onRowClick}
-          rowHeight={24}
-          rowClass={(row) => (row.eventName ? classes.row : undefined)}
-          style={{ height: height - 138 }}
-        />
+        {gridView ? (
+          <Box sx={{ overflowY: 'auto', height: height - 138 }}>
+            <BowGridView
+              events={activeEvents}
+              selectedEvent={selectedEvent}
+              allEvents={filteredEvents}
+              orderByTime={orderByTime}
+              sidebarWidth={width - 16} // allow for padding
+            />
+          </Box>
+        ) : (
+          <DataGrid
+            // Each row needs to be unique key so the virtualization doesn't reuse any UseKeyedDatum values between rows (#53)
+            rowKeyGetter={(row) => `${selectedEvent}-${row.Bow}`}
+            columns={columnConfig}
+            rows={activeEventRows}
+            onCellClick={onRowClick}
+            rowHeight={24}
+            rowClass={(row) => (row.eventName ? classes.row : undefined)}
+            style={{ height: height - 138 }}
+          />
+        )}
       </div>
     </Box>
   );

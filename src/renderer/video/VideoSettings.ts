@@ -148,7 +148,8 @@ export const [useVideoTimestamp, setVideoTimestamp, getVideoTimestamp] =
   UseDatum('');
 export const [useVideoBow, setVideoBow, getVideoBow] = UseDatum('');
 export const [useVideoEvent, setVideoEvent, getVideoEvent] = UseDatum('');
-export const [usePlaceSort, setPlaceSort, getSortPlace] = UseDatum(true);
+export const [useTimeSort, setTimeSort, getTimeSort] = UseDatum(true);
+export const [useShowGridView] = UseDatum(true);
 export const [useSelectedIndex, setSelectedIndex, getSelectedIndex] =
   UseDatum(0);
 export const [useBowInfo, setBowInfo, getBowInfo] = UseDatum<{
