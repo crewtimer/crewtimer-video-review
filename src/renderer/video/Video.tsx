@@ -500,7 +500,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       return;
     }
 
-    if (!isZooming()) {
+    const autoZoomRequested =
+      getVideoSettings().enableAutoZoom && event.shiftKey;
+    if (!isZooming() || autoZoomRequested) {
       const finish = getFinishLine();
       const rect = canvasRef.current?.getBoundingClientRect();
 
@@ -512,7 +514,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         return;
       }
 
-      if (getVideoSettings().enableAutoZoom && event.shiftKey) {
+      if (autoZoomRequested) {
         performAutoZoomSeek(srcCoords);
       } else {
         applyZoom({

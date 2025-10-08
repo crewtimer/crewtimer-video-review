@@ -537,5 +537,10 @@ export const performAutoZoomSeek = async (srcCoords: Point) => {
     });
   } else {
     console.log(`Failed to auto-zoom rx frame=${getVideoFrameNum()}`);
+    updateVideoScaling({
+      zoomY: 5,
+      srcCenterPoint: getTrackingRegion(),
+      autoZoomed: true,
+    });
   }
 };
