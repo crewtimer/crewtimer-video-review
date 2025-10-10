@@ -478,16 +478,7 @@ export const performAutoZoomSeek = async (srcCoords: Point) => {
   // srcCoords.y = 276;
   updateVideoScaling({ srcClickPoint: srcCoords });
 
-  // A height of 48 seems to work well for 1080p. Scale for other sizes.
-  const zoomHeight =
-    Math.round((48 * getVideoScaling().srcHeight) / 1080 / 4) * 4;
-  const zoomWidth = Math.round((1.5 * zoomHeight) / 4) * 4;
-  const zoom = {
-    x: srcCoords.x,
-    y: srcCoords.y,
-    width: zoomWidth,
-    height: zoomHeight,
-  };
+  const zoom = getTrackingRegion(false);
   const frameNum = getVideoFrameNum();
   console.log(
     'roi',
@@ -516,9 +507,7 @@ export const performAutoZoomSeek = async (srcCoords: Point) => {
     const finish = getFinishLine();
     const dx = image.width / 2 + finish.pt1 - srcCoords.x;
     let frames = Math.min(120, dx / image.motion.x);
-    console.log(
-      `dx=${image.motion.x} dt=${image.motion.dt} dframe=${frames.toFixed(1)}`,
-    );
+
     if (Math.abs(frames) > 5) {
       // Apply some compression to avoid overshoot and seek to exact frame
       frames = Math.floor(5 + (frames - 5) * 0.95);
@@ -529,12 +518,23 @@ export const performAutoZoomSeek = async (srcCoords: Point) => {
     if (getHyperZoomFactor() === 0) {
       destFrame = Math.round(destFrame);
     }
-    moveToFrame(destFrame);
+    console.log(
+      `dx=${image.motion.x} dt=${image.motion.dt} dframe=${frames.toFixed(1)} destFrame=${destFrame.toFixed(2)}`,
+    );
+
     updateVideoScaling({
       zoomY: 5,
-      srcCenterPoint: getTrackingRegion(),
+      srcCenterPoint: {
+        x: getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
+        y: srcCoords.y,
+      },
+      srcClickPoint: {
+        x: getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
+        y: srcCoords.y,
+      },
       autoZoomed: true,
     });
+    moveToFrame(destFrame, 0, true);
   } else {
     console.log(`Failed to auto-zoom rx frame=${getVideoFrameNum()}`);
     updateVideoScaling({

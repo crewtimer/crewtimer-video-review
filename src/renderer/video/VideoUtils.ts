@@ -363,19 +363,23 @@ export const nextFile = () => {
  *
  * @returns An object containing the x, y, width, and height of the tracking region.
  */
-export const getTrackingRegion = () => {
+export const getTrackingRegion = (aroundFinish = true) => {
   const finishLine = getFinishLine();
   const videoScaling = getVideoScaling();
   // console.log('genTrackingRegion', getImage().motion);
-  const height = 32;
-  const width = 48;
-  const pxBeforeFinish = 32;
+
+  const height = Math.round((40 * getVideoScaling().srcHeight) / 1080 / 4) * 4;
+  const width = Math.round((1.5 * height) / 4) * 4;
+  const pxBeforeFinish = Math.round((5 * width) / 8 / 4) * 4;
+
+  const clickPointX = aroundFinish
+    ? videoScaling.srcWidth / 2 + (finishLine.pt1 + finishLine.pt2) / 2
+    : videoScaling.srcClickPoint.x;
 
   const region = {
     x: Math.max(
       0,
-      videoScaling.srcWidth / 2 +
-        (finishLine.pt1 + finishLine.pt2) / 2 -
+      clickPointX -
         (getTravelRightToLeft() ? width - pxBeforeFinish : pxBeforeFinish),
     ),
     y: Math.max(0, videoScaling.srcClickPoint.y - height / 2),
