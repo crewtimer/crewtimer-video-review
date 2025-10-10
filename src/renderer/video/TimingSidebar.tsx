@@ -81,6 +81,32 @@ const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
   row: ResultRowType;
 } | null>(null);
 
+export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
+  setVideoEvent(entry.EventNum);
+  if (entry.Bow) {
+    setVideoBow(entry.Bow);
+
+    // if we have a time for this entry, try and seek there
+    const key = `${gateFromWaypoint(getWaypoint())}_${
+      entry?.EventNum
+    }_${entry?.Bow}`;
+    const lap = getEntryResult(key);
+    if (lap?.Time && lap?.State !== 'Deleted') {
+      resetVideoZoom();
+      const seekTime = lap.Time;
+      setTimeout(() => {
+        const found = seekToTimestamp({ time: seekTime, bow: lap.Bow });
+        if (!found) {
+          setToast({
+            severity: 'warning',
+            msg: 'Associated video file not found',
+          });
+        }
+      }, 100);
+    }
+  }
+};
+
 const TimestampCell = ({ row }: { row: ResultRowType }) => {
   const [lap] = useEntryResult(row.id);
   const time = lap?.State === 'Deleted' ? '' : lap?.Time || '';
@@ -266,8 +292,7 @@ const BowButton: React.FC<{
         variant={isSelected && hasTime ? 'contained' : 'outlined'}
         sx={sx}
         onClick={() => {
-          setVideoEvent(eventNum);
-          setVideoBow(bow);
+          seekToBow({ Bow: bow, EventNum: eventNum });
         }}
         onContextMenu={(e: React.MouseEvent<HTMLButtonElement>) => {
           e.preventDefault();
@@ -802,29 +827,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
     args: CellClickArgs<ResultRowType, unknown>,
     _event: CellMouseEvent,
   ) => {
-    setSelectedEvent(args.row.eventNum);
-    if (args.row.Bow) {
-      setVideoBow(args.row.Bow);
-
-      // if we have a time for this entry, try and seek there
-      const key = `${gateFromWaypoint(getWaypoint())}_${
-        args.row.entry?.EventNum
-      }_${args.row.entry?.Bow}`;
-      const entry = getEntryResult(key);
-      if (entry?.Time && entry?.State !== 'Deleted') {
-        resetVideoZoom();
-        const seekTime = entry.Time;
-        setTimeout(() => {
-          const found = seekToTimestamp({ time: seekTime, bow: entry.Bow });
-          if (!found) {
-            setToast({
-              severity: 'warning',
-              msg: 'Associated video file not found',
-            });
-          }
-        }, 100);
-      }
-    }
+    seekToBow({ Bow: args.row.Bow, EventNum: args.row.eventNum });
   };
 
   const scrollToEvent = useCallback(
