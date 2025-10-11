@@ -13,6 +13,7 @@ import {
   N_WAYPOINT,
 } from '../shared/Constants';
 import { timeToMilli } from './Util';
+import { getHintOffsetEnable } from 'renderer/video/VideoSettings';
 
 const { LapStorage } = window;
 export const AUTH_OK = 'OK';
@@ -25,6 +26,9 @@ export const [useClickOffset, setClickOffset, getClickOffset] =
   UseDatum<ClickOffset>({ offsetMilli: 0, avgCount: 0 });
 
 export const updateClickOffset = (timeA: string, timeB: string) => {
+  if (getHintOffsetEnable() === false) {
+    return;
+  }
   if (!timeA || !timeB) {
     return;
   }

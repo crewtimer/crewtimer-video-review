@@ -178,6 +178,8 @@ export const [useAutoNextTimestamp, , getAutoNextTimestamp] = UseStoredDatum(
   'autoNextTimestamp',
   true,
 );
+export const [useAdjustHintOffsetEnable, , getHintOffsetEnable] =
+  UseStoredDatum('hintOffsetEnable', false);
 
 export const [useVideoDir, setVideoDir, getVideoDir] = UseStoredDatum(
   N_VIDEO_DIR,
