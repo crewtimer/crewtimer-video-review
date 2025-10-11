@@ -1,6 +1,6 @@
 ## Keyboard Shortcuts
 
-| Key Sequence | Action |
+| Video Gestures | Action |
 | --- | --- |
 | space | Trigger the video recorder to close the current video file being recorded and start a new file |
 | Mouse Wheel, Left Arrow Key, or Right Arrow Key | Jog the timeline by one video frame.  If zoomed, jog by a partial frame if possible |
@@ -11,3 +11,9 @@
 | z or / | Exit video zoom |
 | Shift Click on lane or finish guide drag handle| Restore guide to vertical or horizontal orientation |
 | >> Icon | Trigger the video recorder to close the current video file, start a new file, and jump to the last video available |
+
+| Timing Sidebar Gestures | Action |
+| --- | --- |
+| Click | Set the **Add Split** button Bow and Event properties |
+| Right click | Delete timestamp if a timestamp has been recorded |
+| Double click | Seek to assigned timestamp.  If no timestamp recorded yet, a seek using the timing hint waypoint is done|
