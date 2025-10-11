@@ -830,9 +830,8 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
         {gridView ? (
           <Box sx={{ overflowY: 'auto', height: height - 138 }}>
             <BowGridView
-              events={activeEvents}
+              events={filteredEvents}
               selectedEvent={selectedEvent}
-              allEvents={filteredEvents}
               orderByTime={orderByTime}
               sidebarWidth={width - 16} // allow for padding
             />

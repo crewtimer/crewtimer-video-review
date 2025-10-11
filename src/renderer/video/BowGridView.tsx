@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect, useCallback } from 'react';
 import { Tooltip, Button, Box, Typography, Stack } from '@mui/material';
+import { GroupedVirtuoso } from 'react-virtuoso';
 
 import { Event } from 'crewtimer-common';
 import { useEntryResult, getEntryResult } from 'renderer/util/LapStorageDatum';
@@ -141,20 +142,81 @@ const BowButton: React.FC<{
   );
 };
 
+// Top-level renderer for group headers (so we don't define components inside render)
+const GroupHeader: React.FC<{ ev: Event; isCurrent: boolean }> = ({
+  ev,
+  isCurrent,
+}) => (
+  <Box
+    sx={{
+      px: 1,
+      py: 0.5,
+      // use a solid background so items scrolled beneath are not visible through
+      backgroundColor: isCurrent ? '#f6fafb' : 'background.paper',
+      zIndex: 1,
+    }}
+    onClick={() => {
+      // Handle group header click
+      setVideoEvent(ev.EventNum);
+    }}
+  >
+    <Typography
+      sx={{
+        fontWeight: 'bold',
+        fontSize: 13,
+        marginBottom: '0.25em',
+        color: isCurrent ? 'primary.main' : 'text.primary',
+        px: 0.5,
+        ...(isCurrent
+          ? {}
+          : {
+              backgroundColor: '#f0f0f0',
+              py: '1px',
+              borderRadius: 0.5,
+            }),
+      }}
+    >
+      {ev.Event}
+    </Typography>
+  </Box>
+);
+
+const BowRow: React.FC<{
+  ev: Event;
+  row: string[];
+  buttonWidth: number;
+  gate: string;
+  buttonRefs: React.MutableRefObject<Record<string, HTMLButtonElement | null>>;
+}> = ({ ev, row, buttonWidth, gate, buttonRefs }) => (
+  <Stack
+    key={`${ev.EventNum}-${row[0] ?? ''}-${row[row.length - 1] ?? ''}`}
+    direction="row"
+    spacing={1}
+    sx={{ marginBottom: '0.25em', flexWrap: 'wrap', pl: 1 }}
+  >
+    {row.map((bow: string) => (
+      <BowButton
+        eventNum={String(ev.EventNum)}
+        key={bow}
+        gate={gate}
+        bow={bow}
+        width={buttonWidth}
+        buttonRef={(el: HTMLButtonElement | null) => {
+          buttonRefs.current[`${ev.EventNum}_${bow}`] = el;
+        }}
+      />
+    ))}
+  </Stack>
+);
+
 // Bow Grid view: render prior, current and next event (header + bows)
 export const BowGridView: React.FC<{
   events: Event[]; // events to render (usually activeEvents)
   selectedEvent?: string;
-  allEvents: Event[]; // full filteredEvents list for computing neighbors
+  // _allEvents intentionally unused in this view
   orderByTime?: boolean;
   sidebarWidth?: number;
-}> = ({
-  events: _events,
-  selectedEvent,
-  allEvents,
-  orderByTime = false,
-  sidebarWidth,
-}) => {
+}> = ({ events, selectedEvent, orderByTime = false, sidebarWidth }) => {
   // compute a button width based on the sidebar width: try to fit 5 buttons per row
   const buttonWidth = useMemo(() => {
     let sw = 300;
@@ -167,164 +229,123 @@ export const BowGridView: React.FC<{
   const [videoBow] = useVideoBow();
   const [waypoint] = useWaypoint();
   const gate = gateFromWaypoint(waypoint);
-  const sectionRefs = React.useRef<Record<string, HTMLDivElement | null>>(
-    {} as Record<string, HTMLDivElement | null>,
-  );
+  // button refs remain so individual buttons can be focused/inspected if needed
   const buttonRefs = React.useRef<Record<string, HTMLButtonElement | null>>(
     {} as Record<string, HTMLButtonElement | null>,
   );
-
-  // Keep the selected event section and selected bow visible
-  React.useEffect(() => {
-    if (!selectedEvent) return;
-    const sec = sectionRefs.current[String(selectedEvent)];
-    if (sec && typeof sec.scrollIntoView === 'function') {
-      sec.scrollIntoView({ block: 'nearest' });
-    }
-    if (videoBow) {
-      const btn = buttonRefs.current[`${selectedEvent}_${videoBow}`];
-      if (btn && typeof btn.scrollIntoView === 'function') {
-        try {
-          btn.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'center',
-          });
-        } catch (e) {
-          // fallback
-          btn.scrollIntoView({ block: 'nearest' });
-        }
+  // Build groups for virtualization: for each event produce rows (groups of up to 5 bows)
+  const groups = useMemo(() => {
+    return events.map((ev: Event) => {
+      let bows = ev.eventItems
+        .map((it: any) => it?.Bow)
+        .filter(Boolean) as string[];
+      if (orderByTime) {
+        bows = bows.slice().sort((a, b) => {
+          const la = getEntryResult(`${gate}_${ev.EventNum}_${a}`);
+          const lb = getEntryResult(`${gate}_${ev.EventNum}_${b}`);
+          const ta = la && la.State !== 'Deleted' && la.Time ? la.Time : '';
+          const tb = lb && lb.State !== 'Deleted' && lb.Time ? lb.Time : '';
+          if (ta && tb) {
+            return timeToMilli(ta) - timeToMilli(tb);
+          }
+          if (ta) return -1;
+          if (tb) return 1;
+          return 0;
+        });
       }
+      const rows: string[][] = [];
+      for (let i = 0; i < bows.length; i += 5) rows.push(bows.slice(i, i + 5));
+      // ensure at least one row so GroupVirtuoso has content for empty events
+      if (rows.length === 0) rows.push([]);
+      return { event: ev, rows };
+    });
+  }, [events, orderByTime, gate]);
+
+  // groupCounts for GroupVirtuoso: number of rows per event
+  const groupCounts: number[] = groups.map((g) => g.rows.length);
+  const virtuosoRef = useRef<any>(null);
+
+  // prefix sums: start index for each group in the flattened items list
+  const groupStarts = useMemo(() => {
+    const starts: number[] = [];
+    let acc = 0;
+    for (let i = 0; i < groupCounts.length; i += 1) {
+      starts.push(acc);
+      acc += groupCounts[i];
     }
-  }, [selectedEvent, videoBow]);
+    return starts;
+  }, [groupCounts]);
 
-  // Build a sliding window: include prior events until we collect >=20 prior entries (or run out), include current, and include 3 after
-  const sections = useMemo(() => {
-    if (!selectedEvent) return [] as (Event | undefined)[];
-    const idx = allEvents.findIndex((e) => e.EventNum === selectedEvent);
-    if (idx === -1) return [] as (Event | undefined)[];
-
-    // collect prior events backwards until we have at least 20 prior 'Bow' entries
-    const prior: Event[] = [];
-    let priorEntries = 0;
-    for (let i = idx - 1; i >= 0; i -= 1) {
-      const ev = allEvents[i];
-      const count = ev?.eventItems?.length || 0;
-      prior.unshift(ev);
-      priorEntries += count;
-      if (priorEntries >= 20) break;
-    }
-
-    const afterCount = 3;
-    const out: (Event | undefined)[] = [];
-
-    // append prior events (may be 0..n)
-    for (const p of prior) out.push(p);
-
-    // add current
-    out.push(allEvents[idx]);
-
-    // append after events up to afterCount
-    for (let j = 1; j <= afterCount; j += 1) {
-      const ai = idx + j;
-      if (ai <= allEvents.length - 1) out.push(allEvents[ai]);
-    }
-
-    return out;
-  }, [allEvents, selectedEvent]);
-
-  const renderEventSection = (ev: Event, idx: number) => {
-    let bows = ev.eventItems.map((it) => it?.Bow).filter(Boolean) as string[];
-    if (orderByTime) {
-      // Map bows to their recorded times (empty times sort last)
-      bows = bows.slice().sort((a, b) => {
-        const la = getEntryResult(`${gate}_${ev.EventNum}_${a}`);
-        const lb = getEntryResult(`${gate}_${ev.EventNum}_${b}`);
-        const ta = la && la.State !== 'Deleted' && la.Time ? la.Time : '';
-        const tb = lb && lb.State !== 'Deleted' && lb.Time ? lb.Time : '';
-        if (ta && tb) {
-          return timeToMilli(ta) - timeToMilli(tb);
-        }
-        if (ta) return -1; // a has time, b doesn't -> a first
-        if (tb) return 1; // b has time, a doesn't -> b first
-        return 0;
-      });
-    }
-    const rows: string[][] = [];
-    for (let i = 0; i < bows.length; i += 5) rows.push(bows.slice(i, i + 5));
-    const isCurrent = String(ev.EventNum) === String(selectedEvent);
-    return (
-      <Box
-        key={String(ev.EventNum)}
-        ref={(el: HTMLDivElement | null) => {
-          sectionRefs.current[String(ev.EventNum)] = el;
-        }}
-        sx={{
-          // marginBottom: '0.75em',
-          ...(idx > 0
-            ? {
-                borderTop: '1px solid rgba(0,0,0,0.2)',
-                pt: 0,
-                // backgroundColor: '#f0f0f0',
-              }
-            : {}),
-          ...(isCurrent
-            ? {
-                backgroundColor: 'rgba(25,118,210,0.04)',
-                // borderLeft: '4px solid rgba(25,118,210,0.18)',
-                // pl: 1,
-              }
-            : {}),
-        }}
-      >
-        <Typography
-          sx={{
-            fontWeight: 'bold',
-            fontSize: 13,
-            marginBottom: '0.25em',
-            color: isCurrent ? 'primary.main' : 'text.primary',
-            px: 0.5,
-            ...(isCurrent
-              ? {}
-              : {
-                  backgroundColor: '#f0f0f0',
-                  py: '1px',
-                  borderRadius: 0.5,
-                }),
-          }}
-        >
-          {ev.Event}
-        </Typography>
-        {rows.map((r) => (
-          <Stack
-            key={`${ev.EventNum}-${r[0] ?? ''}-${r[r.length - 1] ?? ''}`}
-            direction="row"
-            spacing={1}
-            sx={{ marginBottom: '0.25em', flexWrap: 'wrap', pl: 1 }}
-          >
-            {r.map((bow) => {
-              return (
-                <BowButton
-                  eventNum={String(ev.EventNum)}
-                  key={bow}
-                  gate={gate}
-                  bow={bow}
-                  width={buttonWidth}
-                  buttonRef={(el: HTMLButtonElement | null) => {
-                    buttonRefs.current[`${ev.EventNum}_${bow}`] = el;
-                  }}
-                />
-              );
-            })}
-          </Stack>
-        ))}
-      </Box>
+  // when the selected event changes, scroll the virtuoso to the start of that group
+  useEffect(() => {
+    if (!selectedEvent) return;
+    const groupIndex = events.findIndex(
+      (e) => String(e.EventNum) === String(selectedEvent),
     );
-  };
+    if (groupIndex === -1) return;
+    // absolute index = sum of counts before this group
+    const absIndex = groupCounts
+      .slice(0, groupIndex)
+      .reduce((s: number, n: number) => s + n, 0);
+    // try multiple possible API names for scroll
+    try {
+      if (virtuosoRef.current?.scrollToIndex) {
+        virtuosoRef.current.scrollToIndex(absIndex);
+      } else if (virtuosoRef.current?.scrollTo) {
+        virtuosoRef.current.scrollTo(absIndex);
+      } else if (virtuosoRef.current?.scrollIntoView) {
+        virtuosoRef.current.scrollIntoView();
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [selectedEvent, groupCounts, events, videoBow]);
 
+  const renderGroupContent = useCallback(
+    (groupIndex: number) => {
+      const ev = groups[groupIndex].event;
+      const isCurrent = String(ev.EventNum) === String(selectedEvent);
+      return <GroupHeader ev={ev} isCurrent={isCurrent} />;
+    },
+    [groups, selectedEvent],
+  );
+
+  const renderItemContent = useCallback(
+    (index: number) => {
+      // find the group that contains this absolute index
+      let groupIndex = 0;
+      while (
+        groupIndex < groupCounts.length - 1 &&
+        index >= groupStarts[groupIndex] + groupCounts[groupIndex]
+      ) {
+        groupIndex += 1;
+      }
+      const rowIndex = index - groupStarts[groupIndex];
+      const ev = groups[groupIndex].event;
+      const r = groups[groupIndex].rows[rowIndex] ?? [];
+      return (
+        <BowRow
+          ev={ev}
+          row={r}
+          buttonWidth={buttonWidth}
+          gate={gate}
+          buttonRefs={buttonRefs}
+        />
+      );
+    },
+    [groups, buttonWidth, gate, buttonRefs, groupCounts, groupStarts],
+  );
+
+  // Render using GroupVirtuoso: groups -> event headers, items -> rows of bow buttons
   return (
-    <Box sx={{ border: '1px solid rgba(0,0,0,0.2)' }}>
-      {sections.map((s, i) => (s ? renderEventSection(s, i) : null))}
+    <Box sx={{ border: '1px solid rgba(0,0,0,0.2)', height: '100%' }}>
+      <GroupedVirtuoso
+        ref={virtuosoRef}
+        style={{ height: '100%' }}
+        groupCounts={groupCounts}
+        groupContent={renderGroupContent}
+        itemContent={renderItemContent}
+      />
     </Box>
   );
 };
