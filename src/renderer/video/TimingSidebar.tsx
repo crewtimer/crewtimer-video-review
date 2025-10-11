@@ -29,7 +29,6 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SortIcon from '@mui/icons-material/Sort';
 import DataGrid, {
   CellClickArgs,
-  CellMouseEvent,
   Column,
   DataGridHandle,
   RenderHeaderCellProps,
@@ -67,7 +66,8 @@ import {
 } from './VideoSettings';
 import { seekToEvent, seekToTimestamp } from './RequestVideoFrame';
 import { performAddSplit } from './AddSplitUtil';
-import { useEntryException } from './UseClickerData';
+import { getClickerData, useEntryException } from './UseClickerData';
+import { useSingleAndDoubleClick } from '../util/UseSingleAndDoubleClick';
 
 const useStyles = makeStyles((/* _theme */) => ({
   row: {
@@ -90,7 +90,17 @@ export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
     const key = `${gateFromWaypoint(getWaypoint())}_${
       entry?.EventNum
     }_${entry?.Bow}`;
-    const lap = getEntryResult(key);
+    let lap = getEntryResult(key);
+    if (!lap?.Time) {
+      const hintClickerData = getClickerData();
+      lap = hintClickerData.find(
+        (l) =>
+          l.Time &&
+          l.EventNum === entry.EventNum &&
+          l.Bow === entry.Bow &&
+          l.State !== 'Deleted',
+      );
+    }
     if (lap?.Time && lap?.State !== 'Deleted') {
       resetVideoZoom();
       const seekTime = lap.Time;
@@ -246,6 +256,20 @@ const BowButton: React.FC<{
   const isCurrent = String(eventNum) === String(selectedEvent);
   const isSelected = isCurrent && videoBow === bow;
 
+  const { onSingleClick, onDoubleClick } = useSingleAndDoubleClick(
+    () => {
+      // single click
+      setVideoEvent(eventNum);
+      if (bow) {
+        setVideoBow(bow);
+      }
+    },
+    () => {
+      // double click
+      seekToBow({ Bow: bow, EventNum: eventNum });
+    },
+  );
+
   const sx: any = {
     minWidth: 0,
     width,
@@ -291,9 +315,8 @@ const BowButton: React.FC<{
         size="small"
         variant={isSelected && hasTime ? 'contained' : 'outlined'}
         sx={sx}
-        onClick={() => {
-          seekToBow({ Bow: bow, EventNum: eventNum });
-        }}
+        onDoubleClick={onDoubleClick}
+        onClick={onSingleClick}
         onContextMenu={(e: React.MouseEvent<HTMLButtonElement>) => {
           e.preventDefault();
           if (hasTime) {
@@ -823,12 +846,22 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   });
   setBowInfo(bowInfo); // stash for use by guide lane clicks (Video.tsx)
 
-  const onRowClick = (
-    args: CellClickArgs<ResultRowType, unknown>,
-    _event: CellMouseEvent,
-  ) => {
-    seekToBow({ Bow: args.row.Bow, EventNum: args.row.eventNum });
-  };
+  const clickArgsRef = useRef<CellClickArgs<ResultRowType, unknown>>();
+  const { onSingleClick, onDoubleClick } = useSingleAndDoubleClick(
+    () => {
+      const args = clickArgsRef.current;
+      if (args) {
+        setSelectedEvent(args.row.eventNum);
+        if (args.row.Bow) {
+          setVideoBow(args.row.Bow);
+        }
+      }
+    },
+    () => {
+      const args = clickArgsRef.current;
+      if (args) seekToBow({ Bow: args.row.Bow, EventNum: args.row.eventNum });
+    },
+  );
 
   const scrollToEvent = useCallback(
     (eventNum: string) => {
@@ -1160,7 +1193,14 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
             rowKeyGetter={(row) => `${selectedEvent}-${row.Bow}`}
             columns={columnConfig}
             rows={activeEventRows}
-            onCellClick={onRowClick}
+            onCellClick={(args, e) => {
+              clickArgsRef.current = args;
+              onSingleClick(e);
+            }}
+            onCellDoubleClick={(args, e) => {
+              clickArgsRef.current = args;
+              onDoubleClick(e);
+            }}
             rowHeight={24}
             rowClass={(row) => (row.eventName ? classes.row : undefined)}
             style={{ height: height - 138 }}
