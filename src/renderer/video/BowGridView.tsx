@@ -283,23 +283,64 @@ export const BowGridView: React.FC<{
       (e) => String(e.EventNum) === String(selectedEvent),
     );
     if (groupIndex === -1) return;
-    // absolute index = sum of counts before this group
-    const absIndex = groupCounts
-      .slice(0, groupIndex)
-      .reduce((s: number, n: number) => s + n, 0);
+    // find the row index that contains the currently selected bow (if any)
+    let targetIndex: number | null = null;
+    let scrolledToHeader = false;
+    if (videoBow) {
+      const { rows } = groups[groupIndex];
+      const rowIndex = rows.findIndex((r) => r.includes(String(videoBow)));
+      if (rowIndex !== -1) {
+        // If the selected row is within the first 10 rows, prefer scrolling to the header
+        if (rowIndex < 10) {
+          targetIndex = groupStarts[groupIndex];
+          scrolledToHeader = true;
+        } else {
+          // absolute index = sum of counts before this group + rowIndex
+          targetIndex = groupStarts[groupIndex] + rowIndex;
+        }
+      }
+    }
+
+    // fallback to group start if we couldn't find a specific row to target
+    if (targetIndex === null) {
+      const absIndex = groupCounts
+        .slice(0, groupIndex)
+        .reduce((s: number, n: number) => s + n, 0);
+      targetIndex = absIndex;
+      scrolledToHeader = true;
+    }
+
     // try multiple possible API names for scroll
     try {
       if (virtuosoRef.current?.scrollToIndex) {
-        virtuosoRef.current.scrollToIndex(absIndex);
+        virtuosoRef.current.scrollToIndex(targetIndex);
       } else if (virtuosoRef.current?.scrollTo) {
-        virtuosoRef.current.scrollTo(absIndex);
+        virtuosoRef.current.scrollTo(targetIndex);
       } else if (virtuosoRef.current?.scrollIntoView) {
         virtuosoRef.current.scrollIntoView();
       }
     } catch (e) {
       // ignore
     }
-  }, [selectedEvent, groupCounts, events, videoBow]);
+
+    // after the virtuoso scrolled, try to center the actual button within the viewport
+    if (videoBow && !scrolledToHeader) {
+      setTimeout(() => {
+        const btn = buttonRefs.current[`${selectedEvent}_${videoBow}`];
+        if (btn && typeof btn.scrollIntoView === 'function') {
+          try {
+            btn.scrollIntoView({
+              block: 'center',
+              inline: 'center',
+              behavior: 'smooth',
+            });
+          } catch (e) {
+            btn.scrollIntoView({ block: 'nearest' });
+          }
+        }
+      }, 120);
+    }
+  }, [selectedEvent, groupCounts, events, videoBow, groupStarts, groups]);
 
   const renderGroupContent = useCallback(
     (groupIndex: number) => {
