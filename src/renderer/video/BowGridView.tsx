@@ -1,9 +1,19 @@
-import React, { useMemo, useRef, useEffect, useCallback } from 'react';
+import React, {
+  useMemo,
+  useRef,
+  useEffect,
+  useCallback,
+  useState,
+} from 'react';
 import { Tooltip, Button, Box, Typography, Stack } from '@mui/material';
 import { GroupedVirtuoso } from 'react-virtuoso';
 
 import { Event } from 'crewtimer-common';
-import { useEntryResult, getEntryResult } from 'renderer/util/LapStorageDatum';
+import {
+  useEntryResult,
+  useEventsUpdated,
+  getEntryResult,
+} from 'renderer/util/LapStorageDatum';
 import { useWaypoint } from 'renderer/util/UseSettings';
 import { useSingleAndDoubleClick } from 'renderer/util/UseSingleAndDoubleClick';
 import { gateFromWaypoint, timeToMilli } from 'renderer/util/Util';
@@ -20,6 +30,33 @@ import {
   seekToBow,
   setContextMenuAnchor,
 } from './TimingSidebarUtil';
+
+// Compute rows (arrays of bow strings) for an event, honoring orderByTime and gate.
+export function eventToRows(ev: Event, orderByTime: boolean, gate: string) {
+  let bows = ev.eventItems
+    .map((it: any) => it?.Bow)
+    .filter(Boolean) as string[];
+
+  if (orderByTime) {
+    bows = bows.slice().sort((a, b) => {
+      const la = getEntryResult(`${gate}_${ev.EventNum}_${a}`);
+      const lb = getEntryResult(`${gate}_${ev.EventNum}_${b}`);
+      const ta = la && la.State !== 'Deleted' && la.Time ? la.Time : '';
+      const tb = lb && lb.State !== 'Deleted' && lb.Time ? lb.Time : '';
+      if (ta && tb) return timeToMilli(ta) - timeToMilli(tb);
+      if (ta) return -1;
+      if (tb) return 1;
+      return 0;
+    });
+  }
+
+  const rows: string[][] = [];
+  for (let i = 0; i < bows.length; i += 5) {
+    rows.push(bows.slice(i, i + 5));
+  }
+  if (rows.length === 0) rows.push([]);
+  return rows;
+}
 
 // BowButton: small component for individual bow buttons. Shows exception text (if any)
 // and supports compact wrapping when exception text exists.
@@ -142,46 +179,47 @@ const BowButton: React.FC<{
   );
 };
 
-// Top-level renderer for group headers (so we don't define components inside render)
-const GroupHeader: React.FC<{ ev: Event; isCurrent: boolean }> = ({
-  ev,
-  isCurrent,
-}) => (
-  <Box
-    sx={{
-      px: 1,
-      py: 0.5,
-      // use a solid background so items scrolled beneath are not visible through
-      backgroundColor: isCurrent ? '#f6fafb' : 'background.paper',
-      zIndex: 1,
-    }}
-    onClick={() => {
-      // Handle group header click
-      setVideoEvent(ev.EventNum);
-    }}
-  >
-    <Typography
+// Top-level renderer for group headers (memoized)
+const GroupHeader = React.memo(
+  ({ ev, isCurrent }: { ev: Event; isCurrent: boolean }) => (
+    <Box
       sx={{
-        fontWeight: 'bold',
-        fontSize: 13,
-        marginBottom: '0.25em',
-        color: isCurrent ? 'primary.main' : 'text.primary',
-        px: 0.5,
-        ...(isCurrent
-          ? {}
-          : {
-              backgroundColor: '#f0f0f0',
-              py: '1px',
-              borderRadius: 0.5,
-            }),
+        px: 1,
+        py: 0.5,
+        // use a solid background so items scrolled beneath are not visible through
+        backgroundColor: isCurrent ? '#f6fafb' : 'background.paper',
+        zIndex: 1,
+      }}
+      onClick={() => {
+        // Handle group header click
+        setVideoEvent(ev.EventNum);
       }}
     >
-      {ev.Event}
-    </Typography>
-  </Box>
+      <Typography
+        sx={{
+          fontWeight: 'bold',
+          fontSize: 13,
+          marginBottom: '0.25em',
+          color: isCurrent ? 'primary.main' : 'text.primary',
+          px: 0.5,
+          ...(isCurrent
+            ? {}
+            : {
+                backgroundColor: '#f0f0f0',
+                py: '1px',
+                borderRadius: 0.5,
+              }),
+        }}
+      >
+        {ev.Event}
+      </Typography>
+    </Box>
+  ),
+  (prev, next) =>
+    prev.ev.EventNum === next.ev.EventNum && prev.isCurrent === next.isCurrent,
 );
 
-const BowRow: React.FC<{
+const BowRowComponent: React.FC<{
   ev: Event;
   row: string[];
   buttonWidth: number;
@@ -209,6 +247,14 @@ const BowRow: React.FC<{
   </Stack>
 );
 
+const BowRow = React.memo(
+  BowRowComponent,
+  (prev, next) =>
+    prev.ev.EventNum === next.ev.EventNum &&
+    prev.buttonWidth === next.buttonWidth &&
+    prev.row.join('|') === next.row.join('|'),
+);
+
 // Bow Grid view: render prior, current and next event (header + bows)
 export const BowGridView: React.FC<{
   events: Event[]; // events to render (usually activeEvents)
@@ -234,32 +280,54 @@ export const BowGridView: React.FC<{
     {} as Record<string, HTMLButtonElement | null>,
   );
   // Build groups for virtualization: for each event produce rows (groups of up to 5 bows)
-  const groups = useMemo(() => {
-    return events.map((ev: Event) => {
-      let bows = ev.eventItems
-        .map((it: any) => it?.Bow)
-        .filter(Boolean) as string[];
-      if (orderByTime) {
-        bows = bows.slice().sort((a, b) => {
-          const la = getEntryResult(`${gate}_${ev.EventNum}_${a}`);
-          const lb = getEntryResult(`${gate}_${ev.EventNum}_${b}`);
-          const ta = la && la.State !== 'Deleted' && la.Time ? la.Time : '';
-          const tb = lb && lb.State !== 'Deleted' && lb.Time ? lb.Time : '';
-          if (ta && tb) {
-            return timeToMilli(ta) - timeToMilli(tb);
-          }
-          if (ta) return -1;
-          if (tb) return 1;
-          return 0;
-        });
-      }
-      const rows: string[][] = [];
-      for (let i = 0; i < bows.length; i += 5) rows.push(bows.slice(i, i + 5));
-      // ensure at least one row so GroupVirtuoso has content for empty events
-      if (rows.length === 0) rows.push([]);
-      return { event: ev, rows };
+  const buildGroups = useCallback(
+    (eventsParam: Event[]) => {
+      return eventsParam.map((ev: Event) => {
+        // compute rows using shared helper
+
+        const rows = eventToRows(ev, orderByTime, gate);
+        return { event: ev, rows };
+      });
+    },
+    [orderByTime, gate],
+  );
+
+  const [groups, setGroups] = useState(() => buildGroups(events));
+  useEffect(() => {
+    setGroups(buildGroups(events));
+  }, [events, buildGroups]);
+
+  const updateGroupRows = useCallback(
+    (groupIndex: number, newRows: string[][]) => {
+      setGroups((prev) => {
+        if (groupIndex < 0 || groupIndex >= prev.length) return prev;
+        const next = prev.slice();
+        next[groupIndex] = { ...next[groupIndex], rows: newRows };
+        return next;
+      });
+    },
+    [],
+  );
+
+  // When external storage signals that specific events were updated, rebuild only those groups.
+  const [eventsUpdated] = useEventsUpdated();
+  useEffect(() => {
+    if (!eventsUpdated || eventsUpdated.size === 0) return;
+
+    eventsUpdated.forEach((key) => {
+      // keys are expected to be event numbers (string)
+      const groupIndex = groups.findIndex(
+        (g) => String(g.event.EventNum) === String(key),
+      );
+      if (groupIndex === -1) return;
+
+      const ev = groups[groupIndex].event;
+      const rows = eventToRows(ev, orderByTime, gate);
+      updateGroupRows(groupIndex, rows);
     });
-  }, [events, orderByTime, gate]);
+
+    eventsUpdated.clear(); // Clear as processed.  A direct mutation of the set to avoid re-renders
+  }, [eventsUpdated, groups, orderByTime, gate, updateGroupRows]);
 
   // groupCounts for GroupVirtuoso: number of rows per event
   const groupCounts: number[] = groups.map((g) => g.rows.length);

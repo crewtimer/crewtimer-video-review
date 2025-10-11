@@ -135,9 +135,22 @@ export default function Setup() {
 
   useEffect(() => {
     if (!validWaypoint) {
-      setTimingWaypoint('Finish');
+      // Look for one with Finish and Cam in the name
+      let cam = waypointList.find(
+        (w) =>
+          w.toLowerCase().includes('finish') && w.toLowerCase().includes('cam'),
+      );
+      // If not found look for just cam in the name
+      if (!cam) {
+        cam = waypointList.find((w) => w.toLowerCase().includes('cam'));
+      }
+      // Look for finish2
+      if (!cam) {
+        cam = waypointList.find((w) => w.toLowerCase().includes('finish2'));
+      }
+      setTimingWaypoint(cam || 'Finish');
     }
-  }, [validWaypoint, setTimingWaypoint]);
+  }, [validWaypoint, setTimingWaypoint, waypointList]);
 
   useEffect(() => {
     // Check for invalid day values

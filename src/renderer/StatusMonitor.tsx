@@ -2,7 +2,12 @@ import { Lap } from 'crewtimer-common';
 import { useEffect } from 'react';
 import { UseStoredDatum } from './store/UseElectronDatum';
 import { setToast } from './Toast';
-import { clearEntryResults, setEntryResult } from './util/LapStorageDatum';
+import {
+  clearEntryResults,
+  getEntryResult,
+  setEntryResult,
+  signalEventUpdated,
+} from './util/LapStorageDatum';
 import {
   useInitializing,
   useMobileConfig,
@@ -10,6 +15,7 @@ import {
 } from './util/UseSettings';
 import { useClickerData } from './video/UseClickerData';
 import { sendInfoMessage } from './video/VideoUtils';
+import { deepCompare } from './util/Compare';
 
 const { LapStorage } = window;
 
@@ -48,9 +54,16 @@ export default function StatusMonitor() {
 
   useEffect(() => {
     for (const lap of [...timingLapdata].sort(timeSort)) {
-      if (lap.State !== 'Deleted') {
-        const key = `${lap.Gate}_${lap.EventNum}_${lap.Bow}`;
-        lap.keyid = key;
+      const key = `${lap.Gate}_${lap.EventNum}_${lap.Bow}`;
+      lap.keyid = key;
+      const prior = getEntryResult(key);
+      if (!deepCompare('', prior, lap)) {
+        // trigger race visual update if time changed
+        signalEventUpdated(lap.EventNum);
+      }
+      if (lap.State === 'Deleted') {
+        setEntryResult(key, undefined);
+      } else {
         setEntryResult(key, lap);
       }
     }

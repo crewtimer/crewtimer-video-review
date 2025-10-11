@@ -31,7 +31,8 @@ export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
       entry?.EventNum
     }_${entry?.Bow}`;
     let lap = getEntryResult(key);
-    if (!lap?.Time) {
+    if (!lap?.Time || lap?.State === 'Deleted') {
+      // fall back to the hint time if available
       const hintClickerData = getClickerData();
       lap = hintClickerData.find(
         (l) =>
