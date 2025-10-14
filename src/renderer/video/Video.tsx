@@ -1,4 +1,5 @@
 import { Box, Typography, Stack, Tooltip, Button } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import React, {
   FC,
   useCallback,
@@ -34,6 +35,7 @@ import {
   setVideoEvent,
   getImage,
   getVideoBow,
+  useVideoBow,
 } from './VideoSettings';
 import VideoOverlay, {
   getNearEdge,
@@ -259,6 +261,45 @@ window.addEventListener('keyup', (event: KeyboardEvent) => {
   }
 });
 
+export const VideoBow: FC = () => {
+  const [videoBow] = useVideoBow();
+  if (!videoBow) {
+    return null;
+  }
+  return (
+    <Box
+      role="button"
+      tabIndex={0}
+      sx={{
+        zIndex: 400,
+        mt: '0.5em',
+        display: 'inline-flex',
+        alignItems: 'center',
+        alignSelf: 'flex-end',
+        justifyContent: 'center',
+        width: 'auto',
+        minWidth: '40px',
+        maxWidth: '80px',
+        height: 28,
+        px: '8px',
+        border: '1px solid white',
+        borderRadius: 1,
+        backgroundColor: (theme) => {
+          return alpha(theme.palette.primary.main, 0.4);
+        },
+        color: 'primary.contrastText',
+        userSelect: 'none',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+      }}
+    >
+      <Typography sx={{ fontSize: 13, lineHeight: '1.2' }}>
+        {videoBow}
+      </Typography>
+    </Box>
+  );
+};
+
 const VideoImage: React.FC<{ width: number; height: number }> = ({
   width,
   height,
@@ -275,6 +316,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const srcCenter = useRef<Point>({ x: width / 2, y: height / 2 });
   const [mousePos, setMousePos] = useState<Point>({ x: 0, y: 0 });
   const [srcPos, setSrcPos] = useState<Point>({ x: 0, y: 0 });
+  const [showFloatingBow, setShowFloatingBow] = useState(false);
+  const [floatingBowPos, setFloatingBowPos] = useState<Point>({ x: 0, y: 0 });
   const [showBlowup] = useShowBlowup();
   const [videoScaling] = useVideoScaling();
   destSize.current = { width, height };
@@ -431,8 +474,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const selectLane = useCallback(
     (point: Point) => {
       const laneLines = getVideoSettings()
-        .guides.filter((lane) => lane.dir === Dir.Horiz && lane.enabled)
-        .map((lane) => ({
+        .guides.filter((lane: any) => lane.dir === Dir.Horiz && lane.enabled)
+        .map((lane: any) => ({
           pt1: { x: 0, y: lane.pt1 * image.height },
           pt2: { x: image.width, y: lane.pt2 * image.height },
           lane,
@@ -457,13 +500,13 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   );
 
   const handleDragStart = (
-    event: React.MouseEvent<HTMLDivElement, MouseEvent>,
+    event: React.MouseEvent<HTMLElement, MouseEvent>,
   ) => {
     event.preventDefault();
   };
 
   const handleSingleClick = (
-    event: React.MouseEvent<HTMLDivElement, MouseEvent>,
+    event: React.MouseEvent<HTMLElement, MouseEvent>,
   ) => {
     const videoSettings = getVideoSettings();
     if (
@@ -485,7 +528,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   };
 
   const handleDoubleClick = (
-    event: React.MouseEvent<HTMLDivElement, MouseEvent>,
+    event: React.MouseEvent<HTMLElement, MouseEvent>,
   ) => {
     const mousePositionY =
       event.clientY - event.currentTarget.getBoundingClientRect().top;
@@ -582,6 +625,12 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         setSrcPos(srcCoords);
       }
 
+      // Update floating VideoBow position: 30px below the pointer
+      if (rect) {
+        setFloatingBowPos({ x, y: y + 30 });
+        setShowFloatingBow(true);
+      }
+
       // dont trigger mouse down move actions until we have moved slightly. This avoids
       // accidental zooming on just a click
       const downMoveY = Math.abs(mouseTracking.current.mouseDownClientY - y);
@@ -623,6 +672,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   const handleMouseLeave = () => {
     setShowBlowup(false);
+    setShowFloatingBow(false);
   };
 
   const handleMouseUp = useCallback(
@@ -675,6 +725,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           // justifyContent: 'center', // Center horizontally
           alignItems: 'top', //  vertically
           overflow: 'hidden', // In case the image is too big
+          position: 'relative',
           // cursor: showBlowup ? 'none' : 'auto',
         }}
       >
@@ -708,33 +759,36 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
                 <ZoomInIcon className={classes.hyperzoom} />
               </Tooltip>
             )}
-            <Tooltip title="x-axis zoom factor">
-              <Button
-                size="small"
-                variant="outlined"
-                className={classes.zoom}
-                sx={{
-                  height: 24,
-                  m: 0,
-                  minWidth: 30,
-                }}
-                onClick={(
-                  event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-                ) => {
-                  let { zoomX } = getVideoScaling();
-                  if (zoomX >= 16) {
-                    zoomX = 1;
-                  } else {
-                    zoomX *= 2;
-                  }
-                  updateVideoScaling({ zoomX });
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}
-              >
-                {scaleText}
-              </Button>
-            </Tooltip>
+            <Stack>
+              <Tooltip title="x-axis zoom factor">
+                <Button
+                  size="small"
+                  variant="outlined"
+                  className={classes.zoom}
+                  sx={{
+                    height: 24,
+                    m: 0,
+                    minWidth: 30,
+                  }}
+                  onClick={(
+                    event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+                  ) => {
+                    let { zoomX } = getVideoScaling();
+                    if (zoomX >= 16) {
+                      zoomX = 1;
+                    } else {
+                      zoomX *= 2;
+                    }
+                    updateVideoScaling({ zoomX });
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }}
+                >
+                  {scaleText}
+                </Button>
+              </Tooltip>
+              <VideoBow />
+            </Stack>
             <div />
           </Stack>
           {!!videoError && (
@@ -755,6 +809,21 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             position: 'absolute', // keeps the size from influencing the parent size
           }}
         />
+        {/* Floating VideoBow that follows the mouse pointer (30px below) */}
+        {showFloatingBow && (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: `${floatingBowPos.x}px`,
+              top: `${floatingBowPos.y}px`,
+              transform: 'none',
+              pointerEvents: 'none', // don't block mouse interactions
+              zIndex: 500,
+            }}
+          >
+            <VideoBow />
+          </Box>
+        )}
         {showBlowup && (
           <Blowup
             canvas={offscreenCanvas.current}

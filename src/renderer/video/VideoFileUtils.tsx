@@ -140,7 +140,7 @@ const loadVideoSidecar = (
           // override current settings from sidecar
           const videoSettings = { ...getVideoSettings() };
           VideoGuidesKeys.forEach((key) => {
-            if (videoSidecar[key]) {
+            if (videoSidecar[key] !== undefined) {
               (videoSettings as any)[key] = videoSidecar[key];
             }
           });

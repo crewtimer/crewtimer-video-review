@@ -184,10 +184,14 @@ const GroupHeader = React.memo(
   ({ ev, isCurrent }: { ev: Event; isCurrent: boolean }) => (
     <Box
       sx={{
-        px: 1,
+        // align left padding with row padding so the border is continuous
+        pl: isCurrent ? '0.5rem' : 1,
+        pr: 0.5,
         py: 0.5,
         // use a solid background so items scrolled beneath are not visible through
         backgroundColor: isCurrent ? '#f6fafb' : 'background.paper',
+        // add a distinctive left border when this is the current event
+        borderLeft: isCurrent ? '4px solid #6572ab' : undefined,
         zIndex: 1,
       }}
       onClick={() => {
@@ -199,7 +203,7 @@ const GroupHeader = React.memo(
         sx={{
           fontWeight: 'bold',
           fontSize: 13,
-          marginBottom: '0.25em',
+          marginBottom: 0,
           color: isCurrent ? 'primary.main' : 'text.primary',
           px: 0.5,
           ...(isCurrent
@@ -212,6 +216,7 @@ const GroupHeader = React.memo(
         }}
       >
         {ev.Event}
+        {ev.Start ? ` (${ev.Start})` : ''}
       </Typography>
     </Box>
   ),
@@ -225,27 +230,41 @@ const BowRowComponent: React.FC<{
   buttonWidth: number;
   gate: string;
   buttonRefs: React.MutableRefObject<Record<string, HTMLButtonElement | null>>;
-}> = ({ ev, row, buttonWidth, gate, buttonRefs }) => (
-  <Stack
-    key={`${ev.EventNum}-${row[0] ?? ''}-${row[row.length - 1] ?? ''}`}
-    direction="row"
-    spacing={1}
-    sx={{ marginBottom: '0.25em', flexWrap: 'wrap', pl: 1 }}
-  >
-    {row.map((bow: string) => (
-      <BowButton
-        eventNum={String(ev.EventNum)}
-        key={bow}
-        gate={gate}
-        bow={bow}
-        width={buttonWidth}
-        buttonRef={(el: HTMLButtonElement | null) => {
-          buttonRefs.current[`${ev.EventNum}_${bow}`] = el;
-        }}
-      />
-    ))}
-  </Stack>
-);
+}> = ({ ev, row, buttonWidth, gate, buttonRefs }) => {
+  const [selectedEvent] = useVideoEvent();
+  const isCurrent = String(ev.EventNum) === String(selectedEvent);
+  return (
+    <Stack
+      key={`${ev.EventNum}-${row[0] ?? ''}-${row[row.length - 1] ?? ''}`}
+      direction="row"
+      spacing={1}
+      sx={{
+        // remove bottom margin so the border is continuous between header and rows
+        marginBottom: 0,
+        flexWrap: 'wrap',
+        pt: 0.5,
+        pl: 1,
+        // highlight current event rows with a left border to match the header
+        borderLeft: isCurrent ? '4px solid #6572ab' : undefined,
+        // slightly offset the content so the border doesn't overlap
+        paddingLeft: isCurrent ? '0.5rem' : undefined,
+      }}
+    >
+      {row.map((bow: string) => (
+        <BowButton
+          eventNum={String(ev.EventNum)}
+          key={bow}
+          gate={gate}
+          bow={bow}
+          width={buttonWidth}
+          buttonRef={(el: HTMLButtonElement | null) => {
+            buttonRefs.current[`${ev.EventNum}_${bow}`] = el;
+          }}
+        />
+      ))}
+    </Stack>
+  );
+};
 
 const BowRow = React.memo(
   BowRowComponent,
@@ -269,7 +288,7 @@ export const BowGridView: React.FC<{
     if (typeof sidebarWidth === 'number' && sidebarWidth > 0) {
       sw = sidebarWidth;
     }
-    // allow 40px for padding/margins, then divide by 5, clamp minimum 48
+    // allow space padding/margins/active border etc, then divide by 5
     return Math.floor((sw - 60) / 5);
   }, [sidebarWidth]);
   const [videoBow] = useVideoBow();
