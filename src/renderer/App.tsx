@@ -13,14 +13,17 @@ import { seekToNextTimePoint, triggerFileSplit } from './video/VideoUtils';
 import {
   getVideoBow,
   getVideoTimestamp,
+  useAutoFileSplitEnable,
   validateVideoSettings,
 } from './video/VideoSettings';
 import { openNagScreen } from './NagScreen';
+import { AutoFileSplit } from './video/AutoFileSplit';
 
 const { startLapStorage } = window.LapStorage;
 const { stopLapStorage } = window.LapStorage;
 export default function App() {
   const [, setInitProgress] = useInitProgress();
+  const [autoFileSplit] = useAutoFileSplitEnable();
   useEffect(() => {
     setInitializing(true);
     const doInit = async () => {
@@ -90,6 +93,7 @@ export default function App() {
 
       <FileMonitor />
       <VideoDataMonitor />
+      {autoFileSplit && <AutoFileSplit />}
     </Router>
   );
 }

@@ -129,7 +129,7 @@ export const [useLastSeekTime, setLastSeekTime, getLastSeekTime] = UseDatum<{
   bow?: string;
 }>({ time: '00:00:00' });
 
-export const [useJumpToEndPending, setJumpToEndPending] = UseDatum(false);
+export const [useFileSplitPending, setFileSplitPending] = UseDatum(false);
 
 export const [useVideoError, setVideoError] = UseDatum<string | undefined>(
   undefined,
@@ -146,7 +146,19 @@ export const [useVideoFile, setVideoFile, getVideoFile] = UseStoredDatum(
 );
 export const [useVideoTimestamp, setVideoTimestamp, getVideoTimestamp] =
   UseDatum('');
-export const [useVideoBow, setVideoBow, getVideoBow] = UseDatum('');
+export const [
+  useLastScoredTimestamp,
+  setLastScoredTimestamp,
+  getLastScoredTimestamp,
+] = UseDatum('');
+export const [useVideoBowUuid, setVideoBowUuid, getVideoBowUuid] = UseDatum('');
+export const [useVideoBow, _setVideoBow, getVideoBow] = UseDatum('');
+
+export const setVideoBow = (bow: string, uuid?: string) => {
+  _setVideoBow(bow);
+  setVideoBowUuid(bow === '?' && uuid ? uuid : '');
+};
+
 export const [useVideoEvent, setVideoEvent, getVideoEvent] = UseDatum('');
 export const [useTimeSort, setTimeSort, getTimeSort] = UseDatum(true);
 export const [useShowGridView] = UseDatum(true);
@@ -180,6 +192,8 @@ export const [useAutoNextTimestamp, , getAutoNextTimestamp] = UseStoredDatum(
 );
 export const [useAdjustHintOffsetEnable, , getHintOffsetEnable] =
   UseStoredDatum('hintOffsetEnable', false);
+export const [useAutoFileSplitEnable, , getAutoFileSplitEnable] =
+  UseStoredDatum('autoFileSplit', false);
 
 export const [useVideoDir, setVideoDir, getVideoDir] = UseStoredDatum(
   N_VIDEO_DIR,

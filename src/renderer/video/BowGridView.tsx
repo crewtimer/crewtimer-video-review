@@ -110,14 +110,16 @@ const BowButton: React.FC<{
 
   if (isSelected) {
     // show as a normal primary-colored button when selected and empty
+    sx.color = 'primary.contrastText';
+    sx.border = '1px solid red';
+    sx.fontWeight = 'bold';
     if (hasTime) {
-      sx.backgroundColor = '#9ea6ca';
+      sx.backgroundColor = '#ccc';
+      sx.color = 'primary.main';
     } else {
       sx.backgroundColor = 'primary.main';
     }
-    sx.color = 'primary.contrastText';
     // remove emphasized border/glow
-    sx.border = undefined;
     sx.boxShadow = undefined;
     sx['&:hover'] = {
       backgroundColor: 'primary.dark',

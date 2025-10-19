@@ -22,9 +22,9 @@ import {
   setVideoFile,
   setVideoFrameNum,
   VideoScaling,
-  setJumpToEndPending,
   getDirList,
   getLastSeekTime,
+  setFileSplitPending,
 } from './VideoSettings';
 import { TimeObject } from './VideoTypes';
 import { parseTimeToSeconds } from '../util/StringUtils';
@@ -83,6 +83,7 @@ export const triggerFileSplit = () => {
     wp: getWaypoint(),
   };
   window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
+  setFileSplitPending(true);
 };
 
 export const sendInfoMessage = () => {
@@ -350,7 +351,6 @@ export const nextFile = () => {
   const dirList = getDirList();
   if (getSelectedIndex() === dirList.length - 1) {
     triggerFileSplit();
-    setJumpToEndPending(true);
   } else {
     moveToFileIndex(getSelectedIndex() + 1, 0);
   }
@@ -590,7 +590,7 @@ export const seekToNextTimePoint = (from: {
         setVideoEvent(result.EventNum);
       }
       if (result.Bow && result.Bow !== '*') {
-        setVideoBow(result.Bow);
+        setVideoBow(result.Bow, result.uuid);
       }
     }
   }, 10);

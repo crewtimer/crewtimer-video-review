@@ -18,9 +18,11 @@ import {
   getVideoBow,
   getVideoEvent,
   getVideoTimestamp,
+  setLastScoredTimestamp,
   setResetZoomCounter,
 } from './VideoSettings';
 import { seekToNextTimePoint } from './VideoUtils';
+import { setAutoSeekHoldoff } from './AutoFileSplit';
 
 let lastAddSplit = 0;
 export const performAddSplit = () => {
@@ -80,6 +82,7 @@ export const performAddSplit = () => {
       showCancel: true,
       handleConfirm: () => {
         delete lap.State;
+        setAutoSeekHoldoff(false);
         setEntryResultAndPublish(key, lap);
       },
     });
@@ -95,6 +98,7 @@ export const performAddSplit = () => {
       handleConfirm: () => {
         delete lap.State;
         updateClickOffset(getLastSeekTime().time, videoTimestamp);
+        setAutoSeekHoldoff(false);
         setEntryResultAndPublish(key, lap);
         setResetZoomCounter((c) => c + 1);
         setToast({
@@ -109,7 +113,11 @@ export const performAddSplit = () => {
 
   updateClickOffset(getLastSeekTime().time, videoTimestamp);
 
+  setAutoSeekHoldoff(false);
   setEntryResultAndPublish(key, lap);
+  if (lap.Time) {
+    setLastScoredTimestamp(lap.Time);
+  }
   setResetZoomCounter((c) => c + 1);
   setToast({
     severity: 'info',

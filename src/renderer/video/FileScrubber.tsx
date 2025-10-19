@@ -1,6 +1,6 @@
 import { Box, Button, Stack, SxProps, Theme, Tooltip } from '@mui/material';
 import FastForwardIcon from '@mui/icons-material/FastForward';
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useWaypoint } from 'renderer/util/UseSettings';
 import {
   convertTimestampToLocalMicros,
@@ -12,53 +12,23 @@ import {
   prevFile,
   triggerFileSplit,
 } from './VideoUtils';
-import {
-  getSelectedIndex,
-  setVideoFile,
-  useDirList,
-  useJumpToEndPending,
-  useSelectedIndex,
-} from './VideoSettings';
+import { useSelectedIndex } from './VideoSettings';
 import TimeRangeIcons from './TimeRangeIcons';
 import TimeSegments from './TimeSegments';
 import { useClickerData } from './UseClickerData';
 import { TimeObject, TimeSegment } from './VideoTypes';
 import { useFileStatusList } from './VideoFileStatus';
-import { requestVideoFrame } from './RequestVideoFrame';
 
 interface SxPropsArgs {
   sx?: SxProps<Theme>;
 }
 
 const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
-  const [, setFileIndex] = useSelectedIndex();
-  const [dirList] = useDirList();
+  const [selectedIndex] = useSelectedIndex();
   const [fileStatusList] = useFileStatusList();
   const lapdata = useClickerData() as TimeObject[];
   const [scoredWaypoint] = useWaypoint();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
-  const [jumpToEndPending, setJumpToEndPending] = useJumpToEndPending();
-
-  useEffect(() => {
-    if (jumpToEndPending) {
-      setJumpToEndPending(false);
-      if (dirList.length) {
-        setFileIndex(dirList.length - 1);
-        const videoFile = dirList[dirList.length - 1];
-        setVideoFile(videoFile);
-        requestVideoFrame({
-          videoFile,
-          frameNum: 1,
-        });
-      }
-    }
-  }, [dirList, jumpToEndPending, setFileIndex, setJumpToEndPending]);
-
-  const jumpToEnd = () => {
-    // Trigger a file split, then read the files and jump to the end
-    triggerFileSplit();
-    setJumpToEndPending(true);
-  };
 
   // Calc the time segment list
   const segmentList = useMemo(() => {
@@ -173,7 +143,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
             segments={segmentList}
             startTime={startTime}
             endTime={endTime}
-            activeIndex={getSelectedIndex()}
+            activeIndex={selectedIndex}
             onChange={(newValue, pct) => {
               moveToFileIndex(newValue, pct);
             }}
@@ -196,10 +166,10 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           &gt;
         </Button>
       </Tooltip>
-      <Tooltip title="Split video and select last video" placement="top">
+      <Tooltip title="Request recorder to split video" placement="top">
         <Button
           variant="contained"
-          onClick={jumpToEnd}
+          onClick={triggerFileSplit}
           size="small"
           sx={{
             height: 24,

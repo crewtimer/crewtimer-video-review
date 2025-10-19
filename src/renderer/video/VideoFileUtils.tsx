@@ -17,7 +17,7 @@ import {
   setVideoFile,
   setVideoSettings,
   setLoadVideoSidecar,
-  useJumpToEndPending,
+  useFileSplitPending,
   useVideoDir,
   VideoGuidesKeys,
   VideoSidecar,
@@ -25,6 +25,8 @@ import {
   normalizeGuides,
   getDirList,
   setDirList,
+  setFileSplitPending,
+  useDirList,
 } from './VideoSettings';
 import { FileStatus } from './VideoTypes';
 import {
@@ -330,23 +332,26 @@ export const refreshDirList = async (videoDir: string) => {
 const FileMonitor: React.FC = () => {
   const [videoDir] = useVideoDir();
   const [initializing] = useInitializing();
-  const [jumpToEndPending] = useJumpToEndPending();
+  const [fileSplitPending] = useFileSplitPending();
+  const [dirList] = useDirList();
+
+  useEffect(() => {
+    setFileSplitPending(false);
+  }, [dirList]);
 
   useEffect(() => {
     if (initializing) {
       return undefined;
     }
     refreshDirList(videoDir);
-    const timer = setInterval(
-      () => {
-        if (videoDir) {
-          refreshDirList(videoDir);
-        }
-      },
-      jumpToEndPending ? 500 : 4000,
-    );
+    const delay = fileSplitPending ? 500 : 4000;
+    const timer = setInterval(() => {
+      if (videoDir) {
+        refreshDirList(videoDir);
+      }
+    }, delay);
     return () => clearInterval(timer);
-  }, [videoDir, initializing, jumpToEndPending]);
+  }, [videoDir, initializing, fileSplitPending]);
 
   return <></>;
 };

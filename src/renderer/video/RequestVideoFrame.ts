@@ -444,7 +444,7 @@ export const seekToClickInFile = (videoFile: string, seekPercent: number) => {
       setVideoEvent(click.EventNum);
     }
     if (click.Bow && click.Bow !== '*') {
-      setVideoBow(click.Bow);
+      setVideoBow(click.Bow, click.uuid);
     }
     seekToTimestamp({
       time: click.Time,

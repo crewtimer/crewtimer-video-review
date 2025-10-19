@@ -1,6 +1,7 @@
 
 | Version | What's New |
 | --- | --- |
+| 1.0.33 | Automatic trigger of recording file split |
 | 1.0.32 | Added selected bow as overlay on video for easy reference.  Misc UI improvements. |
 | 1.0.31 | Added grid view option in addition to a list view of races.  Grid view works better for head races where races can overlap each other. |
 | | Added more shortcuts (see help tab) |

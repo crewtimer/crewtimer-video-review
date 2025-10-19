@@ -38,7 +38,7 @@ export function extractTime(fileName: string) {
  * @param time - A string representing time in HH:MM:SS.sss format.
  * @returns The time converted to seconds.
  */
-export const parseTimeToSeconds = (time: string): number => {
+export const parseTimeToSeconds = (time: string | undefined): number => {
   if (!time) {
     return 0;
   }

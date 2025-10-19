@@ -26,6 +26,7 @@ import { setDialogConfig } from '../util/ConfirmDialog';
 import {
   getVideoFile,
   useAdjustHintOffsetEnable,
+  useAutoFileSplitEnable,
   useAutoNextTimestamp,
   useMouseWheelInverted,
   useTravelRightToLeft,
@@ -63,6 +64,7 @@ export const VideoSettingsDialog = () => {
   const [videoSettings, setVideoSettings] = useVideoSettings();
   const [wheelInverted, setWheelInverted] = useMouseWheelInverted();
   const [hintOffsetEnable, setHintOffsetEnable] = useAdjustHintOffsetEnable();
+  const [autoFileSplit, setAutoFileSplit] = useAutoFileSplitEnable();
   const [rightToLeft, setRightToLeft] = useTravelRightToLeft();
   const [autoNextTimestamp, setAutoNextTimestamp] = useAutoNextTimestamp();
 
@@ -271,12 +273,30 @@ export const VideoSettingsDialog = () => {
             >
               <FormControlLabel
                 labelPlacement="end"
-                label="Adjust hint timestamps"
+                label="Adjust hint timestamps (beta)"
                 control={
                   <Checkbox
                     size="small"
                     checked={hintOffsetEnable}
                     onChange={() => setHintOffsetEnable(!hintOffsetEnable)}
+                  />
+                }
+              />
+            </Tooltip>
+          </Box>
+          <Box className={classes.settings}>
+            <Tooltip
+              title="Issue File-Split commands to the recorder automatically"
+              placement="right"
+            >
+              <FormControlLabel
+                labelPlacement="end"
+                label="Automatic Recorder File Splitting (beta)"
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={autoFileSplit}
+                    onChange={() => setAutoFileSplit(!autoFileSplit)}
                   />
                 }
               />

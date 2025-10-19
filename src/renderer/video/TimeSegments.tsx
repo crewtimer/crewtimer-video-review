@@ -74,7 +74,7 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
       {displaySegments.map((segment, index) => {
         const widthPercent = segment.pct * 100;
         const title = `${segment.label} ${segment.startTime} - ${segment.endTime}`;
-        const key = `$title}-${index}`;
+        const key = `${title}-${index}`;
         const numClicks = fileStatusList?.[index]?.numClicks || 0;
         const style =
           numClicks === 0

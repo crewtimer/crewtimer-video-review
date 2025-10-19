@@ -8,7 +8,14 @@ import {
   useDay,
 } from 'renderer/util/UseSettings';
 import { gateFromWaypoint, getConnectionProps } from 'renderer/util/Util';
-import { getVideoSettings, useVideoSettings } from './VideoSettings';
+import {
+  getVideoBow,
+  getVideoBowUuid,
+  getVideoSettings,
+  setVideoBow,
+  setVideoEvent,
+  useVideoSettings,
+} from './VideoSettings';
 import { parseTimeToSeconds } from '../util/StringUtils';
 
 export interface ExtendedLap extends Lap {
@@ -36,13 +43,22 @@ const onDataRxTransformer = (
       eventSet.add(event.EventNum);
     });
 
+    const videoBow = getVideoBow();
+    const videoUuid = getVideoBowUuid();
     // Remove entries that are deleted or have no matching day value if day is set
-    sorted = sorted.filter(
-      (lap) =>
+    sorted = sorted.filter((lap) => {
+      // If our current videoBow is '?' (not set) and this lap matches the videoUuid, set the videoBow to this lap's bow
+      if (videoBow === '?' && lap.EventNum !== '?' && lap.uuid === videoUuid) {
+        setVideoBow(lap.Bow, lap.uuid);
+        setVideoEvent(lap.EventNum);
+      }
+      // omit deleted, "?" event, and non-matching day
+      return (
         lap.State !== 'Deleted' &&
         ((lap.EventNum === '?' && (!day || lap.Day === day)) ||
-          eventSet.has(lap.EventNum)),
-    );
+          eventSet.has(lap.EventNum))
+      );
+    });
     sorted.forEach((lap) => {
       lap.seconds = parseTimeToSeconds(lap.Time || '00:00:00.000');
     });
