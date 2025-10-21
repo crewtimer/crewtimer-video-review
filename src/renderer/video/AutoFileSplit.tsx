@@ -3,24 +3,33 @@ import { UseDatum } from 'react-usedatum';
 import { parseTimeToSeconds } from 'renderer/util/StringUtils';
 import { convertTimestampToLocalMicros } from 'renderer/shared/Util';
 import { useWaypoint } from 'renderer/util/UseSettings';
+import {
+  getEntryResult,
+  getEntryResultsList,
+  useEntryResultsChanged,
+} from 'renderer/util/LapStorageDatum';
+import { gateFromWaypoint } from 'renderer/util/Util';
 import { seekToNextTimePoint, triggerFileSplit } from './VideoUtils';
 import {
   getVideoBow,
   getVideoTimestamp,
   useLastScoredTimestamp,
+  useVideoSettings,
 } from './VideoSettings';
-import { ExtendedLap, useClickerData } from './UseClickerData';
+import { ExtendedLap } from './UseClickerData';
 import { useFileStatusList } from './VideoFileStatus';
 
 export interface SplitStatus {
   openSplits: number;
   futureSplits: number;
+  firstHintSeconds: number;
 }
 
 export const [useAutoFileSplit, setAutoFileSplit, getAutoFileSplit] =
   UseDatum<SplitStatus>({
     openSplits: 0,
     futureSplits: 0,
+    firstHintSeconds: 0,
   });
 
 export const [useAutoSeekHoldoff, setAutoSeekHoldoff, getAutoSeekHoldoff] =
@@ -43,11 +52,13 @@ export const AutoFileSplit: FC = () => {
   // const [{ openSplits, futureSplits }] = useAutoFileSplit();
   const timerRef = useRef<number | undefined>(undefined);
   const [lastScoredTimestamp] = useLastScoredTimestamp();
-  const hintLapdata = useClickerData() as ExtendedLap[];
   const [scoredWaypoint] = useWaypoint();
-  const scoredLapdata = useClickerData(scoredWaypoint) as ExtendedLap[];
+
+  const [videoSettings] = useVideoSettings();
+  const hintWaypoint = videoSettings?.timingHintSource || '';
   const [fileStatusList] = useFileStatusList();
-  const [{ openSplits, futureSplits }] = useAutoFileSplit();
+  const [{ openSplits, futureSplits, firstHintSeconds }] = useAutoFileSplit();
+  const [entryResultsChanged] = useEntryResultsChanged();
   const [autoSeekHoldoff] = useAutoSeekHoldoff();
   const prevOpenRef = useRef<number>(openSplits);
   const prevFutureRef = useRef<number>(futureSplits);
@@ -58,15 +69,17 @@ export const AutoFileSplit: FC = () => {
       timerRef.current = undefined;
     }
   }, []);
+
   const lastScoredSeconds = useMemo(
     () => parseTimeToSeconds(lastScoredTimestamp),
     [lastScoredTimestamp],
   );
+
   /**
-   * Memoize lastScoredSeconds
-   * Inputs: lastScoredTimestamp string from datum
-   * Output: number seconds parsed from timestamp
-   * Reason: parsing is cheap but stable — memoize so downstream memos depend on a stable value
+   * Memoize lastFileStatusSeconds
+   * Inputs: fileStatusList (array) — only the last entry matters
+   * Output: numeric seconds of the last file end (or Infinity)
+   * Reason: avoids re-computing timestamp conversion on every render; used when classifying hints
    */
   const lastFileStatusSeconds = useMemo(() => {
     const lastFileStatus = fileStatusList?.[fileStatusList.length - 1];
@@ -79,80 +92,47 @@ export const AutoFileSplit: FC = () => {
     );
   }, [fileStatusList]);
 
-  /**
-   * Memoize lastFileStatusSeconds
-   * Inputs: fileStatusList (array) — only the last entry matters
-   * Output: numeric seconds of the last file end (or Infinity)
-   * Reason: avoids re-computing timestamp conversion on every render; used when classifying hints
-   */
-
-  const { hintsSet, futureSplitsSum, firstHintSeconds } = useMemo(() => {
-    let future = 0;
-    let first: ExtendedLap | undefined;
-    const hints = new Set<string>();
-    for (const lap of hintLapdata) {
-      if (lap.seconds > lastFileStatusSeconds) {
-        future += 1;
-      } else if (lap.seconds > lastScoredSeconds) {
-        if (!first) {
-          first = lap;
-        }
-        hints.add(`${lap.EventNum}-${lap.Bow}`);
-      }
-    }
-    const firstSeconds = parseTimeToSeconds(first?.Time);
-    return {
-      hintsSet: hints,
-      futureSplitsSum: future,
-      firstHintSeconds: firstSeconds,
-    };
-  }, [hintLapdata, lastFileStatusSeconds, lastScoredSeconds]);
-
-  /**
-   * Compute hintsSet and futureSplitsSum
-   * Inputs: hintLapdata array, lastFileStatusSeconds, lastScoredSeconds
-   * Outputs: hintsSet (Set of lap keys that are hints since last scored but before file end),
-   *          futureSplitsSum (count of hints after last file end)
-   * Reason: Single pass over hintLapdata to classify entries; memoized because hintLapdata is large
-   */
-
-  const scoredSet = useMemo(() => {
-    const scored = new Set<string>();
-    for (const lap of scoredLapdata) {
-      if (lap.seconds > lastScoredSeconds) {
-        scored.add(`${lap.EventNum}-${lap.Bow}`);
-      }
-    }
-    return scored;
-  }, [scoredLapdata, lastScoredSeconds]);
-
-  /**
-   * Compute scoredSet
-   * Inputs: scoredLapdata, lastScoredSeconds
-   * Output: Set of lap keys that are scored after lastScoredSeconds
-   * Reason: memoized to avoid re-scanning scoredLapdata on unrelated renders
-   */
-
-  const hintsNotInScoredCount = useMemo(() => {
-    let c = 0;
-    for (const k of hintsSet) if (!scoredSet.has(k)) c += 1;
-    return c;
-  }, [hintsSet, scoredSet]);
-
-  /**
-   * Push derived counts into the shared datum
-   * Inputs: futureSplitsSum, hintsNotInScoredCount
-   * Effect: writes computed counts to the `useAutoFileSplit` datum. react-usedatum will
-   *         deep-compare and avoid notifying subscribers if nothing changed.
-   * Reason: keep the shared datum in sync with computed values from lap arrays.
-   */
   useEffect(() => {
+    const scoredGate = gateFromWaypoint(scoredWaypoint);
+    const hintGate = gateFromWaypoint(hintWaypoint);
+    const lapList = getEntryResultsList() as ExtendedLap[];
+
+    let futureCount = entryResultsChanged - entryResultsChanged; // to use the variable and avoid lint warning
+    let first: ExtendedLap | undefined;
+    let hintsNotScoredCount = 0;
+    lapList.forEach((lap) => {
+      if (lap.Gate === hintGate) {
+        const scoredKey = `${scoredGate}_${lap.EventNum}_${lap.Bow}`;
+        const scoredAlready = getEntryResult(scoredKey) !== undefined;
+        if (scoredAlready) {
+          return;
+        }
+        if (lap.seconds > lastFileStatusSeconds) {
+          futureCount += 1;
+        } else if (lap.seconds > lastScoredSeconds) {
+          hintsNotScoredCount += 1;
+          if (!first) {
+            first = lap;
+          }
+        }
+      }
+    });
+    const firstSeconds = first?.seconds || 0;
+
+    // Update counts
     setAutoFileSplit((prev) => ({
       ...prev,
-      futureSplits: futureSplitsSum,
-      openSplits: hintsNotInScoredCount,
+      futureSplits: futureCount,
+      openSplits: hintsNotScoredCount,
+      firstHintSeconds: firstSeconds,
     }));
-  }, [futureSplitsSum, hintsNotInScoredCount]);
+  }, [
+    entryResultsChanged,
+    hintWaypoint,
+    lastFileStatusSeconds,
+    lastScoredSeconds,
+    scoredWaypoint,
+  ]);
 
   useEffect(() => {
     const prevOpen = prevOpenRef.current;
@@ -203,7 +183,7 @@ export const AutoFileSplit: FC = () => {
       // If current timestamp is before the first hint and after or at lastScored, seek to the next time point
       const ts = getVideoTimestamp();
       const tsSecs = parseTimeToSeconds(ts);
-      if (tsSecs >= lastScoredSeconds - 0.1 && tsSecs < firstHintSeconds) {
+      if (tsSecs >= lastScoredSeconds - 0.1 && tsSecs <= firstHintSeconds) {
         const bow = getVideoBow();
         setAutoSeekHoldoff(true); // no more auto seeks until an add split is done
         seekToNextTimePoint({ time: ts, bow });

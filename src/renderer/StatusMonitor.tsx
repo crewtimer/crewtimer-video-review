@@ -1,43 +1,17 @@
-import { Lap } from 'crewtimer-common';
 import { useEffect } from 'react';
 import { UseStoredDatum } from './store/UseElectronDatum';
 import { setToast } from './Toast';
-import {
-  clearEntryResults,
-  getEntryResult,
-  setEntryResult,
-  signalEventUpdated,
-} from './util/LapStorageDatum';
-import {
-  useInitializing,
-  useMobileConfig,
-  useWaypoint,
-} from './util/UseSettings';
-import { useClickerData } from './video/UseClickerData';
+import { clearEntryResults } from './util/LapStorageDatum';
+import { useInitializing, useMobileConfig } from './util/UseSettings';
 import { sendInfoMessage } from './video/VideoUtils';
-import { deepCompare } from './util/Compare';
 
 const { LapStorage } = window;
 
 const [, setLastClearTS, getLastClearTS] = UseStoredDatum('LastClearTS', 0);
 
-const timeSort = (a: Lap, b: Lap) => {
-  const t1 = a.Timestamp || 0;
-  const t2 = b.Timestamp || 0;
-  if (t1 < t2) {
-    return -1;
-  }
-  if (t1 > t2) {
-    return 1;
-  }
-  return 0;
-};
-
 export default function StatusMonitor() {
   const [mc] = useMobileConfig();
   const [initializing] = useInitializing();
-  const [timingWaypoint] = useWaypoint();
-  const timingLapdata = useClickerData(timingWaypoint) as Lap[];
 
   useEffect(() => {
     const clearTS = mc?.info.ClearTS || 0;
@@ -51,23 +25,6 @@ export default function StatusMonitor() {
     setLastClearTS(clearTS);
     clearEntryResults(undefined);
   }, [mc?.info.ClearTS]);
-
-  useEffect(() => {
-    for (const lap of [...timingLapdata].sort(timeSort)) {
-      const key = `${lap.Gate}_${lap.EventNum}_${lap.Bow}`;
-      lap.keyid = key;
-      const prior = getEntryResult(key);
-      if (!deepCompare('', prior, lap)) {
-        // trigger race visual update if time changed
-        signalEventUpdated(lap.EventNum);
-      }
-      if (lap.State === 'Deleted') {
-        setEntryResult(key, undefined);
-      } else {
-        setEntryResult(key, lap);
-      }
-    }
-  }, [timingLapdata]);
 
   useEffect(() => {
     // Let recorder know the current waypoint configuration periodically

@@ -84,6 +84,7 @@ export const performAddSplit = () => {
         delete lap.State;
         setAutoSeekHoldoff(false);
         setEntryResultAndPublish(key, lap);
+        lap.Time && setLastScoredTimestamp(lap.Time);
       },
     });
     return;
@@ -100,6 +101,7 @@ export const performAddSplit = () => {
         updateClickOffset(getLastSeekTime().time, videoTimestamp);
         setAutoSeekHoldoff(false);
         setEntryResultAndPublish(key, lap);
+        lap.Time && setLastScoredTimestamp(lap.Time);
         setResetZoomCounter((c) => c + 1);
         setToast({
           severity: 'info',

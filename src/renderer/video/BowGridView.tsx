@@ -14,7 +14,11 @@ import {
   useEventsUpdated,
   getEntryResult,
 } from 'renderer/util/LapStorageDatum';
-import { useWaypoint } from 'renderer/util/UseSettings';
+import {
+  useHintGate,
+  useScoredGate,
+  useWaypoint,
+} from 'renderer/util/UseSettings';
 import { useSingleAndDoubleClick } from 'renderer/util/UseSingleAndDoubleClick';
 import { gateFromWaypoint, timeToMilli } from 'renderer/util/Util';
 import { useEntryException } from './UseClickerData';
@@ -61,26 +65,32 @@ export function eventToRows(ev: Event, orderByTime: boolean, gate: string) {
 // BowButton: small component for individual bow buttons. Shows exception text (if any)
 // and supports compact wrapping when exception text exists.
 const BowButton: React.FC<{
-  gate: string;
   eventNum: string;
   bow: string;
   width: number;
   buttonRef?: (el: HTMLButtonElement | null) => void;
-}> = ({ gate, eventNum, bow, width, buttonRef }) => {
+}> = ({ eventNum, bow, width, buttonRef }) => {
   const [selectedEvent] = useVideoEvent();
   const [videoBow] = useVideoBow();
-  // compute derived properties here
-  const entryKey = `${gate}_${eventNum}_${bow}`;
-  const [lap] = useEntryResult(entryKey);
-  const hasTime = !!(lap && lap.State !== 'Deleted' && lap.Time);
-  const tooltipTitle = hasTime
-    ? `${lap.Time}${lap.Crew ? ` • ${lap.Crew}` : ''}`
-    : '';
   const sanitizedKey = sanitizeFirebaseKey(`1-${eventNum}-${bow}`);
   const [exception] = useEntryException(sanitizedKey ?? '');
   const compact = !!exception;
   const isCurrent = String(eventNum) === String(selectedEvent);
   const isSelected = isCurrent && videoBow === bow;
+  const scoredGate = useScoredGate();
+  const hintGate = useHintGate();
+  const entryKey = `${scoredGate}_${eventNum}_${bow}`;
+  const [scoredValue] = useEntryResult(entryKey);
+  const [hintValue] = useEntryResult(`${hintGate}_${eventNum}_${bow}`);
+  // compute derived properties here
+  const hasTime = !!(
+    scoredValue &&
+    scoredValue.State !== 'Deleted' &&
+    scoredValue.Time
+  );
+  const tooltipTitle = hasTime
+    ? `${scoredValue.Time}${scoredValue.Crew ? ` • ${scoredValue.Crew}` : ''}`
+    : '';
 
   const { onSingleClick, onDoubleClick } = useSingleAndDoubleClick(
     () => {
@@ -101,6 +111,7 @@ const BowButton: React.FC<{
     width,
     maxWidth: width,
     overflow: 'hidden',
+    position: 'relative',
     textOverflow: 'clip',
     whiteSpace: compact ? 'normal' : 'nowrap',
     fontSize: compact ? 10 : undefined,
@@ -108,25 +119,31 @@ const BowButton: React.FC<{
     padding: 0,
   };
 
+  // Compute top bar background: left half green if hint exists, right half green if scored exists
+  const activeColor = '#0e0'; // '#4caf50';
+  const inactiveColor = '#ddd';
+  const topBarBackground =
+    hintValue !== undefined && scoredValue !== undefined
+      ? activeColor
+      : hintValue !== undefined
+        ? `linear-gradient(to right, ${activeColor} 0%, ${activeColor} 50%, ${inactiveColor} 50%, ${inactiveColor} 100%)`
+        : scoredValue !== undefined
+          ? `linear-gradient(to right, ${inactiveColor} 0%, ${inactiveColor} 50%, ${activeColor} 50%, ${activeColor} 100%)`
+          : inactiveColor;
+
   if (isSelected) {
     // show as a normal primary-colored button when selected and empty
     sx.color = 'primary.contrastText';
-    sx.border = '1px solid red';
     sx.fontWeight = 'bold';
-    if (hasTime) {
-      sx.backgroundColor = '#ccc';
-      sx.color = 'primary.main';
-    } else {
-      sx.backgroundColor = 'primary.main';
-    }
-    // remove emphasized border/glow
+    sx.backgroundColor = 'primary.main';
     sx.boxShadow = undefined;
     sx['&:hover'] = {
       backgroundColor: 'primary.dark',
+      color: 'white',
     };
     // if there's an exception, give a light pink background
   } else if (hasTime) {
-    sx.backgroundColor = '#ccc';
+    sx.backgroundColor = '#ddd';
     sx.color = 'text.secondary';
     sx.opacity = 0.8;
   } else {
@@ -154,19 +171,39 @@ const BowButton: React.FC<{
               eventName: '',
               eventNum,
               label: `${bow}`,
-              Crew: lap?.Crew || '',
+              Crew: scoredValue?.Crew || '',
               Bow: bow,
-              Time: hasTime ? lap?.Time || '' : '',
+              Time: hasTime ? scoredValue?.Time || '' : '',
               event: undefined,
-              entry: { Bow: bow, Crew: lap?.Crew || '', EventNum: eventNum },
+              entry: {
+                Bow: bow,
+                Crew: scoredValue?.Crew || '',
+                EventNum: eventNum,
+              },
             } as unknown as ResultRowType;
             setContextMenuAnchor({ element: e.currentTarget as Element, row });
           }
         }}
         ref={buttonRef}
       >
+        {/* Thin status bar across the top: left half indicates hint, right half indicates scored */}
+        {/* compute background above to avoid nested ternary indentation issues */}
+
+        <Box
+          sx={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            height: '3px',
+            background: topBarBackground,
+            zIndex: 2,
+            borderBottom: '1px solid rgba(0,0,0,0.25)',
+          }}
+        />
         <span
           style={{
+            paddingTop: 3,
             display: 'inline-block',
             width: '100%',
             overflow: 'hidden',
@@ -230,9 +267,8 @@ const BowRowComponent: React.FC<{
   ev: Event;
   row: string[];
   buttonWidth: number;
-  gate: string;
   buttonRefs: React.MutableRefObject<Record<string, HTMLButtonElement | null>>;
-}> = ({ ev, row, buttonWidth, gate, buttonRefs }) => {
+}> = ({ ev, row, buttonWidth, buttonRefs }) => {
   const [selectedEvent] = useVideoEvent();
   const isCurrent = String(ev.EventNum) === String(selectedEvent);
   return (
@@ -256,7 +292,6 @@ const BowRowComponent: React.FC<{
         <BowButton
           eventNum={String(ev.EventNum)}
           key={bow}
-          gate={gate}
           bow={bow}
           width={buttonWidth}
           buttonRef={(el: HTMLButtonElement | null) => {
@@ -458,12 +493,11 @@ export const BowGridView: React.FC<{
           ev={ev}
           row={r}
           buttonWidth={buttonWidth}
-          gate={gate}
           buttonRefs={buttonRefs}
         />
       );
     },
-    [groups, buttonWidth, gate, buttonRefs, groupCounts, groupStarts],
+    [groups, buttonWidth, buttonRefs, groupCounts, groupStarts],
   );
 
   // Render using GroupVirtuoso: groups -> event headers, items -> rows of bow buttons

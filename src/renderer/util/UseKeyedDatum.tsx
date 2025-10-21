@@ -145,6 +145,8 @@ export const UseKeyedDatum = <T,>(
     );
   };
 
+  const getList = () => Array.from(valueCache.values()) as T[];
+
   return [
     useKeyedDatum,
     setValueByKey,
@@ -152,6 +154,7 @@ export const UseKeyedDatum = <T,>(
     clear,
     getKeys,
     dumpContents,
+    getList,
   ] as [
     typeof useKeyedDatum,
     typeof setValueByKey,
@@ -159,6 +162,7 @@ export const UseKeyedDatum = <T,>(
     typeof clear,
     typeof getKeys,
     typeof dumpContents,
+    typeof getList,
   ];
 };
 

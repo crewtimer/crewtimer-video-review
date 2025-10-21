@@ -213,7 +213,6 @@ const VideoScrubber = () => {
     }
   };
 
-  // console.log(`videoFrameNum: ${videoFrameNum}/${numFrames}`);
   const sliderValue = videoFrameNum;
   return (
     <Stack

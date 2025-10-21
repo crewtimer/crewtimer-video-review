@@ -12,8 +12,11 @@ import {
   N_MOBILE_ID,
   N_WAYPOINT,
 } from '../shared/Constants';
-import { timeToMilli } from './Util';
-import { getHintOffsetEnable } from 'renderer/video/VideoSettings';
+import { gateFromWaypoint, timeToMilli } from './Util';
+import {
+  getHintOffsetEnable,
+  useVideoSettings,
+} from 'renderer/video/VideoSettings';
 
 const { LapStorage } = window;
 export const AUTH_OK = 'OK';
@@ -67,6 +70,18 @@ export const [useWaypoint, setWaypoint, getWaypoint] = UseStoredDatum(
   N_WAYPOINT,
   'Finish',
 );
+
+export const useScoredGate = () => {
+  const [waypoint] = useWaypoint();
+  return gateFromWaypoint(waypoint);
+};
+
+export const useHintGate = () => {
+  const [videoSettings] = useVideoSettings();
+  const hintWaypoint = videoSettings?.timingHintSource || '';
+  return gateFromWaypoint(hintWaypoint);
+};
+
 export const [useFLStartWaypoint, setFLStartWaypoint, getFLStartWaypoint] =
   UseStoredDatum(N_FL_START_WAYPOINT, 'Start');
 export const [

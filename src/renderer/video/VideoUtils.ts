@@ -23,7 +23,6 @@ import {
   setVideoFrameNum,
   VideoScaling,
   getDirList,
-  getLastSeekTime,
   setFileSplitPending,
 } from './VideoSettings';
 import { TimeObject } from './VideoTypes';
@@ -541,14 +540,14 @@ export const seekToNextTimePoint = (from: {
   let right = timePoints.length - 1;
   let result: ExtendedLap | undefined;
   // prefre starting search from the last seek position
-  let seekTime = from.time || '00:00:00.000';
-  const lastSeekTime = getLastSeekTime();
+  const seekTime = from.time || '00:00:00.000';
+  // const lastSeekTime = getLastSeekTime();
 
-  // If the last seek time was to a ? field, only go forward from specified time
-  if (lastSeekTime.bow !== '?' && lastSeekTime.time) {
-    seekTime = lastSeekTime.time;
-  }
-  console.log(JSON.stringify({ from, lastSeekTime, seekTime }));
+  // // If the last seek time was to a ? field, only go forward from specified time
+  // if (lastSeekTime.bow !== '?' && lastSeekTime.time) {
+  //   seekTime = lastSeekTime.time;
+  // }
+  // console.log(JSON.stringify({ from, lastSeekTime, seekTime }));
   const s = parseTimeToSeconds(seekTime);
 
   let mid: number = 0;
