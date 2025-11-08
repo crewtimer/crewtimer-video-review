@@ -112,6 +112,13 @@ You can verify you have a valid signing identity with command below. It should l
 security find-identity -v -p codesigning
 ```
 
+Create an app specific password:
+Sign in at appleid.apple.com with your Apple ID.
+
+1. Under Security, find App-Specific Passwords and click Generate Password….
+2. Enter a label (e.g., “notarize-script”) and click Create.
+3. Copy the generated password (one-time view) and paste it into the command below
+
 Once you have obtained an app specific password from your developer account, store it into the keychain with this command:
 
 ```bash

@@ -115,18 +115,30 @@ getFrame(const std::unique_ptr<FFVideoReader> &ffreader,
     frame->data = std::make_shared<std::vector<std::uint8_t>>(
         rgbaFrame->data[0], rgbaFrame->data[0] + totalBytes);
     frame->motion = {0, 0, 0, false};
-    auto timestamp100ns =
-        extractTimestampFromFrame(*frame->data, 0, rgbaFrame->width);
-    auto tsMilli =
-        (5000 + timestamp100ns) / 10000; // Round 64-bit number to milliseconds
-    auto tsMicro = (5 + timestamp100ns) / 10;
-
-    if (tsMicro == 0)
+    if (ffreader->getFirstUtcUs() != 0)
     {
-      tsMilli = uint64_t(0.5 + ((frameNum - 1) * 1000) / (frame->fps));
+      // std::cerr << "Using first_utc_us from video: " << ffreader->getFirstUtcUs() << std::endl;
+      auto tsMicro = ffreader->getFirstUtcUs() + 1000000 * rgbaFrame->pts * rgbaFrame->time_base.num / rgbaFrame->time_base.den;
+      frame->tsMicro = tsMicro;
+      frame->timestamp = (tsMicro + 500) / 1000;
+      // std::cerr << "timestamp ms: " << frame->timestamp << " pts: " << rgbaFrame->pts << std::endl;
     }
-    frame->tsMicro = tsMicro;
-    frame->timestamp = tsMilli;
+    else
+    {
+
+      auto timestamp100ns =
+          extractTimestampFromFrame(*frame->data, 0, rgbaFrame->width);
+      auto tsMilli =
+          (5000 + timestamp100ns) / 10000; // Round 64-bit number to milliseconds
+      auto tsMicro = (5 + timestamp100ns) / 10;
+
+      if (tsMicro == 0)
+      {
+        tsMilli = uint64_t(0.5 + ((frameNum - 1) * 1000) / (frame->fps));
+      }
+      frame->tsMicro = tsMicro;
+      frame->timestamp = tsMilli;
+    }
     frameInfoList.addFrame(frame);
   }
   return frame;

@@ -69,6 +69,11 @@ class FFVideoReader
   std::deque<std::pair<int64_t, AVFrame *>> recentFrames;
 
   /**
+   * UTC microseconds of the first frame in the video.
+   */
+  uint64_t first_utc_us;
+
+  /**
    * @brief Converts a decoding timestamp (DTS) to seconds using the stream's time base.
    *
    * @param dts The DTS to be converted.
@@ -121,6 +126,11 @@ public:
    * @brief Destructor. Automatically closes the file and frees FFmpeg resources.
    */
   ~FFVideoReader();
+
+  /**
+   * @brief Retrieves the UTC microseconds of the first frame in the video.
+   */
+  uint64_t getFirstUtcUs() const { return first_utc_us; }
 
   /**
    * @brief Opens a video file for reading and decoding.

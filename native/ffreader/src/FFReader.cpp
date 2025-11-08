@@ -4,6 +4,7 @@ extern "C"
 {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/parseutils.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/time.h>
 }
@@ -217,6 +218,7 @@ int FFVideoReader::openFile(const std::string filename)
 {
   // av_log_set_level(AV_LOG_DEBUG);
   closeFile();
+  first_utc_us = 0;
   packet = av_packet_alloc();
   frame = av_frame_alloc();
   formatContext = avformat_alloc_context();
@@ -237,6 +239,26 @@ int FFVideoReader::openFile(const std::string filename)
   {
     std::cerr << "Error: Couldn't find stream information\n";
     return -1;
+  }
+
+  AVDictionaryEntry *e = av_dict_get(formatContext->metadata, "com.crewtimer.first_utc_us", nullptr, 0);
+  if (e)
+  {
+    first_utc_us = std::stoull(e->value);
+  }
+  else
+  {
+    AVDictionaryEntry *creationEntry = av_dict_get(formatContext->metadata, "creation_time", nullptr, 0);
+    if (creationEntry && creationEntry->value)
+    {
+      int64_t creation_us = 0;
+      if (av_parse_time(&creation_us, creationEntry->value, 0) == 0 && creation_us > 0)
+      {
+        // av_parse_time returns microseconds relative to the Unix epoch.
+        first_utc_us = static_cast<uint64_t>(creation_us);
+        // std::cerr << "Parsed creation_time metadata: " << creationEntry->value << " -> " << first_utc_us << " us\n";
+      }
+    }
   }
 
   videoStreamIndex = -1;
@@ -375,6 +397,8 @@ AVFrame *FFVideoReader::grabFrame()
                       ? packet->pts
                       : packet->dts;
   }
+  frame->pts = picture_pts;
+  frame->time_base = formatContext->streams[videoStreamIndex]->time_base;
 
   // Calculate currentFrameNumber based on DTS
 
@@ -591,7 +615,6 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
     }
     break;
   }
-
   return frame;
 }
 
@@ -659,6 +682,8 @@ const AVFrame *FFVideoReader::ConvertFrameToRGBA(AVFrame *frame)
             rgbaFrame->data, rgbaFrame->linesize            // Destination
   );
 
+  rgbaFrame->pts = frame->pts;
+  rgbaFrame->time_base = frame->time_base;
   return rgbaFrame;
 }
 
