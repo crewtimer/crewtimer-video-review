@@ -1,16 +1,26 @@
 import { setToast } from 'renderer/Toast';
 import { getEntryResult } from 'renderer/util/LapStorageDatum';
+import { getWaypoint } from 'renderer/util/UseSettings';
 import { gateFromWaypoint } from 'renderer/util/Util';
-import { seekToTimestamp } from './RequestVideoFrame';
+import { UseDatum } from 'react-usedatum';
+import {
+  seekToTimestamp,
+  seekToTimestampWithInterpolation,
+} from './RequestVideoFrame';
 import { getClickerData } from './UseClickerData';
 import {
+  getVideoScaling,
   setVideoEvent,
   setVideoBow,
   resetVideoZoom,
   ResultRowType,
 } from './VideoSettings';
-import { UseDatum } from 'react-usedatum';
-import { getWaypoint } from 'renderer/util/UseSettings';
+import { loadInterpolationRecordForLap } from './InterpolationStore';
+
+const delay = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 export function sanitizeFirebaseKey(s: string) {
   return s.replace(/[#$/[.\]]/g, '-');
@@ -43,10 +53,20 @@ export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
       );
     }
     if (lap?.Time && lap?.State !== 'Deleted') {
-      resetVideoZoom();
       const seekTime = lap.Time;
-      setTimeout(() => {
-        const found = seekToTimestamp({ time: seekTime, bow: lap.Bow });
+      setTimeout(async () => {
+        const interpolation = await loadInterpolationRecordForLap(lap);
+        if (!interpolation && getVideoScaling().zoomY !== 1) {
+          resetVideoZoom();
+          await delay(150);
+        }
+        const found = interpolation
+          ? await seekToTimestampWithInterpolation({
+              time: seekTime,
+              bow: lap.Bow,
+              interpolation,
+            })
+          : seekToTimestamp({ time: seekTime, bow: lap.Bow });
         if (!found) {
           setToast({
             severity: 'warning',

@@ -47,7 +47,7 @@
     "build:win": "npm run build && node_modules/.bin/electron-builder --win",
     "build:mac": "npm run build && APPLE_KEYCHAIN_PROFILE=crewtimer-app-signing node_modules/.bin/electron-builder --mac",
     "build:macx64": "npm run build && node_modules/.bin/electron-builder --mac --arch x64",
-    "build:macarm64": "npm run build && node_modules/.bin/electron-builder --mac--arch arm64",
+    "build:macarm64": "npm run build && node_modules/.bin/electron-builder --mac --arch arm64",
     "kill": "kill -9 `lsof -i:1212 -t`",
     "build:native": "cd release/app && yarn add ../../native/ffreader",
     "build:release": "yarn clean && yarn build && yarn build:mac && yarn build:win && open release/build",

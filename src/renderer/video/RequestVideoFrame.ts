@@ -7,6 +7,7 @@ import {
 import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { parseTimeToSeconds } from 'renderer/util/StringUtils';
 import { convertTimestampToLocalMicros } from 'renderer/shared/Util';
+import { updateVideoScaling } from 'renderer/util/ImageScaling';
 import { getClickOffset, getWaypoint } from 'renderer/util/UseSettings';
 import {
   setVideoError,
@@ -30,8 +31,14 @@ import {
 import { generateTestPattern } from '../util/ImageUtils';
 import { getClickerData } from './UseClickerData';
 import { saveVideoSidecar } from './Sidecar';
-import { updateVideoScaling } from 'renderer/util/ImageScaling';
-import { getFinishLine, getTrackingRegion, moveToFrame } from './VideoUtils';
+// eslint-disable-next-line import/no-cycle
+import {
+  getFinishLine,
+  getTrackingRegion,
+  moveToFrame,
+  Point,
+} from './VideoUtils';
+import type { InterpolationRecord } from './InterpolationStore';
 
 const { VideoUtils } = window;
 
@@ -221,12 +228,18 @@ function handleFrameError(videoFile: string, seekPos: number, error: any) {
  * @param {VideoFrameRequest} params - Parameters specifying the video file, frame selection criteria, and options.
  * @returns {Promise<void>} Resolves when the frame is processed and state is updated.
  */
-const doRequestVideoFrame = async (request: VideoFrameRequest) => {
-  if (!request.videoFile) return;
+const doRequestVideoFrame = async (
+  request: VideoFrameRequest,
+): Promise<AppImage | undefined> => {
+  if (!request.videoFile) {
+    return undefined;
+  }
 
   try {
     const status = await ensureFileOpen(request.videoFile);
-    if (!status) return;
+    if (!status) {
+      return undefined;
+    }
 
     const { seekPos, utcMilli } = calculateSeekFrame(
       status,
@@ -245,12 +258,12 @@ const doRequestVideoFrame = async (request: VideoFrameRequest) => {
       });
     } catch (e) {
       handleFrameError(request.videoFile, clampedSeekPos, e);
-      return;
+      return undefined;
     }
 
     if (!image) {
       handleFrameError(request.videoFile, clampedSeekPos, 'No image returned');
-      return;
+      return undefined;
     }
 
     // if (toTimestamp) {
@@ -275,8 +288,8 @@ const doRequestVideoFrame = async (request: VideoFrameRequest) => {
     return image;
   } catch (e) {
     handleFrameError(request.videoFile, request.frameNum ?? 1, e);
+    return undefined;
   }
-  return;
 };
 
 let running = false;
@@ -339,6 +352,43 @@ export function requestVideoFrame(
   });
 }
 
+const resolveSeekTarget = ({
+  time,
+  offsetMilli,
+  bow,
+}: {
+  time: string;
+  offsetMilli?: number;
+  bow?: string;
+}) => {
+  setLastSeekTime({ time, bow });
+  let adjustedTime = time;
+  if (offsetMilli) {
+    adjustedTime = milliToString(timeToMilli(time) + offsetMilli);
+  }
+  const jumpTime = parseTimeToSeconds(adjustedTime);
+  const fileStatusList = getFileStatusList();
+  const fileIndex = fileStatusList.findIndex((item) => {
+    const start = secondsSinceLocalMidnight(
+      item.startTime / 1000000,
+      item.tzOffset,
+    );
+    const end = secondsSinceLocalMidnight(
+      item.endTime / 1000000,
+      item.tzOffset,
+    );
+    return jumpTime >= start && jumpTime <= end;
+  });
+  if (fileIndex < 0) {
+    return undefined;
+  }
+
+  const videoFile = fileStatusList[fileIndex].filename;
+  setSelectedIndex(fileIndex);
+  setVideoFile(videoFile);
+  return { time: adjustedTime, videoFile };
+};
+
 /**
  * Seeks to the specified timestamp within the available video files.
  * Determines the corresponding video file for the given timestamp, updates the selected index and video file,
@@ -356,38 +406,78 @@ export const seekToTimestamp = ({
   offsetMilli?: number;
   bow?: string;
 }): string | undefined => {
-  setLastSeekTime({ time: time, bow });
-  if (offsetMilli) {
-    time = milliToString(timeToMilli(time) + offsetMilli);
-  }
-  const jumpTime = parseTimeToSeconds(time);
-  const fileStatusList = getFileStatusList();
-  const fileIndex = fileStatusList.findIndex((item) => {
-    const start = secondsSinceLocalMidnight(
-      item.startTime / 1000000, // usec to sec
-      item.tzOffset,
-    );
-    const end = secondsSinceLocalMidnight(
-      item.endTime / 1000000,
-      item.tzOffset,
-    );
-    return jumpTime >= start && jumpTime <= end;
-  });
-  if (fileIndex < 0) {
+  const target = resolveSeekTarget({ time, offsetMilli, bow });
+  if (!target) {
     return undefined;
   }
-
-  const videoFile = fileStatusList[fileIndex].filename;
-  setSelectedIndex(fileIndex);
-  setVideoFile(videoFile);
   requestVideoFrame({
-    videoFile,
-    toTimestamp: time,
+    videoFile: target.videoFile,
+    toTimestamp: target.time,
     blend: false,
     saveAs: '',
     closeTo: false,
   }).catch(showErrorDialog);
-  return videoFile;
+  return target.videoFile;
+};
+
+export const seekToTimestampWithInterpolation = async ({
+  time,
+  offsetMilli,
+  bow,
+  interpolation,
+}: {
+  time: string;
+  offsetMilli?: number;
+  bow?: string;
+  interpolation: InterpolationRecord;
+}): Promise<string | undefined> => {
+  const target = resolveSeekTarget({ time, offsetMilli, bow });
+  if (!target) {
+    return undefined;
+  }
+
+  updateVideoScaling({
+    zoomX: 1,
+    zoomY: interpolation.zoomY,
+    srcCenterPoint: interpolation.srcCenterPoint,
+    srcClickPoint: interpolation.srcClickPoint,
+    autoZoomed: interpolation.autoZoomed,
+  });
+
+  try {
+    const image = await requestVideoFrame({
+      videoFile: target.videoFile,
+      toTimestamp: target.time,
+      blend: false,
+      saveAs: '',
+      closeTo: false,
+    });
+    if (!image) {
+      return target.videoFile;
+    }
+
+    updateVideoScaling({
+      srcWidth: image.width,
+      srcHeight: image.height,
+      zoomX: 1,
+      zoomY: interpolation.zoomY,
+      srcCenterPoint: interpolation.srcCenterPoint,
+      srcClickPoint: interpolation.srcClickPoint,
+      autoZoomed: interpolation.autoZoomed,
+    });
+
+    await requestVideoFrame({
+      videoFile: target.videoFile,
+      frameNum: image.frameNum,
+      zoom: interpolation.trackingRegion,
+      blend: true,
+      closeTo: false,
+    });
+  } catch (error) {
+    showErrorDialog(error);
+  }
+
+  return target.videoFile;
 };
 
 /**
@@ -491,7 +581,7 @@ export const performAutoZoomSeek = async (srcCoords: Point) => {
   const image = await requestVideoFrame({
     videoFile: getVideoFile(),
     frameNum: Math.floor(frameNum) + 0.1, // 0.1 to trigger dx measurement
-    zoom: zoom,
+    zoom,
     blend: true,
     closeTo: true,
   });

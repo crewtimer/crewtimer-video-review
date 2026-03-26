@@ -5,6 +5,8 @@ the [Electron React Boilerplate Project](https://electron-react-boilerplate.js.o
 
 See the [VSCode plugins suggested here](https://electron-react-boilerplate.js.org/docs/editor-configuration).
 
+For an internal code overview, see [INTERNALS.md](INTERNALS.md).
+
 ## Development Environment Setup
 
 Node version 18 or later is recommended.

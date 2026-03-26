@@ -23,8 +23,20 @@ import {
 } from './VideoSettings';
 import { seekToNextTimePoint } from './VideoUtils';
 import { setAutoSeekHoldoff } from './AutoFileSplit';
+import { saveInterpolationRecordForLap } from './InterpolationStore';
 
 let lastAddSplit = 0;
+
+const persistLap = (key: string, lap: Lap) => {
+  setEntryResultAndPublish(key, lap);
+  saveInterpolationRecordForLap(lap).catch((error) => {
+    console.warn(
+      'Failed to save interpolation metadata',
+      error instanceof Error ? error.message : String(error),
+    );
+  });
+};
+
 export const performAddSplit = () => {
   const videoBow = getVideoBow();
   const selectedEvent = getVideoEvent();
@@ -83,8 +95,10 @@ export const performAddSplit = () => {
       handleConfirm: () => {
         delete lap.State;
         setAutoSeekHoldoff(false);
-        setEntryResultAndPublish(key, lap);
-        lap.Time && setLastScoredTimestamp(lap.Time);
+        persistLap(key, lap);
+        if (lap.Time) {
+          setLastScoredTimestamp(lap.Time);
+        }
       },
     });
     return;
@@ -100,8 +114,10 @@ export const performAddSplit = () => {
         delete lap.State;
         updateClickOffset(getLastSeekTime().time, videoTimestamp);
         setAutoSeekHoldoff(false);
-        setEntryResultAndPublish(key, lap);
-        lap.Time && setLastScoredTimestamp(lap.Time);
+        persistLap(key, lap);
+        if (lap.Time) {
+          setLastScoredTimestamp(lap.Time);
+        }
         setResetZoomCounter((c) => c + 1);
         setToast({
           severity: 'info',
@@ -116,7 +132,7 @@ export const performAddSplit = () => {
   updateClickOffset(getLastSeekTime().time, videoTimestamp);
 
   setAutoSeekHoldoff(false);
-  setEntryResultAndPublish(key, lap);
+  persistLap(key, lap);
   if (lap.Time) {
     setLastScoredTimestamp(lap.Time);
   }
