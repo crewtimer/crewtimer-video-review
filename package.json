@@ -142,7 +142,7 @@
     "use-debounce": "^10.0.0"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.3.0",
+    "@electron/rebuild": "3.6.2",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
     "@svgr/webpack": "^8.1.0",
     "@teamsupercell/typings-for-css-modules-loader": "^2.5.2",

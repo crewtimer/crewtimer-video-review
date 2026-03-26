@@ -1,6 +1,7 @@
 
 | Version | What's New |
 | --- | --- |
+| 1.0.36 | Save interpolation data for each timestamp |
 | 1.0.35 | Support recordings with timestamps as mp4 metadata and PTS values |
 | 1.0.34 | Automatic trigger of recording file split and smart jump to next timestamp. |
 | 1.0.32 | Added selected bow as overlay on video for easy reference.  Misc UI improvements. |

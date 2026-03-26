@@ -1,15 +1,20 @@
 import fs from 'fs';
 import path from 'path';
-import { rimrafSync } from 'rimraf';
 import webpackPaths from '../configs/webpack.paths';
 
+function deleteJsSourceMaps(dir) {
+  for (const entry of fs.readdirSync(dir)) {
+    if (entry.endsWith('.js.map')) {
+      fs.rmSync(path.join(dir, entry), { force: true });
+    }
+  }
+}
+
 export default function deleteSourceMaps() {
-  if (fs.existsSync(webpackPaths.distMainPath))
-    rimrafSync(path.join(webpackPaths.distMainPath, '*.js.map'), {
-      glob: true,
-    });
-  if (fs.existsSync(webpackPaths.distRendererPath))
-    rimrafSync(path.join(webpackPaths.distRendererPath, '*.js.map'), {
-      glob: true,
-    });
+  if (fs.existsSync(webpackPaths.distMainPath)) {
+    deleteJsSourceMaps(webpackPaths.distMainPath);
+  }
+  if (fs.existsSync(webpackPaths.distRendererPath)) {
+    deleteJsSourceMaps(webpackPaths.distRendererPath);
+  }
 }
