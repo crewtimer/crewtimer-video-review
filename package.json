@@ -237,6 +237,9 @@
       },
       "type": "distribution",
       "hardenedRuntime": true,
+      "extendInfo": {
+        "NSLocalNetworkUsageDescription": "CrewTimer Video Review sends timing and control messages to devices on your local network."
+      },
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
       "gatekeeperAssess": false
