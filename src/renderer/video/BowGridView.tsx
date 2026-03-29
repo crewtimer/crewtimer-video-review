@@ -130,20 +130,19 @@ const BowButton: React.FC<{
         : scoredValue !== undefined
           ? `linear-gradient(to right, ${inactiveColor} 0%, ${inactiveColor} 50%, ${activeColor} 50%, ${activeColor} 100%)`
           : inactiveColor;
+  const recordedBackgroundColor = '#ddd';
 
   if (isSelected) {
-    // show as a normal primary-colored button when selected and empty
-    sx.color = 'primary.contrastText';
+    sx.color = hasTime ? 'primary.main' : 'primary.contrastText';
     sx.fontWeight = 'bold';
-    sx.backgroundColor = 'primary.main';
+    sx.backgroundColor = hasTime ? recordedBackgroundColor : 'primary.main';
     sx.boxShadow = undefined;
     sx['&:hover'] = {
-      backgroundColor: 'primary.dark',
-      color: 'white',
+      backgroundColor: hasTime ? recordedBackgroundColor : 'primary.dark',
+      color: hasTime ? 'primary.main' : 'white',
     };
-    // if there's an exception, give a light pink background
   } else if (hasTime) {
-    sx.backgroundColor = '#ddd';
+    sx.backgroundColor = recordedBackgroundColor;
     sx.color = 'text.secondary';
     sx.opacity = 0.8;
   } else {
