@@ -7,9 +7,9 @@ import {
   seekToTimestamp,
   seekToTimestampWithInterpolation,
 } from './RequestVideoFrame';
-import { getClickerData } from './UseClickerData';
 import {
   getVideoScaling,
+  getVideoSettings,
   setVideoEvent,
   setVideoBow,
   resetVideoZoom,
@@ -36,27 +36,28 @@ export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
   if (entry.Bow) {
     setVideoBow(entry.Bow);
 
-    // if we have a time for this entry, try and seek there
-    const key = `${gateFromWaypoint(getWaypoint())}_${
-      entry?.EventNum
-    }_${entry?.Bow}`;
-    let lap = getEntryResult(key);
-    if (!lap?.Time || lap?.State === 'Deleted') {
-      // fall back to the hint time if available
-      const hintClickerData = getClickerData();
-      lap = hintClickerData.find(
-        (l) =>
-          l.Time &&
-          l.EventNum === entry.EventNum &&
-          l.Bow === entry.Bow &&
-          l.State !== 'Deleted',
-      );
+    const key = `${gateFromWaypoint(getWaypoint())}_${entry.EventNum}_${entry.Bow}`;
+    const scoredLap = getEntryResult(key);
+    const useScoredLap = !!(scoredLap?.Time && scoredLap.State !== 'Deleted');
+    let lap = useScoredLap ? scoredLap : undefined;
+    if (!lap) {
+      const hintWaypoint = getVideoSettings().timingHintSource;
+      const hintKey = hintWaypoint
+        ? `${gateFromWaypoint(hintWaypoint)}_${entry.EventNum}_${entry.Bow}`
+        : '';
+      const hintLap = hintKey ? getEntryResult(hintKey) : undefined;
+      if (hintLap?.Time && hintLap.State !== 'Deleted') {
+        lap = hintLap;
+      }
     }
+
     if (lap?.Time && lap?.State !== 'Deleted') {
       const seekTime = lap.Time;
       setTimeout(async () => {
-        const interpolation = await loadInterpolationRecordForLap(lap);
-        if (!interpolation && getVideoScaling().zoomY !== 1) {
+        const interpolation = useScoredLap
+          ? await loadInterpolationRecordForLap(lap)
+          : undefined;
+        if (useScoredLap && !interpolation && getVideoScaling().zoomY !== 1) {
           resetVideoZoom();
           await delay(150);
         }
