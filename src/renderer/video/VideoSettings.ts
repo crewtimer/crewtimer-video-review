@@ -54,6 +54,16 @@ export interface VideoGuides {
   enableAutoZoom: boolean;
 }
 
+export const DEFAULT_FINISH_COLOR = '#f008';
+export const FINISH_COLOR_OPTIONS = [
+  { value: '#f008', label: 'Red' },
+  { value: '#ff8800a0', label: 'Orange' },
+  { value: '#ffd400b0', label: 'Yellow' },
+  { value: '#00c853a0', label: 'Green' },
+  { value: '#000000a0', label: 'Black' },
+  { value: '#ffffffa0', label: 'White' },
+] as const;
+
 export interface ResultRowType {
   id: string;
   eventName: string;
@@ -212,12 +222,14 @@ export const VideoGuidesKeys: (keyof VideoGuides)[] = [
  */
 export interface VideoSettings extends VideoGuides {
   timingHintSource: string;
+  finishColor: string;
   sidecarSource?: string;
 }
 
 export const [useVideoSettings, setVideoSettings, getVideoSettings] =
   UseStoredDatum<VideoSettings>('videoSettings', {
     timingHintSource: '',
+    finishColor: DEFAULT_FINISH_COLOR,
     laneBelowGuide: false,
     enableLaneGuides: true,
     enableAutoZoom: true,

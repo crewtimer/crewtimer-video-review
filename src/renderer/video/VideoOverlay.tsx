@@ -10,6 +10,7 @@ import { UseDatum } from 'react-usedatum';
 import { showErrorDialog } from '../util/ErrorDialog';
 import { saveVideoSidecar } from './Sidecar';
 import {
+  DEFAULT_FINISH_COLOR,
   Dir,
   getHyperZoomFactor,
   getImage,
@@ -263,6 +264,8 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           switch (guide.dir) {
             case Dir.Vert:
               {
+                const finishColor =
+                  courseConfig.finishColor || DEFAULT_FINISH_COLOR;
                 const fromScaled = translateSrcCanvas2DestCanvas(
                   {
                     x: image.width / 2 + guide.pt1,
@@ -277,7 +280,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                   },
                   videoScaling,
                 );
-                drawLine(fromScaled, toScaled, '#f008', Dir.Vert);
+                drawLine(fromScaled, toScaled, finishColor, Dir.Vert);
               }
               break;
             case Dir.Horiz:

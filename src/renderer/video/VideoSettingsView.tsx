@@ -24,6 +24,8 @@ import makeStyles from '@mui/styles/makeStyles';
 import { setToast } from 'renderer/Toast';
 import { setDialogConfig } from '../util/ConfirmDialog';
 import {
+  DEFAULT_FINISH_COLOR,
+  FINISH_COLOR_OPTIONS,
   getVideoFile,
   useAdjustHintOffsetEnable,
   useAutoFileSplitEnable,
@@ -329,6 +331,32 @@ export const VideoSettingsDialog = () => {
                   />
                 }
               />
+              <FormControl
+                size="small"
+                sx={{ minWidth: 140, marginRight: '0.5em' }}
+              >
+                <InputLabel id="finish-color-label">Finish Color</InputLabel>
+                <Select
+                  labelId="finish-color-label"
+                  value={videoSettings.finishColor || DEFAULT_FINISH_COLOR}
+                  label="Finish Color"
+                  onChange={(event: SelectChangeEvent<string>) => {
+                    setVideoSettings(
+                      {
+                        ...videoSettings,
+                        finishColor: event.target.value,
+                      },
+                      true,
+                    );
+                  }}
+                >
+                  {FINISH_COLOR_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
               <Button
                 variant="outlined"
                 size="small"
