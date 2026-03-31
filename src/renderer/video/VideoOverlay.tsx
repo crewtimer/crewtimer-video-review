@@ -10,7 +10,7 @@ import { UseDatum } from 'react-usedatum';
 import { showErrorDialog } from '../util/ErrorDialog';
 import { saveVideoSidecar } from './Sidecar';
 import {
-  DEFAULT_FINISH_COLOR,
+  DEFAULT_GUIDE_COLOR,
   Dir,
   getHyperZoomFactor,
   getImage,
@@ -224,6 +224,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         canvas.width = videoScaling.destWidth;
         canvas.height = videoScaling.destHeight;
         context.clearRect(0, 0, canvas.width, canvas.height);
+        const guideColor = courseConfig.guideColor || DEFAULT_GUIDE_COLOR;
 
         if (videoScaling.zoomY > 1 && getHyperZoomFactor() > 0) {
           // Draw region used for hyperZoom
@@ -264,8 +265,6 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           switch (guide.dir) {
             case Dir.Vert:
               {
-                const finishColor =
-                  courseConfig.finishColor || DEFAULT_FINISH_COLOR;
                 const fromScaled = translateSrcCanvas2DestCanvas(
                   {
                     x: image.width / 2 + guide.pt1,
@@ -280,7 +279,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                   },
                   videoScaling,
                 );
-                drawLine(fromScaled, toScaled, finishColor, Dir.Vert);
+                drawLine(fromScaled, toScaled, guideColor, Dir.Vert);
               }
               break;
             case Dir.Horiz:
@@ -302,7 +301,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
                   },
                   videoScaling,
                 );
-                drawLine(fromScaled, toScaled, '#ff0000a0', Dir.Horiz);
+                drawLine(fromScaled, toScaled, guideColor, Dir.Horiz);
                 const leftText = Math.max(0, fromScaled.x);
                 const rightText = Math.min(videoScaling.destWidth, toScaled.x);
 

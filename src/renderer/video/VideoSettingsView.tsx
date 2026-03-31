@@ -24,8 +24,8 @@ import makeStyles from '@mui/styles/makeStyles';
 import { setToast } from 'renderer/Toast';
 import { setDialogConfig } from '../util/ConfirmDialog';
 import {
-  DEFAULT_FINISH_COLOR,
-  FINISH_COLOR_OPTIONS,
+  DEFAULT_GUIDE_COLOR,
+  GUIDE_COLOR_OPTIONS,
   getVideoFile,
   useAdjustHintOffsetEnable,
   useAutoFileSplitEnable,
@@ -316,7 +316,7 @@ export const VideoSettingsDialog = () => {
             </Typography>
           </Toolbar>
           <Box className={classes.settings}>
-            <Stack direction="row">
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
               <FormControlLabel
                 labelPlacement="end"
                 label="Finish"
@@ -331,32 +331,6 @@ export const VideoSettingsDialog = () => {
                   />
                 }
               />
-              <FormControl
-                size="small"
-                sx={{ minWidth: 140, marginRight: '0.5em' }}
-              >
-                <InputLabel id="finish-color-label">Finish Color</InputLabel>
-                <Select
-                  labelId="finish-color-label"
-                  value={videoSettings.finishColor || DEFAULT_FINISH_COLOR}
-                  label="Finish Color"
-                  onChange={(event: SelectChangeEvent<string>) => {
-                    setVideoSettings(
-                      {
-                        ...videoSettings,
-                        finishColor: event.target.value,
-                      },
-                      true,
-                    );
-                  }}
-                >
-                  {FINISH_COLOR_OPTIONS.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
               <Button
                 variant="outlined"
                 size="small"
@@ -368,30 +342,59 @@ export const VideoSettingsDialog = () => {
                 variant="outlined"
                 size="small"
                 onClick={() => resetFinishGuideToRecording()}
-                sx={{ marginLeft: '0.5em' }}
               >
                 Set from Recording
               </Button>
             </Stack>
-            <FormControlLabel
-              labelPlacement="end"
-              label="Enable Lane Guides"
-              control={
-                <Checkbox
-                  checked={videoSettings.enableLaneGuides}
-                  onChange={() => {
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              sx={{ marginTop: '0.5em', flexWrap: 'wrap' }}
+            >
+              <FormControlLabel
+                labelPlacement="end"
+                label="Enable Lane Guides"
+                control={
+                  <Checkbox
+                    checked={videoSettings.enableLaneGuides}
+                    onChange={() => {
+                      setVideoSettings(
+                        {
+                          ...videoSettings,
+                          enableLaneGuides: !videoSettings.enableLaneGuides,
+                        },
+                        true,
+                      );
+                    }}
+                  />
+                }
+              />
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel id="guide-color-label">Guide Color</InputLabel>
+                <Select
+                  labelId="guide-color-label"
+                  value={videoSettings.guideColor || DEFAULT_GUIDE_COLOR}
+                  label="Guide Color"
+                  onChange={(event: SelectChangeEvent<string>) => {
                     setVideoSettings(
                       {
                         ...videoSettings,
-                        enableLaneGuides: !videoSettings.enableLaneGuides,
+                        guideColor: event.target.value,
                       },
                       true,
                     );
                   }}
-                />
-              }
-            />
-            <Box>
+                >
+                  {GUIDE_COLOR_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
+            <Box sx={{ marginLeft: '11px' }}>
               {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(
                 (lane) =>
                   videoSettings.guides[lane + 1] && (
