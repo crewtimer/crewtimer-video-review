@@ -42,10 +42,11 @@ export const [useAutoSeekHoldoff, setAutoSeekHoldoff, getAutoSeekHoldoff] =
  * when certain conditions are met.
  *
  * Behavior:
- * If futureSplits transitions from 0 to >0 and openSplits is <=1 -> schedule a split in 1s.
+ * If futureSplits is >0 and openSplits is <=1 -> ensure a split timer is running.
+ * While those conditions remain true, retry a split every 1.2s until a new file arrives
+ * or the state changes to cancel retries.
  * If futureSplits transitions to 0 -> cancel any pending split timer.
  * If openSplits transitions to >1 -> cancel any pending split timer.
- * If openSplits transitions from >1 to <=1 and openSpilts >=1 -> schedule a split in 1s.
  * This component renders nothing (returns null).
  */
 export const AutoFileSplit: FC = () => {
@@ -69,6 +70,32 @@ export const AutoFileSplit: FC = () => {
       timerRef.current = undefined;
     }
   }, []);
+
+  const shouldRetrySplit = useCallback(() => {
+    const { futureSplits: currentFutureSplits, openSplits: currentOpenSplits } =
+      getAutoFileSplit();
+    return currentFutureSplits > 0 && currentOpenSplits <= 1;
+  }, []);
+
+  const scheduleRetryIfNeeded = useCallback(() => {
+    const armTimer = () => {
+      if (timerRef.current !== undefined) {
+        return;
+      }
+      timerRef.current = window.setTimeout(() => {
+        timerRef.current = undefined;
+        if (!shouldRetrySplit()) {
+          return;
+        }
+        triggerFileSplit();
+        if (shouldRetrySplit()) {
+          armTimer();
+        }
+      }, 1200);
+    };
+
+    armTimer();
+  }, [shouldRetrySplit]);
 
   const lastScoredSeconds = useMemo(
     () => parseTimeToSeconds(lastScoredTimestamp),
@@ -148,35 +175,16 @@ export const AutoFileSplit: FC = () => {
       clearPendingTimer();
     }
 
-    const scheduleIfNeeded = () => {
-      if (timerRef.current === undefined) {
-        // schedule a file split in 1 second
-        timerRef.current = window.setTimeout(() => {
-          timerRef.current = undefined;
-          triggerFileSplit();
-        }, 1000);
-      }
-    };
-
-    // If futureSplits transitioned from 0 to >0 and openSplits is <= 1 -> schedule
-    if (prevFuture === 0 && futureSplits > 0 && openSplits <= 1) {
-      scheduleIfNeeded();
-    }
-
-    // If openSplits transitioned from >1 to <=1 and there is at least one open split, schedule
-    if (
-      prevOpen > 1 &&
-      openSplits <= 1 &&
-      openSplits >= 1 &&
-      futureSplits > 0
-    ) {
-      scheduleIfNeeded();
+    // If future splits are present and open splits are manageable, keep retrying until the
+    // state changes or a new file arrives and clears the future count.
+    if (futureSplits > 0 && openSplits <= 1) {
+      scheduleRetryIfNeeded();
     }
 
     // Update previous values for next transition
     prevOpenRef.current = openSplits;
     prevFutureRef.current = futureSplits;
-  }, [openSplits, futureSplits, clearPendingTimer]);
+  }, [openSplits, futureSplits, clearPendingTimer, scheduleRetryIfNeeded]);
 
   useEffect(() => {
     if (openSplits >= 1 && !autoSeekHoldoff) {
@@ -194,10 +202,10 @@ export const AutoFileSplit: FC = () => {
   /**
    * Scheduling effect for automatic file-splitting
    * Inputs (read from datum): openSplits, futureSplits
-   * Behavior: schedule or cancel a 1s timer to call triggerFileSplit() based on
-   *           transitions between previous and current open/future counts.
-   * Reason: run on transitions only; uses refs to detect previous values and to
-   *         store the timer id. No heavy computation here.
+   * Behavior: keep a 1.2s retry timer running while futureSplits > 0 and
+   *           openSplits <= 1; cancel retries when those conditions no longer hold.
+   * Reason: avoid getting stuck when the system still knows about future hints
+   *         after a prior split request failed or was cancelled.
    */
 
   // Ensure any pending timer is cleared on unmount
