@@ -16,11 +16,9 @@ import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import { convertTimestampToString } from '../shared/Util';
 import VideoSideBar from './VideoSideBar';
 import {
-  Dir,
   getTravelRightToLeft,
   getVideoFrameNum,
   getVideoSettings,
-  setVideoBow,
   setVideoTimestamp,
   useResetZoomCounter,
   useImage,
@@ -31,10 +29,7 @@ import {
   getVideoScaling,
   Point,
   useVideoScaling,
-  getBowInfo,
-  setVideoEvent,
   getImage,
-  getVideoBow,
   useVideoBow,
 } from './VideoSettings';
 import VideoOverlay, {
@@ -45,7 +40,6 @@ import VideoOverlay, {
 import TimingSidebar from './TimingSidebar';
 import {
   downloadImageFromCanvasLayers,
-  findClosestLineAndPosition,
   getFinishLine,
   moveLeft,
   moveRight,
@@ -471,34 +465,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     [width, height],
   );
 
-  const selectLane = useCallback(
-    (point: Point) => {
-      const laneLines = getVideoSettings()
-        .guides.filter((lane: any) => lane.dir === Dir.Horiz && lane.enabled)
-        .map((lane: any) => ({
-          pt1: { x: 0, y: lane.pt1 * image.height },
-          pt2: { x: image.width, y: lane.pt2 * image.height },
-          lane,
-        }));
-      const result = findClosestLineAndPosition(
-        point,
-        laneLines,
-        getVideoSettings().laneBelowGuide ? 'below' : 'above',
-      );
-      if (result.closestLine >= 0) {
-        const lane = laneLines[result.closestLine].lane.label.split(' ')[1];
-        const bowInfo = getBowInfo()[lane];
-        if (bowInfo) {
-          setVideoBow(bowInfo.Bow);
-          setVideoEvent(bowInfo.eventNum);
-        } else {
-          setVideoBow(lane);
-        }
-      }
-    },
-    [image.height, image.width],
-  );
-
   const handleDragStart = (
     event: React.MouseEvent<HTMLElement, MouseEvent>,
   ) => {
@@ -588,12 +554,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
       const rect = canvasRef.current?.getBoundingClientRect();
 
-      const {
-        x,
-        y,
-        pt: srcCoords,
-        withinBounds,
-      } = translateMouseEventCoords(event, rect);
+      const { x, y, withinBounds } = translateMouseEventCoords(event, rect);
       if (!withinBounds) {
         return;
       }
@@ -601,17 +562,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       mouseTracking.current.mouseDown = true;
       mouseTracking.current.mouseDownClientX = x;
       mouseTracking.current.mouseDownClientY = y;
-
-      const videoSettings = getVideoSettings();
-      const videoBow = getVideoBow();
-      if (
-        videoSettings.enableLaneGuides &&
-        (isZooming() || videoBow === '?' || videoBow === '')
-      ) {
-        selectLane(srcCoords);
-      }
     },
-    [selectLane],
+    [],
   );
 
   const handleMouseMove = useCallback(

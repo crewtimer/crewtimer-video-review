@@ -52,7 +52,6 @@ import makeStyles from '@mui/styles/makeStyles';
 import {
   getTimeSort,
   ResultRowType,
-  setBowInfo,
   setVideoBow,
   useShowGridView,
   useTimeSort,
@@ -489,13 +488,6 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       return ta - tb;
     });
   }
-  const bowInfo: { [lane: string]: ResultRowType } = {};
-  activeEventRows.forEach((evtRow) => {
-    bowInfo[evtRow.Bow.replace(/^[a-zA-Z]*/, '')] = evtRow;
-    bowInfo[evtRow.Bow] = evtRow;
-  });
-  setBowInfo(bowInfo); // stash for use by guide lane clicks (Video.tsx)
-
   const clickArgsRef = useRef<CellClickArgs<ResultRowType, unknown>>();
   const { onSingleClick, onDoubleClick } = useSingleAndDoubleClick(
     () => {

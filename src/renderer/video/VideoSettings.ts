@@ -174,9 +174,6 @@ export const [useTimeSort, setTimeSort, getTimeSort] = UseDatum(true);
 export const [useShowGridView] = UseDatum(true);
 export const [useSelectedIndex, setSelectedIndex, getSelectedIndex] =
   UseDatum(0);
-export const [useBowInfo, setBowInfo, getBowInfo] = UseDatum<{
-  [lane: string]: ResultRowType;
-}>({});
 export const [useTravelRightToLeft, , getTravelRightToLeft] = UseStoredDatum(
   'travelRightToLeft',
   false,
