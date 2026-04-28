@@ -67,7 +67,7 @@ const VideoScrubber = () => {
     }
 
     setVideoFrameNum(newValue);
-    requestVideoFrame({ videoFile, frameNum: newValue, closeTo: true });
+    requestVideoFrame({ videoFile, frameNum: newValue });
   };
 
   const { startTime, endTime, segments } = useMemo(() => {
