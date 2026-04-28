@@ -124,6 +124,15 @@ double FFVideoReader::dts_to_sec(int64_t dts) const
  */
 int64_t FFVideoReader::dts_to_frame_number(int64_t dts) const
 {
+  // For VFR files, r_frame_rate can disagree with nb_frames/duration by ~1%,
+  // so prefer stream ticks (avg frame duration = stream->duration/nb_frames)
+  // when both are known. Falls back to fps*sec otherwise.
+  const auto *st = formatContext->streams[videoStreamIndex];
+  if (st->duration > 0 && st->nb_frames > 0)
+  {
+    int64_t delta = dts - st->start_time;
+    return (int64_t)((double)delta * st->nb_frames / (double)st->duration + 0.5);
+  }
   double sec = dts_to_sec(dts);
   return (int64_t)(getFps() * sec + 0.5);
 }
@@ -389,15 +398,18 @@ AVFrame *FFVideoReader::grabFrame()
     }
   }
 
-  // Compute the presentation timestamp if it's not yet set
-  if (picture_pts == AV_NOPTS_VALUE_)
+  // Trust frame->pts as set by the decoder — it's valid for both the
+  // "buffered frame" path (decoder had a frame ready) and the fresh-decode
+  // path. Previously this code overwrote frame->pts with `picture_pts`, but
+  // picture_pts is only reset inside the fresh-decode branch, so on the
+  // buffered path it would leak the PRIOR frame's pts into the current one,
+  // producing wildly non-monotonic timestamps.
+  if (frame->pts == AV_NOPTS_VALUE_)
   {
-    // If PTS is valid and nonzero, use that; otherwise, fall back on DTS
-    picture_pts = (packet->pts != AV_NOPTS_VALUE_ && packet->pts != 0)
-                      ? packet->pts
-                      : packet->dts;
+    // Decoder-supplied fallback; pkt_dts survives through decoder buffering.
+    frame->pts = frame->pkt_dts;
   }
-  frame->pts = picture_pts;
+  picture_pts = frame->pts;
   frame->time_base = formatContext->streams[videoStreamIndex]->time_base;
 
   // Calculate currentFrameNumber based on DTS
@@ -540,10 +552,19 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
        *      (= at most 31 calls, so still cheap).
        * ------------------------------------------------------------- */
 
-      int64_t start_pts = formatContext->streams[videoStreamIndex]->start_time;
-      double tb = r2d(formatContext->streams[videoStreamIndex]->time_base);
-      double sec = static_cast<double>(frameNumber) / std::max(fps, 1e-6);
-      int64_t ts = start_pts + static_cast<int64_t>(sec / tb + 0.5);
+      auto *st = formatContext->streams[videoStreamIndex];
+      int64_t start_pts = st->start_time;
+      int64_t ts;
+      if (st->duration > 0 && st->nb_frames > 0)
+      {
+        ts = start_pts + frameNumber * st->duration / st->nb_frames;
+      }
+      else
+      {
+        double tb = r2d(st->time_base);
+        double sec = static_cast<double>(frameNumber) / std::max(fps, 1e-6);
+        ts = start_pts + static_cast<int64_t>(sec / tb + 0.5);
+      }
 
       if (av_seek_frame(formatContext, videoStreamIndex, ts, AVSEEK_FLAG_BACKWARD) < 0)
         return nullptr; // seek failed (corrupt file?)
@@ -568,10 +589,18 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
   for (;;)
   {
     int64_t _frame_number_temp = std::max(frameNumber - delta, (int64_t)0);
-    double sec = (double)_frame_number_temp / fps;
-    int64_t time_stamp = formatContext->streams[videoStreamIndex]->start_time;
-    double time_base = r2d(formatContext->streams[videoStreamIndex]->time_base);
-    time_stamp += (int64_t)(sec / time_base + 0.5);
+    auto *st = formatContext->streams[videoStreamIndex];
+    int64_t time_stamp = st->start_time;
+    if (st->duration > 0 && st->nb_frames > 0)
+    {
+      time_stamp += _frame_number_temp * st->duration / st->nb_frames;
+    }
+    else
+    {
+      double sec = (double)_frame_number_temp / fps;
+      double time_base = r2d(st->time_base);
+      time_stamp += (int64_t)(sec / time_base + 0.5);
+    }
 
     if (getTotalFrames() > 1)
     {
