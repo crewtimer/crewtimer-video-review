@@ -277,11 +277,50 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
           .ThrowAsJavaScriptException();
       return ret;
     }
-    auto frameB = getFrame(ffreader, file, frameA->numFrames);
-    if (!frameB)
+    // On VFR files, r_frame_rate can disagree with nb_frames / duration by
+    // up to ~1%, so the last requestable frame index (via dts_to_frame_number
+    // = fps * seconds) can fall short of nb_frames by up to 1% of nb_frames.
+    // Allow retries over that window (with a floor of 200 for short clips).
+    std::shared_ptr<FrameInfo> frameB;
+    const int maxBack =
+        std::max(200, static_cast<int>(frameA->numFrames / 50)); // up to 2%
+    // Exponential probe to find any reachable back-offset, then bisect to
+    // find the smallest passing back. Each getFrame() failure near EOF is
+    // expensive (full av_seek_frame + forward-decode), so linear walkback
+    // is O(maxBack) seeks — this is O(log maxBack).
+    int lo = -1; // largest known-failing back (-1 = none tried)
+    int hi = -1; // smallest known-passing back (-1 = none found)
+    for (int probe = 0; probe <= maxBack; probe = probe == 0 ? 1 : probe * 2)
     {
-      std::cerr << "Unable to read frame " << frameA->numFrames << ". Doing one less" << std::endl;
-      frameB = getFrame(ffreader, file, frameA->numFrames - 1);
+      auto f = getFrame(ffreader, file, frameA->numFrames - probe);
+      if (f)
+      {
+        frameB = f;
+        hi = probe;
+        break;
+      }
+      lo = probe;
+      if (probe == 0)
+      {
+        std::cerr << "Unable to read frame " << frameA->numFrames
+                  << ". Walking back up to " << maxBack << " frames..."
+                  << std::endl;
+      }
+      if (probe >= maxBack) break;
+    }
+    while (lo >= 0 && hi - lo > 1)
+    {
+      int mid = lo + (hi - lo) / 2;
+      auto f = getFrame(ffreader, file, frameA->numFrames - mid);
+      if (f)
+      {
+        frameB = f;
+        hi = mid;
+      }
+      else
+      {
+        lo = mid;
+      }
     }
     if (!frameB)
     {

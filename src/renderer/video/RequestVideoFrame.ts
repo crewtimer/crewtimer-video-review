@@ -103,22 +103,49 @@ async function ensureFileOpen(
   openFilename = videoFile;
 
   let lastImage: AppImage | undefined;
-  for (let excessFrames = 0; excessFrames < 10; excessFrames += 1) {
+  // On VFR files, r_frame_rate may undercount the last decodable frame by
+  // up to ~1% of the total. Walk back up to 2% with a floor of 200.
+  // Each failing getFrame near EOF is an expensive native seek, so use
+  // exponential probe + bisect (O(log maxExcess)) instead of linear walk.
+  const maxExcess = Math.max(200, Math.floor(firstImage.numFrames / 50));
+  const tryBack = async (back: number): Promise<AppImage | undefined> => {
     try {
-      // eslint-disable-next-line no-await-in-loop
-      lastImage = await VideoUtils.getFrame({
+      return await VideoUtils.getFrame({
         videoFile,
-        frameNum: firstImage.numFrames - excessFrames,
+        frameNum: firstImage.numFrames - back,
         tsMilli: 0,
       });
-      firstImage.numFrames -= excessFrames;
-      break;
     } catch {
-      // Try one less frame
-      console.log(
-        `cant read frame ${firstImage.numFrames - excessFrames}, trying one less`,
-      );
+      console.log(`cant read frame ${firstImage.numFrames - back}`);
+      return undefined;
     }
+  };
+  let lo = -1; // largest known-failing back
+  let hi = -1; // smallest known-passing back
+  for (let probe = 0; probe <= maxExcess; probe = probe === 0 ? 1 : probe * 2) {
+    // eslint-disable-next-line no-await-in-loop
+    const img = await tryBack(probe);
+    if (img) {
+      lastImage = img;
+      hi = probe;
+      break;
+    }
+    lo = probe;
+    if (probe >= maxExcess) break;
+  }
+  while (lo >= 0 && hi - lo > 1) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    // eslint-disable-next-line no-await-in-loop
+    const img = await tryBack(mid);
+    if (img) {
+      lastImage = img;
+      hi = mid;
+    } else {
+      lo = mid;
+    }
+  }
+  if (lastImage && hi > 0) {
+    firstImage.numFrames -= hi;
   }
   if (!lastImage) {
     setVideoError(`Unable to get frame ${firstImage.numFrames}: ${videoFile}`);
