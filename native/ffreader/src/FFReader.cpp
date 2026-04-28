@@ -389,15 +389,18 @@ AVFrame *FFVideoReader::grabFrame()
     }
   }
 
-  // Compute the presentation timestamp if it's not yet set
-  if (picture_pts == AV_NOPTS_VALUE_)
+  // Trust frame->pts as set by the decoder — it's valid for both the
+  // "buffered frame" path (decoder had a frame ready) and the fresh-decode
+  // path. Previously this code overwrote frame->pts with `picture_pts`, but
+  // picture_pts is only reset inside the fresh-decode branch, so on the
+  // buffered path it would leak the PRIOR frame's pts into the current one,
+  // producing wildly non-monotonic timestamps.
+  if (frame->pts == AV_NOPTS_VALUE_)
   {
-    // If PTS is valid and nonzero, use that; otherwise, fall back on DTS
-    picture_pts = (packet->pts != AV_NOPTS_VALUE_ && packet->pts != 0)
-                      ? packet->pts
-                      : packet->dts;
+    // Decoder-supplied fallback; pkt_dts survives through decoder buffering.
+    frame->pts = frame->pkt_dts;
   }
-  frame->pts = picture_pts;
+  picture_pts = frame->pts;
   frame->time_base = formatContext->streams[videoStreamIndex]->time_base;
 
   // Calculate currentFrameNumber based on DTS
