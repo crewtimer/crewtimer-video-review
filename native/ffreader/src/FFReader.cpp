@@ -4,6 +4,7 @@ extern "C"
 {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/hwcontext.h>
 #include <libavutil/parseutils.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/time.h>
@@ -39,10 +40,16 @@ FFVideoReader::FFVideoReader()
 {
   formatContext = nullptr;
   codecContext = nullptr;
+  hwDeviceContext = nullptr;
+  hwPixelFormat = AV_PIX_FMT_NONE;
+  hwDecodeActive = false;
+  hwDecodeStatusLogged = false;
+  hwFrameTransferLogged = false;
   swsContext = nullptr;
   packet = nullptr;
   frame = nullptr;
   rgbaFrame = nullptr;
+  softwareFrame = nullptr;
   closeFile();
 }
 
@@ -65,6 +72,8 @@ void FFVideoReader::closeFile(void)
     av_packet_free(&packet);
   if (frame)
     av_frame_free(&frame);
+  if (softwareFrame)
+    av_frame_free(&softwareFrame);
 
   if (formatContext)
   {
@@ -84,12 +93,19 @@ void FFVideoReader::closeFile(void)
   {
     av_frame_free(&rgbaFrame);
   }
+  resetHardwareDecode();
   formatContext = nullptr;
   codecContext = nullptr;
+  hwDeviceContext = nullptr;
+  hwPixelFormat = AV_PIX_FMT_NONE;
+  hwDecodeActive = false;
+  hwDecodeStatusLogged = false;
+  hwFrameTransferLogged = false;
   swsContext = nullptr;
   packet = nullptr;
   frame = nullptr;
   rgbaFrame = nullptr;
+  softwareFrame = nullptr;
 
   picture_pts = AV_NOPTS_VALUE_;
   currentFrameNumber = -1;
@@ -209,6 +225,139 @@ double FFVideoReader::getFps(void) const
   return fps;
 }
 
+AVPixelFormat FFVideoReader::getHardwarePixelFormat(AVCodecContext *ctx,
+                                                    const AVPixelFormat *pixFmts)
+{
+  FFVideoReader *reader = static_cast<FFVideoReader *>(ctx->opaque);
+  if (reader)
+  {
+    for (const AVPixelFormat *p = pixFmts; *p != AV_PIX_FMT_NONE; ++p)
+    {
+      if (*p == reader->hwPixelFormat)
+      {
+        reader->hwDecodeActive = true;
+        return *p;
+      }
+    }
+    reader->hwDecodeActive = false;
+  }
+
+  return pixFmts[0];
+}
+
+void FFVideoReader::resetHardwareDecode()
+{
+  if (hwDeviceContext)
+  {
+    av_buffer_unref(&hwDeviceContext);
+  }
+  hwPixelFormat = AV_PIX_FMT_NONE;
+  hwDecodeActive = false;
+  hwDecodeStatusLogged = false;
+  hwFrameTransferLogged = false;
+}
+
+static const char *hardwareDecodeName()
+{
+#if defined(__APPLE__)
+  return "VideoToolbox";
+#elif defined(_WIN32)
+  return "D3D11VA";
+#else
+  return "none";
+#endif
+}
+
+bool FFVideoReader::initHardwareDecode()
+{
+#if defined(__APPLE__)
+  const AVHWDeviceType hwType = AV_HWDEVICE_TYPE_VIDEOTOOLBOX;
+  const AVPixelFormat hwFormat = AV_PIX_FMT_VIDEOTOOLBOX;
+#elif defined(_WIN32)
+  const AVHWDeviceType hwType = AV_HWDEVICE_TYPE_D3D11VA;
+  const AVPixelFormat hwFormat = AV_PIX_FMT_D3D11;
+#else
+  return false;
+#endif
+
+  resetHardwareDecode();
+  hwPixelFormat = hwFormat;
+  std::cerr << "Attempting hardware video decode: " << hardwareDecodeName()
+            << std::endl;
+
+  int ret = av_hwdevice_ctx_create(&hwDeviceContext, hwType, nullptr, nullptr, 0);
+  if (ret < 0)
+  {
+    char err[160];
+    av_strerror(ret, err, sizeof(err));
+    std::cerr << "Hardware decode unavailable: " << err << std::endl;
+    resetHardwareDecode();
+    return false;
+  }
+
+  codecContext->hw_device_ctx = av_buffer_ref(hwDeviceContext);
+  if (!codecContext->hw_device_ctx)
+  {
+    std::cerr << "Hardware decode unavailable: could not attach device context"
+              << std::endl;
+    resetHardwareDecode();
+    return false;
+  }
+
+  codecContext->opaque = this;
+  codecContext->get_format = FFVideoReader::getHardwarePixelFormat;
+  return true;
+}
+
+AVFrame *FFVideoReader::ensureSoftwareFrame(AVFrame *decodedFrame)
+{
+  if (!decodedFrame || decodedFrame->format != hwPixelFormat)
+  {
+    return decodedFrame;
+  }
+
+  if (!hwFrameTransferLogged)
+  {
+    std::cerr << "Hardware video decode frame received; transferring "
+              << hardwareDecodeName() << " frame to CPU memory" << std::endl;
+    hwFrameTransferLogged = true;
+  }
+
+  if (!softwareFrame)
+  {
+    softwareFrame = av_frame_alloc();
+    if (!softwareFrame)
+    {
+      std::cerr << "Could not allocate software transfer frame" << std::endl;
+      return nullptr;
+    }
+  }
+
+  av_frame_unref(softwareFrame);
+  int ret = av_hwframe_transfer_data(softwareFrame, decodedFrame, 0);
+  if (ret < 0)
+  {
+    char err[160];
+    av_strerror(ret, err, sizeof(err));
+    std::cerr << "Could not transfer hardware frame to CPU memory: " << err
+              << std::endl;
+    return nullptr;
+  }
+
+  ret = av_frame_copy_props(softwareFrame, decodedFrame);
+  if (ret < 0)
+  {
+    char err[160];
+    av_strerror(ret, err, sizeof(err));
+    std::cerr << "Could not copy hardware frame metadata: " << err << std::endl;
+    return nullptr;
+  }
+
+  av_frame_unref(decodedFrame);
+  av_frame_move_ref(decodedFrame, softwareFrame);
+  return decodedFrame;
+}
+
 /**
  * @brief Opens a specified video file and prepares for decoding.
  *
@@ -289,14 +438,85 @@ int FFVideoReader::openFile(const std::string filename)
   AVCodecParameters *codecParameters =
       formatContext->streams[videoStreamIndex]->codecpar;
   const AVCodec *codec = avcodec_find_decoder(codecParameters->codec_id);
+  if (!codec)
+  {
+    std::cerr << "Error: Couldn't find decoder for video stream\n";
+    return -1;
+  }
+
   codecContext = avcodec_alloc_context3(codec);
-  avcodec_parameters_to_context(codecContext, codecParameters);
-  avcodec_open2(codecContext, codec, nullptr);
+  if (!codecContext)
+  {
+    std::cerr << "Error: Couldn't allocate codec context\n";
+    return -1;
+  }
+
+  int codecRet = avcodec_parameters_to_context(codecContext, codecParameters);
+  if (codecRet < 0)
+  {
+    std::cerr << "Error: Couldn't copy codec parameters\n";
+    return -1;
+  }
+
+  bool hardwareDecodeConfigured = initHardwareDecode();
+  codecRet = avcodec_open2(codecContext, codec, nullptr);
+  if (codecRet < 0 && hardwareDecodeConfigured)
+  {
+    char err[160];
+    av_strerror(codecRet, err, sizeof(err));
+    std::cerr << "Hardware decoder open failed, falling back to CPU decode: "
+              << err << std::endl;
+
+    avcodec_free_context(&codecContext);
+    resetHardwareDecode();
+    codecContext = avcodec_alloc_context3(codec);
+    if (!codecContext)
+    {
+      std::cerr << "Error: Couldn't allocate fallback codec context\n";
+      return -1;
+    }
+
+    codecRet = avcodec_parameters_to_context(codecContext, codecParameters);
+    if (codecRet < 0)
+    {
+      std::cerr << "Error: Couldn't copy fallback codec parameters\n";
+      return -1;
+    }
+    codecRet = avcodec_open2(codecContext, codec, nullptr);
+  }
+
+  if (codecRet < 0)
+  {
+    char err[160];
+    av_strerror(codecRet, err, sizeof(err));
+    std::cerr << "Error: Couldn't open video decoder: " << err << std::endl;
+    return -1;
+  }
 
   // std::cout << "Width: " << codecContext->width << std::endl;
   // std::cout << "Height: " << codecContext->height << std::endl;
 
   auto firstFrame = seekToFrame(0);
+
+  if (!hwDecodeStatusLogged)
+  {
+    if (hwFrameTransferLogged || hwDecodeActive)
+    {
+      std::cerr << "Hardware video decode active: " << hardwareDecodeName()
+                << std::endl;
+    }
+    else if (hardwareDecodeConfigured)
+    {
+      std::cerr << "Hardware video decode configured, but codec selected CPU decode"
+                << std::endl;
+    }
+    else
+    {
+      std::cerr << "Hardware video decode unavailable; using CPU decode"
+                << std::endl;
+    }
+    hwDecodeStatusLogged = true;
+  }
 
   return firstFrame ? 0 : -1;
 }
@@ -396,6 +616,12 @@ AVFrame *FFVideoReader::grabFrame()
       currentFrameNumber = -1; // mark as stale
       return nullptr;
     }
+  }
+
+  if (!ensureSoftwareFrame(frame))
+  {
+    currentFrameNumber = -1;
+    return nullptr;
   }
 
   // Trust frame->pts as set by the decoder — it's valid for both the

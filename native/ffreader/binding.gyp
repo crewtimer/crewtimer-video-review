@@ -36,7 +36,12 @@
                 "../lib-build/ffmpeg-static-mac/lib/libswscale.a",
                 "../lib-build/opencv-static-mac/lib/libopencv_core.a",
                 "../lib-build/opencv-static-mac/lib/libopencv_imgproc.a",
-                "../lib-build/opencv-static-mac/lib/libopencv_video.a"],
+                "../lib-build/opencv-static-mac/lib/libopencv_video.a",
+                "-framework VideoToolbox",
+                "-framework CoreVideo",
+                "-framework CoreMedia",
+                "-framework CoreFoundation",
+                "-framework OpenCL"],
 
             'library_dirs': ['../lib-build/ffmpeg-static-mac/lib']
           }
@@ -57,7 +62,8 @@
                 "../lib-build/opencv-static-win/staticlib/opencv_imgproc490.lib",
                 "../lib-build/opencv-static-win/staticlib/opencv_video490.lib",
                 "../lib-build/vcpkg/installed/x64-windows-static/lib/zlib.lib",
-                "Bcrypt.lib", "Mfuuid.lib", "Strmiids.lib"
+                "Bcrypt.lib", "Mfuuid.lib", "Strmiids.lib",
+                "d3d11.lib", "dxgi.lib"
             ],
           'library_dirs': ["../lib-build/ffmpeg-static-win/lib",
                            "../lib-build/opencv-static-win/staticlib"]

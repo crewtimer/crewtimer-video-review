@@ -5,6 +5,7 @@ extern "C"
 {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/hwcontext.h>
 #include <libswscale/swscale.h>
 }
 
@@ -29,6 +30,21 @@ class FFVideoReader
   /** A pointer to the codec context, used for actual video decoding. */
   AVCodecContext *codecContext;
 
+  /** Hardware decode device context, when available for the current platform/codec. */
+  AVBufferRef *hwDeviceContext;
+
+  /** Hardware pixel format selected by FFmpeg for the active platform. */
+  AVPixelFormat hwPixelFormat;
+
+  /** True when the decoder selected the configured hardware pixel format. */
+  bool hwDecodeActive;
+
+  /** True after the hardware decode status has been logged for this file. */
+  bool hwDecodeStatusLogged;
+
+  /** True after the first hardware frame transfer has been logged for this file. */
+  bool hwFrameTransferLogged;
+
   /** A SwsContext used for pixel format conversion (e.g., YUV -> RGBA). */
   SwsContext *swsContext;
 
@@ -40,6 +56,9 @@ class FFVideoReader
 
   /** A reusable AVFrame for storing a frame converted to RGBA pixel format. */
   AVFrame *rgbaFrame;
+
+  /** A reusable AVFrame for transferring hardware-decoded frames back to CPU memory. */
+  AVFrame *softwareFrame;
 
   /** The index of the video stream within the opened media file. */
   int videoStreamIndex;
@@ -95,6 +114,23 @@ class FFVideoReader
    * @return The total duration of the video file in seconds.
    */
   double getDurationSec() const;
+
+  /**
+   * @brief Attempts to configure platform hardware decoding for the codec context.
+   *
+   * @return true if a hardware device was attached to the codec context.
+   */
+  bool initHardwareDecode();
+
+  /** Releases hardware decode resources and resets hardware state. */
+  void resetHardwareDecode();
+
+  /** FFmpeg callback used to select the hardware pixel format when available. */
+  static AVPixelFormat getHardwarePixelFormat(AVCodecContext *ctx,
+                                              const AVPixelFormat *pixFmts);
+
+  /** Returns a CPU-readable frame, transferring from hardware memory when needed. */
+  AVFrame *ensureSoftwareFrame(AVFrame *decodedFrame);
 
   /**
    * @brief Converts a decoded frame to an RGBA-formatted AVFrame.
