@@ -6,6 +6,11 @@ BASE_BUILD_DIR="$PWD/lib-build"
 if [[ "$OSTYPE" == "cygwin" ]]; then
   BASE_BUILD_DIR=`cygpath -m "${BASE_BUILD_DIR}"`
   echo BASE_BUILD_DIR=${BASE_BUILD_DIR}
+elif [[ "$OSTYPE" == "msys" ]]; then
+  # Convert /c/path -> C:/path. Don't use `pwd -W` here: the dir may not exist
+  # yet (mkdir -p happens further down) and `cd` to it would silently no-op.
+  BASE_BUILD_DIR=$(echo "$BASE_BUILD_DIR" | sed -E 's|^/([a-zA-Z])/|\1:/|')
+  echo BASE_BUILD_DIR=${BASE_BUILD_DIR}
 fi
 
 # Determine the platform (macOS or Windows via WSL or others)
@@ -57,8 +62,14 @@ if [[ "$PLATFORM" == "win" ]]; then
   else
     echo "vcpkg already installed in $BASE_BUILD_DIR/vcpkg."
   fi
-  if [ ! -f "$BASE_BUILD_DIR/vcpkg/installed/x64-windows-static/lib/zlib.lib" ]; then
+  VCPKG_LIB_DIR="$BASE_BUILD_DIR/vcpkg/installed/x64-windows-static/lib"
+  if [ ! -f "$VCPKG_LIB_DIR/zlib.lib" ] && [ ! -f "$VCPKG_LIB_DIR/zs.lib" ]; then
      (cd "$BASE_BUILD_DIR/vcpkg" && ./vcpkg install zlib:x64-windows-static)
+  fi
+  # Recent vcpkg versions install zlib as zs.lib (renamed to avoid clashes).
+  # FFmpeg's configure looks specifically for zlib.lib, so alias it.
+  if [ -f "$VCPKG_LIB_DIR/zs.lib" ] && [ ! -f "$VCPKG_LIB_DIR/zlib.lib" ]; then
+    cp "$VCPKG_LIB_DIR/zs.lib" "$VCPKG_LIB_DIR/zlib.lib"
   fi
 
   # ffmpeg configure needs to be able to find these packages

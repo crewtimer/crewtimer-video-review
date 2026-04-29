@@ -88,6 +88,49 @@ See also [the Electron React Boilerplate page](https://electron-react-boilerplat
 4. Look in release/ for the dmg and exe files
 5. Copy the dmg and exe to a Releases set on github
 
+### Windows packaging notes
+
+When packaging on Windows from a locally-built native module (i.e. you've
+just rebuilt `crewtimer_video_reader.node` from source per
+[native/ffreader/README.md](native/ffreader/README.md)), don't run
+`yarn build:win` directly — run electron-builder yourself with
+`-c.npmRebuild=false`:
+
+```bash
+yarn build                                                    # main + renderer webpack bundles
+./node_modules/.bin/electron-builder --win -c.npmRebuild=false
+```
+
+The `-c.npmRebuild=false` flag is **required** for two reasons:
+
+1. **`sqlite3` source rebuild is broken.** Without the flag, electron-builder
+   tries to rebuild every native dep against the electron ABI. `sqlite3@5.1.7`
+   has no prebuilt for current N-API versions, falls back to `node-gyp rebuild`,
+   which fails because `sqlite3`'s bundled node-gyp install is broken.
+2. **Your locally-built `crewtimer_video_reader.node` gets silently clobbered.**
+   Even with `prebuild-install -r napi || yarn rebuild` as the install script,
+   electron-builder's rebuild step runs `prebuild-install --force` for every
+   native dep, which downloads the published prebuilt from GitHub and
+   overwrites your file at
+   `release/app/node_modules/crewtimer_video_reader/build/Release/`.
+   The packaged app then behaves like the stock release, not your source.
+   No error is shown; watch for this builder log line as a warning sign:
+   ```
+   • install prebuilt binary  name=crewtimer_video_reader version=...
+   ```
+   The line you want to see is:
+   ```
+   • skipped dependencies rebuild  reason=npmRebuild is set to false
+   ```
+
+If you've already been bitten, re-copy the freshly-built `.node` per the
+ffreader README's step 7, then re-run electron-builder with the flag, or use
+`./node_modules/.bin/electron-builder --win --prepackaged release/build/win-unpacked`
+to re-zip without touching deps.
+
+Outputs in `release/build/`: `win-unpacked/` (portable directory, ~346 MB) and
+`CrewTimer Video Review Setup <version>.exe` (NSIS installer, ~96 MB).
+
 ## Tips
 
 * Blank screen at startup? Check to make sure packagse were added top level package.json
