@@ -84,7 +84,11 @@ const onDataRxTransformer = (
           eventSet.has(lap.EventNum));
 
       // Update caches
-      const key = `${lap.Gate}_${lap.EventNum}_${lap.Bow}`;
+      let key = `${lap.Gate}_${lap.EventNum}_${lap.Bow}`;
+      if (lap.Bow === '?' && lap.EventNum === '?') {
+        // for laps with no event or bow, key by gate and timestamp to allow them to be used for timing hints without worrying about them being deleted by a later lap with the same event/bow
+        key = `${lap.Gate}_${lap.Timestamp}`;
+      }
       lap.keyid = key;
       if (keep) {
         keyedLaps.set(key, lap);
@@ -97,7 +101,7 @@ const onDataRxTransformer = (
       }
     });
 
-    // Apply deletes last to ensure they take trigger any needed updates
+    // Apply deletes last to ensure they trigger any needed updates
     keysToDelete.forEach((key) => {
       setEntryResult(key, undefined);
     });
