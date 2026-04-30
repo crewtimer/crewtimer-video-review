@@ -7,7 +7,7 @@ import {
   setSelectedIndex,
   setVideoFile,
 } from './VideoSettings';
-import { downloadCanvasImage, getFinishLine } from './VideoUtils';
+import { getFinishLine } from './VideoUtils';
 import { milliToString, secondsSinceLocalMidnight } from '../util/Util';
 import { getMobileConfig, getWaypoint } from '../util/UseSettings';
 import logoUrl from '../../assets/icons/crewtimer-review2-white.svg';
@@ -15,6 +15,7 @@ import logoUrl from '../../assets/icons/crewtimer-review2-white.svg';
 const SLICE_FRACTION_OF_WIDTH = 0.8;
 const SLICE_GAP_FRACTION = 0.04;
 const SIDEBAR_PADDING = 20;
+const TOTAL_SLICES_MAX_WIDTH = 2560;
 const LOGO_BOTTOM_MARGIN = 20;
 const LOGO_WIDTH_FRACTION = 0.4;
 const LOGO_MAX_WIDTH = 140;
@@ -234,6 +235,7 @@ interface SliceRender {
 
 const renderSlice = async (
   finisher: ExtendedLap,
+  maxSliceWidth: number,
 ): Promise<SliceRender | undefined> => {
   const fileStatus = findFileForTime(finisher.seconds);
   if (!fileStatus) return undefined;
@@ -256,6 +258,7 @@ const renderSlice = async (
   const sliceWidth = Math.min(
     image.width,
     Math.max(32, Math.floor(image.width * SLICE_FRACTION_OF_WIDTH)),
+    maxSliceWidth,
   );
   const sliceLeft = Math.max(
     0,
@@ -347,10 +350,15 @@ export const generateFinishPhoto = async (event: string): Promise<string> => {
     logo = undefined;
   }
 
+  const maxSliceWidth = Math.max(
+    32,
+    Math.floor(TOTAL_SLICES_MAX_WIDTH / finishers.length),
+  );
+
   const renders: SliceRender[] = [];
   for (const finisher of finishers) {
     // eslint-disable-next-line no-await-in-loop
-    const r = await renderSlice(finisher);
+    const r = await renderSlice(finisher, maxSliceWidth);
     if (r) renders.push(r);
   }
 
@@ -386,12 +394,32 @@ export const generateFinishPhoto = async (event: string): Promise<string> => {
     xOff += r.width;
   }
 
-  downloadCanvasImage(composite, `finish-event-${event}.png`);
+  const dataUrl = composite.toDataURL('image/png');
+  const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
+  const saveResult = await window.Util.savePngFile(
+    `finish-event-${event}.png`,
+    base64,
+  );
 
   if (origFile) {
     setSelectedIndex(origIndex);
     setVideoFile(origFile);
     await requestVideoFrame({ videoFile: origFile, frameNum: origFrame });
   }
+
+  if (saveResult.error) {
+    return `Failed to save image: ${saveResult.error}`;
+  }
+  if (saveResult.canceled || !saveResult.filePath) {
+    return '';
+  }
+
+  const sep =
+    saveResult.filePath.lastIndexOf('\\') >
+    saveResult.filePath.lastIndexOf('/')
+      ? '\\'
+      : '/';
+  const dir = saveResult.filePath.slice(0, saveResult.filePath.lastIndexOf(sep));
+  await window.Util.openFileExplorer(dir);
   return '';
 };

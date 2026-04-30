@@ -139,3 +139,30 @@ function openFileExplorer(folderPath: string) {
 ipcMain.handle('open-file-explorer', (_event, dirPath) => {
   openFileExplorer(dirPath);
 });
+
+ipcMain.handle(
+  'save-png-file',
+  async (_event, defaultName: string, base64: string) => {
+    const result = await dialog.showSaveDialog(
+      getMainWindow() as BrowserWindow,
+      {
+        defaultPath: defaultName,
+        filters: [{ name: 'PNG image', extensions: ['png'] }],
+      },
+    );
+    if (result.canceled || !result.filePath) {
+      return { canceled: true, filePath: '' };
+    }
+    try {
+      const buffer = Buffer.from(base64, 'base64');
+      fs.writeFileSync(result.filePath, buffer);
+      return { canceled: false, filePath: result.filePath };
+    } catch (err) {
+      return {
+        canceled: false,
+        filePath: '',
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  },
+);

@@ -39,6 +39,10 @@ declare global {
         filePath: string,
         json: T,
       ): Promise<{ status: string; error?: string }>;
+      savePngFile(
+        defaultName: string,
+        base64: string,
+      ): Promise<{ canceled: boolean; filePath: string; error?: string }>;
     };
     platform: {
       platform: string;
