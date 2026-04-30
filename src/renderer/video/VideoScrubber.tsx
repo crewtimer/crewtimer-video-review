@@ -7,6 +7,7 @@ import {
 import { getClickOffset, getWaypoint, useWaypoint } from '../util/UseSettings';
 import { findClosestNumAndIndex, gateFromWaypoint } from '../util/Util';
 import ImageButton from './ImageButton';
+import FinishPhotoButton from './FinishPhotoButton';
 import TimeRangeIcons from './TimeRangeIcons';
 import { useClickerData } from './UseClickerData';
 import {
@@ -337,6 +338,7 @@ const VideoScrubber = () => {
         &gt;
       </Button>
       <ImageButton />
+      <FinishPhotoButton />
     </Stack>
   );
 };
