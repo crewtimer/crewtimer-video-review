@@ -39,6 +39,7 @@ import {
   Point,
 } from './VideoUtils';
 import type { InterpolationRecord } from './InterpolationStore';
+import { KeyMap } from 'crewtimer-common';
 
 const { VideoUtils } = window;
 
@@ -158,13 +159,8 @@ async function ensureFileOpen(
         firstImage.tsMicro + (1000000 * firstImage.numFrames) / firstImage.fps,
       );
 
-  // Since we're opening the video file for viewing, ensure the sidecar has guides defined
-  if (!videoFileStatus.sidecar?.guides) {
-    // No guides, save current guide config
-    // Saving will update the sidecar content in videoFileStatus
-    await saveVideoSidecar(videoFile);
-  }
-
+  const tzOffset = videoFileStatus.tzOffset || -new Date().getTimezoneOffset();
+  const missingSidecarFile = !videoFileStatus.sidecar?.file;
   const newVideoFileStatus = {
     filename: videoFile,
     open: true,
@@ -173,11 +169,26 @@ async function ensureFileOpen(
     endTime: lastImageTime,
     duration: lastImageTime - firstImage.tsMicro,
     fps: firstImage.fps,
-    tzOffset: videoFileStatus.tzOffset || -new Date().getTimezoneOffset(),
-    sidecar: videoFileStatus.sidecar || {},
+    tzOffset,
+    sidecar: {
+      ...videoFileStatus.sidecar,
+      file: {
+        startTs: `${firstImage.tsMicro / 1000000}`,
+        stopTs: `${lastImageTime / 1000000}`,
+        numFrames: firstImage.numFrames,
+        fps: firstImage.fps,
+        tzOffset,
+      },
+    } as KeyMap,
   };
   console.log(JSON.stringify(newVideoFileStatus, null, 2));
   updateFileStatus(newVideoFileStatus);
+
+  // Since we're opening the video file for viewing, ensure the sidecar has guides defined.
+  if (missingSidecarFile || !newVideoFileStatus.sidecar?.guides) {
+    // No guides, save current guide config. Saving will update the cached sidecar.
+    await saveVideoSidecar(videoFile);
+  }
 
   return newVideoFileStatus;
 }

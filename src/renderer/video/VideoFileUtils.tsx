@@ -190,36 +190,46 @@ const createSidecarFile = async (
   file: string,
 ): Promise<VideoSidecar | undefined> => {
   const tzOffset = getTimezoneOffset();
-  await requestVideoFrame({
+  const sidecar = await loadVideoSidecar(file, true);
+  if (sidecar?.file) {
+    if (sidecar.file.tzOffset !== tzOffset) {
+      sidecar.file.tzOffset = tzOffset;
+      await storeJsonFile(replaceFileSuffix(file, 'json'), sidecar);
+    } else {
+      console.log(`skipping ${file}.  file info already exists`);
+    }
+    return sidecar;
+  }
+
+  const image = await requestVideoFrame({
     videoFile: file,
     frameNum: 1,
   });
-  const image = getImage();
-  if (image) {
-    const sidecar = await loadVideoSidecar(file, true);
-    if (sidecar?.file) {
-      if (sidecar.file.tzOffset !== tzOffset) {
-        sidecar.file.tzOffset = tzOffset;
-        await storeJsonFile(replaceFileSuffix(file, 'json'), sidecar);
-      } else {
-        console.log(`skipping ${file}.  file info already exists`);
-      }
-      return sidecar;
-    }
-    const content: VideoSidecar = {
-      file: {
-        startTs: `${image.fileStartTime / 1000}`,
-        stopTs: `${image.fileEndTime / 1000}`,
-        numFrames: image.numFrames,
-        fps: image.fps,
-        tzOffset,
-      },
-      ...sidecar,
-    } as VideoSidecar;
-    await storeJsonFile(replaceFileSuffix(file, 'json'), content);
-    return content;
+  if (
+    !image ||
+    !image.file ||
+    image.file !== file ||
+    image.numFrames <= 1 ||
+    image.fileStartTime === image.fileEndTime
+  ) {
+    console.log(
+      `skipping sidecar creation for ${file}. No valid video metadata`,
+    );
+    return undefined;
   }
-  return undefined;
+
+  const content: VideoSidecar = {
+    ...sidecar,
+    file: {
+      startTs: `${image.fileStartTime / 1000}`,
+      stopTs: `${image.fileEndTime / 1000}`,
+      numFrames: image.numFrames,
+      fps: image.fps,
+      tzOffset,
+    },
+  } as VideoSidecar;
+  await storeJsonFile(replaceFileSuffix(file, 'json'), content);
+  return content;
 };
 export const addSidecarFiles = async () => {
   try {
@@ -275,10 +285,7 @@ export const refreshDirList = async (videoDir: string) => {
       if (fileStatus) {
         fileStatusList.push(fileStatus);
       } else {
-        let videoSidecar = await loadVideoSidecar(file, true);
-        if (!videoSidecar) {
-          videoSidecar = await createSidecarFile(file);
-        }
+        const videoSidecar = await loadVideoSidecar(file, true);
         fileStatus = {
           open: false,
           numFrames: 0,
