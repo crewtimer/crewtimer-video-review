@@ -10,10 +10,22 @@ import {
 import { downloadCanvasImage, getFinishLine } from './VideoUtils';
 import { milliToString, secondsSinceLocalMidnight } from '../util/Util';
 import { getMobileConfig, getWaypoint } from '../util/UseSettings';
+import logoUrl from '../../assets/icons/crewtimer-review2-white.svg';
 
 const SLICE_FRACTION_OF_WIDTH = 0.8;
 const SLICE_GAP_FRACTION = 0.04;
 const SIDEBAR_PADDING = 20;
+const LOGO_BOTTOM_MARGIN = 20;
+const LOGO_WIDTH_FRACTION = 0.4;
+const LOGO_MAX_WIDTH = 140;
+
+const loadImage = (src: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
 
 const formatDelta = (delta: number, intWidth = 1): string => {
   const sign = delta < 0 ? '-' : '+';
@@ -62,6 +74,7 @@ const buildSidebar = (
   finishers: ExtendedLap[],
   crewByBow: Map<string, string>,
   height: number,
+  logo?: HTMLImageElement,
 ): HTMLCanvasElement => {
   const usableHeight = height - 2 * SIDEBAR_PADDING;
   const rowHeight = Math.min(220, Math.floor(usableHeight / finishers.length));
@@ -189,6 +202,28 @@ const buildSidebar = (
     y += rowHeight;
   });
 
+  if (logo && logo.naturalWidth > 0 && logo.naturalHeight > 0) {
+    const contentBottom =
+      y - rowHeight + circleSize + lineGap + 2 * detailSize + 4;
+    const availableHeight = height - LOGO_BOTTOM_MARGIN - contentBottom - 12;
+    if (availableHeight > 40) {
+      const aspect = logo.naturalHeight / logo.naturalWidth;
+      let targetWidth = Math.min(
+        LOGO_MAX_WIDTH,
+        sidebarWidth - 2 * SIDEBAR_PADDING,
+        Math.round(sidebarWidth * LOGO_WIDTH_FRACTION),
+      );
+      let targetHeight = Math.round(targetWidth * aspect);
+      if (targetHeight > availableHeight) {
+        targetHeight = Math.floor(availableHeight);
+        targetWidth = Math.round(targetHeight / aspect);
+      }
+      const logoX = Math.round((sidebarWidth - targetWidth) / 2);
+      const logoY = height - targetHeight - LOGO_BOTTOM_MARGIN;
+      ctx.drawImage(logo, logoX, logoY, targetWidth, targetHeight);
+    }
+  }
+
   return canvas;
 };
 
@@ -305,6 +340,13 @@ export const generateFinishPhoto = async (event: string): Promise<string> => {
   const origFrame = getImage().frameNum;
   const origIndex = getSelectedIndex();
 
+  let logo: HTMLImageElement | undefined;
+  try {
+    logo = await loadImage(logoUrl);
+  } catch {
+    logo = undefined;
+  }
+
   const renders: SliceRender[] = [];
   for (const finisher of finishers) {
     // eslint-disable-next-line no-await-in-loop
@@ -320,7 +362,7 @@ export const generateFinishPhoto = async (event: string): Promise<string> => {
   }
 
   const height = renders[0].canvas.height;
-  const sidebar = buildSidebar(finishers, crewByBow, height);
+  const sidebar = buildSidebar(finishers, crewByBow, height, logo);
   const slicesWidth = renders.reduce((s, r) => s + r.width, 0);
   const meanSliceWidth = slicesWidth / renders.length;
   const gapWidth = Math.round(meanSliceWidth * SLICE_GAP_FRACTION);
