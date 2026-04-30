@@ -3,10 +3,9 @@
 /* eslint-disable no-restricted-syntax */
 import React, { useEffect } from 'react';
 import { showErrorDialog } from 'renderer/util/ErrorDialog';
-import { setProgressBar, useInitializing } from 'renderer/util/UseSettings';
+import { useInitializing } from 'renderer/util/UseSettings';
 import { replaceFileSuffix } from 'renderer/util/Util';
 import deepequal from 'fast-deep-equal/es6/react';
-import { getTimezoneOffset } from 'renderer/util/TimezoneSelector';
 import { extractTime } from '../util/StringUtils';
 import {
   Dir,
@@ -40,7 +39,7 @@ import {
   setOpenFilename,
 } from './RequestVideoFrame';
 
-const { storeJsonFile, readJsonFile, getFilesInDirectory } = window.Util;
+const { readJsonFile, getFilesInDirectory } = window.Util;
 
 const { VideoUtils } = window;
 
@@ -184,67 +183,6 @@ const loadVideoSidecar = (
       // showErrorDialog(error);  Do not show error but return empty result.
       return undefined;
     });
-};
-
-const createSidecarFile = async (
-  file: string,
-): Promise<VideoSidecar | undefined> => {
-  const tzOffset = getTimezoneOffset();
-  const sidecar = await loadVideoSidecar(file, true);
-  if (sidecar?.file) {
-    if (sidecar.file.tzOffset !== tzOffset) {
-      sidecar.file.tzOffset = tzOffset;
-      await storeJsonFile(replaceFileSuffix(file, 'json'), sidecar);
-    } else {
-      console.log(`skipping ${file}.  file info already exists`);
-    }
-    return sidecar;
-  }
-
-  const image = await requestVideoFrame({
-    videoFile: file,
-    frameNum: 1,
-  });
-  if (
-    !image ||
-    !image.file ||
-    image.file !== file ||
-    image.numFrames <= 1 ||
-    image.fileStartTime === image.fileEndTime
-  ) {
-    console.log(
-      `skipping sidecar creation for ${file}. No valid video metadata`,
-    );
-    return undefined;
-  }
-
-  const content: VideoSidecar = {
-    ...sidecar,
-    file: {
-      startTs: `${image.fileStartTime / 1000}`,
-      stopTs: `${image.fileEndTime / 1000}`,
-      numFrames: image.numFrames,
-      fps: image.fps,
-      tzOffset,
-    },
-  } as VideoSidecar;
-  await storeJsonFile(replaceFileSuffix(file, 'json'), content);
-  return content;
-};
-export const addSidecarFiles = async () => {
-  try {
-    const files = getDirList();
-    let count = 0;
-    for (const file of files) {
-      await createSidecarFile(file);
-      count += 1;
-      setProgressBar((count / files.length) * 100);
-    }
-    setDirList([]); // Trigger reload of the video list
-    setFileStatusList([]);
-  } catch (e) {
-    showErrorDialog(e);
-  }
 };
 
 const videoFileRegex = /\.(mp4|avi|mov|wmv|flv|mkv)$/i;

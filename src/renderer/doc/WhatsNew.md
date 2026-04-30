@@ -1,6 +1,7 @@
 
 | Version | What's New |
 | --- | --- |
+| 1.0.38 | Improve scrubbing performance.  Variable Frame Rate support. Bug fixes.|
 | 1.0.37 | Remove click between lane guides to change lane |
 | 1.0.36 | Save interpolation data for each timestamp |
 | 1.0.35 | Support recordings with timestamps as mp4 metadata and PTS values |

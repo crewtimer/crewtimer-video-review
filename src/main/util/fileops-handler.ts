@@ -1,4 +1,5 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron';
+import path from 'path';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import { getMainWindow } from '../mainWindow';
 
 const { exec } = require('child_process');
@@ -112,6 +113,22 @@ ipcMain.handle('store-json-file', (_event, filePath, json) => {
     return { status: 'OK' };
   } catch (err) {
     return { status: `${err instanceof Error ? err.message : err}` };
+  }
+});
+
+ipcMain.handle('read-app-log', () => {
+  const logFilePath = path.join(app.getPath('userData'), 'applog.txt');
+  try {
+    const contents = fs.existsSync(logFilePath)
+      ? fs.readFileSync(logFilePath, 'utf8')
+      : '';
+    return { status: 'OK', path: logFilePath, contents };
+  } catch (err) {
+    return {
+      status: `${err instanceof Error ? err.message : err}`,
+      path: logFilePath,
+      contents: '',
+    };
   }
 });
 

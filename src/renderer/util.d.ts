@@ -39,6 +39,11 @@ declare global {
         filePath: string,
         json: T,
       ): Promise<{ status: string; error?: string }>;
+      readAppLog(): Promise<{
+        status: string;
+        path: string;
+        contents: string;
+      }>;
     };
     platform: {
       platform: string;

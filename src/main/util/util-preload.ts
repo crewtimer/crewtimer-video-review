@@ -135,6 +135,21 @@ export function storeJsonFile<T = KeyMap>(
   });
 }
 
+export function readAppLog(): Promise<{
+  status: string;
+  path: string;
+  contents: string;
+}> {
+  return new Promise((resolve, _reject) => {
+    ipcRenderer
+      .invoke('read-app-log')
+      .then((result) => resolve(result))
+      .catch((err) =>
+        resolve({ status: 'Fail', path: '', contents: String(err) }),
+      );
+  });
+}
+
 contextBridge.exposeInMainWorld('Util', {
   onUserMessage: (
     callback: (_event: IpcRendererEvent, level: string, msg: string) => void,
@@ -148,6 +163,7 @@ contextBridge.exposeInMainWorld('Util', {
   mkdir,
   readJsonFile,
   storeJsonFile,
+  readAppLog,
 });
 
 contextBridge.exposeInMainWorld('platform', {
