@@ -95,6 +95,26 @@ export function openFileExplorer(dir: string): Promise<void> {
   });
 }
 
+export interface SavePngFileReturn {
+  canceled: boolean;
+  filePath: string;
+  error?: string;
+}
+
+export function savePngFile(
+  defaultName: string,
+  base64: string,
+): Promise<SavePngFileReturn> {
+  return new Promise((resolve) => {
+    ipcRenderer
+      .invoke('save-png-file', defaultName, base64)
+      .then((result) => resolve(result))
+      .catch((err) =>
+        resolve({ canceled: false, filePath: '', error: String(err) }),
+      );
+  });
+}
+
 // Function to get the files in a directory and return them as a promise
 export function getFilesInDirectory(dirPath: string): Promise<DirListReturn> {
   // console.log('Executing getFiles in dir preload');
@@ -164,6 +184,7 @@ contextBridge.exposeInMainWorld('Util', {
   readJsonFile,
   storeJsonFile,
   readAppLog,
+  savePngFile,
 });
 
 contextBridge.exposeInMainWorld('platform', {

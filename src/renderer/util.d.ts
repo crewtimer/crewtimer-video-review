@@ -44,6 +44,10 @@ declare global {
         path: string;
         contents: string;
       }>;
+      savePngFile(
+        defaultName: string,
+        base64: string,
+      ): Promise<{ canceled: boolean; filePath: string; error?: string }>;
     };
     platform: {
       platform: string;
