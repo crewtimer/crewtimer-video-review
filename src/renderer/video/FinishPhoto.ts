@@ -2,8 +2,10 @@ import { ExtendedLap, getClickerData } from './UseClickerData';
 import { getOpenFilename, requestVideoFrame } from './RequestVideoFrame';
 import { getFileStatusList } from './VideoFileStatus';
 import {
+  DEFAULT_GUIDE_COLOR,
   getImage,
   getSelectedIndex,
+  getVideoSettings,
   setSelectedIndex,
   setVideoFile,
 } from './VideoSettings';
@@ -301,7 +303,7 @@ const renderSlice = async (
   const finishLineInSlice = Math.round(finishX - sliceLeft);
   if (finishLineInSlice >= 0 && finishLineInSlice < sliceWidth) {
     const lineWidth = Math.max(2, Math.round(image.width * 0.0015));
-    ctx.fillStyle = '#ff2222';
+    ctx.fillStyle = getVideoSettings().guideColor || DEFAULT_GUIDE_COLOR;
     ctx.fillRect(
       finishLineInSlice - Math.floor(lineWidth / 2),
       0,
