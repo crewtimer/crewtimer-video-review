@@ -42,9 +42,9 @@ if (isDebug) {
 }
 
 // Create a write stream (in append mode)
-const logFilePath = path.join(app.getPath('userData'), 'applog.txt');
+export const logFilePath = path.join(app.getPath('userData'), 'applog.txt');
 console.log(`Logging to ${logFilePath}`);
-const logStream = require('fs').createWriteStream(logFilePath);
+const logStream = require('fs').createWriteStream(logFilePath, { flags: 'a' });
 
 // Redirect console.log to the log file
 console.log = (...args) => {
@@ -133,7 +133,7 @@ const createWindow = async () => {
     return { action: 'deny' };
   });
 
-  startVideoServices();
+  startVideoServices(logFilePath);
 
   // Remove this if your app does not use auto updates
   // eslint-disable-next-line

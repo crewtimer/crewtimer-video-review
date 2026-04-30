@@ -4,7 +4,16 @@ import { VideoFrameRequest } from 'renderer/shared/AppTypes';
 
 export function stopVideoServices(_name: string) {}
 
-export function startVideoServices() {}
+export function startVideoServices(logFilePath: string) {
+  try {
+    nativeVideoExecutor({
+      op: 'setLogFile',
+      logFile: logFilePath,
+    } as unknown as GrabFrameMessage);
+  } catch (err) {
+    console.error('Failed to redirect C++ logging:', err);
+  }
+}
 
 ipcMain.handle('video:sendMulticast', (_event, msg, dest, port) => {
   try {

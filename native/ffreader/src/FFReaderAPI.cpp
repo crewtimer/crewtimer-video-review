@@ -1,3 +1,4 @@
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -27,6 +28,7 @@ struct FileInfo
 static std::map<std::string, FileInfo> fileInfoMap;
 static FrameInfoList frameInfoList;
 static FrameRect noZoom = {0, 0, 0, 0};
+static std::ofstream nativeLogStream;
 static int debugLevel = 1;
 
 /**
@@ -285,6 +287,18 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
   if (op == "debug")
   {
     debugLevel = args.Get("debugLevel").As<Napi::Number>().Int32Value();
+  }
+  if (op == "setLogFile")
+  {
+    auto logFile = args.Get("logFile").As<Napi::String>().Utf8Value();
+    nativeLogStream.open(logFile, std::ios::app);
+    if (nativeLogStream.is_open())
+    {
+      std::cout.rdbuf(nativeLogStream.rdbuf());
+      std::cerr.rdbuf(nativeLogStream.rdbuf());
+      std::cerr << "C++ stdout/stderr redirected to " << logFile << std::endl;
+    }
+    return ret;
   }
 
   if (op == "closeFile")

@@ -20,7 +20,8 @@ import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import InfoIcon from '@mui/icons-material/Info';
-import { Button, Stack, Link } from '@mui/material';
+import ArticleIcon from '@mui/icons-material/Article';
+import { Box, Button, Stack, Link } from '@mui/material';
 import { useFirebaseDatum } from './util/UseFirebase';
 import { setToast } from './Toast';
 import { getConnectionProps } from './util/Util';
@@ -28,15 +29,12 @@ import {
   useMobileConfig,
   useMobileID,
   useFirebaseConnected,
-  setProgressBar,
   useDebugLevel,
 } from './util/UseSettings';
 import icon from '../assets/icons/crewtimer-review2-white.svg';
 import { setDialogConfig } from './util/ConfirmDialog';
-import { addSidecarFiles, archiveVideoFiles } from './video/VideoFileUtils';
-import { ProgressBarComponent } from './util/ProgressBarComponent';
+import { archiveVideoFiles } from './video/VideoFileUtils';
 import { initiateImageArchive } from './video/ImageArchive';
-import TimezoneSelector from './util/TimezoneSelector';
 import { useFileStatusList } from './video/VideoFileStatus';
 import { getVideoDir } from './video/VideoSettings';
 import { setUserMessages } from './util/UserMessage';
@@ -106,31 +104,6 @@ export default function Nav() {
     initiateImageArchive();
   };
 
-  const handleAddSidecarFiles = () => {
-    setAnchorEl(null);
-    setDialogConfig({
-      title: `Update Sidecar Files?`,
-      message: `Proceed to update Sidecar JSON files?`,
-      button: 'Proceed',
-      body: <TimezoneSelector />,
-      showCancel: true,
-      handleConfirm: () => {
-        setProgressBar(0);
-        addSidecarFiles();
-        setDialogConfig({
-          title: 'Updating Sidecar Files',
-          body: (
-            <Stack>
-              <ProgressBarComponent />
-            </Stack>
-          ),
-          button: 'OK',
-          showCancel: false,
-        });
-      },
-    });
-  };
-
   const handleClearData = () => {
     setAnchorEl(null);
     LapStorage.truncateLapTable();
@@ -160,6 +133,46 @@ export default function Nav() {
         archiveVideoFiles(archiveCandidates);
         setToast({ severity: 'info', msg: 'Files archived.' });
       },
+    });
+  };
+
+  const handleViewAppLog = async () => {
+    setAnchorEl(null);
+    const result = await window.Util.readAppLog();
+    if (result.status !== 'OK') {
+      setDialogConfig({
+        title: 'Application Log',
+        message: result.status,
+        button: 'OK',
+        showCancel: false,
+      });
+      return;
+    }
+
+    setDialogConfig({
+      title: 'Application Log',
+      body: (
+        <Stack spacing={1}>
+          <Typography variant="caption">{result.path}</Typography>
+          <Box
+            component="pre"
+            sx={{
+              margin: 0,
+              maxHeight: '70vh',
+              maxWidth: '80vw',
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              fontFamily: 'monospace',
+              fontSize: '0.75rem',
+            }}
+          >
+            {result.contents || 'Log file is empty.'}
+          </Box>
+        </Stack>
+      ),
+      button: 'OK',
+      showCancel: false,
     });
   };
 
@@ -243,39 +256,44 @@ export default function Nav() {
               open={open}
               onClose={handleClose}
             >
-              <MenuItem onClick={onViewResults}>
-                <ListItemIcon>
-                  <VisibilityIcon />
-                </ListItemIcon>
-                <ListItemText primary="View Results" />
-              </MenuItem>
-              <MenuItem onClick={handleClearData}>
-                <ListItemIcon>
-                  <HistoryToggleOffIcon />
-                </ListItemIcon>
-                <ListItemText primary="Clear Local History" />
-              </MenuItem>
-              <MenuItem onClick={handleArchiveData}>
-                <ListItemIcon>
-                  <DeleteForeverIcon />
-                </ListItemIcon>
-                <ListItemText primary="Archive Video Files" />
-              </MenuItem>
-              {shiftMenu && (
-                <MenuItem onClick={handleAddSidecarFiles}>
+              {!shiftMenu && (
+                <MenuItem onClick={onViewResults}>
                   <ListItemIcon>
-                    <CreateNewFolderIcon />
+                    <VisibilityIcon />
                   </ListItemIcon>
-                  <ListItemText primary="Create/Update Sidecar Files" />
+                  <ListItemText primary="View Results" />
                 </MenuItem>
               )}
-
+              {!shiftMenu && (
+                <MenuItem onClick={handleClearData}>
+                  <ListItemIcon>
+                    <HistoryToggleOffIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Clear Local History" />
+                </MenuItem>
+              )}
+              {!shiftMenu && (
+                <MenuItem onClick={handleArchiveData}>
+                  <ListItemIcon>
+                    <DeleteForeverIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Archive Video Files" />
+                </MenuItem>
+              )}
               {shiftMenu && (
                 <MenuItem onClick={handleCreateImageArchive}>
                   <ListItemIcon>
                     <CreateNewFolderIcon />
                   </ListItemIcon>
                   <ListItemText primary="Create Image Archive" />
+                </MenuItem>
+              )}
+              {shiftMenu && (
+                <MenuItem onClick={handleViewAppLog}>
+                  <ListItemIcon>
+                    <ArticleIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="View App Log" />
                 </MenuItem>
               )}
               {shiftMenu && (
@@ -300,28 +318,32 @@ export default function Nav() {
                   <ListItemText primary="Toggle Debug" />
                 </MenuItem>
               )}
-              <MenuItem
-                onClick={() => {
-                  handleClose();
-                  openNagScreen(true);
-                }}
-              >
-                <ListItemIcon>
-                  <InfoIcon />
-                </ListItemIcon>
-                <ListItemText primary="What's New" />
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  handleClose();
-                  setToast({ severity: 'info', msg: AboutText });
-                }}
-              >
-                <ListItemIcon>
-                  <InfoIcon />
-                </ListItemIcon>
-                <ListItemText primary="About" />
-              </MenuItem>
+              {!shiftMenu && (
+                <MenuItem
+                  onClick={() => {
+                    handleClose();
+                    openNagScreen(true);
+                  }}
+                >
+                  <ListItemIcon>
+                    <InfoIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="What's New" />
+                </MenuItem>
+              )}
+              {!shiftMenu && (
+                <MenuItem
+                  onClick={() => {
+                    handleClose();
+                    setToast({ severity: 'info', msg: AboutText });
+                  }}
+                >
+                  <ListItemIcon>
+                    <InfoIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="About" />
+                </MenuItem>
+              )}
             </Menu>
             <Snackbar
               anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
