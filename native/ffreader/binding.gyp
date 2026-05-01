@@ -11,6 +11,7 @@
       ],
       "conditions": [
         ['OS=="mac"', {
+          "sources": ["src/MacOSLocalNetworkPermission.mm"],
           "cflags": [ "-frtti"],
           "cflags_cc!": [ "-frtti" ],
           "xcode_settings": {
@@ -41,7 +42,9 @@
                 "-framework CoreVideo",
                 "-framework CoreMedia",
                 "-framework CoreFoundation",
-                "-framework OpenCL"],
+                "-framework OpenCL",
+                "-framework Foundation",
+                "-framework Network"],
 
             'library_dirs': ['../lib-build/ffmpeg-static-mac/lib']
           }

@@ -18,6 +18,10 @@ extern "C"
 #include "FrameUtils.hpp"
 #include "sendMulticast.hpp"
 
+#ifdef __APPLE__
+extern "C" void triggerMacOSLocalNetworkPermission();
+#endif
+
 struct FileInfo
 {
   std::unique_ptr<FFVideoReader> videoReader;
@@ -723,6 +727,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
   exports.Set(Napi::String::New(env, "nativeVideoExecutor"),
               Napi::Function::New(env, nativeVideoExecutor));
   std::cerr << "System built " __DATE__ "  " __TIME__ << std::endl;
+
+#ifdef __APPLE__
+  triggerMacOSLocalNetworkPermission();
+#endif
 
   return exports;
 }

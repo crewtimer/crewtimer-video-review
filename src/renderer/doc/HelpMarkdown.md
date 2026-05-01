@@ -13,7 +13,7 @@
 
 | Recorder Gestures | Action |
 | --- | --- |
-| Spacebar | Pressing the space bar while over video will request the recorder to start a new recording file. |
+| Spacebar | Pressing the space bar while over video will request the recorder to start a new recording file. On Macos ensure that the app has 'Local Network' permission under Settings -> Privacy and Security. |
 | >> Icon | Request the recorder to start a new recording file. |
 
 | Timing Sidebar Gestures | Action |
