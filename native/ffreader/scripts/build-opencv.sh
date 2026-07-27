@@ -10,7 +10,7 @@ fi
 # Determine the platform (macOS or Windows via WSL or others)
 if [[ "$OSTYPE" == "darwin"* ]]; then
   PLATFORM="mac"
-  CMAKE_ARCH_OPTS=-DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+  CMAKE_ARCH_OPTS=-DCMAKE_OSX_ARCHITECTURES="arm64"
 elif [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OS" == "Windows"* ]]; then
   PLATFORM="win"
   CMAKE_ARCH_OPTS="-Ax64"
@@ -19,11 +19,15 @@ else
 fi
 
 # Variables
-OPENCV_VERSION="4.9.0"
+OPENCV_VERSION="5.0.0"
 DOWNLOAD_DIR="${BASE_BUILD_DIR}/opencv-${OPENCV_VERSION}"
 INSTALL_DIR="${BASE_BUILD_DIR}/opencv-static-${PLATFORM}"
 BUILD_DIR="${DOWNLOAD_DIR}/build-${PLATFORM}"
+if [[ "$PLATFORM" == "mac" ]]; then
+  BUILD_DIR="${DOWNLOAD_DIR}/build-mac-arm64"
+fi
 OPENCV_URL="https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.zip"
+BUILD_JOBS="${OPENCV_BUILD_JOBS:-8}"
 
 # Parse arguments
 FORCE=0
@@ -35,11 +39,12 @@ done
 
 CHECK_FILE="${INSTALL_DIR}/lib/libopencv_core.a"  # File to check for existing build
 if [[ "$PLATFORM" == "win"* ]]; then
-  CHECK_FILE="${INSTALL_DIR}/staticlib/opencv_video490.lib"  # File to check for existing build
+  CHECK_FILE="${INSTALL_DIR}/staticlib/opencv_video500.lib"  # File to check for existing build
 fi
+VERSION_FILE="${INSTALL_DIR}/.opencv-${OPENCV_VERSION}"
 
 # Check if the library has already been built
-if [ $FORCE -eq 0 ] && [ -f "$CHECK_FILE" ]; then
+if [ $FORCE -eq 0 ] && [ -f "$CHECK_FILE" ] && [ -f "$VERSION_FILE" ]; then
   echo "OpenCV static library already built. Skipping build."
   exit 0
 fi
@@ -77,15 +82,16 @@ cmake  \
       -DBUILD_ZLIB=ON -DWITH_OPENEXR=ON \
       -DWITH_IPP=OFF -DWITH_ITT=OFF \
       -DWITH_JPEG=OFF -DBUILD_JPEG=OFF -DBUILD_opencv_imgcodecs=ON \
-      -DBUILD_LIST=core,imgproc,video \
+      -DBUILD_LIST=core,dnn,imgproc,video \
       ..
 
 # Compile and install OpenCV
 echo "Building OpenCV..."
-cmake --build . --parallel --config Release
+cmake --build . --parallel "$BUILD_JOBS" --config Release
 # make -j4
 echo "Installing OpenCV..."
 cmake --install . --config Release
+touch "$VERSION_FILE"
 # make install
 
 # Environment setup for Electron module

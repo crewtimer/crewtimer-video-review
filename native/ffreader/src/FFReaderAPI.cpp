@@ -4,6 +4,7 @@
 #include <memory>
 #include <napi.h>
 #include <node.h>
+#include <opencv2/core.hpp>
 
 extern "C"
 {
@@ -727,6 +728,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
   exports.Set(Napi::String::New(env, "nativeVideoExecutor"),
               Napi::Function::New(env, nativeVideoExecutor));
   std::cerr << "System built " __DATE__ "  " __TIME__ << std::endl;
+  std::cerr << "OpenCV runtime version: " << cv::getVersionString() << std::endl;
 
 #ifdef __APPLE__
   triggerMacOSLocalNetworkPermission();
