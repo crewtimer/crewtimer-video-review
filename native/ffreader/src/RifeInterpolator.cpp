@@ -1,6 +1,8 @@
 #include "RifeInterpolator.hpp"
 
+#ifdef __APPLE__
 #include <coreml_provider_factory.h>
+#endif
 #include <onnxruntime_cxx_api.h>
 
 #include <opencv2/imgproc.hpp>
@@ -11,6 +13,19 @@
 #include <iostream>
 #include <stdexcept>
 #include <vector>
+
+#ifdef _WIN32
+// Declared by hand (rather than #include <dml_provider_factory.h>) to avoid
+// a hard dependency on the DirectML.h / d3d12.h headers that file pulls in.
+// ORT_API_STATUS/_In_ come from onnxruntime_c_api.h (already transitively
+// included via onnxruntime_cxx_api.h above), so this expands to exactly the
+// same declaration the real header uses -- same exported symbol, same ABI.
+extern "C"
+{
+  ORT_API_STATUS(OrtSessionOptionsAppendExecutionProvider_DML,
+                _In_ OrtSessionOptions *options, int device_id);
+}
+#endif
 
 namespace
 {
@@ -35,7 +50,16 @@ struct RifeInterpolator::Impl
     Ort::SessionOptions options;
     options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
-    bool coreMlRequested = false;
+    bool epRequested = false;
+    const char *epName =
+#if defined(__APPLE__)
+        "CoreML";
+#elif defined(_WIN32)
+        "DirectML";
+#else
+        "(none)";
+#endif
+#if defined(__APPLE__)
     try
     {
       // CPU_AND_GPU (rather than ANE-only) since RIFE's grid-sample warp
@@ -44,13 +68,29 @@ struct RifeInterpolator::Impl
       uint32_t coremlFlags = COREML_FLAG_USE_CPU_AND_GPU;
       Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CoreML(
           options, coremlFlags));
-      coreMlRequested = true;
+      epRequested = true;
     }
     catch (const Ort::Exception &e)
     {
       std::cerr << "RifeInterpolator: CoreML EP unavailable (" << e.what()
                 << "), using CPU" << std::endl;
     }
+#elif defined(_WIN32)
+    try
+    {
+      // Device 0 = default adapter (typically the primary GPU). Relies on
+      // the OS-supplied DirectML.dll (Windows 10 1903+ / Windows 11 ship it
+      // in System32) -- we don't bundle our own copy.
+      Ort::ThrowOnError(
+          OrtSessionOptionsAppendExecutionProvider_DML(options, 0));
+      epRequested = true;
+    }
+    catch (const Ort::Exception &e)
+    {
+      std::cerr << "RifeInterpolator: DirectML EP unavailable (" << e.what()
+                << "), using CPU" << std::endl;
+    }
+#endif
 
     session = Ort::Session(env, modelPath.c_str(), options);
 
@@ -60,8 +100,8 @@ struct RifeInterpolator::Impl
     inputName = inName.get();
     outputName = outName.get();
 
-    std::cerr << "RifeInterpolator: session ready for " << modelPath
-              << " (CoreML " << (coreMlRequested ? "requested" : "unavailable")
+    std::cerr << "RifeInterpolator: session ready for " << modelPath << " ("
+              << epName << " " << (epRequested ? "requested" : "unavailable")
               << "), input=" << inputName << " output=" << outputName
               << std::endl;
   }

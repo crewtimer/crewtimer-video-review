@@ -8,7 +8,8 @@ import {
 } from '@mui/material';
 import { useInterpolationTechnique } from '../video/VideoSettings';
 
-const isMac = window.platform.platform === 'darwin';
+const rifeSupported =
+  window.platform.platform === 'darwin' || window.platform.platform === 'win32';
 
 const InterpolationTechniqueSelector = () => {
   const [technique, setTechnique] = useInterpolationTechnique();
@@ -37,8 +38,8 @@ const InterpolationTechniqueSelector = () => {
           onChange={handleChange}
         >
           <MenuItem value="blend">Classic (shift &amp; blend)</MenuItem>
-          <MenuItem value="rife" disabled={!isMac}>
-            RIFE (AI){!isMac ? ' – macOS only' : ''}
+          <MenuItem value="rife" disabled={!rifeSupported}>
+            RIFE (AI){!rifeSupported ? ' – macOS/Windows only' : ''}
           </MenuItem>
         </Select>
       </FormControl>

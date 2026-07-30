@@ -31,6 +31,7 @@
               "./lib-build/opencv-static-mac/include/opencv5",
               "./lib-build/onnxruntime-static-mac/include",
             ],
+          "defines": [ "RIFE_SUPPORTED" ],
           "link_settings": {
             "libraries": [
                 "../lib-build/ffmpeg-static-mac/lib/libavcodec.a",
@@ -70,6 +71,7 @@
       }],
 
       ['OS=="win"', {
+        "sources": ["src/RifeInterpolator.cpp"],
         "msvs_settings": {
           "VCCLCompilerTool": {
             "AdditionalOptions": ["/std:c++17"]
@@ -77,8 +79,10 @@
         },
         "include_dirs": [
           "./lib-build/ffmpeg-static-win/include",
-          "./lib-build/opencv-static-win/include"
+          "./lib-build/opencv-static-win/include",
+          "./lib-build/onnxruntime-static-win/include"
         ],
+        "defines": [ "RIFE_SUPPORTED" ],
         "link_settings": {
             "libraries": [
                 "../lib-build/ffmpeg-static-win/lib/libavcodec.a",
@@ -93,12 +97,22 @@
                 "../lib-build/opencv-static-win/staticlib/opencv_core500.lib",
                 "../lib-build/opencv-static-win/staticlib/libprotobuf.lib",
                 "../lib-build/vcpkg/installed/x64-windows-static/lib/zlib.lib",
+                "../lib-build/onnxruntime-static-win/lib/onnxruntime.lib",
                 "Bcrypt.lib", "Mfuuid.lib", "Strmiids.lib",
                 "d3d11.lib", "dxgi.lib"
             ],
           'library_dirs': ["../lib-build/ffmpeg-static-win/lib",
                            "../lib-build/opencv-static-win/staticlib"]
+          },
+        "copies": [
+          {
+            "destination": "<(PRODUCT_DIR)",
+            "files": [
+              "lib-build/onnxruntime-static-win/lib/onnxruntime.dll",
+              "lib-build/onnxruntime-static-win/lib/onnxruntime_providers_shared.dll"
+            ]
           }
+        ]
         }],
       ],
 
