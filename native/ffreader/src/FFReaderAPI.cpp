@@ -22,6 +22,8 @@ extern "C"
 
 #ifdef __APPLE__
 extern "C" void triggerMacOSLocalNetworkPermission();
+#endif
+#ifdef RIFE_SUPPORTED
 #include "RifeInterpolator.hpp"
 #endif
 
@@ -35,12 +37,12 @@ struct FileInfo
 static std::map<std::string, FileInfo> fileInfoMap;
 static std::map<std::string, std::unique_ptr<BowCardDetector>>
     bowDetectorMap;
-#ifdef __APPLE__
+#ifdef RIFE_SUPPORTED
 // Deliberately leaked (raw pointer, never deleted): the ONNX Runtime
-// session + CoreML EP spawn background compile/inference threads that can
-// still be tearing down when the process exits, and destroying Ort::Env at
-// static-destruction time races with that, crashing on quit. These are
-// process-lifetime singletons anyway, so we never tear them down.
+// session + CoreML/DirectML EP spawn background compile/inference threads
+// that can still be tearing down when the process exits, and destroying
+// Ort::Env at static-destruction time races with that, crashing on quit.
+// These are process-lifetime singletons anyway, so we never tear them down.
 static std::map<std::string, RifeInterpolator *> rifeInterpolatorMap;
 #endif
 static FrameInfoList frameInfoList;
@@ -641,11 +643,18 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
     auto frameInfo = frameInfoList.getFrame(key);
     if (!frameInfo)
     {
+      // Only meant to absorb float representation noise (e.g. 123.9999997
+      // meaning "really frame 124"), not real fractional requests -- a wider
+      // tolerance here silently skips interpolation/RIFE near integer frames
+      // and returns the raw decode instead, which is visibly different
+      // (sharper/less blended) and shows up as a jump right at the boundary.
+      constexpr double kIntegerFrameEpsilon = 1e-3;
       // Nothing in cache, generate a new result
       auto intPart = static_cast<int>(frameNum);
       double fractionalPart = frameNum - intPart; // Extract fractional part
       auto fractionalFrame =
-          ((fractionalPart > 0.01) && (fractionalPart < 0.99));
+          ((fractionalPart > kIntegerFrameEpsilon) &&
+           (fractionalPart < 1.0 - kIntegerFrameEpsilon));
       if (!fractionalFrame)
       {
         intPart = std::round(
@@ -667,7 +676,8 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
         intPart = static_cast<int>(seekFrameFloat);
         fractionalPart = seekFrameFloat - intPart; // Extract fractional part
         fractionalFrame =
-            ((fractionalPart > 0.01) && (fractionalPart < 0.99));
+            ((fractionalPart > kIntegerFrameEpsilon) &&
+             (fractionalPart < 1.0 - kIntegerFrameEpsilon));
 
         auto [frameA, frameB] = findBoundingFrames(fileInfo.videoReader, file, tsMilli, intPart, fileInfo.numFrames);
 
@@ -691,7 +701,8 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
           fractionalPart = (tsMilli - frameA->timestamp) / delta;
           seekFrameFloat = intPart + fractionalPart;
           fractionalFrame =
-              ((fractionalPart > 0.01) && (fractionalPart < 0.99));
+              ((fractionalPart > kIntegerFrameEpsilon) &&
+               (fractionalPart < 1.0 - kIntegerFrameEpsilon));
         }
       }
 
@@ -748,7 +759,7 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
           //           << " frac=" << fractionalPart << std::endl;
 
           bool generatedByRife = false;
-#ifdef __APPLE__
+#ifdef RIFE_SUPPORTED
           if (interpMethod == "rife" && !rifeModelFile.empty())
           {
             auto rifeRoi = hasRifeCrop ? rifeCrop : roi;
