@@ -283,7 +283,11 @@
       "output": "release/build"
     },
     "extraResources": [
-      "./assets/**"
+      "./assets/**",
+      {
+        "from": "native/bowdetect/bow_crnn.onnx",
+        "to": "bow_crnn.onnx"
+      }
     ],
     "publish": {
       "provider": "github",

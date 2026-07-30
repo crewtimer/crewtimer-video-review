@@ -39,6 +39,7 @@ import VideoOverlay, {
 } from './VideoOverlay';
 import TimingSidebar from './TimingSidebar';
 import {
+  downloadCanvasImage,
   downloadImageFromCanvasLayers,
   getFinishLine,
   moveLeft,
@@ -57,6 +58,7 @@ import {
   videoRequestQueueRunning,
 } from './RequestVideoFrame';
 import { useSingleAndDoubleClick } from '../util/UseSingleAndDoubleClick';
+import { setToast } from '../Toast';
 
 // Avoid 'not a JSX component' warning
 const Measure = _Measure as unknown as FC<MeasureProps>;
@@ -327,6 +329,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoOverlayRef = useRef<VideoOverlayHandles>(null);
   const offscreenCanvas = useRef(document.createElement('canvas'));
+  const bowDetectionPending = useRef(false);
 
   const videoTimestamp = convertTimestampToString(
     image.timestamp,
@@ -445,7 +448,14 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   useEffect(() => {
     // A bit of a hack but set a global callback function instead of passing it down the tree
     // May not be needed now that videoScaling is a global
-    setGenerateImageSnapshotCallback(() => {
+    setGenerateImageSnapshotCallback((rawFrame) => {
+      if (rawFrame) {
+        downloadCanvasImage(
+          offscreenCanvas.current,
+          `Image_${videoTimestamp}_raw.png`,
+        );
+        return;
+      }
       const vScaling = getVideoScaling();
       downloadImageFromCanvasLayers(
         // 'video-snapshot.png',
@@ -471,9 +481,77 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     event.preventDefault();
   };
 
+  const detectBowAtPointer = async (
+    event: React.MouseEvent<HTMLElement, MouseEvent>,
+  ) => {
+    if (bowDetectionPending.current) {
+      return;
+    }
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const { pt: srcCoords, withinBounds } = translateMouseEventCoords(
+      event,
+      rect,
+    );
+    if (!withinBounds || !image.file || image.width < 1 || image.height < 1) {
+      return;
+    }
+
+    const stripHeight = Math.min(50, image.height);
+    const stripY = Math.max(
+      0,
+      Math.min(
+        image.height - stripHeight,
+        Math.round(srcCoords.y - stripHeight / 2),
+      ),
+    );
+
+    bowDetectionPending.current = true;
+    try {
+      const result = await window.VideoUtils.detectBow({
+        videoFile: image.file,
+        frameNum: image.frameNum,
+        focusX: Math.round(srcCoords.x),
+        strip: {
+          x: 0,
+          y: stripY,
+          width: image.width,
+          height: stripHeight,
+        },
+      });
+      if (result.text) {
+        setToast({
+          severity: 'success',
+          msg: `Bow detected: ${result.text} (${Math.round(
+            result.confidence * 100,
+          )}% confidence)`,
+        });
+      } else {
+        setToast({
+          severity: 'info',
+          msg: 'No bow number detected in the selected strip.',
+        });
+      }
+    } catch (error) {
+      setToast({
+        severity: 'error',
+        msg: `Bow detection failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+    } finally {
+      bowDetectionPending.current = false;
+    }
+  };
+
   const handleSingleClick = (
     event: React.MouseEvent<HTMLElement, MouseEvent>,
   ) => {
+    if (event.ctrlKey) {
+      event.preventDefault();
+      detectBowAtPointer(event);
+      return;
+    }
+
     const videoSettings = getVideoSettings();
     if (
       (event.shiftKey || getVideoScaling().autoZoomed) &&
@@ -637,6 +715,10 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const handleRightClick = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    if (event.ctrlKey) {
+      detectBowAtPointer(event);
+      return;
+    }
     performAddSplit();
   };
 

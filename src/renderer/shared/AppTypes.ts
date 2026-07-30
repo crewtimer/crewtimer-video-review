@@ -25,6 +25,30 @@ export interface Rect {
   height: number;
 }
 
+export interface BowDetectionRequest {
+  videoFile: string;
+  frameNum: number;
+  strip: Rect;
+  focusX?: number;
+  closeTo?: boolean;
+}
+
+export interface BowCharacterDetection {
+  text: string;
+  confidence: number;
+  box: Rect;
+}
+
+export interface BowDetectionResult {
+  status: string;
+  text: string;
+  confidence: number;
+  box: Rect;
+  characters: BowCharacterDetection[];
+  frameNum: number;
+  timestamp: number;
+}
+
 /**
  * Represents a request for a specific video frame.
  * Only one of frameNum, seekPercent, or toTimestamp should be specified.

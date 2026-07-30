@@ -1,0 +1,34 @@
+{
+  "model": "bow_crnn.onnx",
+  "classes": "-0123456789",
+  "input": {
+    "width": 64,
+    "height": 32
+  },
+  "datasets": [
+    "/Users/glenne/training/datasets/dataset-ACAT25",
+    "/Users/glenne/training/datasets/dataset-1"
+  ],
+  "extraction": {
+    "script": "extract_card_training_crops.py",
+    "validationPercent": 20,
+    "matchedReadableCards": 100,
+    "trainingCards": 80,
+    "validationCards": 20,
+    "unreadableCardsSkipped": 9,
+    "missingSourceImagesSkipped": 43
+  },
+  "additionalTrainingCrops": 4,
+  "training": {
+    "epochs": 20,
+    "syntheticSamplesPerEpoch": 8000,
+    "batchSize": 128
+  },
+  "validation": {
+    "previousModelRealHoldoutAccuracy": 0.45,
+    "newModelRealHoldoutAccuracy": 0.8,
+    "syntheticSingleDigitAccuracy": 1.0,
+    "imageRegressionCasesPassed": 5,
+    "imageRegressionCasesTotal": 5
+  }
+}

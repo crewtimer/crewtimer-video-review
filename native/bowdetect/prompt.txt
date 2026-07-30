@@ -1,0 +1,1 @@
+The code in native/bowdetect creates a bow_crnn.onnx and has an example C++ use in bow_card_decoder.h.  I wish to add a callable api from typescript that will utilize the opencv 5 dnn module to extract bow numbers from a subset of a video frame.  The current C++ native interface is defined in FFReaderApi.cpp.

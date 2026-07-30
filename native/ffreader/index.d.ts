@@ -33,6 +33,25 @@ declare module 'crewtimer_video_reader' {
     msg: string;
   }
 
+  interface Rect {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }
+
+  interface DetectBowMessage extends MessageBase {
+    op: 'detectBowAtFrame';
+    request: {
+      videoFile: string;
+      frameNum: number;
+      modelFile: string;
+      strip: Rect;
+      focusX?: number;
+      closeTo?: boolean;
+    };
+  }
+
   interface MessageResponseBase {
     status: string;
   }
@@ -51,11 +70,30 @@ declare module 'crewtimer_video_reader' {
     motion: { x: number; y: number; dt: number; valid: boolean };
   }
 
+  interface BowCharacterDetection {
+    text: string;
+    confidence: number;
+    box: Rect;
+  }
+
+  interface DetectBowMessageResponse extends MessageResponseBase {
+    text: string;
+    confidence: number;
+    box: Rect;
+    characters: BowCharacterDetection[];
+    frameNum: number;
+    timestamp: number;
+  }
+
   export function nativeVideoExecutor(
-    message: OpenFileMessage | CloseFileMessage | SendMulticastMessage
+    message: OpenFileMessage | CloseFileMessage | SendMulticastMessage,
   ): MessageResponseBase;
 
   export function nativeVideoExecutor(
-    message: GrabFrameMessage
+    message: GrabFrameMessage,
   ): GrabFrameMessageResponse;
+
+  export function nativeVideoExecutor(
+    message: DetectBowMessage,
+  ): DetectBowMessageResponse;
 }

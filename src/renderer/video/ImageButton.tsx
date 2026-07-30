@@ -2,9 +2,9 @@ import React from 'react';
 import IconButton from '@mui/material/IconButton';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
 
-let generateImageSnapshot: (() => void) | undefined;
+let generateImageSnapshot: ((rawFrame: boolean) => void) | undefined;
 export const setGenerateImageSnapshotCallback = (
-  callback: undefined | (() => void),
+  callback: undefined | ((rawFrame: boolean) => void),
 ) => {
   generateImageSnapshot = callback;
 };
@@ -13,10 +13,11 @@ const ImageButton: React.FC = () => {
   return (
     <IconButton
       color="primary"
-      aria-label="upload picture"
+      aria-label="Save image. Shift-click saves the raw video frame."
+      title="Save image (Shift-click for raw video frame)"
       component="span"
-      onClick={() => {
-        generateImageSnapshot?.();
+      onClick={(event) => {
+        generateImageSnapshot?.(event.shiftKey);
       }}
     >
       <PhotoCamera />

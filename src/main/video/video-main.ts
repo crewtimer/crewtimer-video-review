@@ -1,6 +1,14 @@
-import { GrabFrameMessage, nativeVideoExecutor } from 'crewtimer_video_reader';
-import { ipcMain } from 'electron';
-import { VideoFrameRequest } from 'renderer/shared/AppTypes';
+import {
+  DetectBowMessage,
+  GrabFrameMessage,
+  nativeVideoExecutor,
+} from 'crewtimer_video_reader';
+import { app, ipcMain } from 'electron';
+import path from 'path';
+import {
+  BowDetectionRequest,
+  VideoFrameRequest,
+} from 'renderer/shared/AppTypes';
 
 export function stopVideoServices(_name: string) {}
 
@@ -55,6 +63,20 @@ ipcMain.handle('video:getFrame', (_event, request: VideoFrameRequest) => {
       ),
     } as unknown as GrabFrameMessage);
     return ret;
+  } catch (err) {
+    return { status: `${err instanceof Error ? err.message : err}` };
+  }
+});
+
+ipcMain.handle('video:detectBow', (_event, request: BowDetectionRequest) => {
+  try {
+    const modelFile = app.isPackaged
+      ? path.join(process.resourcesPath, 'bow_crnn.onnx')
+      : path.join(__dirname, '../../native/bowdetect/bow_crnn.onnx');
+    return nativeVideoExecutor({
+      op: 'detectBowAtFrame',
+      request: { ...request, modelFile },
+    } as DetectBowMessage);
   } catch (err) {
     return { status: `${err instanceof Error ? err.message : err}` };
   }

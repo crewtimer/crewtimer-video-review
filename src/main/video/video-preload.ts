@@ -4,7 +4,12 @@
  * Add ```import './video/video-preload';``` to preload.ts to integrate with main
  */
 import { contextBridge, ipcRenderer } from 'electron';
-import { AppImage, Rect, VideoFrameRequest } from 'renderer/shared/AppTypes';
+import {
+  AppImage,
+  BowDetectionRequest,
+  BowDetectionResult,
+  VideoFrameRequest,
+} from 'renderer/shared/AppTypes';
 
 contextBridge.exposeInMainWorld('VideoUtils', {
   openFile: async (filePath: string) => {
@@ -43,6 +48,16 @@ contextBridge.exposeInMainWorld('VideoUtils', {
     } catch (err) {
       throw err;
     }
+  },
+  detectBow: async (request: BowDetectionRequest) => {
+    const result = (await ipcRenderer.invoke(
+      'video:detectBow',
+      request,
+    )) as BowDetectionResult;
+    if (result.status !== 'OK') {
+      throw new Error(result.status);
+    }
+    return result;
   },
   sendMulticast: async (msg: string, dest: string, port: number) => {
     try {

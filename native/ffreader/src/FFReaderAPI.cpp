@@ -17,6 +17,7 @@ extern "C"
 
 #include "FFReader.hpp"
 #include "FrameUtils.hpp"
+#include "BowCardDetector.hpp"
 #include "sendMulticast.hpp"
 
 #ifdef __APPLE__
@@ -31,6 +32,8 @@ struct FileInfo
   int32_t numFrames;
 };
 static std::map<std::string, FileInfo> fileInfoMap;
+static std::map<std::string, std::unique_ptr<BowCardDetector>>
+    bowDetectorMap;
 static FrameInfoList frameInfoList;
 static FrameRect noZoom = {0, 0, 0, 0};
 static std::ofstream nativeLogStream;
@@ -424,6 +427,115 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
     // Insert into the map with a filename as the key
     fileInfoMap[file] = std::move(info);
     return ret;
+  }
+
+  if (op == "detectBowAtFrame")
+  {
+    try
+    {
+      if (!args.Has("request") || !args.Get("request").IsObject())
+      {
+        throw std::invalid_argument("Missing bow detection request");
+      }
+      const auto request = args.Get("request").As<Napi::Object>();
+      if (!request.Has("videoFile") || !request.Has("frameNum") ||
+          !request.Has("modelFile") || !request.Has("strip"))
+      {
+        throw std::invalid_argument(
+            "Bow detection requires videoFile, frameNum, modelFile, and strip");
+      }
+
+      const std::string videoFile =
+          request.Get("videoFile").As<Napi::String>().Utf8Value();
+      const std::string modelFile =
+          request.Get("modelFile").As<Napi::String>().Utf8Value();
+      const double frameNum =
+          request.Get("frameNum").As<Napi::Number>().DoubleValue();
+      const bool closeTo =
+          request.Has("closeTo") &&
+          request.Get("closeTo").As<Napi::Boolean>().Value();
+      const int focusX =
+          request.Has("focusX")
+              ? request.Get("focusX").As<Napi::Number>().Int32Value()
+              : -1;
+
+      const auto file = fileInfoMap.find(videoFile);
+      if (file == fileInfoMap.end())
+      {
+        throw std::invalid_argument("Video file is not open");
+      }
+
+      const auto stripObject = request.Get("strip").As<Napi::Object>();
+      const cv::Rect strip(
+          stripObject.Get("x").As<Napi::Number>().Int32Value(),
+          stripObject.Get("y").As<Napi::Number>().Int32Value(),
+          stripObject.Get("width").As<Napi::Number>().Int32Value(),
+          stripObject.Get("height").As<Napi::Number>().Int32Value());
+
+      const auto frame =
+          getFrame(file->second.videoReader, videoFile, frameNum, closeTo);
+      if (!frame)
+      {
+        throw std::runtime_error(
+            "Unable to read frame " + std::to_string(frameNum));
+      }
+
+      auto detector = bowDetectorMap.find(modelFile);
+      if (detector == bowDetectorMap.end())
+      {
+        detector = bowDetectorMap
+                       .emplace(modelFile,
+                                std::make_unique<BowCardDetector>(modelFile))
+                       .first;
+      }
+
+      const cv::Mat rgba(frame->height, frame->width, CV_8UC4,
+                         frame->data->data(), frame->linesize);
+      const BowCardDetection detection =
+          detector->second->detect(rgba, strip, focusX);
+
+      ret.Set("text", Napi::String::New(env, detection.text));
+      ret.Set("confidence",
+              Napi::Number::New(env, detection.confidence));
+      ret.Set("frameNum", Napi::Number::New(env, frame->frameNum));
+      ret.Set("timestamp", Napi::Number::New(env, frame->timestamp));
+
+      const auto makeBox = [&env](const cv::Rect &box)
+      {
+        Napi::Object value = Napi::Object::New(env);
+        value.Set("x", Napi::Number::New(env, box.x));
+        value.Set("y", Napi::Number::New(env, box.y));
+        value.Set("width", Napi::Number::New(env, box.width));
+        value.Set("height", Napi::Number::New(env, box.height));
+        return value;
+      };
+      ret.Set("box", makeBox(detection.box));
+
+      Napi::Array characters =
+          Napi::Array::New(env, detection.characters.size());
+      for (size_t index = 0; index < detection.characters.size(); ++index)
+      {
+        const auto &character = detection.characters[index];
+        Napi::Object value = Napi::Object::New(env);
+        value.Set(
+            "text",
+            Napi::String::New(
+                env, character.character == '\0'
+                         ? std::string()
+                         : std::string(1, character.character)));
+        value.Set("confidence",
+                  Napi::Number::New(env, character.confidence));
+        value.Set("box", makeBox(character.box));
+        characters.Set(index, value);
+      }
+      ret.Set("characters", characters);
+      return ret;
+    }
+    catch (const std::exception &error)
+    {
+      Napi::Error::New(env, error.what()).ThrowAsJavaScriptException();
+      return ret;
+    }
   }
 
   if (op == "grabFrameAt")
