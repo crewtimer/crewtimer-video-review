@@ -287,6 +287,10 @@
       {
         "from": "native/bowdetect/bow_crnn.onnx",
         "to": "bow_crnn.onnx"
+      },
+      {
+        "from": "native/rife/rife_v4.6.onnx",
+        "to": "rife_v4.6.onnx"
       }
     ],
     "publish": {

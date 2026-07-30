@@ -183,6 +183,11 @@ export const [useHyperZoomFactor, , getHyperZoomFactor] = UseStoredDatum(
   'hyperZoomFactor',
   0,
 );
+
+/// Interpolation technique used to synthesize frames between two decoded
+/// video frames (hyperzoom scrubbing, finish photo, etc).
+export const [useInterpolationTechnique, , getInterpolationTechnique] =
+  UseStoredDatum<'blend' | 'rife'>('interpolationTechnique', 'blend');
 export const [useResetZoomCounter, setResetZoomCounter, getResetZoomCounter] =
   UseDatum(0);
 export const resetVideoZoom = () => {

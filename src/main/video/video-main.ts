@@ -52,14 +52,23 @@ ipcMain.handle('video:closeFile', (_event, filePath) => {
   }
 });
 
+const rifeModelFile = () =>
+  app.isPackaged
+    ? path.join(process.resourcesPath, 'rife_v4.6.onnx')
+    : path.join(__dirname, '../../native/rife/rife_v4.6.onnx');
+
 ipcMain.handle('video:getFrame', (_event, request: VideoFrameRequest) => {
   try {
     // console.log('Grabbing frame', JSON.stringify(request, null, 2));
+    const nativeRequest =
+      request.interpMethod === 'rife'
+        ? { ...request, modelFile: rifeModelFile() }
+        : request;
     const ret = nativeVideoExecutor({
       op: 'grabFrameAt',
       // clean request of undefined keys
       request: Object.fromEntries(
-        Object.entries(request).filter(([_, v]) => v !== undefined),
+        Object.entries(nativeRequest).filter(([_, v]) => v !== undefined),
       ),
     } as unknown as GrabFrameMessage);
     return ret;

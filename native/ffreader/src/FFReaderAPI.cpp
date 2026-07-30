@@ -22,6 +22,7 @@ extern "C"
 
 #ifdef __APPLE__
 extern "C" void triggerMacOSLocalNetworkPermission();
+#include "RifeInterpolator.hpp"
 #endif
 
 struct FileInfo
@@ -34,6 +35,14 @@ struct FileInfo
 static std::map<std::string, FileInfo> fileInfoMap;
 static std::map<std::string, std::unique_ptr<BowCardDetector>>
     bowDetectorMap;
+#ifdef __APPLE__
+// Deliberately leaked (raw pointer, never deleted): the ONNX Runtime
+// session + CoreML EP spawn background compile/inference threads that can
+// still be tearing down when the process exits, and destroying Ort::Env at
+// static-destruction time races with that, crashing on quit. These are
+// process-lifetime singletons anyway, so we never tear them down.
+static std::map<std::string, RifeInterpolator *> rifeInterpolatorMap;
+#endif
 static FrameInfoList frameInfoList;
 static FrameRect noZoom = {0, 0, 0, 0};
 static std::ofstream nativeLogStream;
@@ -596,10 +605,39 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
     auto closeTo =
         request.Has("closeTo") && request.Get("closeTo").As<Napi::Boolean>().Value();
 
+    std::string interpMethod = "blend";
+    if (request.Has("interpMethod"))
+    {
+      interpMethod = request.Get("interpMethod").As<Napi::String>().Utf8Value();
+    }
+    std::string rifeModelFile;
+    if (request.Has("modelFile"))
+    {
+      rifeModelFile = request.Get("modelFile").As<Napi::String>().Utf8Value();
+    }
+    auto rifeCrop = noZoom;
+    auto hasRifeCrop = false;
+    if (request.Has("crop") && request.Get("crop").IsObject())
+    {
+      auto cropObj = request.Get("crop").As<Napi::Object>();
+      auto x = cropObj.Get("x").As<Napi::Number>().Int32Value();
+      auto y = cropObj.Get("y").As<Napi::Number>().Int32Value();
+      auto cwidth = cropObj.Get("width").As<Napi::Number>().Int32Value();
+      auto cheight = cropObj.Get("height").As<Napi::Number>().Int32Value();
+      rifeCrop = {x, y, cwidth, cheight};
+      hasRifeCrop = (rifeCrop.width > 0) && (rifeCrop.height > 0);
+    }
+
     auto hasZoom =
         (roi.width > 0) && (roi.height > 0) && ((roi.x > 0 || roi.y > 0));
 
     auto key = formatKey(file, frameNum, hasZoom, roi, closeTo);
+    if (interpMethod == "rife")
+    {
+      key += "-rife-" + std::to_string(rifeCrop.x) + "-" +
+             std::to_string(rifeCrop.y) + "-" + std::to_string(rifeCrop.width) +
+             "-" + std::to_string(rifeCrop.height);
+    }
     auto frameInfo = frameInfoList.getFrame(key);
     if (!frameInfo)
     {
@@ -709,13 +747,80 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
           //           << " B framenum=" << frameB->frameNum
           //           << " frac=" << fractionalPart << std::endl;
 
-          frameInfo = generateInterpolatedFrame(frameA, frameB, fractionalPart,
-                                                roi, blend);
+          bool generatedByRife = false;
+#ifdef __APPLE__
+          if (interpMethod == "rife" && !rifeModelFile.empty())
+          {
+            auto rifeRoi = hasRifeCrop ? rifeCrop : roi;
+            rifeRoi.width = std::min(rifeRoi.width, frameA->width);
+            rifeRoi.height = std::min(rifeRoi.height, frameA->height);
+            rifeRoi.x = std::max(0, rifeRoi.x);
+            rifeRoi.y = std::max(0, rifeRoi.y);
+            if (rifeRoi.x + rifeRoi.width > frameA->width)
+            {
+              rifeRoi.x = frameA->width - rifeRoi.width;
+            }
+            if (rifeRoi.y + rifeRoi.height > frameA->height)
+            {
+              rifeRoi.y = frameA->height - rifeRoi.height;
+            }
+
+            try
+            {
+              auto &interpolator = rifeInterpolatorMap[rifeModelFile];
+              if (!interpolator)
+              {
+                interpolator = new RifeInterpolator(rifeModelFile);
+              }
+              cv::Mat matA(frameA->height, frameA->width, CV_8UC4,
+                          (void *)frameA->data->data());
+              cv::Mat matB(frameA->height, frameA->width, CV_8UC4,
+                          (void *)frameB->data->data());
+              cv::Rect cvCrop(rifeRoi.x, rifeRoi.y, rifeRoi.width, rifeRoi.height);
+              cv::Mat resultMat = interpolator->interpolate(
+                  matA, matB, static_cast<float>(fractionalPart), cvCrop);
+
+              // Composite the (small, fast-to-infer) interpolated crop back
+              // into a full-size copy of frameA so the response keeps the
+              // same width/height/linesize contract the blend path uses.
+              // Downstream rendering (Video.tsx) reuses image.width/height
+              // to (re)size the canvas and video-scaling state every frame,
+              // so returning a crop-sized buffer here corrupts that state.
+              frameInfo = std::make_shared<FrameInfo>(*frameA);
+              frameInfo->data = std::make_shared<std::vector<uint8_t>>(*(frameA->data));
+              cv::Mat fullMat(frameInfo->height, frameInfo->width, CV_8UC4,
+                              frameInfo->data->data());
+              resultMat.copyTo(fullMat(cvCrop));
+              frameInfo->tsMicro =
+                  frameA->tsMicro +
+                  (frameB->tsMicro - frameA->tsMicro) * fractionalPart + 0.5;
+              frameInfo->timestamp = (frameInfo->tsMicro + 500) / 1000;
+              frameInfo->frameNum =
+                  frameA->frameNum +
+                  (frameB->frameNum - frameA->frameNum) * fractionalPart;
+              frameInfo->roi = rifeRoi;
+              generatedByRife = true;
+            }
+            catch (const std::exception &e)
+            {
+              std::cerr << "RIFE interpolation failed, falling back to blend: "
+                        << e.what() << std::endl;
+            }
+          }
+#endif
+          if (!generatedByRife)
+          {
+            frameInfo = generateInterpolatedFrame(frameA, frameB, fractionalPart,
+                                                  roi, blend);
+          }
           if (debugLevel)
           {
             std::cout << __FILE__ << ":" << __LINE__
-                      << " Generating interpolated frame at " << fractionalPart
+                      << " Generating interpolated frame requestedFrameNum="
+                      << frameNum << " between " << frameA->frameNum << " and "
+                      << frameB->frameNum << " at " << fractionalPart
                       << "% zoom=" << (hasZoom ? "true" : "false")
+                      << " interpMethod=" << interpMethod
                       << " blend=" << (blend ? "true" : "false") << " motion=[" << frameInfo->motion.x << "," << frameInfo->motion.y << "," << frameInfo->motion.valid << "," << frameInfo->motion.dt << "]" << std::endl;
           }
           frameA->motion = frameInfo->motion;

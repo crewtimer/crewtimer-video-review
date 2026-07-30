@@ -35,6 +35,7 @@ import {
   useVideoSettings,
 } from './VideoSettings';
 import HyperZoomSelector from '../util/HyperZoomSelector';
+import InterpolationTechniqueSelector from '../util/InterpolationTechniqueSelector';
 import { saveVideoSidecar } from './Sidecar';
 import { getFileStatusList } from './VideoFileStatus';
 
@@ -213,6 +214,9 @@ export const VideoSettingsDialog = () => {
           </Toolbar>
           <Box className={classes.settings}>
             <HyperZoomSelector />
+          </Box>
+          <Box className={classes.settings}>
+            <InterpolationTechniqueSelector />
           </Box>
           <Box className={classes.settings}>
             <FormControlLabel

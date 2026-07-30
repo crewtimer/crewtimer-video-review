@@ -13,6 +13,7 @@
     "build:win": "node-gyp rebuild --arch=x64 --target_platform=win32",
     "build:opencv": "bash ./scripts/build-opencv.sh",
     "build:ffmpeg": "bash ./scripts/build-ffmpeg.sh",
+    "build:onnxruntime": "bash ./scripts/build-onnxruntime.sh",
     "rebuild": "node-gyp rebuild",
     "uploadall": "prebuild --upload-all $GITHUB_TOKEN",
     "upload": "prebuild --verbose --runtime napi",

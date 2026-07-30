@@ -9,6 +9,7 @@ import { ExtendedLap, getClickerData } from './UseClickerData';
 import {
   Dir,
   getHyperZoomFactor,
+  getInterpolationTechnique,
   getImage,
   getSelectedIndex,
   getTravelRightToLeft,
@@ -388,6 +389,42 @@ export const getTrackingRegion = (aroundFinish = true) => {
   return region;
 };
 
+/// Largest crop RIFE will interpolate, in source pixels (Infinity = no cap,
+/// i.e. interpolate the full visible viewport regardless of size). Native
+/// code still clamps to the actual frame bounds either way. Unlike the
+/// classic blend technique (which shifts/blends the whole frame with a
+/// single global vector), RIFE only produces correct pixels inside the crop
+/// it's given, so this must cover what's actually visible on screen or the
+/// area outside the crop is left frozen at the earlier frame. Watch the
+/// native "RifeInterpolator: ... total=" log line when tuning this -- cost
+/// scales with crop area.
+const RIFE_MAX_CROP = Infinity;
+
+/**
+ * Computes the region of the source frame actually visible in the
+ * destination canvas at the current zoom/pan, clamped to RIFE_MAX_CROP to
+ * bound RIFE inference latency. This is intentionally distinct from
+ * getTrackingRegion(), which returns a small patch sized only for
+ * template-matching motion estimation, not for display.
+ */
+export const getVisibleSourceRect = (): Rect => {
+  const vs = getVideoScaling();
+  const width = Math.min(
+    RIFE_MAX_CROP,
+    Math.round(vs.destWidth / vs.scaleX / 4) * 4,
+  );
+  const height = Math.min(
+    RIFE_MAX_CROP,
+    Math.round(vs.destHeight / vs.scaleY / 4) * 4,
+  );
+  return {
+    x: Math.max(0, Math.round(vs.srcCenterPoint.x - width / 2)),
+    y: Math.max(0, Math.round(vs.srcCenterPoint.y - height / 2)),
+    width,
+    height,
+  };
+};
+
 export const moveToFrame = (
   frameNum: number,
   offset?: number,
@@ -425,11 +462,14 @@ export const moveToFrame = (
     zoom = getTrackingRegion();
   }
 
+  const interpMethod = getInterpolationTechnique();
   requestVideoFrame({
     videoFile: image.file,
     frameNum: videoFrameNum,
     zoom,
     blend,
+    interpMethod,
+    crop: interpMethod === 'rife' ? getVisibleSourceRect() : undefined,
   });
 };
 

@@ -19,6 +19,12 @@ declare module 'crewtimer_video_reader' {
     zoom?: { x: number; y: number; width: number; height: number };
     blend?: boolean;
     saveAs?: string; // optional filename in which to save a png image of the frame
+    /** Interpolation technique for fractional frameNum requests. Defaults to 'blend'. */
+    interpMethod?: 'blend' | 'rife';
+    /** RIFE-only: region to interpolate. Required (or falls back to zoom) when interpMethod is 'rife'. */
+    crop?: { x: number; y: number; width: number; height: number };
+    /** RIFE-only: path to the rife_v4.6.onnx model file. */
+    modelFile?: string;
   }
 
   interface CloseFileMessage extends MessageBase {

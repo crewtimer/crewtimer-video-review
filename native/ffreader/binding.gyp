@@ -11,7 +11,7 @@
       ],
       "conditions": [
         ['OS=="mac"', {
-          "sources": ["src/MacOSLocalNetworkPermission.mm"],
+          "sources": ["src/MacOSLocalNetworkPermission.mm", "src/RifeInterpolator.cpp"],
           "cflags": [ "-frtti"],
           "cflags_cc!": [ "-frtti" ],
           "xcode_settings": {
@@ -23,12 +23,13 @@
             ],
             "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
             "CLANG_CXX_LIBRARY": "libc++",
-            "CLANG_CXX_LANGUAGE_STANDARD": "c++17"
-
+            "CLANG_CXX_LANGUAGE_STANDARD": "c++17",
+            "OTHER_LDFLAGS": ["-Wl,-rpath,@loader_path"]
           },
           "include_dirs": [
               "./lib-build/ffmpeg-static-mac/include",
               "./lib-build/opencv-static-mac/include/opencv5",
+              "./lib-build/onnxruntime-static-mac/include",
             ],
           "link_settings": {
             "libraries": [
@@ -48,6 +49,7 @@
                 "../lib-build/opencv-static-mac/lib/opencv5/3rdparty/libkleidicv_thread.a",
                 "../lib-build/opencv-static-mac/lib/opencv5/3rdparty/libzlib.a",
                 "../lib-build/opencv-static-mac/lib/opencv5/3rdparty/liblibprotobuf.a",
+                "../lib-build/onnxruntime-static-mac/lib/libonnxruntime.1.dylib",
                 "-framework VideoToolbox",
                 "-framework CoreVideo",
                 "-framework CoreMedia",
@@ -58,7 +60,13 @@
                 "-framework Network"],
 
             'library_dirs': ['../lib-build/ffmpeg-static-mac/lib']
-          }
+          },
+          "copies": [
+            {
+              "destination": "<(PRODUCT_DIR)",
+              "files": [ "lib-build/onnxruntime-static-mac/lib/libonnxruntime.1.dylib" ]
+            }
+          ]
       }],
 
       ['OS=="win"', {

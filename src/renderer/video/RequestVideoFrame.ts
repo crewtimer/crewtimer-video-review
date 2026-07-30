@@ -22,6 +22,7 @@ import {
   getVideoFile,
   getVideoFrameNum,
   getVideoScaling,
+  getInterpolationTechnique,
 } from './VideoSettings';
 import {
   getFileStatusByName,
@@ -35,6 +36,7 @@ import { saveVideoSidecar } from './Sidecar';
 import {
   getFinishLine,
   getTrackingRegion,
+  getVisibleSourceRect,
   moveToFrame,
   Point,
 } from './VideoUtils';
@@ -504,12 +506,15 @@ export const seekToTimestampWithInterpolation = async ({
       autoZoomed: interpolation.autoZoomed,
     });
 
+    const interpMethod = getInterpolationTechnique();
     await requestVideoFrame({
       videoFile: target.videoFile,
       frameNum: image.frameNum,
       zoom: interpolation.trackingRegion,
       blend: true,
       closeTo: false,
+      interpMethod,
+      crop: interpMethod === 'rife' ? getVisibleSourceRect() : undefined,
     });
   } catch (error) {
     showErrorDialog(error);
@@ -616,12 +621,15 @@ export const performAutoZoomSeek = async (srcCoords: Point) => {
       y: srcCoords.y.toFixed(1),
     }),
   );
+  const autoZoomInterpMethod = getInterpolationTechnique();
   const image = await requestVideoFrame({
     videoFile: getVideoFile(),
     frameNum: Math.floor(frameNum) + 0.1, // 0.1 to trigger dx measurement
     zoom,
     blend: true,
     closeTo: true,
+    interpMethod: autoZoomInterpMethod,
+    crop: autoZoomInterpMethod === 'rife' ? getVisibleSourceRect() : undefined,
   });
 
   // If we have valid motiion
