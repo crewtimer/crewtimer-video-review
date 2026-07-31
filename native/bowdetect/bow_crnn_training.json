@@ -1,34 +1,34 @@
 {
   "model": "bow_crnn.onnx",
+  "architecture": "CTC CRNN (whole bow-number sequence, 1-3 digits)",
   "classes": "-0123456789",
+  "blankIndex": 0,
   "input": {
-    "width": 64,
-    "height": 32
+    "height": 32,
+    "width": "dynamic (24-160px, scaled to preserve crop aspect ratio)"
   },
+  "decode": "greedy CTC: argmax per timestep, collapse consecutive repeats, drop blank",
   "datasets": [
     "/Users/glenne/training/datasets/dataset-ACAT25",
-    "/Users/glenne/training/datasets/dataset-1"
+    "/Users/glenne/training/datasets/dataset-1",
+    "/Users/glenne/training/datasets/dataset-acanat26"
   ],
   "extraction": {
     "script": "extract_card_training_crops.py",
+    "note": "whole-card crops labelled with the full digit string (no per-glyph segmentation)",
     "validationPercent": 20,
-    "matchedReadableCards": 100,
-    "trainingCards": 80,
-    "validationCards": 20,
-    "unreadableCardsSkipped": 9,
-    "missingSourceImagesSkipped": 43
+    "trainingCards": 289,
+    "validationCards": 55
   },
   "additionalTrainingCrops": 4,
   "training": {
-    "epochs": 20,
+    "epochs": 60,
     "syntheticSamplesPerEpoch": 8000,
-    "batchSize": 128
+    "batchSize": 64,
+    "lengthWeights": { "1": 0.4, "2": 0.45, "3": 0.15 }
   },
   "validation": {
-    "previousModelRealHoldoutAccuracy": 0.45,
-    "newModelRealHoldoutAccuracy": 0.8,
-    "syntheticSingleDigitAccuracy": 1.0,
-    "imageRegressionCasesPassed": 5,
-    "imageRegressionCasesTotal": 5
+    "syntheticMixedLengthAccuracy": 1.0,
+    "note": "Superseded the single-character mean-pool+argmax model and the BowCardDetector.cpp per-glyph-classify-then-glue heuristic. See end-to-end pipeline validation (boat detect -> card detect -> CTC read) against dataset-acanat26 ground truth: 26/32 = 81.2% full-string match on a 25-image random sample, including correct multi-digit reads (e.g. '38', '34', '37', '19', '16')."
   }
 }

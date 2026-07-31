@@ -289,6 +289,14 @@
         "to": "bow_crnn.onnx"
       },
       {
+        "from": "native/bowdetect/bow_card_detect.onnx",
+        "to": "bow_card_detect.onnx"
+      },
+      {
+        "from": "native/bowdetect/crewtimer-boat-train.onnx",
+        "to": "crewtimer-boat-train.onnx"
+      },
+      {
         "from": "native/rife/rife_v4.6.onnx",
         "to": "rife_v4.6.onnx"
       }

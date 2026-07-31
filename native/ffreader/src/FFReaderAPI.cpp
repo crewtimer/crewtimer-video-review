@@ -17,7 +17,6 @@ extern "C"
 
 #include "FFReader.hpp"
 #include "FrameUtils.hpp"
-#include "BowCardDetector.hpp"
 #include "sendMulticast.hpp"
 
 #ifdef __APPLE__
@@ -25,6 +24,7 @@ extern "C" void triggerMacOSLocalNetworkPermission();
 #endif
 #ifdef RIFE_SUPPORTED
 #include "RifeInterpolator.hpp"
+#include "BowNumberPipeline.hpp"
 #endif
 
 struct FileInfo
@@ -35,8 +35,6 @@ struct FileInfo
   int32_t numFrames;
 };
 static std::map<std::string, FileInfo> fileInfoMap;
-static std::map<std::string, std::unique_ptr<BowCardDetector>>
-    bowDetectorMap;
 #ifdef RIFE_SUPPORTED
 // Deliberately leaked (raw pointer, never deleted): the ONNX Runtime
 // session + CoreML/DirectML EP spawn background compile/inference threads
@@ -44,6 +42,7 @@ static std::map<std::string, std::unique_ptr<BowCardDetector>>
 // Ort::Env at static-destruction time races with that, crashing on quit.
 // These are process-lifetime singletons anyway, so we never tear them down.
 static std::map<std::string, RifeInterpolator *> rifeInterpolatorMap;
+static std::map<std::string, BowNumberPipeline *> bowNumberPipelineMap;
 #endif
 static FrameInfoList frameInfoList;
 static FrameRect noZoom = {0, 0, 0, 0};
@@ -442,6 +441,12 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
 
   if (op == "detectBowAtFrame")
   {
+#ifndef RIFE_SUPPORTED
+    Napi::Error::New(env, "Bow number detection requires ONNX Runtime, which "
+                          "is not built for this platform")
+        .ThrowAsJavaScriptException();
+    return ret;
+#else
     try
     {
       if (!args.Has("request") || !args.Get("request").IsObject())
@@ -450,25 +455,27 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
       }
       const auto request = args.Get("request").As<Napi::Object>();
       if (!request.Has("videoFile") || !request.Has("frameNum") ||
-          !request.Has("modelFile") || !request.Has("strip"))
+          !request.Has("boatModelFile") || !request.Has("cardModelFile") ||
+          !request.Has("numberModelFile") || !request.Has("point"))
       {
         throw std::invalid_argument(
-            "Bow detection requires videoFile, frameNum, modelFile, and strip");
+            "Bow detection requires videoFile, frameNum, boatModelFile, "
+            "cardModelFile, numberModelFile, and point");
       }
 
       const std::string videoFile =
           request.Get("videoFile").As<Napi::String>().Utf8Value();
-      const std::string modelFile =
-          request.Get("modelFile").As<Napi::String>().Utf8Value();
+      const std::string boatModelFile =
+          request.Get("boatModelFile").As<Napi::String>().Utf8Value();
+      const std::string cardModelFile =
+          request.Get("cardModelFile").As<Napi::String>().Utf8Value();
+      const std::string numberModelFile =
+          request.Get("numberModelFile").As<Napi::String>().Utf8Value();
       const double frameNum =
           request.Get("frameNum").As<Napi::Number>().DoubleValue();
       const bool closeTo =
           request.Has("closeTo") &&
           request.Get("closeTo").As<Napi::Boolean>().Value();
-      const int focusX =
-          request.Has("focusX")
-              ? request.Get("focusX").As<Napi::Number>().Int32Value()
-              : -1;
 
       const auto file = fileInfoMap.find(videoFile);
       if (file == fileInfoMap.end())
@@ -476,12 +483,10 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
         throw std::invalid_argument("Video file is not open");
       }
 
-      const auto stripObject = request.Get("strip").As<Napi::Object>();
-      const cv::Rect strip(
-          stripObject.Get("x").As<Napi::Number>().Int32Value(),
-          stripObject.Get("y").As<Napi::Number>().Int32Value(),
-          stripObject.Get("width").As<Napi::Number>().Int32Value(),
-          stripObject.Get("height").As<Napi::Number>().Int32Value());
+      const auto pointObject = request.Get("point").As<Napi::Object>();
+      const cv::Point pointOfInterest(
+          pointObject.Get("x").As<Napi::Number>().Int32Value(),
+          pointObject.Get("y").As<Napi::Number>().Int32Value());
 
       const auto frame =
           getFrame(file->second.videoReader, videoFile, frameNum, closeTo);
@@ -491,23 +496,26 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
             "Unable to read frame " + std::to_string(frameNum));
       }
 
-      auto detector = bowDetectorMap.find(modelFile);
-      if (detector == bowDetectorMap.end())
+      const std::string pipelineKey =
+          boatModelFile + "|" + cardModelFile + "|" + numberModelFile;
+      auto pipelineEntry = bowNumberPipelineMap.find(pipelineKey);
+      if (pipelineEntry == bowNumberPipelineMap.end())
       {
-        detector = bowDetectorMap
-                       .emplace(modelFile,
-                                std::make_unique<BowCardDetector>(modelFile))
-                       .first;
+        pipelineEntry =
+            bowNumberPipelineMap
+                .emplace(pipelineKey,
+                        new BowNumberPipeline(boatModelFile, cardModelFile,
+                                              numberModelFile))
+                .first;
       }
 
       const cv::Mat rgba(frame->height, frame->width, CV_8UC4,
                          frame->data->data(), frame->linesize);
-      const BowCardDetection detection =
-          detector->second->detect(rgba, strip, focusX);
+      const BowNumberDetection detection =
+          pipelineEntry->second->detect(rgba, pointOfInterest);
 
       ret.Set("text", Napi::String::New(env, detection.text));
-      ret.Set("confidence",
-              Napi::Number::New(env, detection.confidence));
+      ret.Set("confidence", Napi::Number::New(env, detection.confidence));
       ret.Set("frameNum", Napi::Number::New(env, frame->frameNum));
       ret.Set("timestamp", Napi::Number::New(env, frame->timestamp));
 
@@ -520,26 +528,8 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
         value.Set("height", Napi::Number::New(env, box.height));
         return value;
       };
-      ret.Set("box", makeBox(detection.box));
-
-      Napi::Array characters =
-          Napi::Array::New(env, detection.characters.size());
-      for (size_t index = 0; index < detection.characters.size(); ++index)
-      {
-        const auto &character = detection.characters[index];
-        Napi::Object value = Napi::Object::New(env);
-        value.Set(
-            "text",
-            Napi::String::New(
-                env, character.character == '\0'
-                         ? std::string()
-                         : std::string(1, character.character)));
-        value.Set("confidence",
-                  Napi::Number::New(env, character.confidence));
-        value.Set("box", makeBox(character.box));
-        characters.Set(index, value);
-      }
-      ret.Set("characters", characters);
+      ret.Set("box", makeBox(detection.cardBox));
+      ret.Set("boatBox", makeBox(detection.boatBox));
       return ret;
     }
     catch (const std::exception &error)
@@ -547,6 +537,7 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
       Napi::Error::New(env, error.what()).ThrowAsJavaScriptException();
       return ret;
     }
+#endif
   }
 
   if (op == "grabFrameAt")

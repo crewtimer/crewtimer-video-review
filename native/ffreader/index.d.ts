@@ -51,9 +51,14 @@ declare module 'crewtimer_video_reader' {
     request: {
       videoFile: string;
       frameNum: number;
-      modelFile: string;
-      strip: Rect;
-      focusX?: number;
+      /** Path to the boat detector (crewtimer-boat-train.onnx). */
+      boatModelFile: string;
+      /** Path to the bow-card detector (bow_card_detect.onnx). */
+      cardModelFile: string;
+      /** Path to the CTC bow-number reader (bow_crnn.onnx). */
+      numberModelFile: string;
+      /** Full-frame pixel coordinates near the bow, used to pick which boat to read. */
+      point: { x: number; y: number };
       closeTo?: boolean;
     };
   }
@@ -76,17 +81,13 @@ declare module 'crewtimer_video_reader' {
     motion: { x: number; y: number; dt: number; valid: boolean };
   }
 
-  interface BowCharacterDetection {
-    text: string;
-    confidence: number;
-    box: Rect;
-  }
-
   interface DetectBowMessageResponse extends MessageResponseBase {
     text: string;
     confidence: number;
+    /** Bow-card box, full-frame pixel coordinates. */
     box: Rect;
-    characters: BowCharacterDetection[];
+    /** Boat box, full-frame pixel coordinates. */
+    boatBox: Rect;
     frameNum: number;
     timestamp: number;
   }
