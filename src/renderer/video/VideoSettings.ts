@@ -202,8 +202,6 @@ export const [useAutoNextTimestamp, , getAutoNextTimestamp] = UseStoredDatum(
   'autoNextTimestamp',
   true,
 );
-export const [useAdjustHintOffsetEnable, , getHintOffsetEnable] =
-  UseStoredDatum('hintOffsetEnable', false);
 export const [useAutoFileSplitEnable, , getAutoFileSplitEnable] =
   UseStoredDatum('autoFileSplit', false);
 

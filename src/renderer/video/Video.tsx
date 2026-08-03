@@ -875,7 +875,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 const [useWindowSize] = UseDatum({ winWidth: 0, winHeight: 0 });
 
 const Video = () => {
-  const [{ top }, setDimensions] = useState({ top: 180, width: 1, height: 1 });
+  const [top, setTop] = useState(180);
+  const resizeFrameRef = useRef<number | undefined>(undefined);
   const videoSidebarWidth = 150; // enough for '20240308_123248.mp4'
   const timingSidebarwidth = 300;
   const sidebarWidth = Math.max(60, videoSidebarWidth + timingSidebarwidth);
@@ -898,20 +899,38 @@ const Video = () => {
       win.onresize = onResize;
     }
     onResize();
+    return () => {
+      win.removeEventListener('resize', onResize, false);
+    };
   }, [onResize]);
   const width = winWidth;
   const height = Math.max(winHeight - top, 1);
 
-  // Define the type for contentRect in the callback
-  const handleResize = (contentRect: ContentRect) => {
-    if (contentRect.bounds) {
-      setDimensions({
-        top: contentRect.bounds.top,
-        width: contentRect.bounds.width,
-        height: contentRect.bounds.height,
-      });
+  const handleResize = useCallback((contentRect: ContentRect) => {
+    if (!contentRect.bounds) {
+      return;
     }
-  };
+    const nextTop = contentRect.bounds.top;
+    if (resizeFrameRef.current !== undefined) {
+      window.cancelAnimationFrame(resizeFrameRef.current);
+    }
+    // Avoid changing layout synchronously from inside ResizeObserver delivery.
+    resizeFrameRef.current = window.requestAnimationFrame(() => {
+      resizeFrameRef.current = undefined;
+      setTop((currentTop) =>
+        Math.abs(currentTop - nextTop) < 0.5 ? currentTop : nextTop,
+      );
+    });
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (resizeFrameRef.current !== undefined) {
+        window.cancelAnimationFrame(resizeFrameRef.current);
+      }
+    },
+    [],
+  );
 
   return (
     <div

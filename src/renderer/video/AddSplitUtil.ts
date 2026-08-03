@@ -7,14 +7,9 @@ import {
 import { gateFromWaypoint } from 'renderer/util/Util';
 import uuidgen from 'short-uuid';
 import { setToast } from 'renderer/Toast';
-import {
-  getMobileConfig,
-  getWaypoint,
-  updateClickOffset,
-} from 'renderer/util/UseSettings';
+import { getMobileConfig, getWaypoint } from 'renderer/util/UseSettings';
 import {
   getAutoNextTimestamp,
-  getLastSeekTime,
   getVideoBow,
   getVideoEvent,
   getVideoTimestamp,
@@ -39,13 +34,22 @@ const persistLap = (key: string, lap: Lap) => {
 
 export const performAddSplit = () => {
   const videoBow = getVideoBow();
+
+  // A split must be associated with a known bow.
+  if (videoBow === '?' || !videoBow) {
+    setToast({
+      severity: 'info',
+      msg: `Bow must be set to add a split.  Current bow is '${videoBow}'`,
+    });
+    return;
+  }
   const selectedEvent = getVideoEvent();
   const mobileConfig = getMobileConfig();
   const waypoint = getWaypoint();
   const gate = gateFromWaypoint(waypoint);
   const videoTimestamp = getVideoTimestamp();
   const autoNextTimestamp = getAutoNextTimestamp();
-  const disabled = !videoBow || !videoTimestamp || !selectedEvent;
+  const disabled = !videoTimestamp || !selectedEvent;
   const activeEvent = mobileConfig?.eventList?.find(
     (event) => event.EventNum === selectedEvent,
   );
@@ -112,7 +116,6 @@ export const performAddSplit = () => {
       showCancel: true,
       handleConfirm: () => {
         delete lap.State;
-        updateClickOffset(getLastSeekTime().time, videoTimestamp);
         setAutoSeekHoldoff(false);
         persistLap(key, lap);
         if (lap.Time) {
@@ -128,8 +131,6 @@ export const performAddSplit = () => {
     });
     return;
   }
-
-  updateClickOffset(getLastSeekTime().time, videoTimestamp);
 
   setAutoSeekHoldoff(false);
   persistLap(key, lap);

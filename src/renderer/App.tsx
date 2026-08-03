@@ -12,6 +12,7 @@ import FileMonitor from './video/VideoFileUtils';
 import { seekToNextTimePoint, triggerFileSplit } from './video/VideoUtils';
 import {
   getVideoBow,
+  getVideoBowUuid,
   getVideoTimestamp,
   useAutoFileSplitEnable,
   validateVideoSettings,
@@ -24,6 +25,14 @@ const { stopLapStorage } = window.LapStorage;
 export default function App() {
   const [, setInitProgress] = useInitProgress();
   const [autoFileSplit] = useAutoFileSplitEnable();
+
+  useEffect(() => {
+    console.log('[AutoFileSplit] feature state', {
+      enabled: autoFileSplit,
+      componentMounted: autoFileSplit,
+    });
+  }, [autoFileSplit]);
+
   useEffect(() => {
     setInitializing(true);
     const doInit = async () => {
@@ -62,7 +71,7 @@ export default function App() {
         event.preventDefault();
         const ts = getVideoTimestamp();
         const bow = getVideoBow();
-        seekToNextTimePoint({ time: ts, bow });
+        seekToNextTimePoint({ time: ts, bow, uuid: getVideoBowUuid() });
       }
     };
 

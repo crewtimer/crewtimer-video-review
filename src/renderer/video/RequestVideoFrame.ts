@@ -1,4 +1,5 @@
 import { AppImage, VideoFrameRequest } from 'renderer/shared/AppTypes';
+import { KeyMap } from 'crewtimer-common';
 import {
   milliToString,
   secondsSinceLocalMidnight,
@@ -8,7 +9,7 @@ import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { parseTimeToSeconds } from 'renderer/util/StringUtils';
 import { convertTimestampToLocalMicros } from 'renderer/shared/Util';
 import { updateVideoScaling } from 'renderer/util/ImageScaling';
-import { getClickOffset, getWaypoint } from 'renderer/util/UseSettings';
+import { getWaypoint } from 'renderer/util/UseSettings';
 import {
   setVideoError,
   setVideoFrameNum,
@@ -41,7 +42,6 @@ import {
   Point,
 } from './VideoUtils';
 import type { InterpolationRecord } from './InterpolationStore';
-import { KeyMap } from 'crewtimer-common';
 
 const { VideoUtils } = window;
 
@@ -392,21 +392,9 @@ export function requestVideoFrame(
   });
 }
 
-const resolveSeekTarget = ({
-  time,
-  offsetMilli,
-  bow,
-}: {
-  time: string;
-  offsetMilli?: number;
-  bow?: string;
-}) => {
+const resolveSeekTarget = ({ time, bow }: { time: string; bow?: string }) => {
   setLastSeekTime({ time, bow });
-  let adjustedTime = time;
-  if (offsetMilli) {
-    adjustedTime = milliToString(timeToMilli(time) + offsetMilli);
-  }
-  const jumpTime = parseTimeToSeconds(adjustedTime);
+  const jumpTime = parseTimeToSeconds(time);
   const fileStatusList = getFileStatusList();
   const fileIndex = fileStatusList.findIndex((item) => {
     const start = secondsSinceLocalMidnight(
@@ -426,7 +414,7 @@ const resolveSeekTarget = ({
   const videoFile = fileStatusList[fileIndex].filename;
   setSelectedIndex(fileIndex);
   setVideoFile(videoFile);
-  return { time: adjustedTime, videoFile };
+  return { time, videoFile };
 };
 
 /**
@@ -439,14 +427,12 @@ const resolveSeekTarget = ({
  */
 export const seekToTimestamp = ({
   time,
-  offsetMilli,
   bow,
 }: {
   time: string;
-  offsetMilli?: number;
   bow?: string;
 }): string | undefined => {
-  const target = resolveSeekTarget({ time, offsetMilli, bow });
+  const target = resolveSeekTarget({ time, bow });
   if (!target) {
     return undefined;
   }
@@ -462,16 +448,14 @@ export const seekToTimestamp = ({
 
 export const seekToTimestampWithInterpolation = async ({
   time,
-  offsetMilli,
   bow,
   interpolation,
 }: {
   time: string;
-  offsetMilli?: number;
   bow?: string;
   interpolation: InterpolationRecord;
 }): Promise<string | undefined> => {
-  const target = resolveSeekTarget({ time, offsetMilli, bow });
+  const target = resolveSeekTarget({ time, bow });
   if (!target) {
     return undefined;
   }
@@ -582,7 +566,6 @@ export const seekToClickInFile = (videoFile: string, seekPercent: number) => {
     seekToTimestamp({
       time: click.Time,
       bow: click.Bow,
-      offsetMilli: getClickOffset().offsetMilli,
     });
     return Promise.resolve();
   }

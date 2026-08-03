@@ -4,8 +4,8 @@ import {
   convertTimestampToLocalMicros,
   convertTimestampToString,
 } from 'renderer/shared/Util';
-import { getClickOffset, getWaypoint, useWaypoint } from '../util/UseSettings';
-import { findClosestNumAndIndex, gateFromWaypoint } from '../util/Util';
+import { useWaypoint } from '../util/UseSettings';
+import { findClosestNumAndIndex } from '../util/Util';
 import ImageButton from './ImageButton';
 import FinishPhotoButton from './FinishPhotoButton';
 import TimeRangeIcons from './TimeRangeIcons';
@@ -195,13 +195,10 @@ const VideoScrubber = () => {
       return;
     }
     resetVideoZoom();
-    const timeFromVideoReview = click.Gate === gateFromWaypoint(getWaypoint());
-
     setTimeout(
       () =>
         seekToTimestamp({
           time: click.Time,
-          offsetMilli: timeFromVideoReview ? 0 : getClickOffset().offsetMilli,
           bow: click.Bow,
         }),
       100,

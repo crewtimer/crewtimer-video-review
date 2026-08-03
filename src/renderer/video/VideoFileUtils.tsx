@@ -186,6 +186,25 @@ const loadVideoSidecar = (
 };
 
 const videoFileRegex = /\.(mp4|avi|mov|wmv|flv|mkv)$/i;
+
+const applyFileSidecar = (
+  fileStatus: FileStatus,
+  videoSidecar: VideoSidecar | undefined,
+) => {
+  if (!videoSidecar?.file) {
+    return;
+  }
+  fileStatus.sidecar = videoSidecar;
+  fileStatus.numFrames = videoSidecar.file.numFrames;
+  fileStatus.startTime = Number(videoSidecar.file.startTs) * 1000000;
+  fileStatus.endTime = Number(videoSidecar.file.stopTs) * 1000000;
+  fileStatus.duration = fileStatus.endTime - fileStatus.startTime;
+  fileStatus.fps = videoSidecar.file.fps || 60;
+  if (videoSidecar.file.tzOffset !== undefined) {
+    fileStatus.tzOffset = videoSidecar.file.tzOffset;
+  }
+};
+
 export const refreshDirList = async (videoDir: string) => {
   try {
     const result = await getFilesInDirectory(videoDir);
@@ -236,17 +255,7 @@ export const refreshDirList = async (videoDir: string) => {
           sidecar: videoSidecar || {},
         };
 
-        if (videoSidecar?.file) {
-          fileStatus.numFrames = videoSidecar.file.numFrames;
-          fileStatus.startTime = Number(videoSidecar.file.startTs) * 1000000;
-          fileStatus.endTime = Number(videoSidecar.file.stopTs) * 1000000;
-          fileStatus.duration = fileStatus.endTime - fileStatus.startTime;
-          fileStatus.fps = videoSidecar.file.fps || 60;
-          fileStatus.tzOffset =
-            videoSidecar.file.tzOffset === undefined
-              ? fileStatus.tzOffset
-              : videoSidecar.file.tzOffset;
-        }
+        applyFileSidecar(fileStatus, videoSidecar);
         updateFileStatus(fileStatus);
         fileStatusList.push(fileStatus);
       }

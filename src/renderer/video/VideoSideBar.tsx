@@ -14,12 +14,8 @@ import {
   getEntryResult,
   useEntryResultsChanged,
 } from 'renderer/util/LapStorageDatum';
-import {
-  getClickOffset,
-  getWaypoint,
-  useScoredGate,
-} from 'renderer/util/UseSettings';
-import { gateFromWaypoint, timeToMilli } from '../util/Util';
+import { useScoredGate } from 'renderer/util/UseSettings';
+import { timeToMilli } from '../util/Util';
 import FileList from '../FileList';
 import { seekToTimestamp } from './RequestVideoFrame';
 import { useClickerData } from './UseClickerData';
@@ -235,10 +231,6 @@ const VideoSideBar: React.FC<CustomTableProps> = ({ sx, height }) => {
     seekToTimestamp({
       time: hint.Time,
       bow: hint.Bow,
-      offsetMilli:
-        hint.Gate && hint.Gate === gateFromWaypoint(getWaypoint())
-          ? 0
-          : getClickOffset().offsetMilli,
     });
   };
 

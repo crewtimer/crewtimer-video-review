@@ -1,10 +1,6 @@
 import React from 'react';
 import { Rect } from 'renderer/shared/AppTypes';
-import {
-  getClickOffset,
-  getWaypoint,
-  getWaypointList,
-} from 'renderer/util/UseSettings';
+import { getWaypoint, getWaypointList } from 'renderer/util/UseSettings';
 import { ExtendedLap, getClickerData } from './UseClickerData';
 import {
   Dir,
@@ -33,7 +29,6 @@ import {
   seekToClickInFile,
   seekToTimestamp,
 } from './RequestVideoFrame';
-import { gateFromWaypoint } from 'renderer/util/Util';
 
 // Define types for points and lines for better type checking and readability
 export type Point = { x: number; y: number };
@@ -75,13 +70,14 @@ function pointPositionRelativeToLine(
   return 'on';
 }
 
-export const triggerFileSplit = () => {
+export const triggerFileSplit = (source: 'manual' | 'automatic' = 'manual') => {
   const msg = {
     cmd: 'split-video',
     src: 'crewtimer-video-review',
     ts: new Date().getTime(),
     wp: getWaypoint(),
   };
+  console.log('[FileSplit] sending recorder split request', { source, ...msg });
   window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
   setFileSplitPending(true);
 };
@@ -570,6 +566,7 @@ export const translateMouseEventCoords = (
 export const seekToNextTimePoint = (from: {
   time?: string;
   bow: string;
+  uuid?: string;
 }): TimeObject | undefined => {
   console.log('seeking...', from);
   if (!from.time) {
@@ -579,15 +576,9 @@ export const seekToNextTimePoint = (from: {
   let left = 0;
   let right = timePoints.length - 1;
   let result: ExtendedLap | undefined;
+  let resultIndex = -1;
   // prefre starting search from the last seek position
   const seekTime = from.time || '00:00:00.000';
-  // const lastSeekTime = getLastSeekTime();
-
-  // // If the last seek time was to a ? field, only go forward from specified time
-  // if (lastSeekTime.bow !== '?' && lastSeekTime.time) {
-  //   seekTime = lastSeekTime.time;
-  // }
-  // console.log(JSON.stringify({ from, lastSeekTime, seekTime }));
   const s = parseTimeToSeconds(seekTime);
 
   let mid: number = 0;
@@ -596,6 +587,7 @@ export const seekToNextTimePoint = (from: {
 
     if (timePoints[mid].seconds >= s) {
       result = timePoints[mid];
+      resultIndex = mid;
       right = mid - 1; // Keep searching in the left half for a closer match
     } else {
       left = mid + 1; // Search in the right half
@@ -607,21 +599,26 @@ export const seekToNextTimePoint = (from: {
   }
 
   // Move forward in the array until finding a time point with a different Bow value
-  while (result.Bow === from.bow || result.Bow === '*') {
-    mid += 1;
-    if (mid >= timePoints.length) {
+  const isSameTimePoint = (candidate: ExtendedLap) => {
+    // Unknown bows are ambiguous, so use the UUID to avoid skipping other "?" entries.
+    if (from.bow === '?' && from.uuid) {
+      return candidate.uuid === from.uuid;
+    }
+
+    return candidate.Bow === from.bow;
+  };
+  while (isSameTimePoint(result) || result.Bow === '*') {
+    resultIndex += 1;
+    if (resultIndex >= timePoints.length) {
       return undefined;
     }
-    result = timePoints[mid];
+    result = timePoints[resultIndex];
   }
 
   resetVideoZoom();
   setTimeout(() => {
-    const timeFromVideoReview =
-      result?.Gate === gateFromWaypoint(getWaypoint());
     const found = seekToTimestamp({
       time: result?.Time || '00:00:00.000',
-      offsetMilli: timeFromVideoReview ? 0 : getClickOffset().offsetMilli,
       bow: result.Bow || '',
     });
     if (found) {
@@ -635,4 +632,26 @@ export const seekToNextTimePoint = (from: {
   }, 10);
 
   return result as TimeObject;
+};
+
+/**
+ * Seek directly to a known click. Returns false when no available recording
+ * contains the click, allowing callers to retry when the file list changes.
+ */
+export const seekToTimePoint = (timePoint: ExtendedLap): boolean => {
+  const found = seekToTimestamp({
+    time: timePoint.Time || '00:00:00.000',
+    bow: timePoint.Bow || '',
+  });
+  if (!found) {
+    return false;
+  }
+  resetVideoZoom();
+  if (timePoint.EventNum !== '?') {
+    setVideoEvent(timePoint.EventNum);
+  }
+  if (timePoint.Bow && timePoint.Bow !== '*') {
+    setVideoBow(timePoint.Bow, timePoint.uuid);
+  }
+  return true;
 };

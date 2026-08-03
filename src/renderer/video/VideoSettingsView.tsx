@@ -27,7 +27,6 @@ import {
   DEFAULT_GUIDE_COLOR,
   GUIDE_COLOR_OPTIONS,
   getVideoFile,
-  useAdjustHintOffsetEnable,
   useAutoFileSplitEnable,
   useAutoNextTimestamp,
   useMouseWheelInverted,
@@ -66,7 +65,6 @@ export const VideoSettingsDialog = () => {
   const classes = useStyles();
   const [videoSettings, setVideoSettings] = useVideoSettings();
   const [wheelInverted, setWheelInverted] = useMouseWheelInverted();
-  const [hintOffsetEnable, setHintOffsetEnable] = useAdjustHintOffsetEnable();
   const [autoFileSplit, setAutoFileSplit] = useAutoFileSplitEnable();
   const [rightToLeft, setRightToLeft] = useTravelRightToLeft();
   const [autoNextTimestamp, setAutoNextTimestamp] = useAutoNextTimestamp();
@@ -267,24 +265,6 @@ export const VideoSettingsDialog = () => {
                     size="small"
                     checked={autoNextTimestamp}
                     onChange={() => setAutoNextTimestamp(!autoNextTimestamp)}
-                  />
-                }
-              />
-            </Tooltip>
-          </Box>
-          <Box className={classes.settings}>
-            <Tooltip
-              title="Measure difference between hint time and video time and adjust future hint times by that offset"
-              placement="right"
-            >
-              <FormControlLabel
-                labelPlacement="end"
-                label="Adjust hint timestamps (beta)"
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={hintOffsetEnable}
-                    onChange={() => setHintOffsetEnable(!hintOffsetEnable)}
                   />
                 }
               />

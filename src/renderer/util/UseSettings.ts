@@ -1,5 +1,6 @@
 import { UseDatum } from 'react-usedatum';
 import { MobileSettings } from 'crewtimer-common';
+import { useVideoSettings } from 'renderer/video/VideoSettings';
 import { UseMemDatum, UseStoredDatum } from '../store/UseElectronDatum';
 import {
   FirebaseConnectedKey,
@@ -12,43 +13,10 @@ import {
   N_MOBILE_ID,
   N_WAYPOINT,
 } from '../shared/Constants';
-import { gateFromWaypoint, timeToMilli } from './Util';
-import {
-  getHintOffsetEnable,
-  useVideoSettings,
-} from 'renderer/video/VideoSettings';
+import { gateFromWaypoint } from './Util';
 
 const { LapStorage } = window;
 export const AUTH_OK = 'OK';
-
-export interface ClickOffset {
-  offsetMilli: number;
-  avgCount: number;
-}
-export const [useClickOffset, setClickOffset, getClickOffset] =
-  UseDatum<ClickOffset>({ offsetMilli: 0, avgCount: 0 });
-
-export const updateClickOffset = (timeA: string, timeB: string) => {
-  if (getHintOffsetEnable() === false) {
-    return;
-  }
-  if (!timeA || !timeB) {
-    return;
-  }
-  const offset = timeToMilli(timeB) - timeToMilli(timeA);
-  if (Math.abs(offset) > 1000 || Math.abs(offset) < 10) {
-    return;
-  }
-  const clickOffset = getClickOffset();
-  if (clickOffset.avgCount < 5) {
-    clickOffset.avgCount++;
-  }
-  const avgCount = clickOffset.avgCount;
-  const offsetMilli =
-    ((avgCount - 1) * clickOffset.offsetMilli) / avgCount +
-    offset / clickOffset.avgCount;
-  setClickOffset({ avgCount, offsetMilli });
-};
 
 export const [useProgressBar, setProgressBar, getProgressBar] = UseDatum(0);
 
