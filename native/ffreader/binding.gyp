@@ -72,9 +72,9 @@
 
       ['OS=="win"', {
         "sources": ["src/RifeInterpolator.cpp"],
-        "msvs_settings": {
+          "msvs_settings": {
           "VCCLCompilerTool": {
-            "AdditionalOptions": ["/std:c++17"]
+            "AdditionalOptions": ["/std:c++17", "/EHsc"]
           }
         },
         "include_dirs": [
@@ -89,20 +89,21 @@
                 "../lib-build/ffmpeg-static-win/lib/libavformat.a",
                 "../lib-build/ffmpeg-static-win/lib/libavutil.a",
                 "../lib-build/ffmpeg-static-win/lib/libswscale.a",
-                "../lib-build/opencv-static-win/staticlib/opencv_dnn500.lib",
-                "../lib-build/opencv-static-win/staticlib/opencv_video500.lib",
-                "../lib-build/opencv-static-win/staticlib/opencv_imgproc500.lib",
-                "../lib-build/opencv-static-win/staticlib/opencv_geometry500.lib",
-                "../lib-build/opencv-static-win/staticlib/opencv_flann500.lib",
-                "../lib-build/opencv-static-win/staticlib/opencv_core500.lib",
-                "../lib-build/opencv-static-win/staticlib/libprotobuf.lib",
+                "../lib-build/opencv-static-win/x64/vc17/staticlib/opencv_dnn500.lib",
+                "../lib-build/opencv-static-win/x64/vc17/staticlib/opencv_video500.lib",
+                "../lib-build/opencv-static-win/x64/vc17/staticlib/opencv_imgproc500.lib",
+                "../lib-build/opencv-static-win/x64/vc17/staticlib/opencv_geometry500.lib",
+                "../lib-build/opencv-static-win/x64/vc17/staticlib/opencv_flann500.lib",
+                "../lib-build/opencv-static-win/x64/vc17/staticlib/opencv_core500.lib",
+                "../lib-build/opencv-static-win/x64/vc17/staticlib/libclapack.lib",
+                "../lib-build/opencv-static-win/x64/vc17/staticlib/libprotobuf.lib",
                 "../lib-build/vcpkg/installed/x64-windows-static/lib/zlib.lib",
                 "../lib-build/onnxruntime-static-win/lib/onnxruntime.lib",
                 "Bcrypt.lib", "Mfuuid.lib", "Strmiids.lib",
                 "d3d11.lib", "dxgi.lib"
             ],
           'library_dirs': ["../lib-build/ffmpeg-static-win/lib",
-                           "../lib-build/opencv-static-win/staticlib"]
+                           "../lib-build/opencv-static-win/x64/vc17/staticlib"]
           },
         "copies": [
           {

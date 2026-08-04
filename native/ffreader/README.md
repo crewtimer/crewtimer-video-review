@@ -79,6 +79,10 @@ cd native/ffreader
 ./scripts/build-opencv.sh
 ```
 
+On Windows the script disables OpenCV 5's vendored MLAS acceleration because
+its GNU-style x64 assembly kernels are not linked by the MSVC generator. DNN
+remains enabled and uses OpenCV's built-in GEMM implementation.
+
 **Build FFmpeg.** This phase needs `MSYS_NO_PATHCONV=1` and
 `MSYS2_ARG_CONV_EXCL='*'` to stop MSYS from path-converting Windows-style
 arguments to MSVC. Export them once for the rest of the FFmpeg work — do

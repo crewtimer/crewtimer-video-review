@@ -1,5 +1,11 @@
 import path from 'path';
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  OpenDialogOptions,
+} from 'electron';
 import { getMainWindow } from '../mainWindow';
 
 const { exec } = require('child_process');
@@ -61,7 +67,7 @@ ipcMain.handle('open-file-dialog', async (_event) => {
 });
 
 ipcMain.handle('open-dir-dialog', async (_event, title, defaultPath) => {
-  const options: Electron.OpenDialogOptions = {
+  const options: OpenDialogOptions = {
     title,
     defaultPath,
     properties: ['openDirectory'],
@@ -128,6 +134,19 @@ ipcMain.handle('read-app-log', () => {
       status: `${err instanceof Error ? err.message : err}`,
       path: logFilePath,
       contents: '',
+    };
+  }
+});
+
+ipcMain.handle('clear-app-log', () => {
+  const logFilePath = path.join(app.getPath('userData'), 'applog.txt');
+  try {
+    fs.writeFileSync(logFilePath, '', 'utf8');
+    return { status: 'OK', path: logFilePath };
+  } catch (err) {
+    return {
+      status: `${err instanceof Error ? err.message : err}`,
+      path: logFilePath,
     };
   }
 });

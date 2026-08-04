@@ -170,6 +170,15 @@ export function readAppLog(): Promise<{
   });
 }
 
+export function clearAppLog(): Promise<{ status: string; path: string }> {
+  return new Promise((resolve, _reject) => {
+    ipcRenderer
+      .invoke('clear-app-log')
+      .then((result) => resolve(result))
+      .catch((err) => resolve({ status: 'Fail', path: String(err) }));
+  });
+}
+
 contextBridge.exposeInMainWorld('Util', {
   onUserMessage: (
     callback: (_event: IpcRendererEvent, level: string, msg: string) => void,
@@ -184,6 +193,7 @@ contextBridge.exposeInMainWorld('Util', {
   readJsonFile,
   storeJsonFile,
   readAppLog,
+  clearAppLog,
   savePngFile,
 });
 

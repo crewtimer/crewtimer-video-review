@@ -10,21 +10,21 @@
 #include <array>
 #include <chrono>
 #include <cstring>
+#include <filesystem>
 #include <iostream>
+#include <mutex>
 #include <stdexcept>
 #include <vector>
 
 #ifdef _WIN32
-// Declared by hand (rather than #include <dml_provider_factory.h>) to avoid
-// a hard dependency on the DirectML.h / d3d12.h headers that file pulls in.
-// ORT_API_STATUS/_In_ come from onnxruntime_c_api.h (already transitively
-// included via onnxruntime_cxx_api.h above), so this expands to exactly the
-// same declaration the real header uses -- same exported symbol, same ABI.
-extern "C"
+// Prefix of OrtDmlApi from dml_provider_factory.h. Only the first function is
+// needed; spelling the prefix locally avoids a compile-time dependency on the
+// DirectML and D3D12 SDK headers pulled in by that provider header.
+using AppendDmlProviderFn = OrtStatus *(ORT_API_CALL *)(OrtSessionOptions *, int);
+struct OrtDmlApiPrefix
 {
-  ORT_API_STATUS(OrtSessionOptionsAppendExecutionProvider_DML,
-                _In_ OrtSessionOptions *options, int device_id);
-}
+  AppendDmlProviderFn SessionOptionsAppendExecutionProvider_DML;
+};
 #endif
 
 namespace
@@ -40,13 +40,18 @@ int padAmount(int dim)
 
 struct RifeInterpolator::Impl
 {
-  Ort::Env env{ORT_LOGGING_LEVEL_WARNING, "rife"};
+  Ort::Env env{nullptr};
   Ort::Session session{nullptr};
   std::string inputName;
   std::string outputName;
+  std::mutex runMutex;
 
   explicit Impl(const std::string &modelPath)
   {
+    std::cerr << "RifeInterpolator: initializing ONNX Runtime" << std::endl;
+    env = Ort::Env(ORT_LOGGING_LEVEL_WARNING, "rife");
+    std::cerr << "RifeInterpolator: ONNX Runtime environment ready" << std::endl;
+
     Ort::SessionOptions options;
     options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
@@ -78,11 +83,28 @@ struct RifeInterpolator::Impl
 #elif defined(_WIN32)
     try
     {
+      // DirectML does not support memory-pattern optimization or parallel
+      // session execution. Both must be configured before registering the EP.
+      options.DisableMemPattern();
+      options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+      std::cerr << "RifeInterpolator: requesting DirectML provider API"
+                << std::endl;
+      const void *providerApi = nullptr;
+      Ort::ThrowOnError(Ort::GetApi().GetExecutionProviderApi(
+          "DML", ORT_API_VERSION, &providerApi));
+      if (!providerApi)
+      {
+        throw std::runtime_error("ONNX Runtime returned a null DirectML API");
+      }
+      const auto *dmlApi =
+          static_cast<const OrtDmlApiPrefix *>(providerApi);
       // Device 0 = default adapter (typically the primary GPU). Relies on
       // the OS-supplied DirectML.dll (Windows 10 1903+ / Windows 11 ship it
       // in System32) -- we don't bundle our own copy.
+      std::cerr << "RifeInterpolator: registering DirectML device 0"
+                << std::endl;
       Ort::ThrowOnError(
-          OrtSessionOptionsAppendExecutionProvider_DML(options, 0));
+          dmlApi->SessionOptionsAppendExecutionProvider_DML(options, 0));
       epRequested = true;
     }
     catch (const Ort::Exception &e)
@@ -92,7 +114,13 @@ struct RifeInterpolator::Impl
     }
 #endif
 
-    session = Ort::Session(env, modelPath.c_str(), options);
+    // ONNX Runtime paths use wchar_t on Windows and char elsewhere. Convert
+    // the UTF-8 path to the platform-native filesystem representation.
+    const std::filesystem::path nativeModelPath =
+        std::filesystem::u8path(modelPath);
+    std::cerr << "RifeInterpolator: creating " << epName
+              << " session for " << modelPath << std::endl;
+    session = Ort::Session(env, nativeModelPath.c_str(), options);
 
     Ort::AllocatorWithDefaultOptions allocator;
     auto inName = session.GetInputNameAllocated(0, allocator);
@@ -196,8 +224,16 @@ cv::Mat RifeInterpolator::interpolate(const cv::Mat &frameA,
 
   const char *inputNames[] = {impl_->inputName.c_str()};
   const char *outputNames[] = {impl_->outputName.c_str()};
-  auto outputTensors = impl_->session.Run(Ort::RunOptions{nullptr}, inputNames,
-                                          &inputTensor, 1, outputNames, 1);
+  std::cerr << "RifeInterpolator: starting inference, input=1x11x" << ph
+            << "x" << pw << std::endl;
+  // DirectML permits only one Run call at a time on a session. Native frame
+  // requests may overlap, so serialize inference for every execution provider.
+  std::vector<Ort::Value> outputTensors;
+  {
+    std::lock_guard<std::mutex> runLock(impl_->runMutex);
+    outputTensors = impl_->session.Run(Ort::RunOptions{nullptr}, inputNames,
+                                       &inputTensor, 1, outputNames, 1);
+  }
 
   const auto tRunDone = Clock::now();
 

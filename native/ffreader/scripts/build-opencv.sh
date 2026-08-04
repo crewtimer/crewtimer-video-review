@@ -14,6 +14,10 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 elif [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OS" == "Windows"* ]]; then
   PLATFORM="win"
   CMAKE_ARCH_OPTS="-Ax64"
+  # OpenCV 5's vendored MLAS x64 kernels are GNU-style .S files and are not
+  # linked into opencv_dnn by the MSVC generator. Use the built-in DNN GEMM
+  # implementation to avoid unresolved Mlas* symbols in static consumers.
+  CMAKE_PLATFORM_OPTS="-DOPENCV_DNN_DISABLE_MLAS=ON"
 else
   PLATFORM="linux"
 fi
@@ -75,8 +79,10 @@ echo "Configuring OpenCV for static linking..."
 # #-G "Unix Makefiles"
 cmake  \
       ${CMAKE_ARCH_OPTS} \
+      ${CMAKE_PLATFORM_OPTS} \
       -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" \
       -DBUILD_DOCS=OFF -DBUILD_PERF_TESTS=OFF -DBUILD_TESTS=OFF -DBUILD_EXAMPLES=OFF \
+      -DBUILD_opencv_apps=OFF \
       -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_SHARED_LIBS=OFF \
       -DBUILD_ZLIB=ON -DWITH_OPENEXR=ON \

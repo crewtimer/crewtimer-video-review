@@ -101,6 +101,16 @@ yarn build                                                    # main + renderer 
 ./node_modules/.bin/electron-builder --win -c.npmRebuild=false
 ```
 
+After building a Windows prebuild locally, the equivalent one-step staging and
+packaging command is:
+
+```bash
+yarn build:winnative
+```
+
+It copies the freshly built native module and matching ONNX Runtime DLLs into
+`release/app` before packaging with dependency rebuilding disabled.
+
 The `-c.npmRebuild=false` flag is **required** for two reasons:
 
 1. **`sqlite3` source rebuild is broken.** Without the flag, electron-builder
