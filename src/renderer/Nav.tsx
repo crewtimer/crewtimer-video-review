@@ -172,6 +172,31 @@ export default function Nav() {
         </Stack>
       ),
       button: 'OK',
+      secondaryButton: 'Clear Log',
+      handleSecondary: () => {
+        setDialogConfig({
+          title: 'Clear Application Log',
+          message: 'Permanently clear the application log?',
+          button: 'Clear Log',
+          showCancel: true,
+          handleConfirm: async () => {
+            const clearResult = await window.Util.clearAppLog();
+            if (clearResult.status !== 'OK') {
+              setDialogConfig({
+                title: 'Clear Application Log',
+                message: clearResult.status,
+                button: 'OK',
+                showCancel: false,
+              });
+              return;
+            }
+            setToast({
+              severity: 'info',
+              msg: 'Application log cleared.',
+            });
+          },
+        });
+      },
       showCancel: false,
     });
   };

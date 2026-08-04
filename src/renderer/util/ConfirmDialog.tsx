@@ -27,8 +27,10 @@ export interface ConfirmDialogProps {
   body?: ReactNode; //
   confirmText?: string;
   button?: string;
+  secondaryButton?: string;
   showCancel: boolean;
   handleConfirm?: () => void;
+  handleSecondary?: () => void;
   onClose?: () => void;
 }
 
@@ -76,6 +78,20 @@ export function ConfirmDialog() {
         onClick={handleClose}
       >
         Cancel
+      </Button>
+    ) : null,
+    config.secondaryButton ? (
+      <Button
+        key={config.secondaryButton}
+        color="error"
+        variant="outlined"
+        size="small"
+        onClick={() => {
+          setConfig(undefined);
+          config.handleSecondary?.();
+        }}
+      >
+        {config.secondaryButton}
       </Button>
     ) : null,
     config.button ? (

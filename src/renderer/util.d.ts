@@ -44,6 +44,7 @@ declare global {
         path: string;
         contents: string;
       }>;
+      clearAppLog(): Promise<{ status: string; path: string }>;
       savePngFile(
         defaultName: string,
         base64: string,
