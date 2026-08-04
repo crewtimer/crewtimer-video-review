@@ -7,8 +7,10 @@
 
 #include <opencv2/imgproc.hpp>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
@@ -30,6 +32,8 @@ struct OrtDmlApiPrefix
 namespace
 {
 constexpr int PAD_MULTIPLE = 32; // RIFE v4 pyramid needs dims divisible by 32
+constexpr int MAX_RIFE_LONG_EDGE = 1280;
+constexpr int MAX_RIFE_SHORT_EDGE = 720;
 
 int padAmount(int dim)
 {
@@ -67,10 +71,13 @@ struct RifeInterpolator::Impl
 #if defined(__APPLE__)
     try
     {
-      // CPU_AND_GPU (rather than ANE-only) since RIFE's grid-sample warp
-      // isn't ANE-friendly; letting CoreML pick CPU/GPU per-op gets most of
-      // the graph accelerated while still falling back per-node as needed.
+      // Use CoreML's original NeuralNetwork format with CPU/GPU execution.
+      // Keeping the same model and inference dimensions makes provider timing
+      // directly comparable with the MLProgram/ALL experiment.
       uint32_t coremlFlags = COREML_FLAG_USE_CPU_AND_GPU;
+      std::cerr << "RifeInterpolator: requesting CoreML NeuralNetwork with "
+                   "CPU and GPU"
+                << std::endl;
       Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CoreML(
           options, coremlFlags));
       epRequested = true;
@@ -161,6 +168,26 @@ cv::Mat RifeInterpolator::interpolate(const cv::Mat &frameA,
   cv::Mat rgbA, rgbB;
   cv::cvtColor(frameA(crop), rgbA, cv::COLOR_RGBA2RGB);
   cv::cvtColor(frameB(crop), rgbB, cv::COLOR_RGBA2RGB);
+
+  const int outputWidth = rgbA.cols;
+  const int outputHeight = rgbA.rows;
+  const bool landscape = outputWidth >= outputHeight;
+  const int maxWidth = landscape ? MAX_RIFE_LONG_EDGE : MAX_RIFE_SHORT_EDGE;
+  const int maxHeight = landscape ? MAX_RIFE_SHORT_EDGE : MAX_RIFE_LONG_EDGE;
+  const double inferenceScale = std::min(
+      1.0, std::min(static_cast<double>(maxWidth) / outputWidth,
+                    static_cast<double>(maxHeight) / outputHeight));
+  if (inferenceScale < 1.0)
+  {
+    const cv::Size inferenceSize(
+        std::max(1, static_cast<int>(std::round(outputWidth * inferenceScale))),
+        std::max(1, static_cast<int>(std::round(outputHeight * inferenceScale))));
+    cv::resize(rgbA, rgbA, inferenceSize, 0, 0, cv::INTER_AREA);
+    cv::resize(rgbB, rgbB, inferenceSize, 0, 0, cv::INTER_AREA);
+    std::cerr << "RifeInterpolator: downscaling " << outputWidth << "x"
+              << outputHeight << " crop to " << inferenceSize.width << "x"
+              << inferenceSize.height << " for inference" << std::endl;
+  }
   rgbA.convertTo(rgbA, CV_32FC3, 1.0 / 255.0);
   rgbB.convertTo(rgbB, CV_32FC3, 1.0 / 255.0);
 
@@ -254,6 +281,11 @@ cv::Mat RifeInterpolator::interpolate(const cv::Mat &frameA,
   clamped.convertTo(rgb8, CV_8UC3, 255.0, 0.5);
   cv::Mat rgba8;
   cv::cvtColor(rgb8, rgba8, cv::COLOR_RGB2RGBA);
+  if (rgba8.cols != outputWidth || rgba8.rows != outputHeight)
+  {
+    cv::resize(rgba8, rgba8, cv::Size(outputWidth, outputHeight), 0, 0,
+               cv::INTER_CUBIC);
+  }
 
   const auto tEnd = Clock::now();
   std::cerr << "RifeInterpolator: t=" << t << " crop=(" << crop.x << ","
