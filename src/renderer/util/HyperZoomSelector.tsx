@@ -32,6 +32,7 @@ const HyperZoomSelector = () => {
           onChange={handleChange}
         >
           <MenuItem value={0}>Native Video</MenuItem>
+          <MenuItem value={10}>10ms</MenuItem>
           <MenuItem value={8}>8ms</MenuItem>
           <MenuItem value={5}>5ms</MenuItem>
           <MenuItem value={4}>4ms</MenuItem>

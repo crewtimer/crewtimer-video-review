@@ -1,6 +1,7 @@
 
 | Version | What's New |
 | --- | --- |
+| 1.1.1  | Add new hyper-zoom interpolator.  Usability improvements. |
 | 1.0.39 | Ensure Macos network permission prompt appears after first install. |
 | 1.0.38 | Improve scrubbing performance.  Variable Frame Rate support. Bug fixes.|
 | 1.0.37 | Remove click between lane guides to change lane |
