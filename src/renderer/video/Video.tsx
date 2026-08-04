@@ -330,6 +330,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const videoOverlayRef = useRef<VideoOverlayHandles>(null);
   const offscreenCanvas = useRef(document.createElement('canvas'));
   const bowDetectionPending = useRef(false);
+  const holdCanvasDuringZoomReset = useRef(false);
 
   const videoTimestamp = convertTimestampToString(
     image.timestamp,
@@ -374,6 +375,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   }, [image, videoTimestamp]);
 
   const drawContentDebounced = useDebouncedCallback(() => {
+    if (holdCanvasDuringZoomReset.current) {
+      return;
+    }
     if (mouseTracking.current.imageLoaded && canvasRef?.current) {
       const canvas = canvasRef.current;
       if (canvas.width <= 1) {
@@ -691,14 +695,21 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   useEffect(() => {
     if (isZooming()) {
+      // Keep the zoomed canvas visible while the slower full-view RIFE frame
+      // is generated. Redrawing the previous crop at zoom 1 briefly exposes
+      // its raw base frame before the replacement arrives.
+      holdCanvasDuringZoomReset.current = true;
       clearZoom();
-      // Trigger a reload of this frame as we exit zoom.
-      // This frame will be generated without alpha blending but simply moving the frame
-      // so it doesn't look fuzzy.
-      // const frameNum = getVideoFrameNum();
-      moveToFrame(getVideoFrameNum(), undefined, false); // trigger refresh on exiting zoom
+      Promise.resolve(moveToFrame(getVideoFrameNum(), undefined, false))
+        .finally(() => {
+          holdCanvasDuringZoomReset.current = false;
+          drawContentDebounced();
+        })
+        .catch((error) => {
+          console.error('Unable to refresh frame after zoom reset', error);
+        });
     }
-  }, [resetZoomCount]);
+  }, [drawContentDebounced, resetZoomCount]);
 
   const handleMouseLeave = () => {
     setShowBlowup(false);

@@ -435,18 +435,31 @@ export const moveToFrame = (
   if (offset !== undefined) {
     if (zoomFactor < 3 || hyperZoomFactor === 0) {
       videoFrameNum = Math.trunc(frameNum) + offset; // Math.round(frameNum + offset);
+    } else if (offset !== 0) {
+      // Hyperzoom scroll positions are timestamps, not arbitrary fractions of
+      // a video frame. Snap the requested absolute time to the configured
+      // resolution so 5 ms stepping always lands on ...005, ...010, etc.
+      const imageTimeMs = image.tsMicro / 1000;
+      const frameTimeMs =
+        imageTimeMs + ((frameNum - image.frameNum) * 1000) / image.fps;
+      const requestedTimeMs = frameTimeMs + offset * hyperZoomFactor;
+      const snappedTimeMs =
+        Math.round(requestedTimeMs / hyperZoomFactor) * hyperZoomFactor;
+      videoFrameNum =
+        image.frameNum + ((snappedTimeMs - imageTimeMs) * image.fps) / 1000;
     } else {
-      videoFrameNum = frameNum + (offset * image.fps * hyperZoomFactor) / 1000;
+      // Entering zoom requests offset zero; retain the original decoded frame.
+      videoFrameNum = frameNum;
     }
   }
 
   if (videoFrameNum < 1) {
     prevFile();
-    return;
+    return Promise.resolve(undefined);
   }
   if (videoFrameNum > image.numFrames) {
     nextFile();
-    return;
+    return Promise.resolve(undefined);
   }
 
   setVideoFrameNum(Math.min(image.numFrames, Math.max(1, videoFrameNum)));
@@ -459,7 +472,7 @@ export const moveToFrame = (
   }
 
   const interpMethod = getInterpolationTechnique();
-  requestVideoFrame({
+  return requestVideoFrame({
     videoFile: image.file,
     frameNum: videoFrameNum,
     zoom,
