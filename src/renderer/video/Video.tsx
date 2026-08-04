@@ -410,6 +410,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   }, 10);
 
   useEffect(() => {
+    const finishLine = getFinishLine();
+    const finishCenterX =
+      image.width / 2 + (finishLine.pt1 + finishLine.pt2) / 2;
     updateVideoScaling({
       srcWidth: image.width,
       srcHeight: image.height,
@@ -419,7 +422,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       destHeight: height,
       srcCenterPoint:
         videoScaling.zoomY === 1
-          ? { x: image.width / 2, y: image.height / 2 }
+          ? { x: finishCenterX, y: image.height / 2 }
           : videoScaling.srcCenterPoint,
     });
   }, [
