@@ -17,14 +17,15 @@
   },
   "dependencies": {
     "crewtimer_video_reader": "../../native/ffreader",
-    "patch-package": "^8.0.0",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
-    "@electron/rebuild": "3.6.2"
+    "patch-package": "^8.0.0"
   },
   "resolutions": {
     "node-gyp": "^11.0.0",
-    "prebuild-install": "^7.1.2"
+    "prebuild-install": "^7.1.2",
+    "tar": "7.5.22",
+    "tar-fs": "3.1.3"
   }
 }

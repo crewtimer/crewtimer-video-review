@@ -19,7 +19,7 @@ checkNodeEnv('production');
 deleteSourceMaps();
 
 const configuration: webpack.Configuration = {
-  devtool: 'source-map',
+  devtool: false,
 
   mode: 'production',
 
@@ -46,7 +46,7 @@ const configuration: webpack.Configuration = {
             loader: 'css-loader',
             options: {
               modules: true,
-              sourceMap: true,
+              sourceMap: false,
               importLoaders: 1,              // Use the modern Dart Sass API explicitly
               implementation: require('sass'),
             },

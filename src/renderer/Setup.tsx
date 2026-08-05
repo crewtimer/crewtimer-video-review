@@ -101,7 +101,7 @@ const useStyles = makeStyles((theme) => ({
 const CheckOK = () => {
   const classes = useStyles();
   return (
-    <Box borderRadius="4px" height={16} width={16}>
+    <Box sx={{ borderRadius: '4px', height: 16, width: 16 }}>
       <CheckIcon className={classes.check} />
     </Box>
   );

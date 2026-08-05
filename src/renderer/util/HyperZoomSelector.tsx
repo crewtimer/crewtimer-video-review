@@ -16,7 +16,11 @@ const HyperZoomSelector = () => {
   };
 
   return (
-    <Tooltip title="Timestamp resolution when zooming video" placement="right">
+    <Tooltip
+      title="Timestamp resolution when zooming video"
+      placement="right"
+      disableFocusListener
+    >
       <FormControl
         sx={{ marginTop: '0.5em', marginBottom: '0.5em', minWidth: 160 }}
         margin="dense"

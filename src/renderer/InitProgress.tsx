@@ -20,14 +20,14 @@ export default function InitProgress() {
 
   return (
     <div className={classes.root}>
-      <Box display="flex" alignItems="left">
+      <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
         <Typography variant="h6">Loading...</Typography>
       </Box>
-      <Box display="flex" alignItems="center">
-        <Box width="80%" mr={1}>
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Box sx={{ width: '80%', mr: 1 }}>
           <LinearProgress variant="determinate" value={initProgress} />
         </Box>
-        <Box minWidth={35}>
+        <Box sx={{ minWidth: 35 }}>
           <Typography variant="body2" color="textSecondary">{`${Math.round(
             initProgress,
           )}%`}</Typography>

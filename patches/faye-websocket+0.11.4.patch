@@ -1,0 +1,31 @@
+diff --git a/node_modules/faye-websocket/lib/faye/websocket/client.js b/node_modules/faye-websocket/lib/faye/websocket/client.js
+index c3f886d..8c2800c 100644
+--- a/node_modules/faye-websocket/lib/faye/websocket/client.js
++++ b/node_modules/faye-websocket/lib/faye/websocket/client.js
+@@ -3,7 +3,7 @@
+ var util   = require('util'),
+     net    = require('net'),
+     tls    = require('tls'),
+-    url    = require('url'),
++    URL    = require('url').URL,
+     driver = require('websocket-driver'),
+     API    = require('./api'),
+     Event  = require('./api/event');
+@@ -25,7 +25,7 @@ var Client = function(_url, protocols, options) {
+   }, this);
+ 
+   var proxy      = options.proxy || {},
+-      endpoint   = url.parse(proxy.origin || this.url),
++      endpoint   = new URL(proxy.origin || this.url),
+       port       = endpoint.port || DEFAULT_PORTS[endpoint.protocol],
+       secure     = SECURE_PROTOCOLS.indexOf(endpoint.protocol) >= 0,
+       onConnect  = function() { self._onConnect() },
+@@ -56,7 +56,7 @@ Client.prototype._onConnect = function() {
+ };
+ 
+ Client.prototype._configureProxy = function(proxy, originTLS) {
+-  var uri    = url.parse(this.url),
++  var uri    = new URL(this.url),
+       secure = SECURE_PROTOCOLS.indexOf(uri.protocol) >= 0,
+       self   = this,
+       name;

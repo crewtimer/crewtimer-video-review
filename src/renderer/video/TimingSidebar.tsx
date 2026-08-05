@@ -27,9 +27,10 @@ import ViewListIcon from '@mui/icons-material/ViewList';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SortIcon from '@mui/icons-material/Sort';
-import DataGrid, {
-  CellClickArgs,
+import {
+  CellMouseArgs,
   Column,
+  DataGrid,
   DataGridHandle,
   RenderHeaderCellProps,
 } from 'react-data-grid';
@@ -488,7 +489,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       return ta - tb;
     });
   }
-  const clickArgsRef = useRef<CellClickArgs<ResultRowType, unknown>>();
+  const clickArgsRef = useRef<CellMouseArgs<ResultRowType, unknown>>(undefined);
   const { onSingleClick, onDoubleClick } = useSingleAndDoubleClick(
     () => {
       const args = clickArgsRef.current;
@@ -599,9 +600,9 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
     >
       <Stack
         direction="row"
-        alignItems="center"
         spacing={1}
         sx={{
+          alignItems: 'center',
           mb: '1em',
           mt: '0.25em',
           height: 28,
@@ -693,11 +694,11 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
         </Box>
       </Stack>
 
-      <Stack direction="row" alignItems="center">
+      <Stack direction="row" sx={{ alignItems: 'center' }}>
         <VideoBow />
         <VideoTimestamp />
       </Stack>
-      <Stack direction="row" alignItems="center">
+      <Stack direction="row" sx={{ alignItems: 'center' }}>
         <Button
           disabled={activeEventIndex === 0}
           variant="contained"

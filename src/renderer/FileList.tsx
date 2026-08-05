@@ -1,10 +1,11 @@
 import React, { useRef } from 'react';
 import { UseDatum } from 'react-usedatum';
 import { Box, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
-import DataGrid, {
-  CellClickArgs,
+import {
+  CellMouseArgs,
   CellMouseEvent,
   Column,
+  DataGrid,
   DataGridHandle,
 } from 'react-data-grid';
 import {
@@ -189,7 +190,7 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
   );
 
   const handleClick = React.useCallback(
-    (args: CellClickArgs<FileInfo, unknown>, event: CellMouseEvent) => {
+    (args: CellMouseArgs<FileInfo, unknown>, event: CellMouseEvent) => {
       event.preventGridDefault();
       event.preventDefault();
       const index = args.row.id;
@@ -204,7 +205,7 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
   );
 
   const handleContextMenu = React.useCallback(
-    (args: CellClickArgs<FileInfo, unknown>, event: CellMouseEvent) => {
+    (args: CellMouseArgs<FileInfo, unknown>, event: CellMouseEvent) => {
       console.log('context');
       event.preventGridDefault();
       event.preventDefault();

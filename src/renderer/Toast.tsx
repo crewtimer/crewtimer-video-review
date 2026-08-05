@@ -14,7 +14,7 @@ export const Toast = () => {
       autoHideDuration={6000}
       onClose={handleClose}
       anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      TransitionComponent={Slide}
+      slots={{ transition: Slide }}
     >
       <Alert onClose={handleClose} severity={toast.severity}>
         {toast.msg}

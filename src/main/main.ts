@@ -10,6 +10,7 @@
  */
 import path from 'path';
 import { app, BrowserWindow, shell } from 'electron';
+import electronDebug from 'electron-debug';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import './lapstorage/lapstorage-ipc-handler';
@@ -38,7 +39,7 @@ const isDebug =
   process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
 
 if (isDebug) {
-  require('electron-debug')();
+  electronDebug();
 }
 
 // Create a write stream (in append mode)
@@ -96,14 +97,14 @@ const createWindow = async () => {
     icon: getAssetPath('icon.png'),
     webPreferences: {
       nodeIntegration: true,
-      preload: app.isPackaged
-        ? path.join(__dirname, 'preload.js')
-        : path.join(__dirname, '../../.erb/dll/preload.js'),
+      preload: isDebug
+        ? path.join(__dirname, '../../.erb/dll/preload.js')
+        : path.join(__dirname, 'preload.js'),
     },
   });
   setMainWindow(mainWindow);
 
-  if (!app.isPackaged) {
+  if (isDebug) {
     mainWindow.webContents.openDevTools();
   }
 

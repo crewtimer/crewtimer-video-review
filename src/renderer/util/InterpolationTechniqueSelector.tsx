@@ -22,6 +22,7 @@ const InterpolationTechniqueSelector = () => {
     <Tooltip
       title="Technique used to synthesize frames between two decoded video frames"
       placement="right"
+      disableFocusListener
     >
       <FormControl
         sx={{ marginTop: '0.5em', marginBottom: '0.5em', minWidth: 160 }}

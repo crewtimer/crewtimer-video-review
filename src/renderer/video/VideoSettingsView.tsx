@@ -121,7 +121,7 @@ export const VideoSettingsDialog = () => {
       }}
     >
       <Grid container spacing={2}>
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <Toolbar className={classes.header}>
             <Typography
               variant="h6"
@@ -135,6 +135,7 @@ export const VideoSettingsDialog = () => {
             <Tooltip
               title="Direction of travel when crossing the finish line"
               placement="right"
+              disableFocusListener
             >
               <FormControl
                 sx={{
@@ -167,6 +168,7 @@ export const VideoSettingsDialog = () => {
             <Tooltip
               title="Lane position in relation to the lane guides"
               placement="right"
+              disableFocusListener
             >
               <FormControl
                 sx={{
@@ -200,7 +202,7 @@ export const VideoSettingsDialog = () => {
             </Tooltip>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={6}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <Toolbar className={classes.header}>
             <Typography
               variant="h6"
@@ -289,7 +291,7 @@ export const VideoSettingsDialog = () => {
             </Tooltip>
           </Box>
         </Grid>
-        <Grid item xs={12} sm={12}>
+        <Grid size={12}>
           <Toolbar className={classes.header}>
             <Typography
               variant="h6"
@@ -333,8 +335,11 @@ export const VideoSettingsDialog = () => {
             <Stack
               direction="row"
               spacing={1}
-              alignItems="center"
-              sx={{ marginTop: '0.5em', flexWrap: 'wrap' }}
+              sx={{
+                marginTop: '0.5em',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
             >
               <FormControlLabel
                 labelPlacement="end"

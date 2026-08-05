@@ -1,0 +1,63 @@
+diff --git a/node_modules/websocket-driver/lib/websocket/driver/client.js b/node_modules/websocket-driver/lib/websocket/driver/client.js
+index f24d645..189c21d 100644
+--- a/node_modules/websocket-driver/lib/websocket/driver/client.js
++++ b/node_modules/websocket-driver/lib/websocket/driver/client.js
+@@ -2,7 +2,7 @@
+ 
+ var Buffer     = require('safe-buffer').Buffer,
+     crypto     = require('crypto'),
+-    url        = require('url'),
++    URL        = require('url').URL,
+     util       = require('util'),
+     HttpParser = require('../http_parser'),
+     Base       = require('./base'),
+@@ -18,8 +18,11 @@ var Client = function(_url, options) {
+   this._accept    = Hybi.generateAccept(this._key);
+   this._http      = new HttpParser('response');
+ 
+-  var uri  = url.parse(this.url),
+-      auth = uri.auth && Buffer.from(uri.auth, 'utf8').toString('base64');
++  var uri  = new URL(this.url),
++      auth = uri.username && Buffer.from(
++        decodeURIComponent(uri.username) + ':' + decodeURIComponent(uri.password),
++        'utf8'
++      ).toString('base64');
+ 
+   if (this.VALID_PROTOCOLS.indexOf(uri.protocol) < 0)
+     throw new Error(this.url + ' is not a valid WebSocket URL');
+diff --git a/node_modules/websocket-driver/lib/websocket/driver/proxy.js b/node_modules/websocket-driver/lib/websocket/driver/proxy.js
+index 2fdd32e..0cd883f 100644
+--- a/node_modules/websocket-driver/lib/websocket/driver/proxy.js
++++ b/node_modules/websocket-driver/lib/websocket/driver/proxy.js
+@@ -2,7 +2,7 @@
+ 
+ var Buffer     = require('safe-buffer').Buffer,
+     Stream     = require('stream').Stream,
+-    url        = require('url'),
++    URL        = require('url').URL,
+     util       = require('util'),
+     Base       = require('./base'),
+     Headers    = require('./headers'),
+@@ -13,8 +13,8 @@ var PORTS = { 'ws:': 80, 'wss:': 443 };
+ var Proxy = function(client, origin, options) {
+   this._client  = client;
+   this._http    = new HttpParser('response');
+-  this._origin  = (typeof client.url === 'object') ? client.url : url.parse(client.url);
+-  this._url     = (typeof origin === 'object') ? origin : url.parse(origin);
++  this._origin  = (typeof client.url === 'object') ? client.url : new URL(client.url);
++  this._url     = (typeof origin === 'object') ? origin : new URL(origin);
+   this._options = options || {};
+   this._state   = 0;
+ 
+@@ -26,7 +26,10 @@ var Proxy = function(client, origin, options) {
+   this._headers.set('Connection', 'keep-alive');
+   this._headers.set('Proxy-Connection', 'keep-alive');
+ 
+-  var auth = this._url.auth && Buffer.from(this._url.auth, 'utf8').toString('base64');
++  var auth = this._url.username && Buffer.from(
++    decodeURIComponent(this._url.username) + ':' + decodeURIComponent(this._url.password),
++    'utf8'
++  ).toString('base64');
+   if (auth) this._headers.set('Proxy-Authorization', 'Basic ' + auth);
+ };
+ util.inherits(Proxy, Stream);

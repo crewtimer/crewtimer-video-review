@@ -23,7 +23,7 @@
             ],
             "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
             "CLANG_CXX_LIBRARY": "libc++",
-            "CLANG_CXX_LANGUAGE_STANDARD": "c++17",
+            "CLANG_CXX_LANGUAGE_STANDARD": "c++20",
             "OTHER_LDFLAGS": ["-Wl,-rpath,@loader_path"]
           },
           "include_dirs": [
@@ -74,7 +74,7 @@
         "sources": ["src/RifeInterpolator.cpp"],
           "msvs_settings": {
           "VCCLCompilerTool": {
-            "AdditionalOptions": ["/std:c++17", "/EHsc"]
+            "AdditionalOptions": ["/std:c++20", "/EHsc"]
           }
         },
         "include_dirs": [

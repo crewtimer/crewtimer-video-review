@@ -59,11 +59,13 @@ const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
 
   return (
     <Box
-      display="flex"
-      flexDirection="column"
-      gap={2}
-      p={2}
-      alignItems="center"
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        p: 2,
+        alignItems: 'center',
+      }}
     >
       <TextField
         label="File Prefix"

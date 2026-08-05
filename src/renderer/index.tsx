@@ -5,6 +5,7 @@ import {
   Theme,
   StyledEngineProvider,
 } from '@mui/material/styles';
+import { ThemeProvider as LegacyStylesThemeProvider } from '@mui/styles';
 import App from './App';
 import theme from './theme';
 
@@ -15,12 +16,14 @@ declare module '@mui/styles/defaultTheme' {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   // <React.StrictMode>
-  <StyledEngineProvider injectFirst>
-    <ThemeProvider theme={theme}>
-      {/* CssBaseline kickstart an elegant, consistent, and simple baseline to build upon. */}
-      <CssBaseline />
-      <App />
-    </ThemeProvider>
-  </StyledEngineProvider>,
+  <LegacyStylesThemeProvider theme={theme}>
+    <StyledEngineProvider injectFirst>
+      <ThemeProvider theme={theme}>
+        {/* CssBaseline kickstart an elegant, consistent, and simple baseline to build upon. */}
+        <CssBaseline />
+        <App />
+      </ThemeProvider>
+    </StyledEngineProvider>
+  </LegacyStylesThemeProvider>,
   // </React.StrictMode>
 );

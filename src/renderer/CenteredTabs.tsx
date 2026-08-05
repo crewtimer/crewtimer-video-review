@@ -5,7 +5,7 @@ import {
   HistoryTwoTone,
   VideoSettings,
   OndemandVideo,
-  HelpOutline,
+  HelpOutlined,
 } from '@mui/icons-material';
 
 import { Box, Tooltip } from '@mui/material';
@@ -109,7 +109,7 @@ export default function CenteredTabs() {
           <Tab
             icon={
               <Tooltip title="Help">
-                <HelpOutline />
+                <HelpOutlined />
               </Tooltip>
             }
             value="Help"
