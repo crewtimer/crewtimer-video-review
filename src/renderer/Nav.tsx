@@ -39,15 +39,38 @@ import { useFileStatusList } from './video/VideoFileStatus';
 import { getVideoDir } from './video/VideoSettings';
 import { setUserMessages } from './util/UserMessage';
 import { openNagScreen } from './NagScreen';
+import { compareVersions } from './util/Version';
+import InterpolationTechniqueSelector from './util/InterpolationTechniqueSelector';
 
 const AboutText = `CrewTimer Video Review ${window.platform.appVersion}`;
 
-const versionAsNumber = (version: string) => {
-  const parts = version.split(/[.-]/);
-  return Number(parts[0]) * 100 + Number(parts[1]) * 10 + Number(parts[2]);
-};
-
 const { LapStorage } = window;
+
+const DebugDialogBody = () => {
+  const [debugLevel, setDebugLevel] = useDebugLevel();
+
+  const toggleDebug = () => {
+    let newDebugLevel = debugLevel + 1;
+    if (newDebugLevel > 4) {
+      setUserMessages([]);
+      newDebugLevel = 0;
+    }
+    setDebugLevel(newDebugLevel);
+    setToast({
+      severity: 'info',
+      msg: `Debug level ${newDebugLevel}`,
+    });
+  };
+
+  return (
+    <Stack spacing={2} sx={{ pt: 1, minWidth: 240 }}>
+      <Button variant="outlined" onClick={toggleDebug}>
+        Toggle Debug (Level {debugLevel})
+      </Button>
+      <InterpolationTechniqueSelector />
+    </Stack>
+  );
+};
 
 const useStyles = makeStyles((theme) => ({
   root: {},
@@ -70,7 +93,6 @@ export default function Nav() {
   const [msg, setMsg] = useState('');
   const [shiftMenu, setShiftMenu] = useState(false);
   const [fileStatusList] = useFileStatusList();
-  const [debugLevel, setDebugLevel] = useDebugLevel();
   const latestVersion =
     useFirebaseDatum<string, string>(
       '/global/config/video-review/latestVersion',
@@ -80,8 +102,7 @@ export default function Nav() {
       '/global/config/video-review/latestText',
     ) || '';
   const updateAvailable =
-    versionAsNumber(latestVersion) >
-    versionAsNumber(window.platform.appVersion);
+    compareVersions(latestVersion, window.platform.appVersion) > 0;
   // console.log(
   //   `updateAvailable: ${updateAvailable} latestVersion: ${latestVersion} appVersion: ${window.platform.appVersion}`
   // );
@@ -325,22 +346,18 @@ export default function Nav() {
                 <MenuItem
                   onClick={() => {
                     handleClose();
-                    let newDebugLevel = debugLevel + 1;
-                    if (newDebugLevel > 4) {
-                      setUserMessages([]);
-                      newDebugLevel = 0;
-                    }
-                    setDebugLevel(newDebugLevel);
-                    setToast({
-                      severity: 'info',
-                      msg: `Debug level ${newDebugLevel}`,
+                    setDialogConfig({
+                      title: 'Debug',
+                      body: <DebugDialogBody />,
+                      button: 'Done',
+                      showCancel: false,
                     });
                   }}
                 >
                   <ListItemIcon>
                     <DebugIcon />
                   </ListItemIcon>
-                  <ListItemText primary="Toggle Debug" />
+                  <ListItemText primary="Debug" />
                 </MenuItem>
               )}
               {!shiftMenu && (
