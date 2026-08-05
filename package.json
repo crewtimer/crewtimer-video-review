@@ -56,8 +56,7 @@
     "start:renderer": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack serve --config ./.erb/configs/webpack.config.renderer.dev.ts",
     "test": "jest",
     "test:ui": "npm run build && playwright test --config=playwright.electron.config.ts",
-    "build:win": "npm run build && node_modules/.bin/electron-builder --win",
-    "build:winnative": "npm run rebuild:win-sqlite && node .erb/scripts/stage-win-native.js && npm run build && node_modules/.bin/electron-builder --win -c.npmRebuild=false && node .erb/scripts/verify-win-package.js",
+    "build:win": "npm run rebuild:win-sqlite && node .erb/scripts/stage-win-native.js && npm run build && node_modules/.bin/electron-builder --win -c.npmRebuild=false && node .erb/scripts/verify-win-package.js",
     "build:mac": "npm run build && APPLE_KEYCHAIN_PROFILE=crewtimer-app-signing node_modules/.bin/electron-builder --mac",
     "build:macx64": "npm run build && node_modules/.bin/electron-builder --mac --arch x64",
     "build:macarm64": "npm run build && node_modules/.bin/electron-builder --mac --arch arm64",
@@ -256,7 +255,6 @@
       "target": {
         "target": "default",
         "arch": [
-          "x64",
           "arm64"
         ]
       },

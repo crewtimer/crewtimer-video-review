@@ -105,7 +105,7 @@ After building a Windows prebuild locally, the equivalent one-step staging and
 packaging command is:
 
 ```bash
-yarn build:winnative
+yarn build:win
 ```
 
 It copies the freshly built native module and matching ONNX Runtime DLLs into
