@@ -31,7 +31,7 @@ public:
    * @return CV_8UC4 RGBA image sized crop.width x crop.height.
    */
   cv::Mat interpolate(const cv::Mat &frameA, const cv::Mat &frameB, float t,
-                      const cv::Rect &crop) const;
+                      const cv::Rect &crop, int debugLevel = 0) const;
 
 private:
   struct Impl;

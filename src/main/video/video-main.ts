@@ -32,6 +32,17 @@ ipcMain.handle('video:sendMulticast', (_event, msg, dest, port) => {
   }
 });
 
+ipcMain.handle('video:setDebugLevel', (_event, debugLevel: number) => {
+  try {
+    return nativeVideoExecutor({
+      op: 'debug',
+      debugLevel,
+    } as unknown as GrabFrameMessage);
+  } catch (err) {
+    return { status: `${err instanceof Error ? err.message : err}` };
+  }
+});
+
 ipcMain.handle('video:openFile', (_event, filePath) => {
   // Invoke native c++ handler
   try {

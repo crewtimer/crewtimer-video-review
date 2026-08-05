@@ -151,7 +151,7 @@ RifeInterpolator::~RifeInterpolator() = default;
 
 cv::Mat RifeInterpolator::interpolate(const cv::Mat &frameA,
                                       const cv::Mat &frameB, float t,
-                                      const cv::Rect &crop) const
+                                      const cv::Rect &crop, int debugLevel) const
 {
   if (frameA.type() != CV_8UC4 || frameB.type() != CV_8UC4)
   {
@@ -184,9 +184,10 @@ cv::Mat RifeInterpolator::interpolate(const cv::Mat &frameA,
         std::max(1, static_cast<int>(std::round(outputHeight * inferenceScale))));
     cv::resize(rgbA, rgbA, inferenceSize, 0, 0, cv::INTER_AREA);
     cv::resize(rgbB, rgbB, inferenceSize, 0, 0, cv::INTER_AREA);
-    std::cerr << "RifeInterpolator: downscaling " << outputWidth << "x"
-              << outputHeight << " crop to " << inferenceSize.width << "x"
-              << inferenceSize.height << " for inference" << std::endl;
+    if (debugLevel > 1)
+      std::cerr << "RifeInterpolator: downscaling " << outputWidth << "x"
+                << outputHeight << " crop to " << inferenceSize.width << "x"
+                << inferenceSize.height << " for inference" << std::endl;
   }
   rgbA.convertTo(rgbA, CV_32FC3, 1.0 / 255.0);
   rgbB.convertTo(rgbB, CV_32FC3, 1.0 / 255.0);
@@ -251,8 +252,9 @@ cv::Mat RifeInterpolator::interpolate(const cv::Mat &frameA,
 
   const char *inputNames[] = {impl_->inputName.c_str()};
   const char *outputNames[] = {impl_->outputName.c_str()};
-  std::cerr << "RifeInterpolator: starting inference, input=1x11x" << ph
-            << "x" << pw << std::endl;
+  if (debugLevel > 1)
+    std::cerr << "RifeInterpolator: starting inference, input=1x11x" << ph
+              << "x" << pw << std::endl;
   // DirectML permits only one Run call at a time on a session. Native frame
   // requests may overlap, so serialize inference for every execution provider.
   std::vector<Ort::Value> outputTensors;
@@ -288,13 +290,14 @@ cv::Mat RifeInterpolator::interpolate(const cv::Mat &frameA,
   }
 
   const auto tEnd = Clock::now();
-  std::cerr << "RifeInterpolator: t=" << t << " crop=(" << crop.x << ","
-            << crop.y << "," << crop.width << "," << crop.height
-            << ") padded=" << pw << "x" << ph
-            << " prep=" << toMs(tStart, tPrepDone)
-            << "ms infer=" << toMs(tPrepDone, tRunDone)
-            << "ms post=" << toMs(tRunDone, tEnd)
-            << "ms total=" << toMs(tStart, tEnd) << "ms" << std::endl;
+  if (debugLevel > 1)
+    std::cerr << "RifeInterpolator: t=" << t << " crop=(" << crop.x << ","
+              << crop.y << "," << crop.width << "," << crop.height
+              << ") padded=" << pw << "x" << ph
+              << " prep=" << toMs(tStart, tPrepDone)
+              << "ms infer=" << toMs(tPrepDone, tRunDone)
+              << "ms post=" << toMs(tRunDone, tEnd)
+              << "ms total=" << toMs(tStart, tEnd) << "ms" << std::endl;
 
   return rgba8;
 }

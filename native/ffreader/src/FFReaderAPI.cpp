@@ -48,7 +48,7 @@ static std::map<std::string, RifeInterpolator *> rifeInterpolatorMap;
 static FrameInfoList frameInfoList;
 static FrameRect noZoom = {0, 0, 0, 0};
 static std::ofstream nativeLogStream;
-static int debugLevel = 1;
+static int debugLevel = 0;
 
 /**
  * @brief Extract a 64-bit 100ns UTC timestamp from the video frame.
@@ -789,7 +789,8 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
                           (void *)frameB->data->data());
               cv::Rect cvCrop(rifeRoi.x, rifeRoi.y, rifeRoi.width, rifeRoi.height);
               cv::Mat resultMat = interpolator->interpolate(
-                  matA, matB, static_cast<float>(fractionalPart), cvCrop);
+                  matA, matB, static_cast<float>(fractionalPart), cvCrop,
+                  debugLevel);
 
               // Composite the (small, fast-to-infer) interpolated crop back
               // into a full-size copy of frameA so the response keeps the
@@ -824,7 +825,7 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
             frameInfo = generateInterpolatedFrame(frameA, frameB, fractionalPart,
                                                   roi, blend);
           }
-          if (debugLevel)
+          if (debugLevel > 1)
           {
             std::cout << __FILE__ << ":" << __LINE__
                       << " Generating interpolated frame requestedFrameNum="

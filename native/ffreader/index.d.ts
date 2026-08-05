@@ -39,6 +39,11 @@ declare module 'crewtimer_video_reader' {
     msg: string;
   }
 
+  interface DebugMessage extends MessageBase {
+    op: 'debug';
+    debugLevel: number;
+  }
+
   interface Rect {
     x: number;
     y: number;
@@ -92,7 +97,11 @@ declare module 'crewtimer_video_reader' {
   }
 
   export function nativeVideoExecutor(
-    message: OpenFileMessage | CloseFileMessage | SendMulticastMessage,
+    message:
+      | OpenFileMessage
+      | CloseFileMessage
+      | SendMulticastMessage
+      | DebugMessage,
   ): MessageResponseBase;
 
   export function nativeVideoExecutor(

@@ -12,6 +12,8 @@ import {
 } from 'renderer/shared/AppTypes';
 
 contextBridge.exposeInMainWorld('VideoUtils', {
+  setDebugLevel: (debugLevel: number) =>
+    ipcRenderer.invoke('video:setDebugLevel', debugLevel),
   openFile: async (filePath: string) => {
     try {
       const result = await ipcRenderer.invoke('video:openFile', filePath);

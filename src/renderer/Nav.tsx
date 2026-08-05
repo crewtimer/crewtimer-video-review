@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import makeStyles from '@mui/styles/makeStyles';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -85,6 +85,7 @@ const useStyles = makeStyles((theme) => ({
 
 export default function Nav() {
   const classes = useStyles();
+  const [debugLevel] = useDebugLevel();
   const [mc] = useMobileConfig();
   const [mobileID] = useMobileID();
   const [anchorEl, setAnchorEl] = React.useState<Element | null>(null);
@@ -93,6 +94,12 @@ export default function Nav() {
   const [msg, setMsg] = useState('');
   const [shiftMenu, setShiftMenu] = useState(false);
   const [fileStatusList] = useFileStatusList();
+
+  useEffect(() => {
+    window.VideoUtils.setDebugLevel(debugLevel).catch((err) => {
+      console.error('Failed to set native debug level:', err);
+    });
+  }, [debugLevel]);
   const latestVersion =
     useFirebaseDatum<string, string>(
       '/global/config/video-review/latestVersion',
