@@ -172,6 +172,14 @@ export default function Setup() {
     setVideoSettings({ ...videoSettings, timingHintSource: newValue }, true);
   };
 
+  const onSecondaryTimingHintSourceChange = (event: SelectChangeEvent) => {
+    const newValue = event.target.value === '---' ? '' : event.target.value;
+    setVideoSettings(
+      { ...videoSettings, secondaryTimingHintSource: newValue },
+      true,
+    );
+  };
+
   const onLoginClicked = async () => {
     setValidating(true);
     await validateCredentials({ mobileID, mobilePin });
@@ -300,7 +308,12 @@ export default function Setup() {
               {/* Combine Waypoint and Timing Hint Source selection in a flex row */}
               <Box
                 className={classes.settings}
-                sx={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 200px))',
+                  alignItems: 'center',
+                  columnGap: 6,
+                }}
               >
                 <FormControl
                   variant="standard"
@@ -331,6 +344,7 @@ export default function Setup() {
                 <Tooltip
                   title="Select the waypoint to use for timing hints."
                   placement="right"
+                  disableFocusListener
                 >
                   <FormControl
                     variant="standard"
@@ -363,8 +377,16 @@ export default function Setup() {
                   </FormControl>
                 </Tooltip>
               </Box>
-              {dayList.length !== 0 && (
-                <Box className={classes.settings}>
+              <Box
+                className={classes.settings}
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 200px))',
+                  alignItems: 'center',
+                  columnGap: 6,
+                }}
+              >
+                {dayList.length !== 0 ? (
                   <FormControl variant="standard" sx={{ minWidth: 120 }}>
                     <InputLabel shrink id="day-label">
                       Day
@@ -382,8 +404,41 @@ export default function Setup() {
                       ))}
                     </Select>
                   </FormControl>
-                </Box>
-              )}
+                ) : (
+                  <Box />
+                )}
+                <Tooltip
+                  title="Fallback waypoint used only when double-clicking a bow with no camera or primary hint time."
+                  placement="right"
+                  disableFocusListener
+                >
+                  <FormControl
+                    variant="standard"
+                    margin="dense"
+                    size="small"
+                    sx={{ minWidth: 200 }}
+                  >
+                    <InputLabel id="secondary-hint-select-label">
+                      Second Hint Waypoint
+                    </InputLabel>
+                    <Select
+                      labelId="secondary-hint-select-label"
+                      id="secondary-hint-select"
+                      value={videoSettings.secondaryTimingHintSource || '---'}
+                      label="Second Hint Waypoint"
+                      onChange={onSecondaryTimingHintSourceChange}
+                      displayEmpty
+                    >
+                      <MenuItem value="---">None</MenuItem>
+                      {waypointList.map((waypoint) => (
+                        <MenuItem key={waypoint} value={waypoint}>
+                          {waypoint}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Tooltip>
+              </Box>
             </>
           )}
         </Card>

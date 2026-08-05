@@ -222,6 +222,7 @@ export const VideoGuidesKeys: (keyof VideoGuides)[] = [
  */
 export interface VideoSettings extends VideoGuides {
   timingHintSource: string;
+  secondaryTimingHintSource: string;
   guideColor: string;
   sidecarSource?: string;
 }
@@ -229,6 +230,7 @@ export interface VideoSettings extends VideoGuides {
 export const [useVideoSettings, setVideoSettings, getVideoSettings] =
   UseStoredDatum<VideoSettings>('videoSettings', {
     timingHintSource: '',
+    secondaryTimingHintSource: '',
     guideColor: DEFAULT_GUIDE_COLOR,
     laneBelowGuide: false,
     enableLaneGuides: true,

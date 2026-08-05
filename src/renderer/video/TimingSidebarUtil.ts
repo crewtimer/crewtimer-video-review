@@ -50,6 +50,19 @@ export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
         lap = hintLap;
       }
     }
+    if (!lap) {
+      const secondaryHintWaypoint =
+        getVideoSettings().secondaryTimingHintSource;
+      const secondaryHintKey = secondaryHintWaypoint
+        ? `${gateFromWaypoint(secondaryHintWaypoint)}_${entry.EventNum}_${entry.Bow}`
+        : '';
+      const secondaryHintLap = secondaryHintKey
+        ? getEntryResult(secondaryHintKey)
+        : undefined;
+      if (secondaryHintLap?.Time && secondaryHintLap.State !== 'Deleted') {
+        lap = secondaryHintLap;
+      }
+    }
 
     if (lap?.Time && lap?.State !== 'Deleted') {
       const seekTime = lap.Time;

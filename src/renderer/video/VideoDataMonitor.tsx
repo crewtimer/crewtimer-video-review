@@ -8,11 +8,29 @@ import {
   setEntryException,
   useClickerData,
 } from './UseClickerData';
+import { useVideoSettings } from './VideoSettings';
 
-const ClickerDataKeepAlive: React.FC = () => {
-  useClickerData(); // trigger firebase to read the clicker data
+const ClickerDataSubscription: React.FC<{ waypoint?: string }> = ({
+  waypoint,
+}) => {
+  useClickerData(waypoint);
   // eslint-disable-next-line react/jsx-no-useless-fragment
   return <></>;
+};
+
+const ClickerDataKeepAlive: React.FC = () => {
+  const [videoSettings] = useVideoSettings();
+  const secondaryHintWaypoint = videoSettings.secondaryTimingHintSource || '';
+
+  return (
+    <>
+      <ClickerDataSubscription />
+      {secondaryHintWaypoint &&
+        secondaryHintWaypoint !== videoSettings.timingHintSource && (
+          <ClickerDataSubscription waypoint={secondaryHintWaypoint} />
+        )}
+    </>
+  );
 };
 
 /**
