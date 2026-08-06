@@ -297,7 +297,11 @@ const VideoScrubber = () => {
               onMouseUp={onMouseUp}
               onMouseMove={onMouseMove}
               onKeyDown={(event) => {
-                event.preventDefault(); // avoid responding to arrow keys
+                // MUI handles the slider step itself. Do not also let the
+                // window-level video shortcut move a second frame.
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                  event.stopPropagation();
+                }
               }}
               aria-labelledby="video-scrubber"
               sx={{
