@@ -28,23 +28,19 @@ export interface Rect {
 export interface BowDetectionRequest {
   videoFile: string;
   frameNum: number;
-  strip: Rect;
-  focusX?: number;
+  /** Full-frame pixel coordinates near the bow, used to pick which boat to read. */
+  point: { x: number; y: number };
   closeTo?: boolean;
-}
-
-export interface BowCharacterDetection {
-  text: string;
-  confidence: number;
-  box: Rect;
 }
 
 export interface BowDetectionResult {
   status: string;
   text: string;
   confidence: number;
+  /** Bow-card box, full-frame pixel coordinates. */
   box: Rect;
-  characters: BowCharacterDetection[];
+  /** Boat box, full-frame pixel coordinates. */
+  boatBox: Rect;
   frameNum: number;
   timestamp: number;
 }

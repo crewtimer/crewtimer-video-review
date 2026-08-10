@@ -500,26 +500,14 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       return;
     }
 
-    const stripHeight = Math.min(50, image.height);
-    const stripY = Math.max(
-      0,
-      Math.min(
-        image.height - stripHeight,
-        Math.round(srcCoords.y - stripHeight / 2),
-      ),
-    );
-
     bowDetectionPending.current = true;
     try {
       const result = await window.VideoUtils.detectBow({
         videoFile: image.file,
         frameNum: image.frameNum,
-        focusX: Math.round(srcCoords.x),
-        strip: {
-          x: 0,
-          y: stripY,
-          width: image.width,
-          height: stripHeight,
+        point: {
+          x: Math.round(srcCoords.x),
+          y: Math.round(srcCoords.y),
         },
       });
       if (result.text) {

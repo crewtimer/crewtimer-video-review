@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Extract normalized OCR crops from bow-card JSON sidecars."""
+"""Extract normalized whole-card OCR crops from bow-card JSON sidecars.
+
+Each crop covers the entire bow number (however many digits) and is labelled
+with the full digit string, for training a CTC sequence reader. This assumes
+`box` (from card-labels/*.json) already tightly bounds the whole number, and
+that upstream (BowNumberPipeline / a card detector) is responsible for
+finding that box at inference time -- this script only prepares reader
+training data from ground truth.
+"""
 
 import argparse
 import hashlib
@@ -8,12 +16,16 @@ from pathlib import Path
 
 import cv2
 
-OUTPUT_WIDTH = 64
 OUTPUT_HEIGHT = 32
+MIN_OUTPUT_WIDTH = 24
+MAX_OUTPUT_WIDTH = 160
 
 
 def normalize_card(image, box):
-    """Crop with source-pixel padding and apply the production OCR pipeline."""
+    """Crop with source-pixel padding and apply the production OCR pipeline:
+    upscale, unsharp mask, threshold, polarity-normalise, then resize to a
+    fixed height with width scaled to preserve the crop's aspect ratio (so a
+    3-digit number isn't squashed into the same width as a single digit)."""
     image_h, image_w = image.shape[:2]
     x = int(box["x"])
     y = int(box["y"])
@@ -55,9 +67,13 @@ def normalize_card(image, box):
         cv2.BORDER_CONSTANT,
         value=255,
     )
+
+    crop_h, crop_w = normalized.shape[:2]
+    out_width = round(OUTPUT_HEIGHT * crop_w / crop_h)
+    out_width = max(MIN_OUTPUT_WIDTH, min(MAX_OUTPUT_WIDTH, out_width))
     return cv2.resize(
         normalized,
-        (OUTPUT_WIDTH, OUTPUT_HEIGHT),
+        (out_width, OUTPUT_HEIGHT),
         interpolation=cv2.INTER_AREA,
     )
 
@@ -107,7 +123,9 @@ def extract_dataset(dataset_root, output_root, validation_percent):
             if not card.get("legible", bool(digits)):
                 stats["unreadable"] += 1
                 continue
-            if len(digits) != 1 or not digits.isdigit():
+            # Matches BowNumberReader's charset (digits only) and the range
+            # of real bow numbers seen (1-3 digits, e.g. up to ~199).
+            if not digits.isdigit() or not (1 <= len(digits) <= 3):
                 stats["unsupported"] += 1
                 continue
             box = card.get("box")
@@ -131,7 +149,7 @@ def extract_dataset(dataset_root, output_root, validation_percent):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Extract normalized single-digit bow-card OCR crops"
+        description="Extract normalized whole-card bow-number OCR crops"
     )
     parser.add_argument("datasets", nargs="+", type=Path)
     parser.add_argument("--output", required=True, type=Path)

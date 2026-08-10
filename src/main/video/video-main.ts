@@ -68,6 +68,11 @@ const rifeModelFile = () =>
     ? path.join(process.resourcesPath, 'rife_v4.6.onnx')
     : path.join(__dirname, '../../native/rife/rife_v4.6.onnx');
 
+const bowdetectModelFile = (fileName: string) =>
+  app.isPackaged
+    ? path.join(process.resourcesPath, fileName)
+    : path.join(__dirname, '../../native/bowdetect', fileName);
+
 ipcMain.handle('video:getFrame', (_event, request: VideoFrameRequest) => {
   try {
     // console.log('Grabbing frame', JSON.stringify(request, null, 2));
@@ -90,12 +95,14 @@ ipcMain.handle('video:getFrame', (_event, request: VideoFrameRequest) => {
 
 ipcMain.handle('video:detectBow', (_event, request: BowDetectionRequest) => {
   try {
-    const modelFile = app.isPackaged
-      ? path.join(process.resourcesPath, 'bow_crnn.onnx')
-      : path.join(__dirname, '../../native/bowdetect/bow_crnn.onnx');
     return nativeVideoExecutor({
       op: 'detectBowAtFrame',
-      request: { ...request, modelFile },
+      request: {
+        ...request,
+        boatModelFile: bowdetectModelFile('crewtimer-boat-train.onnx'),
+        cardModelFile: bowdetectModelFile('bow_card_detect.onnx'),
+        numberModelFile: bowdetectModelFile('bow_crnn.onnx'),
+      },
     } as DetectBowMessage);
   } catch (err) {
     return { status: `${err instanceof Error ? err.message : err}` };

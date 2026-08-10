@@ -10,6 +10,7 @@
 *.dylib binary
 *.dll   binary
 *.a     binary
+*.onnx  binary
 # - Include binary diff in patches instead of "binary files differ."
 *.sln     -text diff
 *.suo     -text diff

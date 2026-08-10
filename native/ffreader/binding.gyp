@@ -2,7 +2,7 @@
   "targets": [
     {
       "target_name": "crewtimer_video_reader",
-      "sources": [ "src/FFReaderAPI.cpp", "src/FFReader.cpp", "src/sendMulticast.cpp", "src/FrameUtils.cpp", "src/BowCardDetector.cpp"],
+      "sources": [ "src/FFReaderAPI.cpp", "src/FFReader.cpp", "src/sendMulticast.cpp", "src/FrameUtils.cpp"],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",
       ],
@@ -11,7 +11,7 @@
       ],
       "conditions": [
         ['OS=="mac"', {
-          "sources": ["src/MacOSLocalNetworkPermission.mm", "src/RifeInterpolator.cpp"],
+          "sources": ["src/MacOSLocalNetworkPermission.mm", "src/RifeInterpolator.cpp", "src/OrtSessionUtils.cpp", "src/YoloBoxDetector.cpp", "src/BowNumberReader.cpp", "src/BowNumberPipeline.cpp"],
           "cflags": [ "-frtti"],
           "cflags_cc!": [ "-frtti" ],
           "xcode_settings": {
@@ -71,8 +71,8 @@
       }],
 
       ['OS=="win"', {
-        "sources": ["src/RifeInterpolator.cpp"],
-          "msvs_settings": {
+        "sources": ["src/RifeInterpolator.cpp", "src/OrtSessionUtils.cpp", "src/YoloBoxDetector.cpp", "src/BowNumberReader.cpp", "src/BowNumberPipeline.cpp"],
+        "msvs_settings": {
           "VCCLCompilerTool": {
             "AdditionalOptions": ["/std:c++20", "/EHsc"]
           }
