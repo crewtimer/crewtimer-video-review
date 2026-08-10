@@ -49,68 +49,82 @@ BowNumberPipeline::~BowNumberPipeline() = default;
 BowNumberDetection BowNumberPipeline::detect(
     const cv::Mat &frame, const cv::Point &pointOfInterest) const
 {
-  BowNumberDetection result;
+  const auto detections = detectAll(frame);
+  if (detections.empty())
+  {
+    return {};
+  }
+  return *std::min_element(
+      detections.begin(), detections.end(),
+      [&pointOfInterest](const BowNumberDetection &a,
+                         const BowNumberDetection &b)
+      {
+        return distanceToBox(pointOfInterest, a.boatBox) <
+              distanceToBox(pointOfInterest, b.boatBox);
+      });
+}
+
+std::vector<BowNumberDetection> BowNumberPipeline::detectAll(
+    const cv::Mat &frame) const
+{
+  std::vector<BowNumberDetection> results;
   if (frame.empty())
   {
-    return result;
+    return results;
   }
   const cv::Size frameSize(frame.cols, frame.rows);
-
-  // Stage 1: boat detector on the full frame; pick the boat nearest the
-  // caller's point of interest (0 distance if the point is inside the box).
   const auto boats = boatDetector_->detect(frame, BOAT_CONFIDENCE_THRESHOLD);
-  if (boats.empty())
+  results.reserve(boats.size());
+
+  for (const auto &boat : boats)
   {
-    return result;
+    BowNumberDetection result;
+    result.boatBox = boat.box;
+
+    const cv::Rect boatCropRect =
+        padAndClamp(boat.box, BOAT_PAD_FRACTION, frameSize);
+    if (boatCropRect.width <= 0 || boatCropRect.height <= 0)
+    {
+      results.push_back(result);
+      continue;
+    }
+    const cv::Mat boatCrop = frame(boatCropRect);
+
+    // Stage 2: card detector within the boat crop; take the most confident
+    // card (a boat crop should contain at most one bow card).
+    const auto cards =
+        cardDetector_->detect(boatCrop, CARD_CONFIDENCE_THRESHOLD);
+    if (cards.empty())
+    {
+      results.push_back(result);
+      continue;
+    }
+    const auto bestCard = std::max_element(
+        cards.begin(), cards.end(),
+        [](const DetectedBox &a, const DetectedBox &b)
+        { return a.confidence < b.confidence; });
+
+    // Map the card box from boat-crop-local coordinates back to full-frame.
+    const cv::Rect cardBoxFullFrame(bestCard->box.x + boatCropRect.x,
+                                    bestCard->box.y + boatCropRect.y,
+                                    bestCard->box.width,
+                                    bestCard->box.height);
+    result.cardBox = cardBoxFullFrame;
+
+    // Stage 3: read the card from the full-resolution frame.
+    const cv::Rect cardCropRect =
+        padAndClamp(cardBoxFullFrame, CARD_PAD_FRACTION, frameSize);
+    if (cardCropRect.width <= 0 || cardCropRect.height <= 0)
+    {
+      results.push_back(result);
+      continue;
+    }
+    const cv::Mat cardCrop = frame(cardCropRect);
+
+    const BowNumberPrediction prediction = numberReader_->read(cardCrop);
+    result.text = prediction.text;
+    result.confidence = prediction.confidence;
+    results.push_back(result);
   }
-  const auto bestBoat = std::min_element(
-      boats.begin(), boats.end(),
-      [&pointOfInterest](const DetectedBox &a, const DetectedBox &b)
-      {
-        return distanceToBox(pointOfInterest, a.box) <
-              distanceToBox(pointOfInterest, b.box);
-      });
-  result.boatBox = bestBoat->box;
-
-  const cv::Rect boatCropRect =
-      padAndClamp(bestBoat->box, BOAT_PAD_FRACTION, frameSize);
-  if (boatCropRect.width <= 0 || boatCropRect.height <= 0)
-  {
-    return result;
-  }
-  const cv::Mat boatCrop = frame(boatCropRect);
-
-  // Stage 2: card detector within the boat crop; take the most confident
-  // card (a boat crop should contain at most one bow card).
-  const auto cards = cardDetector_->detect(boatCrop, CARD_CONFIDENCE_THRESHOLD);
-  if (cards.empty())
-  {
-    return result;
-  }
-  const auto bestCard = std::max_element(
-      cards.begin(), cards.end(),
-      [](const DetectedBox &a, const DetectedBox &b)
-      { return a.confidence < b.confidence; });
-
-  // Map the card box from boat-crop-local coordinates back to full-frame
-  // coordinates.
-  const cv::Rect cardBoxFullFrame(bestCard->box.x + boatCropRect.x,
-                                  bestCard->box.y + boatCropRect.y,
-                                  bestCard->box.width, bestCard->box.height);
-  result.cardBox = cardBoxFullFrame;
-
-  // Stage 3: crop the card region directly from the full-resolution frame
-  // (not the boat crop) and read the whole number in one CTC forward pass.
-  const cv::Rect cardCropRect =
-      padAndClamp(cardBoxFullFrame, CARD_PAD_FRACTION, frameSize);
-  if (cardCropRect.width <= 0 || cardCropRect.height <= 0)
-  {
-    return result;
-  }
-  const cv::Mat cardCrop = frame(cardCropRect);
-
-  const BowNumberPrediction prediction = numberReader_->read(cardCrop);
-  result.text = prediction.text;
-  result.confidence = prediction.confidence;
-  return result;
+  return results;
 }

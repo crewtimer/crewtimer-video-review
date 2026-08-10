@@ -58,10 +58,42 @@ import {
   videoRequestQueueRunning,
 } from './RequestVideoFrame';
 import { useSingleAndDoubleClick } from '../util/UseSingleAndDoubleClick';
-import { setToast } from '../Toast';
+import type { BowDetection } from '../shared/AppTypes';
+import { useLabelBoats } from '../util/UseSettings';
 
 // Avoid 'not a JSX component' warning
 const Measure = _Measure as unknown as FC<MeasureProps>;
+
+const drawBowDetections = (
+  ctx: CanvasRenderingContext2D,
+  detections: BowDetection[],
+) => {
+  detections.forEach((detection) => {
+    const { boatBox, box } = detection;
+    if (boatBox.width > 0 && boatBox.height > 0) {
+      ctx.strokeStyle = '#00ff4c';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(boatBox.x, boatBox.y, boatBox.width, boatBox.height);
+    }
+    if (box.width > 0 && box.height > 0) {
+      ctx.strokeStyle = '#ff00ff';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(box.x, box.y, box.width, box.height);
+    }
+
+    const label = detection.text
+      ? `Bow ${detection.text} (${Math.round(detection.confidence * 100)}%)`
+      : 'Boat';
+    const labelX = box.width > 0 ? box.x : boatBox.x;
+    const labelY = Math.max(24, (box.height > 0 ? box.y : boatBox.y) - 6);
+    ctx.font = 'bold 22px sans-serif';
+    const labelWidth = ctx.measureText(label).width + 12;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(labelX, labelY - 22, labelWidth, 28);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, labelX + 6, labelY);
+  });
+};
 
 const useStyles = makeStyles({
   text: {
@@ -316,6 +348,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [floatingBowPos, setFloatingBowPos] = useState<Point>({ x: 0, y: 0 });
   const [showBlowup] = useShowBlowup();
   const [videoScaling] = useVideoScaling();
+  const [labelBoats] = useLabelBoats();
+  const [bowDetections, setBowDetections] = useState<BowDetection[]>([]);
   destSize.current = { width, height };
 
   const mouseTracking = useRef<MouseState>({
@@ -329,7 +363,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoOverlayRef = useRef<VideoOverlayHandles>(null);
   const offscreenCanvas = useRef(document.createElement('canvas'));
-  const bowDetectionPending = useRef(false);
+  const bowDetectionRequestId = useRef(0);
   const holdCanvasDuringZoomReset = useRef(false);
 
   const videoTimestamp = convertTimestampToString(
@@ -392,6 +426,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           ctx.translate(vScaling.destX, vScaling.destY);
           ctx.scale(vScaling.scaleX, vScaling.scaleY);
           ctx.drawImage(offscreenCanvas.current, 0, 0);
+          drawBowDetections(ctx, bowDetections);
           ctx.restore();
 
           // ctx.beginPath();
@@ -408,6 +443,46 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       }
     }
   }, 10);
+
+  const labelBoatsDebounced = useDebouncedCallback(
+    async (videoFileName: string, frameNum: number, requestId: number) => {
+      try {
+        const result = await window.VideoUtils.detectBow({
+          videoFile: videoFileName,
+          frameNum,
+        });
+        if (requestId === bowDetectionRequestId.current) {
+          setBowDetections(result.detections);
+        }
+      } catch (error) {
+        if (requestId === bowDetectionRequestId.current) {
+          setBowDetections([]);
+          console.error('Unable to label boats', error);
+        }
+      }
+    },
+    500,
+  );
+
+  useEffect(() => {
+    const requestId = bowDetectionRequestId.current + 1;
+    bowDetectionRequestId.current = requestId;
+    labelBoatsDebounced.cancel();
+    setBowDetections([]);
+
+    if (labelBoats && image.file && image.width > 0 && image.height > 0) {
+      labelBoatsDebounced(image.file, image.frameNum, requestId);
+    }
+
+    return () => labelBoatsDebounced.cancel();
+  }, [
+    image.file,
+    image.frameNum,
+    image.height,
+    image.width,
+    labelBoats,
+    labelBoatsDebounced,
+  ]);
 
   useEffect(() => {
     updateVideoScaling({
@@ -447,6 +522,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     videoScaling.destY,
     videoScaling.scaleX,
     videoScaling.scaleY,
+    bowDetections,
   ]);
 
   useEffect(() => {
@@ -485,65 +561,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     event.preventDefault();
   };
 
-  const detectBowAtPointer = async (
-    event: React.MouseEvent<HTMLElement, MouseEvent>,
-  ) => {
-    if (bowDetectionPending.current) {
-      return;
-    }
-    const rect = canvasRef.current?.getBoundingClientRect();
-    const { pt: srcCoords, withinBounds } = translateMouseEventCoords(
-      event,
-      rect,
-    );
-    if (!withinBounds || !image.file || image.width < 1 || image.height < 1) {
-      return;
-    }
-
-    bowDetectionPending.current = true;
-    try {
-      const result = await window.VideoUtils.detectBow({
-        videoFile: image.file,
-        frameNum: image.frameNum,
-        point: {
-          x: Math.round(srcCoords.x),
-          y: Math.round(srcCoords.y),
-        },
-      });
-      if (result.text) {
-        setToast({
-          severity: 'success',
-          msg: `Bow detected: ${result.text} (${Math.round(
-            result.confidence * 100,
-          )}% confidence)`,
-        });
-      } else {
-        setToast({
-          severity: 'info',
-          msg: 'No bow number detected in the selected strip.',
-        });
-      }
-    } catch (error) {
-      setToast({
-        severity: 'error',
-        msg: `Bow detection failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      });
-    } finally {
-      bowDetectionPending.current = false;
-    }
-  };
-
   const handleSingleClick = (
     event: React.MouseEvent<HTMLElement, MouseEvent>,
   ) => {
-    if (event.ctrlKey) {
-      event.preventDefault();
-      detectBowAtPointer(event);
-      return;
-    }
-
     const videoSettings = getVideoSettings();
     if (
       (event.shiftKey || getVideoScaling().autoZoomed) &&
@@ -714,10 +734,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const handleRightClick = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    if (event.ctrlKey) {
-      detectBowAtPointer(event);
-      return;
-    }
     performAddSplit();
   };
 

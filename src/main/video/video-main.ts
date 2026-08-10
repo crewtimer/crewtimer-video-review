@@ -103,7 +103,7 @@ ipcMain.handle('video:detectBow', (_event, request: BowDetectionRequest) => {
         cardModelFile: bowdetectModelFile('bow_card_detect.onnx'),
         numberModelFile: bowdetectModelFile('bow_crnn.onnx'),
       },
-    } as DetectBowMessage);
+    } as unknown as DetectBowMessage);
   } catch (err) {
     return { status: `${err instanceof Error ? err.message : err}` };
   }

@@ -456,11 +456,11 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
       const auto request = args.Get("request").As<Napi::Object>();
       if (!request.Has("videoFile") || !request.Has("frameNum") ||
           !request.Has("boatModelFile") || !request.Has("cardModelFile") ||
-          !request.Has("numberModelFile") || !request.Has("point"))
+          !request.Has("numberModelFile"))
       {
         throw std::invalid_argument(
             "Bow detection requires videoFile, frameNum, boatModelFile, "
-            "cardModelFile, numberModelFile, and point");
+            "cardModelFile, and numberModelFile");
       }
 
       const std::string videoFile =
@@ -482,11 +482,6 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
       {
         throw std::invalid_argument("Video file is not open");
       }
-
-      const auto pointObject = request.Get("point").As<Napi::Object>();
-      const cv::Point pointOfInterest(
-          pointObject.Get("x").As<Napi::Number>().Int32Value(),
-          pointObject.Get("y").As<Napi::Number>().Int32Value());
 
       const auto frame =
           getFrame(file->second.videoReader, videoFile, frameNum, closeTo);
@@ -511,11 +506,6 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
 
       const cv::Mat rgba(frame->height, frame->width, CV_8UC4,
                          frame->data->data(), frame->linesize);
-      const BowNumberDetection detection =
-          pipelineEntry->second->detect(rgba, pointOfInterest);
-
-      ret.Set("text", Napi::String::New(env, detection.text));
-      ret.Set("confidence", Napi::Number::New(env, detection.confidence));
       ret.Set("frameNum", Napi::Number::New(env, frame->frameNum));
       ret.Set("timestamp", Napi::Number::New(env, frame->timestamp));
 
@@ -528,8 +518,34 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
         value.Set("height", Napi::Number::New(env, box.height));
         return value;
       };
-      ret.Set("box", makeBox(detection.cardBox));
-      ret.Set("boatBox", makeBox(detection.boatBox));
+      std::vector<BowNumberDetection> detections;
+      if (request.Has("point"))
+      {
+        const auto pointObject = request.Get("point").As<Napi::Object>();
+        const cv::Point pointOfInterest(
+            pointObject.Get("x").As<Napi::Number>().Int32Value(),
+            pointObject.Get("y").As<Napi::Number>().Int32Value());
+        detections.push_back(
+            pipelineEntry->second->detect(rgba, pointOfInterest));
+      }
+      else
+      {
+        detections = pipelineEntry->second->detectAll(rgba);
+      }
+
+      Napi::Array detectionValues = Napi::Array::New(env, detections.size());
+      for (size_t index = 0; index < detections.size(); ++index)
+      {
+        const auto &detection = detections[index];
+        Napi::Object value = Napi::Object::New(env);
+        value.Set("text", Napi::String::New(env, detection.text));
+        value.Set("confidence",
+                  Napi::Number::New(env, detection.confidence));
+        value.Set("box", makeBox(detection.cardBox));
+        value.Set("boatBox", makeBox(detection.boatBox));
+        detectionValues.Set(index, value);
+      }
+      ret.Set("detections", detectionValues);
       return ret;
     }
     catch (const std::exception &error)

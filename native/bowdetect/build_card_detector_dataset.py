@@ -9,6 +9,7 @@ this dataset finds the card within that crop.
 """
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -21,13 +22,23 @@ def clamp(value, lo, hi):
     return max(lo, min(value, hi))
 
 
-def build_from_dataset(dataset_root: Path, output_root: Path) -> dict:
+def split_for(image_name: str, validation_percent: int) -> str:
+    digest = hashlib.sha256(image_name.encode("utf-8")).digest()
+    return "val" if digest[0] < validation_percent * 256 / 100 else "train"
+
+
+def build_from_dataset(
+    dataset_root: Path, output_root: Path, validation_percent: int = 0
+) -> dict:
     images_dir = dataset_root / "images"
     labels_dir = dataset_root / "card-labels"
-    out_images = output_root / "images"
-    out_labels = output_root / "labels"
-    out_images.mkdir(parents=True, exist_ok=True)
-    out_labels.mkdir(parents=True, exist_ok=True)
+    if validation_percent:
+        for split in ("train", "val"):
+            (output_root / split / "images").mkdir(parents=True, exist_ok=True)
+            (output_root / split / "labels").mkdir(parents=True, exist_ok=True)
+    else:
+        (output_root / "images").mkdir(parents=True, exist_ok=True)
+        (output_root / "labels").mkdir(parents=True, exist_ok=True)
 
     images_by_stem = {
         path.stem: path
@@ -99,6 +110,10 @@ def build_from_dataset(dataset_root: Path, output_root: Path) -> dict:
             norm_h = (cy2 - cy1) / crop_h
 
             name = f"{dataset_root.name}_{image_path.stem}_boat{card_index:02d}"
+            split = split_for(image_path.name, validation_percent)
+            split_root = output_root / split if validation_percent else output_root
+            out_images = split_root / "images"
+            out_labels = split_root / "labels"
             cv2.imwrite(str(out_images / f"{name}.png"), crop)
             (out_labels / f"{name}.txt").write_text(
                 f"0 {norm_cx:.6f} {norm_cy:.6f} {norm_w:.6f} {norm_h:.6f}\n"
@@ -114,13 +129,25 @@ def main() -> None:
     )
     parser.add_argument("datasets", nargs="+", type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--validation-percent", type=int, default=0)
     args = parser.parse_args()
+
+    if not 0 <= args.validation_percent < 100:
+        parser.error("--validation-percent must be between 0 and 99")
 
     totals = {}
     for dataset in args.datasets:
-        stats = build_from_dataset(dataset, args.output)
+        stats = build_from_dataset(dataset, args.output, args.validation_percent)
         totals[dataset.name] = stats
         print(f"{dataset}: {stats}")
+    if args.validation_percent:
+        (args.output / "data.yaml").write_text(
+            f"path: {args.output.resolve()}\n"
+            "train: train/images\n"
+            "val: val/images\n"
+            "names:\n"
+            "  0: bow_card\n"
+        )
     print(json.dumps(totals, indent=2))
 
 

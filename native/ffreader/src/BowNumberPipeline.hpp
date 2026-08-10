@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 struct BowNumberDetection
 {
@@ -49,6 +50,9 @@ public:
    */
   BowNumberDetection detect(const cv::Mat &frame,
                             const cv::Point &pointOfInterest) const;
+
+  /** Detect and read the bow card for every boat found in the frame. */
+  std::vector<BowNumberDetection> detectAll(const cv::Mat &frame) const;
 
 private:
   std::unique_ptr<YoloBoxDetector> boatDetector_;

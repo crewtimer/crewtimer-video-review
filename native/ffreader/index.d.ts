@@ -63,7 +63,7 @@ declare module 'crewtimer_video_reader' {
       /** Path to the CTC bow-number reader (bow_crnn.onnx). */
       numberModelFile: string;
       /** Full-frame pixel coordinates near the bow, used to pick which boat to read. */
-      point: { x: number; y: number };
+      point?: { x: number; y: number };
       closeTo?: boolean;
     };
   }
@@ -87,12 +87,12 @@ declare module 'crewtimer_video_reader' {
   }
 
   interface DetectBowMessageResponse extends MessageResponseBase {
-    text: string;
-    confidence: number;
-    /** Bow-card box, full-frame pixel coordinates. */
-    box: Rect;
-    /** Boat box, full-frame pixel coordinates. */
-    boatBox: Rect;
+    detections: Array<{
+      text: string;
+      confidence: number;
+      box: Rect;
+      boatBox: Rect;
+    }>;
     frameNum: number;
     timestamp: number;
   }

@@ -8,6 +8,7 @@ import {
   MobileConfigDateKey,
   MobileConfigKey,
   N_DEBUG_LEVEL,
+  N_LABEL_BOATS,
   N_FL_START_WAYPOINT,
   N_FL_START_WAYPOINT_ENABLE,
   N_MOBILE_ID,
@@ -75,6 +76,8 @@ export const useAuthOK = () => {
 
 export const [useDebugLevel, setDebugLevel, getDebugLevel] =
   UseMemDatum<number>(N_DEBUG_LEVEL, 0);
+export const [useLabelBoats, setLabelBoats, getLabelBoats] =
+  UseMemDatum<boolean>(N_LABEL_BOATS, false);
 
 // Tab position of the CenteredTabs component
 export const [useTabPosition, setTabPosition, getTabPosition] = UseStoredDatum(

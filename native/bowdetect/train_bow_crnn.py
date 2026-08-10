@@ -179,9 +179,11 @@ class BowCardDataset(Dataset):
     def __init__(self,
                  n_synthetic: int = 5000,
                  real_data_dir: str = "",
+                 real_fraction: float = 0.30,
                  out_h: int = CRNN_H):
         self.n_syn  = n_synthetic
         self.out_h  = out_h
+        self.real_fraction = real_fraction
         self.real_samples: list[tuple[np.ndarray, str]] = []
 
         if real_data_dir and os.path.isdir(real_data_dir):
@@ -196,7 +198,7 @@ class BowCardDataset(Dataset):
         The full digit string (up to the first underscore) is the label.
         """
         loaded = 0
-        for p in Path(data_dir).glob("*.png"):
+        for p in Path(data_dir).rglob("*.png"):
             label = p.stem.split("_")[0]
             if label and all(c in VALID_CHARS for c in label) and len(label) <= 3:
                 img = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
@@ -212,8 +214,7 @@ class BowCardDataset(Dataset):
         return self.n_syn
 
     def __getitem__(self, idx: int):
-        # 30 % real data when available, 70 % freshly generated synthetic data.
-        if self.real_samples and random.random() < 0.3:
+        if self.real_samples and random.random() < self.real_fraction:
             img, label = random.choice(self.real_samples)
         else:
             label = random_digit_string()
@@ -286,6 +287,7 @@ def train(args: argparse.Namespace) -> None:
     dataset = BowCardDataset(
         n_synthetic  = args.samples,
         real_data_dir = args.real_data or "",
+        real_fraction = args.real_fraction,
     )
     loader = DataLoader(dataset, batch_size=args.batch_size,
                         shuffle=True, num_workers=0, collate_fn=collate_batch)
@@ -408,6 +410,12 @@ def main() -> None:
     p.add_argument("--batch-size", type=int,   default=128)
     p.add_argument("--lr",         type=float, default=1e-3)
     p.add_argument(
+        "--real-fraction",
+        type=float,
+        default=0.30,
+        help="Fraction of batches sampled from real crops when available",
+    )
+    p.add_argument(
         "--real-data",
         type=str,
         default=str(Path(__file__).with_name("training_crops")),
@@ -418,6 +426,9 @@ def main() -> None:
     p.add_argument("--verify",     type=str,   default="",
                    help="Verify an existing ONNX model and exit")
     args = p.parse_args()
+
+    if not 0.0 <= args.real_fraction <= 1.0:
+        p.error("--real-fraction must be between 0 and 1")
 
     if args.verify:
         _verify(args.verify)

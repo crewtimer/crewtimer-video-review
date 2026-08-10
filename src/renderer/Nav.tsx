@@ -21,7 +21,14 @@ import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import InfoIcon from '@mui/icons-material/Info';
 import ArticleIcon from '@mui/icons-material/Article';
-import { Box, Button, Stack, Link } from '@mui/material';
+import {
+  Box,
+  Button,
+  Checkbox,
+  FormControlLabel,
+  Stack,
+  Link,
+} from '@mui/material';
 import { useFirebaseDatum } from './util/UseFirebase';
 import { setToast } from './Toast';
 import { getConnectionProps } from './util/Util';
@@ -30,6 +37,7 @@ import {
   useMobileID,
   useFirebaseConnected,
   useDebugLevel,
+  useLabelBoats,
 } from './util/UseSettings';
 import icon from '../assets/icons/crewtimer-review2-white.svg';
 import { setDialogConfig } from './util/ConfirmDialog';
@@ -48,6 +56,7 @@ const { LapStorage } = window;
 
 const DebugDialogBody = () => {
   const [debugLevel, setDebugLevel] = useDebugLevel();
+  const [labelBoats, setLabelBoats] = useLabelBoats();
 
   const toggleDebug = () => {
     let newDebugLevel = debugLevel + 1;
@@ -67,6 +76,15 @@ const DebugDialogBody = () => {
       <Button variant="outlined" onClick={toggleDebug}>
         Toggle Debug (Level {debugLevel})
       </Button>
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={labelBoats}
+            onChange={(event) => setLabelBoats(event.target.checked)}
+          />
+        }
+        label="Label boats"
+      />
       <InterpolationTechniqueSelector />
     </Stack>
   );
