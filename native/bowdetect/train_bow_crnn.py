@@ -18,7 +18,7 @@ domain gap between synthetic training data and real camera images.
 
 Inference contract (must match BowNumberReader)
 -------------------------------------------------
-    Input  "input"  : float32  (1, 1, H=32, W)       normalised [0,1], W varies
+    Input  "input"  : float32  (1, 1, H=48, W=60)    normalised [0,1]
     Output "output" : float32  (T, 1, NUM_CLS)        time-major logits
     Decode          : greedy CTC — argmax per timestep, collapse consecutive
                        repeats, drop blank (index 0)
@@ -66,24 +66,28 @@ CHAR_TO_IDX = {c: i for i, c in enumerate(CHARSET)}
 VALID_CHARS = CHARSET[1:]   # 0-9
 
 # Model input dimensions — must match Params in BowNumberReader
-CRNN_H = 32
-OUTPUT_MIN_WIDTH = 24
-OUTPUT_MAX_WIDTH = 160
-
-# Real bow numbers are mostly 1-2 digits; 3-digit numbers (e.g. up to ~199)
-# occur but are less common.
-LENGTH_WEIGHTS = {1: 0.40, 2: 0.45, 3: 0.15}
-
+CRNN_H = 48
+CRNN_W = 60
 
 # ─── Pipeline-matched synthetic sample generator ──────────────────────────────
 
 def random_digit_string() -> str:
-    length = random.choices(
-        list(LENGTH_WEIGHTS.keys()), weights=list(LENGTH_WEIGHTS.values())
-    )[0]
-    first = random.choice("123456789") if length > 1 else random.choice(VALID_CHARS)
-    rest = "".join(random.choice(VALID_CHARS) for _ in range(length - 1))
-    return first + rest
+    """Draw 1-199 with the digit-length mix observed in real race data."""
+    length = random.choices((1, 2, 3), weights=(0.40, 0.50, 0.10))[0]
+    if length == 1:
+        return str(random.randint(1, 9))
+    if length == 2:
+        return str(random.randint(10, 99))
+    return str(random.randint(100, 199))
+
+
+def normalize_polarity(img: np.ndarray) -> np.ndarray:
+    """Return dark digits on a light card, ignoring surrounding crop padding."""
+    height, width = img.shape
+    y1, y2 = round(height * 0.2), round(height * 0.8)
+    x1, x2 = round(width * 0.2), round(width * 0.8)
+    card_center = img[y1:y2, x1:x2]
+    return img if card_center.mean() > 128 else cv2.bitwise_not(img)
 
 
 def make_pipeline_sample(text: str, out_h: int = CRNN_H,
@@ -101,11 +105,12 @@ def make_pipeline_sample(text: str, out_h: int = CRNN_H,
 
     Pipeline:
         render text → noise → upscale 4x → unsharp mask → binary threshold
-        → polarity auto-detect → normalise to black-on-white → resize
-        (height fixed, width scaled to preserve aspect ratio)
+        → polarity auto-detect → normalise to black-on-white → fixed-size resize
     """
     render_h = 40
-    render_w = 34 * len(text) + 16
+    # Bow cards have a fixed physical size. Do not make card width a shortcut
+    # for predicting how many digits it contains.
+    render_w = 50
 
     # 1. Render — dark card: white digits on black bg; light card: inverse
     if light_card:
@@ -120,8 +125,13 @@ def make_pipeline_sample(text: str, out_h: int = CRNN_H,
         cv2.FONT_HERSHEY_DUPLEX,
         cv2.FONT_HERSHEY_SIMPLEX,
     ])
-    scale_f   = random.uniform(0.8, 1.3)
     thickness = random.randint(2, 4)
+    scale_f = random.uniform(0.85, 1.25)
+    while scale_f > 0.45:
+        (tw, _), _ = cv2.getTextSize(text, font, scale_f, thickness)
+        if tw <= render_w - 6:
+            break
+        scale_f -= 0.05
     (tw, th), _ = cv2.getTextSize(text, font, scale_f, thickness)
     cx = max(2, (render_w - tw) // 2 + random.randint(-4, 4))
     cy = min(render_h - 2, (render_h + th) // 2 + random.randint(-4, 4))
@@ -139,24 +149,50 @@ def make_pipeline_sample(text: str, out_h: int = CRNN_H,
     blurred = cv2.GaussianBlur(up, (0, 0), 1.0)
     sharp   = cv2.addWeighted(up, 2.5, blurred, -1.5, 0)
     sharp   = np.clip(sharp, 0, 255).astype(np.uint8)
-    _, thresh = cv2.threshold(sharp, 140, 255, cv2.THRESH_BINARY)
+    _, thresh = cv2.threshold(
+        sharp, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
 
     # 4. Polarity auto-detection (mirrors BowNumberPipeline)
     #    mean > 128 → mostly white → dark text, keep as-is
     #    mean < 128 → mostly black → white text, invert
-    if thresh.mean() > 128:
-        normalised = thresh
-    else:
-        normalised = cv2.bitwise_not(thresh)
+    normalised = normalize_polarity(thresh)
 
     normalised = cv2.copyMakeBorder(normalised, 10, 10, 10, 10,
                                      cv2.BORDER_CONSTANT, value=255)
 
-    # 5. Resize to fixed height, width scaled to preserve aspect ratio
-    crop_h, crop_w = normalised.shape[:2]
-    out_w = round(out_h * crop_w / crop_h)
-    out_w = max(OUTPUT_MIN_WIDTH, min(OUTPUT_MAX_WIDTH, out_w))
-    return cv2.resize(normalised, (out_w, out_h))
+    # 5. Normalize every fixed-size bow card to the same model dimensions.
+    return cv2.resize(normalised, (CRNN_W, out_h), interpolation=cv2.INTER_AREA)
+
+
+def augment_real_crop(img: np.ndarray) -> np.ndarray:
+    """Simulate small detector-box and video differences on normalized crops."""
+    height, width = img.shape
+    angle = random.uniform(-4.0, 4.0)
+    scale = random.uniform(0.88, 1.08)
+    tx = random.uniform(-3.0, 3.0)
+    ty = random.uniform(-2.0, 2.0)
+    matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, scale)
+    matrix[:, 2] += (tx, ty)
+    result = cv2.warpAffine(
+        img,
+        matrix,
+        (width, height),
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=255,
+    )
+    if random.random() < 0.35:
+        kernel = np.ones((2, 2), np.uint8)
+        result = (cv2.erode(result, kernel) if random.random() < 0.5
+                  else cv2.dilate(result, kernel))
+    if random.random() < 0.35:
+        result = cv2.GaussianBlur(result, (3, 3), random.uniform(0.2, 0.8))
+    if random.random() < 0.5:
+        quality = random.randint(45, 90)
+        encoded = cv2.imencode(".jpg", result,
+                               [cv2.IMWRITE_JPEG_QUALITY, quality])[1]
+        result = cv2.imdecode(encoded, cv2.IMREAD_GRAYSCALE)
+    return result
 
 
 # ─── CTC decode ────────────────────────────────────────────────────────────────
@@ -203,9 +239,10 @@ class BowCardDataset(Dataset):
             if label and all(c in VALID_CHARS for c in label) and len(label) <= 3:
                 img = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
                 if img is not None:
-                    if img.shape[0] != self.out_h:
-                        new_w = round(self.out_h * img.shape[1] / img.shape[0])
-                        img = cv2.resize(img, (new_w, self.out_h))
+                    img = normalize_polarity(img)
+                    if img.shape != (self.out_h, CRNN_W):
+                        img = cv2.resize(img, (CRNN_W, self.out_h),
+                                         interpolation=cv2.INTER_AREA)
                     self.real_samples.append((img, label))
                     loaded += 1
         print(f"Loaded {loaded} real crops from {data_dir}")
@@ -216,6 +253,7 @@ class BowCardDataset(Dataset):
     def __getitem__(self, idx: int):
         if self.real_samples and random.random() < self.real_fraction:
             img, label = random.choice(self.real_samples)
+            img = augment_real_crop(img)
         else:
             label = random_digit_string()
             light_card = random.random() < 0.5
@@ -241,7 +279,8 @@ def collate_batch(batch):
     image_batch = torch.stack(padded, dim=0)  # (B, 1, H, W_max)
     target_lengths = torch.tensor([len(t) for t in targets], dtype=torch.long)
     target_batch = torch.cat(targets) if targets else torch.zeros(0, dtype=torch.long)
-    return image_batch, target_batch, target_lengths
+    input_lengths = torch.tensor([width // 4 for width in widths], dtype=torch.long)
+    return image_batch, target_batch, target_lengths, input_lengths
 
 
 # ─── Model ───────────────────────────────────────────────────────────────────
@@ -280,8 +319,42 @@ class BowCRNN(nn.Module):
 
 # ─── Training ─────────────────────────────────────────────────────────────────
 
+def load_real_samples(data_dir: str) -> list[tuple[torch.Tensor, str]]:
+    samples = []
+    if not data_dir or not os.path.isdir(data_dir):
+        return samples
+    for path in sorted(Path(data_dir).rglob("*.png")):
+        label = path.stem.split("_")[0]
+        if not label.isdigit() or not 1 <= int(label) <= 199:
+            continue
+        img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            continue
+        img = normalize_polarity(img)
+        img = cv2.resize(img, (CRNN_W, CRNN_H), interpolation=cv2.INTER_AREA)
+        tensor = torch.from_numpy(img.astype(np.float32) / 255.0)[None, None]
+        samples.append((tensor, label))
+    return samples
+
+
+def real_string_accuracy(model: nn.Module,
+                         samples: list[tuple[torch.Tensor, str]],
+                         device: torch.device) -> tuple[int, int]:
+    model.eval()
+    correct = 0
+    with torch.no_grad():
+        for image, label in samples:
+            logits = model(image.to(device)).detach().cpu().numpy()[:, 0, :]
+            correct += ctc_greedy_decode(logits) == label
+    return correct, len(samples)
+
 def train(args: argparse.Namespace) -> None:
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
     print(f"Device: {device}")
 
     dataset = BowCardDataset(
@@ -291,6 +364,8 @@ def train(args: argparse.Namespace) -> None:
     )
     loader = DataLoader(dataset, batch_size=args.batch_size,
                         shuffle=True, num_workers=0, collate_fn=collate_batch)
+    validation_samples = load_real_samples(args.validation_data)
+    print(f"Loaded {len(validation_samples)} held-out real validation crops")
 
     model = BowCRNN(NUM_CLASSES).to(device)
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
@@ -300,18 +375,27 @@ def train(args: argparse.Namespace) -> None:
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs)
 
     best_loss = float("inf")
+    best_validation_accuracy = -1.0
+    epochs_without_improvement = 0
+    checkpoint_path = Path(args.output).with_suffix(".best.pt")
     for epoch in range(1, args.epochs + 1):
         model.train()
         total = 0.0; correct = 0; count = 0; steps = 0
 
-        for imgs, targets, target_lengths in loader:
+        for imgs, targets, target_lengths, input_lengths in loader:
             imgs, targets = imgs.to(device), targets.to(device)
             logits  = model(imgs)                       # (T, B, C)
             log_probs = logits.log_softmax(dim=2)
-            t, b, _ = logits.shape
-            input_lengths = torch.full((b,), t, dtype=torch.long)
+            _, b, _ = logits.shape
 
-            loss = ctc(log_probs, targets, input_lengths, target_lengths)
+            # CTCLoss is not implemented natively by every MPS-enabled PyTorch
+            # release. Keep the CRNN on the GPU and calculate only its small
+            # sequence loss on the CPU; autograd carries gradients back to MPS.
+            if device.type == "mps":
+                loss = ctc(log_probs.cpu(), targets.cpu(),
+                           input_lengths, target_lengths)
+            else:
+                loss = ctc(log_probs, targets, input_lengths, target_lengths)
             opt.zero_grad(); loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
             opt.step()
@@ -326,35 +410,64 @@ def train(args: argparse.Namespace) -> None:
                         targets[offset:offset + target_lengths[i]].tolist()
                     )
                     offset += target_lengths[i].item()
-                    if ctc_greedy_decode(preds[:, i, :]) == label:
+                    sequence_length = input_lengths[i].item()
+                    if ctc_greedy_decode(preds[:sequence_length, i, :]) == label:
                         correct += 1
                     count += 1
 
         sched.step()
         avg = total / max(1, steps)
         acc = 100.0 * correct / max(1, count)
+        validation_correct, validation_total = real_string_accuracy(
+            model, validation_samples, device)
+        validation_accuracy = (
+            validation_correct / validation_total if validation_total else -1.0
+        )
 
-        if epoch % 5 == 0 or epoch == 1:
-            print(f"  Epoch {epoch:3d}/{args.epochs}  "
-                  f"loss={avg:.4f}  train_acc={acc:.1f}%  "
-                  f"lr={sched.get_last_lr()[0]:.2e}")
+        validation_text = (
+            f"real_val={validation_correct}/{validation_total} "
+            f"({validation_accuracy:.1%})"
+            if validation_total else "real_val=unavailable"
+        )
+        print(f"  Epoch {epoch:3d}/{args.epochs}  "
+              f"loss={avg:.4f}  train_acc={acc:.1f}%  {validation_text}  "
+              f"lr={sched.get_last_lr()[0]:.2e}")
 
-        if avg < best_loss:
+        validation_improved = validation_accuracy > best_validation_accuracy
+        improved = (
+            validation_improved or
+            (validation_accuracy == best_validation_accuracy and avg < best_loss)
+            if validation_total else avg < best_loss
+        )
+        if improved:
             best_loss = avg
-            torch.save(model.state_dict(), "/tmp/bow_crnn_best.pt")
+            best_validation_accuracy = validation_accuracy
+            torch.save(model.state_dict(), checkpoint_path)
+        if validation_improved or not validation_total and improved:
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+            if args.patience and epochs_without_improvement >= args.patience:
+                print(f"Early stopping after {args.patience} epochs without "
+                      "real validation improvement")
+                break
 
-    print(f"\nBest loss: {best_loss:.4f}")
+    print(f"\nBest training loss: {best_loss:.4f}")
+    if validation_samples:
+        print(f"Best real validation accuracy: {best_validation_accuracy:.1%}")
 
     # Export
     model.load_state_dict(
-        torch.load("/tmp/bow_crnn_best.pt", map_location=device))
+        torch.load(checkpoint_path, map_location=device))
+    checkpoint_path.unlink(missing_ok=True)
     _export(model, args.output)
     _verify(args.output)
 
 
 def _export(model: nn.Module, output_path: str) -> None:
-    model.eval()
-    dummy = torch.zeros(1, 1, CRNN_H, 96)
+    # ONNX export operates on CPU tensors even when training used CUDA or MPS.
+    model = model.to("cpu").eval()
+    dummy = torch.zeros(1, 1, CRNN_H, CRNN_W)
     with torch.no_grad():
         torch.onnx.export(
             model, dummy, output_path,
@@ -371,7 +484,8 @@ def _export(model: nn.Module, output_path: str) -> None:
     print(f"Exported: {output_path}  ({sz} KB)")
 
 
-def _verify(model_path: str) -> None:
+def _verify(model_path: str, validation_data: str = "",
+            min_real_accuracy: float = 0.0) -> None:
     """Smoke-test against freshly rendered synthetic samples of varying length."""
     import onnxruntime as ort
     sess = ort.InferenceSession(model_path,
@@ -384,7 +498,7 @@ def _verify(model_path: str) -> None:
         return ctc_greedy_decode(out[:, 0, :])
 
     test_cases = (
-        list(VALID_CHARS)
+        list("123456789")
         + [random_digit_string() for _ in range(10)]
         + [random_digit_string() for _ in range(10)]
     )
@@ -398,6 +512,20 @@ def _verify(model_path: str) -> None:
         print(f"  {c}:{'✓' if p == c else p + '✗'}", end="  ")
     print()
 
+    validation_samples = load_real_samples(validation_data)
+    if validation_samples:
+        correct = 0
+        for image, label in validation_samples:
+            logits = sess.run(None, {"input": image.numpy()})[0][:, 0, :]
+            correct += ctc_greedy_decode(logits) == label
+        accuracy = correct / len(validation_samples)
+        print(f"Held-out real full-string accuracy: {correct}/"
+              f"{len(validation_samples)} = {accuracy:.1%}")
+        if accuracy < min_real_accuracy:
+            raise RuntimeError(
+                f"Real validation accuracy {accuracy:.1%} is below required "
+                f"{min_real_accuracy:.1%}")
+
 
 # ─── CLI ─────────────────────────────────────────────────────────────────────
 
@@ -409,6 +537,8 @@ def main() -> None:
                    help="Synthetic training samples (default 5000)")
     p.add_argument("--batch-size", type=int,   default=128)
     p.add_argument("--lr",         type=float, default=1e-3)
+    p.add_argument("--patience",   type=int,   default=15,
+                   help="Epochs without real validation improvement before stopping")
     p.add_argument(
         "--real-fraction",
         type=float,
@@ -422,16 +552,24 @@ def main() -> None:
         help="Directory of real labelled crops "
              "(default: native/bowdetect/training_crops)",
     )
+    p.add_argument(
+        "--validation-data",
+        type=str,
+        default="",
+        help="Held-out real crops used for checkpoint selection",
+    )
     p.add_argument("--output",     type=str,   default="bow_crnn.onnx")
     p.add_argument("--verify",     type=str,   default="",
                    help="Verify an existing ONNX model and exit")
+    p.add_argument("--min-real-accuracy", type=float, default=0.0,
+                   help="Minimum held-out accuracy required with --verify")
     args = p.parse_args()
 
     if not 0.0 <= args.real_fraction <= 1.0:
         p.error("--real-fraction must be between 0 and 1")
 
     if args.verify:
-        _verify(args.verify)
+        _verify(args.verify, args.validation_data, args.min_real_accuracy)
     else:
         train(args)
 

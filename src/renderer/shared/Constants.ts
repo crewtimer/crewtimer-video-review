@@ -11,6 +11,7 @@ export const N_FL_START_WAYPOINT_ENABLE = 'flStartEnable';
 export const N_FL_START_WAYPOINT = 'flStartWaypoint';
 export const N_DEBUG_LEVEL = 'debugLevel';
 export const N_LABEL_BOATS = 'labelBoats';
+export const N_LABEL_CARDS_WITHOUT_BOAT = 'labelCardsWithoutBoat';
 
 export const N_IMAGE = 'image';
 export const N_IMAGE_FRAMES = 'imageFrames';

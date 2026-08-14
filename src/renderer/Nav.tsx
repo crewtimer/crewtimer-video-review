@@ -38,6 +38,7 @@ import {
   useFirebaseConnected,
   useDebugLevel,
   useLabelBoats,
+  useLabelCardsWithoutBoat,
 } from './util/UseSettings';
 import icon from '../assets/icons/crewtimer-review2-white.svg';
 import { setDialogConfig } from './util/ConfirmDialog';
@@ -57,6 +58,8 @@ const { LapStorage } = window;
 const DebugDialogBody = () => {
   const [debugLevel, setDebugLevel] = useDebugLevel();
   const [labelBoats, setLabelBoats] = useLabelBoats();
+  const [labelCardsWithoutBoat, setLabelCardsWithoutBoat] =
+    useLabelCardsWithoutBoat();
 
   const toggleDebug = () => {
     let newDebugLevel = debugLevel + 1;
@@ -84,6 +87,16 @@ const DebugDialogBody = () => {
           />
         }
         label="Label boats"
+      />
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={labelCardsWithoutBoat}
+            disabled={!labelBoats}
+            onChange={(event) => setLabelCardsWithoutBoat(event.target.checked)}
+          />
+        }
+        label="Detect cards without a boat"
       />
       <InterpolationTechniqueSelector />
     </Stack>

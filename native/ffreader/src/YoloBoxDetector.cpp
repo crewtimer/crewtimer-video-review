@@ -160,10 +160,13 @@ std::vector<DetectedBox> YoloBoxDetector::detect(const cv::Mat &image,
                          outputNames, 1);
 
   const auto shape = outputs[0].GetTensorTypeAndShapeInfo().GetShape();
-  if (shape.size() != 3 || shape[1] != 5)
+  if (shape.size() != 3 || shape[0] != 1 || shape[1] < 5)
   {
     throw std::runtime_error("Unexpected YOLO output tensor shape");
   }
+  // Detection models expose exactly five channels for a single class.
+  // Pose models append keypoint x/y/visibility channels after those same
+  // detection channels, which this box-only parser intentionally ignores.
   const int64_t numAnchors = shape[2];
   const float *data = outputs[0].GetTensorData<float>();
 

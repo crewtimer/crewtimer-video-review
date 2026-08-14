@@ -14,12 +14,11 @@ namespace
 // Must match CHARSET in train_bow_crnn.py: index 0 = CTC blank.
 constexpr const char *CHARSET = "-0123456789";
 constexpr int BLANK_IDX = 0;
-constexpr int OUTPUT_HEIGHT = 32;
-constexpr int OUTPUT_MIN_WIDTH = 24;
-constexpr int OUTPUT_MAX_WIDTH = 160;
+constexpr int OUTPUT_HEIGHT = 48;
+constexpr int OUTPUT_WIDTH = 60;
 
 // Preprocess a raw card crop into the binary, polarity-normalised,
-// height-32/aspect-scaled-width image the CTC model was trained on.
+// fixed 48x60 image the CTC model was trained on.
 // Mirrors extract_card_training_crops.py's normalize_card() exactly.
 cv::Mat preprocessCardCrop(const cv::Mat &cardCrop)
 {
@@ -48,10 +47,16 @@ cv::Mat preprocessCardCrop(const cv::Mat &cardCrop)
   cv::addWeighted(upscaled, 2.5, blurred, -1.5, 0.0, sharpened);
 
   cv::Mat thresholded;
-  cv::threshold(sharpened, thresholded, 140, 255, cv::THRESH_BINARY);
+  cv::threshold(sharpened, thresholded, 0, 255,
+                cv::THRESH_BINARY | cv::THRESH_OTSU);
 
+  const cv::Rect cardCenter(
+      static_cast<int>(std::round(thresholded.cols * 0.2)),
+      static_cast<int>(std::round(thresholded.rows * 0.2)),
+      static_cast<int>(std::round(thresholded.cols * 0.6)),
+      static_cast<int>(std::round(thresholded.rows * 0.6)));
   cv::Mat normalized;
-  if (cv::mean(thresholded)[0] > 128.0)
+  if (cv::mean(thresholded(cardCenter))[0] > 128.0)
   {
     normalized = thresholded;
   }
@@ -66,13 +71,8 @@ cv::Mat preprocessCardCrop(const cv::Mat &cardCrop)
   cv::copyMakeBorder(normalized, normalized, border, border, border, border,
                      cv::BORDER_CONSTANT, cv::Scalar(255));
 
-  const int outWidth = std::clamp(
-      static_cast<int>(std::round(static_cast<double>(OUTPUT_HEIGHT) *
-                                  normalized.cols / normalized.rows)),
-      OUTPUT_MIN_WIDTH, OUTPUT_MAX_WIDTH);
-
   cv::Mat resized;
-  cv::resize(normalized, resized, cv::Size(outWidth, OUTPUT_HEIGHT), 0, 0,
+  cv::resize(normalized, resized, cv::Size(OUTPUT_WIDTH, OUTPUT_HEIGHT), 0, 0,
             cv::INTER_AREA);
   return resized;
 }

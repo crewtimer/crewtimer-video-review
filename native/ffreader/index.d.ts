@@ -23,6 +23,7 @@ declare module 'crewtimer_video_reader' {
     interpMethod?: 'blend' | 'rife';
     /** RIFE-only: region to interpolate. Required (or falls back to zoom) when interpMethod is 'rife'. */
     crop?: { x: number; y: number; width: number; height: number };
+    prune?: { side: 'top' | 'bottom'; percentage: number };
     /** RIFE-only: path to the rife_v4.6.onnx model file. */
     modelFile?: string;
   }
@@ -65,6 +66,8 @@ declare module 'crewtimer_video_reader' {
       /** Full-frame pixel coordinates near the bow, used to pick which boat to read. */
       point?: { x: number; y: number };
       closeTo?: boolean;
+      prune?: { side: 'top' | 'bottom'; percentage: number };
+      detectCardsWithoutBoat?: boolean;
     };
   }
 

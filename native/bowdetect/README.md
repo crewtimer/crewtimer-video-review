@@ -167,57 +167,33 @@ Gray conversion
     ▼  Unsharp mask  (weight=2.5, σ=1.0)
        (recovers edges lost to motion blur and JPEG compression)
     │
-    ▼  Binary threshold @ 140
-       (isolates bright character pixels)
+    ▼  Otsu adaptive binary threshold
+       (preserves thin digits across changing card brightness)
     │
     ▼  Polarity auto-detection
-       mean(blob region) > 128 → dark text, keep as-is
-       mean(blob region) ≤ 128 → white text, invert
+       mean(central card region) > 128 → dark text, keep as-is
+       mean(central card region) ≤ 128 → white text, invert
        → model always receives: black text on white background
 ```
 
-### Stage 2 — Blob detection and grouping (OpenCV)
+### Stage 2 — Whole-card sequence recognition
 
-Connected-component analysis on the binary image, with filters to reject:
-
-| Condition | What it rejects |
-|---|---|
-| `area < 200` | Salt-and-pepper noise |
-| `width > min(50% of frame, 30 px orig)` | Full-width hull stripe |
-| `width < 3 px orig` | Timing post (1–2 px thin vertical line) |
-| `height ≤ 4 px orig` | Horizontal smear / noise |
-| `aspect < 0.15` | Near-vertical timing post |
-| `aspect > 2.5` | Thin horizontal stripe |
-
-Surviving blobs are sorted left-to-right and grouped: blobs whose horizontal
-gap is ≤ 1 original pixel are treated as strokes of the same character (handles
-the broken middle bar of 'E' being detected as a separate fragment).
-
-For each group the **largest blob** (by area) is used for recognition; smaller
-fragments in the same group are subsumed.
-
-### Stage 3 — Character recognition
-
-**Python back-end:** Tesseract 5 in PSM 10 (single character mode), with a
-whitelist of `A–Z 0–9`. Falls back to PSM 8 then PSM 7 if PSM 10 returns
-empty.
-
-**C++ back-end:** CRNN ONNX model.
+The card detector supplies one crop containing the complete bow number. The
+CRNN reads the entire 1–3 digit sequence in one pass; there is no per-character
+segmentation or Tesseract stage.
 
 ```
-Crop (variable size)
+Detected card crop
     │
-    ▼  Resize to 64×32 (CRNN_W × CRNN_H)
+    ▼  Resize to fixed 60×48 (physical card size does not vary by digit count)
     │
     ▼  Normalise to [0, 1] float32
     │
-    ▼  NCHW tensor (1, 1, 32, 64) → bow_crnn.onnx
+    ▼  NCHW tensor (1, 1, 48, 60) → bow_crnn.onnx
     │
-    ▼  Output (T, 1, 37)  T = 64/4 = 16 time steps
+    ▼  Output (T, 1, 11)  T = 60/4 = 15 time steps
     │
-    ▼  Mean-pool over T → argmax over 37 classes
-    │
-    ▼  CHARSET[best_class]   ('-' A–Z 0–9, index 0 = blank/unknown)
+    ▼  Greedy CTC decode (collapse repeats and remove blank)
 ```
 
 ### Stage 4 — Post-processing
@@ -242,7 +218,7 @@ rendering characters and running them through the **identical pipeline**:
 
 ```
 cv2.putText() → Gaussian noise → upscale 4× → unsharp mask
-→ threshold → polarity-normalise → resize to 64×32
+→ Otsu threshold → polarity-normalise → resize to 60×48
 ```
 
 This closes the domain gap: the model trains on images that look exactly like
@@ -289,6 +265,27 @@ python train_bow_crnn.py --epochs 50 --real-data crops/ --output bow_crnn.onnx
 python train_bow_crnn.py --verify bow_crnn.onnx
 ```
 
+### Compare YOLOv8 and YOLO26 in Google Colab
+
+Package the exact generated card-detector crops, labels, and deterministic
+train/validation split used by `make card`:
+
+```bash
+make colab-zip
+```
+
+This creates `build/card-detector-colab.zip`. Upload
+`compare_yolov8_yolo26_colab.py` to a GPU-enabled Google Colab session and run:
+
+```python
+%run compare_yolov8_yolo26_colab.py
+```
+
+When prompted, upload `build/card-detector-colab.zip`. The script trains
+`yolov8s.pt` and `yolo26s.pt` with identical settings, validates both, exports
+ONNX models, checks the C++ parser's required `[1, 5, N]` output shape, and
+downloads a ZIP containing the comparison and best model artifacts.
+
 ### Labelling real crops for `--real-data`
 
 Save each crop as `<label>_<anything>.png` in a flat directory:
@@ -306,23 +303,23 @@ per label dramatically improves accuracy on your specific camera and cards.
 ### Model architecture
 
 ```
-Input: (1, 1, 32, 64)
+Input: (1, 1, 48, 60)
 
 CNN:
-  Conv2d(1→32, 3×3) + BN + ReLU + MaxPool(2×2)   →  (1, 32, 16, 32)
-  Conv2d(32→64, 3×3) + BN + ReLU + MaxPool(2×2)  →  (1, 64,  8, 16)
-  Conv2d(64→128, 3×3) + BN + ReLU                →  (1, 128, 8, 16)
+  Conv2d(1→32, 3×3) + BN + ReLU + MaxPool(2×2)
+  Conv2d(32→64, 3×3) + BN + ReLU + MaxPool(2×2)
+  Conv2d(64→128, 3×3) + BN + ReLU
 
-Reshape: (1, 16, 128×8) = (1, 16, 1024)
+Reshape spatial columns into a 15-step sequence
 
-RNN: BiGRU(1024→256, 2 layers)  →  (16, 1, 512)
+RNN: two-layer bidirectional GRU (hidden size 256)
 
-FC: Linear(512→37)              →  (16, 1, 37)    [time-major]
+FC: Linear(512→11)              →  (15, 1, 11)    [time-major]
 
-Decode: mean-pool over 16 time steps → argmax → CHARSET index
+Decode: greedy CTC over digits 0–9 plus the blank class
 ```
 
-Parameters: ~3.3M. Model file size: ~13 MB.
+Parameters: ~4.0M. Model file size: ~16 MB.
 Inference time on CPU: ~2 ms median / ~3 ms p95 (single character crop).
 
 ---

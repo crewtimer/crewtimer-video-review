@@ -49,10 +49,12 @@ public:
    *                        between multiple detected boats).
    */
   BowNumberDetection detect(const cv::Mat &frame,
-                            const cv::Point &pointOfInterest) const;
+                            const cv::Point &pointOfInterest,
+                            bool detectCardsWithoutBoat = false) const;
 
   /** Detect and read the bow card for every boat found in the frame. */
-  std::vector<BowNumberDetection> detectAll(const cv::Mat &frame) const;
+  std::vector<BowNumberDetection>
+  detectAll(const cv::Mat &frame, bool detectCardsWithoutBoat = false) const;
 
 private:
   std::unique_ptr<YoloBoxDetector> boatDetector_;

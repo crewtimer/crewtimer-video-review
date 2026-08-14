@@ -59,7 +59,7 @@ import {
 } from './RequestVideoFrame';
 import { useSingleAndDoubleClick } from '../util/UseSingleAndDoubleClick';
 import type { BowDetection } from '../shared/AppTypes';
-import { useLabelBoats } from '../util/UseSettings';
+import { useLabelBoats, useLabelCardsWithoutBoat } from '../util/UseSettings';
 
 // Avoid 'not a JSX component' warning
 const Measure = _Measure as unknown as FC<MeasureProps>;
@@ -78,20 +78,42 @@ const drawBowDetections = (
     if (box.width > 0 && box.height > 0) {
       ctx.strokeStyle = '#ff00ff';
       ctx.lineWidth = 4;
-      ctx.strokeRect(box.x, box.y, box.width, box.height);
+      ctx.strokeRect(box.x - 2, box.y - 2, box.width + 4, box.height + 4);
     }
 
-    const label = detection.text
-      ? `Bow ${detection.text} (${Math.round(detection.confidence * 100)}%)`
-      : 'Boat';
-    const labelX = box.width > 0 ? box.x : boatBox.x;
-    const labelY = Math.max(24, (box.height > 0 ? box.y : boatBox.y) - 6);
     ctx.font = 'bold 22px sans-serif';
-    const labelWidth = ctx.measureText(label).width + 12;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(labelX, labelY - 22, labelWidth, 28);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(label, labelX + 6, labelY);
+    if (detection.text && box.width > 0 && box.height > 0) {
+      const confidence = `${Math.round(detection.confidence * 100)}%`;
+      const number = detection.text;
+      const labelWidth = Math.max(
+        ctx.measureText(confidence).width,
+        ctx.measureText(number).width,
+      );
+      const labelX = box.x + box.width / 2;
+      const numberY = Math.max(48, box.y - 8);
+      const confidenceY = numberY - 24;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(
+        labelX - labelWidth / 2 - 6,
+        confidenceY - 22,
+        labelWidth + 12,
+        52,
+      );
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText(confidence, labelX, confidenceY);
+      ctx.fillText(number, labelX, numberY);
+      ctx.textAlign = 'start';
+    } else if (boatBox.width > 0 && boatBox.height > 0) {
+      const label = 'Boat';
+      const labelX = boatBox.x;
+      const labelY = Math.max(24, boatBox.y - 6);
+      const labelWidth = ctx.measureText(label).width + 12;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(labelX, labelY - 22, labelWidth, 28);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(label, labelX + 6, labelY);
+    }
   });
 };
 
@@ -349,6 +371,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [showBlowup] = useShowBlowup();
   const [videoScaling] = useVideoScaling();
   const [labelBoats] = useLabelBoats();
+  const [labelCardsWithoutBoat] = useLabelCardsWithoutBoat();
   const [bowDetections, setBowDetections] = useState<BowDetection[]>([]);
   destSize.current = { width, height };
 
@@ -446,15 +469,27 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   const labelBoatsDebounced = useDebouncedCallback(
     async (videoFileName: string, frameNum: number, requestId: number) => {
+      const detectionStarted = performance.now();
       try {
         const result = await window.VideoUtils.detectBow({
           videoFile: videoFileName,
           frameNum,
+          detectCardsWithoutBoat: labelCardsWithoutBoat,
         });
+        const detectionMs = performance.now() - detectionStarted;
+        console.log(
+          `Bow detection frame=${frameNum} detections=${result.detections.length} ` +
+            `fallback=${labelCardsWithoutBoat} elapsed=${detectionMs.toFixed(1)}ms`,
+        );
         if (requestId === bowDetectionRequestId.current) {
           setBowDetections(result.detections);
         }
       } catch (error) {
+        const detectionMs = performance.now() - detectionStarted;
+        console.error(
+          `Bow detection failed frame=${frameNum} ` +
+            `elapsed=${detectionMs.toFixed(1)}ms`,
+        );
         if (requestId === bowDetectionRequestId.current) {
           setBowDetections([]);
           console.error('Unable to label boats', error);
@@ -481,6 +516,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     image.height,
     image.width,
     labelBoats,
+    labelCardsWithoutBoat,
     labelBoatsDebounced,
   ]);
 

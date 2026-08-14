@@ -31,6 +31,8 @@ export interface BowDetectionRequest {
   /** Full-frame pixel coordinates near the bow, used to pick which boat to read. */
   point?: { x: number; y: number };
   closeTo?: boolean;
+  prune?: { side: 'top' | 'bottom'; percentage: number };
+  detectCardsWithoutBoat?: boolean;
 }
 
 export interface BowDetection {
@@ -65,4 +67,5 @@ export type VideoFrameRequest = {
   closeTo?: boolean; // Optional: true to only get 'close' to the requested frame.
   interpMethod?: 'blend' | 'rife'; // Fractional-frame interpolation technique (optional, defaults to 'blend').
   crop?: Rect; // Region to interpolate when interpMethod is 'rife' (optional, falls back to zoom).
+  prune?: { side: 'top' | 'bottom'; percentage: number }; // Crop before returning/saving.
 };

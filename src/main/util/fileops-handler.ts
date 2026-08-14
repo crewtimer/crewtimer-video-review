@@ -122,6 +122,15 @@ ipcMain.handle('store-json-file', (_event, filePath, json) => {
   }
 });
 
+ipcMain.handle('store-text-file', (_event, filePath, contents) => {
+  try {
+    fs.writeFileSync(filePath, contents, 'utf8');
+    return { status: 'OK' };
+  } catch (err) {
+    return { status: `${err instanceof Error ? err.message : err}` };
+  }
+});
+
 ipcMain.handle('read-app-log', () => {
   const logFilePath = path.join(app.getPath('userData'), 'applog.txt');
   try {

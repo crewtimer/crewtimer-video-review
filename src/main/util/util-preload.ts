@@ -74,6 +74,13 @@ export function mkdir(directory: string): Promise<MkdirReturn> {
   });
 }
 
+export function storeTextFile(
+  filePath: string,
+  contents: string,
+): Promise<{ status: string; error?: string }> {
+  return ipcRenderer.invoke('store-text-file', filePath, contents);
+}
+
 export function openDirDialog(
   title: string,
   defaultPath: string,
@@ -190,6 +197,7 @@ contextBridge.exposeInMainWorld('Util', {
   deleteFile,
   renameFile,
   mkdir,
+  storeTextFile,
   readJsonFile,
   storeJsonFile,
   readAppLog,

@@ -13,17 +13,18 @@ CARD_BASE_MODEL ?= yolov8s.pt
 CARD_EPOCHS ?= 100
 CARD_PATIENCE ?= 15
 CARD_BATCH ?= 16
-CARD_DEVICE ?= cpu
+CARD_DEVICE ?= $(shell $(PYTHON) -c "import torch; print('mps' if torch.backends.mps.is_available() else 'cpu')" 2>/dev/null || echo cpu)
 
 OCR_EPOCHS ?= 30
+OCR_PATIENCE ?= 15
 OCR_SAMPLES ?= 5000
-OCR_REAL_FRACTION ?= 0.60
+OCR_REAL_FRACTION ?= 0.75
 
 LABEL_FILES := $(wildcard $(RAW_DATA_ROOT)/*/card-labels/*.json)
 LABEL_DIRS := $(sort $(dir $(LABEL_FILES)))
 DATASETS := $(patsubst %/card-labels/,%,$(LABEL_DIRS))
 
-.PHONY: help all data card-data ocr-data card ocr verify test clean
+.PHONY: help all data card-data ocr-data card ocr colab-zip verify test clean
 
 help:
 	@echo "Bow detection model training"
@@ -32,11 +33,12 @@ help:
 	@echo "  make data      Regenerate card-detector and OCR datasets"
 	@echo "  make card      Train/export bow_card_detect.onnx"
 	@echo "  make ocr       Train/export bow_crnn.onnx"
+	@echo "  make colab-zip Package card-detector crops and labels for Colab"
 	@echo "  make verify    Validate ONNX files and run end-to-end tests"
 	@echo "  make clean     Remove generated datasets and training runs"
 	@echo
 	@echo "Common overrides:"
-	@echo "  RAW_DATA_ROOT=/path/to/datasets CARD_DEVICE=mps"
+	@echo "  RAW_DATA_ROOT=/path/to/datasets CARD_DEVICE=cpu"
 	@echo "  CARD_EPOCHS=100 OCR_EPOCHS=30 OCR_REAL_FRACTION=0.60"
 
 all: card ocr
@@ -72,14 +74,23 @@ card: card-data
 
 ocr: ocr-data
 	$(PYTHON) train_bow_crnn.py \
-		--epochs "$(OCR_EPOCHS)" --samples "$(OCR_SAMPLES)" \
+		--epochs "$(OCR_EPOCHS)" --patience "$(OCR_PATIENCE)" \
+		--samples "$(OCR_SAMPLES)" \
 		--real-fraction "$(OCR_REAL_FRACTION)" \
 		--real-data "$(OCR_DATA_DIR)/train" \
+		--validation-data "$(OCR_DATA_DIR)/validation" \
 		--output bow_crnn.onnx
+
+colab-zip:
+	$(PYTHON) package_card_detector_dataset.py \
+		--dataset "$(CARD_DATA_DIR)" \
+		--output "$(BUILD_DIR)/card-detector-colab.zip"
 
 verify:
 	$(PYTHON) -c "import onnxruntime as ort; [ort.InferenceSession(path, providers=['CPUExecutionProvider']) for path in ('crewtimer-boat-train.onnx', 'bow_card_detect.onnx', 'bow_crnn.onnx')]; print('All ONNX models load successfully')"
-	$(PYTHON) train_bow_crnn.py --verify bow_crnn.onnx
+	$(PYTHON) train_bow_crnn.py --verify bow_crnn.onnx \
+		--validation-data "$(OCR_DATA_DIR)/validation" \
+		--min-real-accuracy 0.85
 	$(PYTHON) -m unittest test_boat_card_detection_test.py -v
 
 test: verify

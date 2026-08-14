@@ -47,9 +47,10 @@ BowNumberPipeline::BowNumberPipeline(const std::string &boatModelPath,
 BowNumberPipeline::~BowNumberPipeline() = default;
 
 BowNumberDetection BowNumberPipeline::detect(
-    const cv::Mat &frame, const cv::Point &pointOfInterest) const
+    const cv::Mat &frame, const cv::Point &pointOfInterest,
+    bool detectCardsWithoutBoat) const
 {
-  const auto detections = detectAll(frame);
+  const auto detections = detectAll(frame, detectCardsWithoutBoat);
   if (detections.empty())
   {
     return {};
@@ -59,13 +60,15 @@ BowNumberDetection BowNumberPipeline::detect(
       [&pointOfInterest](const BowNumberDetection &a,
                          const BowNumberDetection &b)
       {
-        return distanceToBox(pointOfInterest, a.boatBox) <
-              distanceToBox(pointOfInterest, b.boatBox);
+        const cv::Rect &aBox = a.boatBox.area() > 0 ? a.boatBox : a.cardBox;
+        const cv::Rect &bBox = b.boatBox.area() > 0 ? b.boatBox : b.cardBox;
+        return distanceToBox(pointOfInterest, aBox) <
+              distanceToBox(pointOfInterest, bBox);
       });
 }
 
 std::vector<BowNumberDetection> BowNumberPipeline::detectAll(
-    const cv::Mat &frame) const
+    const cv::Mat &frame, bool detectCardsWithoutBoat) const
 {
   std::vector<BowNumberDetection> results;
   if (frame.empty())
@@ -74,6 +77,27 @@ std::vector<BowNumberDetection> BowNumberPipeline::detectAll(
   }
   const cv::Size frameSize(frame.cols, frame.rows);
   const auto boats = boatDetector_->detect(frame, BOAT_CONFIDENCE_THRESHOLD);
+  if (boats.empty() && detectCardsWithoutBoat)
+  {
+    const auto cards = cardDetector_->detect(frame, CARD_CONFIDENCE_THRESHOLD);
+    results.reserve(cards.size());
+    for (const auto &card : cards)
+    {
+      BowNumberDetection result;
+      result.cardBox = card.box;
+      const cv::Rect cardCropRect =
+          padAndClamp(card.box, CARD_PAD_FRACTION, frameSize);
+      if (cardCropRect.width > 0 && cardCropRect.height > 0)
+      {
+        const BowNumberPrediction prediction =
+            numberReader_->read(frame(cardCropRect));
+        result.text = prediction.text;
+        result.confidence = prediction.confidence;
+      }
+      results.push_back(result);
+    }
+    return results;
+  }
   results.reserve(boats.size());
 
   for (const auto &boat : boats)

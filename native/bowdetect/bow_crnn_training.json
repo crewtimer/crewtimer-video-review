@@ -4,31 +4,37 @@
   "classes": "-0123456789",
   "blankIndex": 0,
   "input": {
-    "height": 32,
-    "width": "dynamic (24-160px, scaled to preserve crop aspect ratio)"
+    "height": 48,
+    "width": "60px (fixed physical bow-card geometry)"
   },
   "decode": "greedy CTC: argmax per timestep, collapse consecutive repeats, drop blank",
   "datasets": [
     "/Users/glenne/training/datasets/dataset-ACAT25",
     "/Users/glenne/training/datasets/dataset-1",
-    "/Users/glenne/training/datasets/dataset-acanat26"
+    "/Users/glenne/training/datasets/dataset-acanat26",
+    "/Users/glenne/training/datasets/dataset-hocr26"
   ],
   "extraction": {
     "script": "extract_card_training_crops.py",
     "note": "whole-card crops labelled with the full digit string (no per-glyph segmentation)",
     "validationPercent": 20,
-    "trainingCards": 289,
-    "validationCards": 55
+    "trainingCards": 528,
+    "validationCards": 117,
+    "cropSource": "production bow-card detector (633/634), annotation fallback (1/634)"
   },
-  "additionalTrainingCrops": 4,
+  "additionalTrainingCrops": 11,
   "training": {
-    "epochs": 60,
-    "syntheticSamplesPerEpoch": 8000,
-    "batchSize": 64,
-    "lengthWeights": { "1": 0.4, "2": 0.45, "3": 0.15 }
+    "epochs": 30,
+    "syntheticSamplesPerEpoch": 5000,
+    "batchSize": 128,
+    "syntheticRange": "integers 1-199, weighted 40%/50%/10% by digit length",
+    "checkpointMetric": "held-out real full-string accuracy"
   },
   "validation": {
     "syntheticMixedLengthAccuracy": 1.0,
-    "note": "Superseded the single-character mean-pool+argmax model and the BowCardDetector.cpp per-glyph-classify-then-glue heuristic. See end-to-end pipeline validation (boat detect -> card detect -> CTC read) against dataset-acanat26 ground truth: 26/32 = 81.2% full-string match on a 25-image random sample, including correct multi-digit reads (e.g. '38', '34', '37', '19', '16')."
+    "heldOutRealFullStringAccuracy": "107/117 (91.5%)",
+    "heldOutTwoDigitAccuracy": "52/55 (94.5%)",
+    "heldOutHOCRAccuracy": "58/62 (93.5%)",
+    "endToEndKayakRegressions": "6/6"
   }
 }

@@ -40,8 +40,13 @@ CrewTimer.db
 *.dSym
 .qodo
 
+# Python bytecode
+__pycache__/
+*.py[cod]
+
 # Native module build artifacts
 native/ffreader/lib-build/
+/native/bowdetect/build/
 native/ffreader/yarn.lock
 native/ffreader/scripts/vs-env.raw.txt
 native/ffreader/scripts/vs-env.sh

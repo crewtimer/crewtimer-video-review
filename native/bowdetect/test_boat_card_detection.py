@@ -96,12 +96,14 @@ class YoloBoxDetector:
     ) -> list[Detection]:
         tensor, scale, pad_x, pad_y = letterbox(image)
         output = self.session.run(None, {self.input_name: tensor})[0]
-        if output.ndim != 3 or output.shape[0] != 1 or output.shape[1] != 5:
+        if output.ndim != 3 or output.shape[0] != 1 or output.shape[1] < 5:
             raise RuntimeError(f"Unexpected YOLO output shape: {output.shape}")
 
         image_height, image_width = image.shape[:2]
         detections: list[Detection] = []
-        for cx, cy, width, height, confidence in output[0].T:
+        # Pose exports append keypoint channels after the five detection
+        # channels; box-only inference deliberately ignores those values.
+        for cx, cy, width, height, confidence in output[0, :5].T:
             confidence = float(confidence)
             if confidence < confidence_threshold:
                 continue
@@ -138,10 +140,17 @@ class BowNumberReader:
         upscaled = cv2.resize(gray, None, fx=10, fy=10, interpolation=cv2.INTER_LANCZOS4)
         blurred = cv2.GaussianBlur(upscaled, (0, 0), 1.0)
         sharpened = cv2.addWeighted(upscaled, 2.5, blurred, -1.5, 0)
-        _, thresholded = cv2.threshold(sharpened, 140, 255, cv2.THRESH_BINARY)
+        _, thresholded = cv2.threshold(
+            sharpened, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
+        )
+        threshold_height, threshold_width = thresholded.shape
+        card_center = thresholded[
+            round(threshold_height * 0.2):round(threshold_height * 0.8),
+            round(threshold_width * 0.2):round(threshold_width * 0.8),
+        ]
         normalized = (
             thresholded
-            if thresholded.mean() > 128
+            if card_center.mean() > 128
             else cv2.bitwise_not(thresholded)
         )
         border = max(10, round(min(normalized.shape[:2]) * 0.05))
@@ -154,11 +163,8 @@ class BowNumberReader:
             cv2.BORDER_CONSTANT,
             value=255,
         )
-        output_width = max(
-            24, min(160, round(32 * normalized.shape[1] / normalized.shape[0]))
-        )
         normalized = cv2.resize(
-            normalized, (output_width, 32), interpolation=cv2.INTER_AREA
+            normalized, (60, 48), interpolation=cv2.INTER_AREA
         )
         return normalized
 

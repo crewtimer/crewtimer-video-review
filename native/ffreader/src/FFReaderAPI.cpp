@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -48,6 +50,48 @@ static FrameInfoList frameInfoList;
 static FrameRect noZoom = {0, 0, 0, 0};
 static std::ofstream nativeLogStream;
 static int debugLevel = 0;
+
+static int prunePixels(const Napi::Object &request, int height)
+{
+  if (!request.Has("prune") || !request.Get("prune").IsObject())
+    return 0;
+  const auto prune = request.Get("prune").As<Napi::Object>();
+  if (!prune.Has("percentage"))
+    return 0;
+  const double percentage = std::max(
+      0.0, std::min(95.0, prune.Get("percentage").As<Napi::Number>().DoubleValue()));
+  const int pixels = static_cast<int>(
+      std::round((height * percentage / 100.0) / 4.0) * 4.0);
+  return std::max(0, std::min(pixels, height - 4));
+}
+
+static bool pruneFromTop(const Napi::Object &request)
+{
+  const auto prune = request.Get("prune").As<Napi::Object>();
+  return prune.Get("side").As<Napi::String>().Utf8Value() == "top";
+}
+
+static std::shared_ptr<FrameInfo>
+pruneFrame(const std::shared_ptr<FrameInfo> &source,
+           const Napi::Object &request)
+{
+  const int pixels = prunePixels(request, source->height);
+  if (pixels == 0)
+    return source;
+  const int y = pruneFromTop(request) ? pixels : 0;
+  const int croppedHeight = source->height - pixels;
+  const cv::Mat rgba(source->height, source->width, CV_8UC4,
+                     source->data->data(), source->linesize);
+  const cv::Mat cropped = rgba(cv::Rect(0, y, source->width, croppedHeight)).clone();
+  auto result = std::make_shared<FrameInfo>(*source);
+  result->width = cropped.cols;
+  result->height = cropped.rows;
+  result->linesize = static_cast<int>(cropped.step);
+  result->totalBytes = static_cast<int>(cropped.total() * cropped.elemSize());
+  result->data = std::make_shared<std::vector<uint8_t>>(
+      cropped.data, cropped.data + result->totalBytes);
+  return result;
+}
 
 /**
  * @brief Extract a 64-bit 100ns UTC timestamp from the video frame.
@@ -476,6 +520,9 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
       const bool closeTo =
           request.Has("closeTo") &&
           request.Get("closeTo").As<Napi::Boolean>().Value();
+      const bool detectCardsWithoutBoat =
+          request.Has("detectCardsWithoutBoat") &&
+          request.Get("detectCardsWithoutBoat").As<Napi::Boolean>().Value();
 
       const auto file = fileInfoMap.find(videoFile);
       if (file == fileInfoMap.end())
@@ -504,8 +551,9 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
                 .first;
       }
 
-      const cv::Mat rgba(frame->height, frame->width, CV_8UC4,
-                         frame->data->data(), frame->linesize);
+      const auto detectionFrame = pruneFrame(frame, request);
+      const cv::Mat rgba(detectionFrame->height, detectionFrame->width, CV_8UC4,
+                         detectionFrame->data->data(), detectionFrame->linesize);
       ret.Set("frameNum", Napi::Number::New(env, frame->frameNum));
       ret.Set("timestamp", Napi::Number::New(env, frame->timestamp));
 
@@ -526,11 +574,13 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
             pointObject.Get("x").As<Napi::Number>().Int32Value(),
             pointObject.Get("y").As<Napi::Number>().Int32Value());
         detections.push_back(
-            pipelineEntry->second->detect(rgba, pointOfInterest));
+            pipelineEntry->second->detect(rgba, pointOfInterest,
+                                          detectCardsWithoutBoat));
       }
       else
       {
-        detections = pipelineEntry->second->detectAll(rgba);
+        detections = pipelineEntry->second->detectAll(
+            rgba, detectCardsWithoutBoat);
       }
 
       Napi::Array detectionValues = Napi::Array::New(env, detections.size());
@@ -883,6 +933,8 @@ Napi::Object nativeVideoExecutor(const Napi::CallbackInfo &info)
       //   sharpenFrame(frameInfo);
       // }
     }
+
+    frameInfo = pruneFrame(frameInfo, request);
 
     if (!saveAs.empty())
     {

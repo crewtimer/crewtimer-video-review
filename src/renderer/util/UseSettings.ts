@@ -9,6 +9,7 @@ import {
   MobileConfigKey,
   N_DEBUG_LEVEL,
   N_LABEL_BOATS,
+  N_LABEL_CARDS_WITHOUT_BOAT,
   N_FL_START_WAYPOINT,
   N_FL_START_WAYPOINT_ENABLE,
   N_MOBILE_ID,
@@ -78,6 +79,11 @@ export const [useDebugLevel, setDebugLevel, getDebugLevel] =
   UseMemDatum<number>(N_DEBUG_LEVEL, 0);
 export const [useLabelBoats, setLabelBoats, getLabelBoats] =
   UseMemDatum<boolean>(N_LABEL_BOATS, false);
+export const [
+  useLabelCardsWithoutBoat,
+  setLabelCardsWithoutBoat,
+  getLabelCardsWithoutBoat,
+] = UseMemDatum<boolean>(N_LABEL_CARDS_WITHOUT_BOAT, false);
 
 // Tab position of the CenteredTabs component
 export const [useTabPosition, setTabPosition, getTabPosition] = UseStoredDatum(
