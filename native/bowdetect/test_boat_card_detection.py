@@ -16,6 +16,7 @@ import cv2
 import numpy as np
 import onnxruntime as ort
 
+from ocr_preprocessing import normalize_grayscale_card
 
 HERE = Path(__file__).resolve().parent
 MODEL_SIZE = 640
@@ -136,37 +137,7 @@ class BowNumberReader:
 
     @staticmethod
     def preprocess(card_crop: np.ndarray) -> np.ndarray:
-        gray = cv2.cvtColor(card_crop, cv2.COLOR_BGR2GRAY)
-        upscaled = cv2.resize(gray, None, fx=10, fy=10, interpolation=cv2.INTER_LANCZOS4)
-        blurred = cv2.GaussianBlur(upscaled, (0, 0), 1.0)
-        sharpened = cv2.addWeighted(upscaled, 2.5, blurred, -1.5, 0)
-        _, thresholded = cv2.threshold(
-            sharpened, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU
-        )
-        threshold_height, threshold_width = thresholded.shape
-        card_center = thresholded[
-            round(threshold_height * 0.2):round(threshold_height * 0.8),
-            round(threshold_width * 0.2):round(threshold_width * 0.8),
-        ]
-        normalized = (
-            thresholded
-            if card_center.mean() > 128
-            else cv2.bitwise_not(thresholded)
-        )
-        border = max(10, round(min(normalized.shape[:2]) * 0.05))
-        normalized = cv2.copyMakeBorder(
-            normalized,
-            border,
-            border,
-            border,
-            border,
-            cv2.BORDER_CONSTANT,
-            value=255,
-        )
-        normalized = cv2.resize(
-            normalized, (60, 48), interpolation=cv2.INTER_AREA
-        )
-        return normalized
+        return normalize_grayscale_card(card_crop)
 
     def read(self, card_crop: np.ndarray) -> NumberPrediction:
         normalized = self.preprocess(card_crop)

@@ -63,6 +63,22 @@ type ArchiveCardLabel = {
   legible: boolean;
 };
 
+type ArchiveDetectionResult = {
+  boatIdentified: boolean;
+  bowMatched: boolean;
+  bowMismatch: boolean;
+};
+
+type ArchiveSummary = {
+  exported: number;
+  bowMismatch: number;
+  boatsIdentified: number;
+  bowsMatched: number;
+};
+
+const formatDetectionCount = (count: number, total: number) =>
+  `${count}/${total} (${total ? ((count / total) * 100).toFixed(2) : '0.00'}%)`;
+
 interface FolderInputProps {}
 const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
   const [folderPath, setFolderPath] = useArchiveFolder();
@@ -387,12 +403,23 @@ export const ImageArchive = () => {
       if (sidecarResult.status !== 'OK') {
         throw new Error(sidecarResult.error || sidecarResult.status);
       }
+      return {
+        boatIdentified: detectedBoats.length > 0,
+        bowMatched: Boolean(detectedBow) && !bowMismatch,
+        bowMismatch,
+      } satisfies ArchiveDetectionResult;
     },
     [folderPath, joinPath, makeBoxMetadata, prune, selectFinishLineBoat],
   );
 
   const saveImageArchive = useCallback(async () => {
     setArchiveCancel(false);
+    const summary: ArchiveSummary = {
+      exported: 0,
+      bowMismatch: 0,
+      boatsIdentified: 0,
+      bowsMatched: 0,
+    };
     if (augmentYoloLabels) {
       const directories = ['images', 'labels', 'card-labels'];
       for (const directory of directories) {
@@ -464,9 +491,12 @@ export const ImageArchive = () => {
             `Error saving: ${reason instanceof Error ? reason.message : String(reason)}`,
           ),
         );
+        if (savedFrame) {
+          summary.exported += 1;
+        }
         if (augmentYoloLabels && savedFrame) {
           // eslint-disable-next-line no-await-in-loop
-          await saveTrainingLabels({
+          const detection = await saveTrainingLabels({
             imagePath: saveAs,
             filename,
             videoFile: image.filename,
@@ -474,11 +504,17 @@ export const ImageArchive = () => {
             expectedBow: timeObj.Bow,
             width: savedFrame.width,
             height: savedFrame.height,
-          }).catch((reason) =>
+          }).catch((reason) => {
             console.log(
               `Error saving YOLO labels: ${reason instanceof Error ? reason.message : String(reason)}`,
-            ),
-          );
+            );
+            return undefined;
+          });
+          if (detection) {
+            summary.boatsIdentified += detection.boatIdentified ? 1 : 0;
+            summary.bowsMatched += detection.bowMatched ? 1 : 0;
+            summary.bowMismatch += detection.bowMismatch ? 1 : 0;
+          }
         }
         setProgressBar(
           ((i + j / filteredScoredTimes.length) / dirList.length) * 100,
@@ -486,6 +522,35 @@ export const ImageArchive = () => {
       }
     }
     setProgressBar(100);
+    const cancelled = getArchiveCancel();
+    setDialogConfig({
+      title: cancelled
+        ? 'Image Archive Export Cancelled'
+        : 'Image Archive Complete',
+      body: (
+        <Stack spacing={1}>
+          <Typography>Total exported: {summary.exported}</Typography>
+          {augmentYoloLabels && (
+            <>
+              <Typography>Bow mismatches: {summary.bowMismatch}</Typography>
+              <Typography>
+                Boats identified:{' '}
+                {formatDetectionCount(
+                  summary.boatsIdentified,
+                  summary.exported,
+                )}
+              </Typography>
+              <Typography>
+                Bows detected and matched:{' '}
+                {formatDetectionCount(summary.bowsMatched, summary.exported)}
+              </Typography>
+            </>
+          )}
+        </Stack>
+      ),
+      button: 'OK',
+      showCancel: false,
+    });
   }, [
     day,
     augmentYoloLabels,

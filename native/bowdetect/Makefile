@@ -22,9 +22,9 @@ OCR_REAL_FRACTION ?= 0.75
 
 LABEL_FILES := $(wildcard $(RAW_DATA_ROOT)/*/card-labels/*.json)
 LABEL_DIRS := $(sort $(dir $(LABEL_FILES)))
-DATASETS := $(patsubst %/card-labels/,%,$(LABEL_DIRS))
+DATASETS := $(filter-out $(RAW_DATA_ROOT)/holdout,$(patsubst %/card-labels/,%,$(LABEL_DIRS)))
 
-.PHONY: help all data card-data ocr-data card ocr colab-zip verify test clean
+.PHONY: help all data card-data ocr-data card ocr colab-zip colab-all-zip verify test clean
 
 help:
 	@echo "Bow detection model training"
@@ -33,7 +33,9 @@ help:
 	@echo "  make data      Regenerate card-detector and OCR datasets"
 	@echo "  make card      Train/export bow_card_detect.onnx"
 	@echo "  make ocr       Train/export bow_crnn.onnx"
+	@echo "  make update-colab-notebook Update Colab notebook in Google Drive"
 	@echo "  make colab-zip Package card-detector crops and labels for Colab"
+	@echo "  make colab-all-zip Package card-detector and OCR data for Colab"
 	@echo "  make verify    Validate ONNX files and run end-to-end tests"
 	@echo "  make clean     Remove generated datasets and training runs"
 	@echo
@@ -85,6 +87,16 @@ colab-zip:
 	$(PYTHON) package_card_detector_dataset.py \
 		--dataset "$(CARD_DATA_DIR)" \
 		--output "$(BUILD_DIR)/card-detector-colab.zip"
+
+colab-all-zip: data
+	$(PYTHON) package_bow_training_dataset.py \
+		--card-dataset "$(CARD_DATA_DIR)" \
+		--ocr-dataset "$(OCR_DATA_DIR)" \
+		--output "$(BUILD_DIR)/bow-training-colab.zip"
+
+update-colab-notebook: train_bow_models_colab.ipynb
+	cp train_bow_models_colab.ipynb "$(HOME)/Library/CloudStorage/GoogleDrive-glenne@engel.org/My Drive/Colab Notebooks"
+
 
 verify:
 	$(PYTHON) -c "import onnxruntime as ort; [ort.InferenceSession(path, providers=['CPUExecutionProvider']) for path in ('crewtimer-boat-train.onnx', 'bow_card_detect.onnx', 'bow_crnn.onnx')]; print('All ONNX models load successfully')"
