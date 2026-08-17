@@ -28,8 +28,18 @@ export const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
 } | null>(null);
 
 let bowSeekRequest = 0;
+let bowSeekTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
+  const requestId = bowSeekRequest + 1;
+  bowSeekRequest = requestId;
+  if (bowSeekTimer) {
+    clearTimeout(bowSeekTimer);
+    bowSeekTimer = undefined;
+  }
+  clearAutoZoomInterpolation();
+  clearAutoZoomDetectionCache();
+  setBowSeekPending(false);
   setVideoEvent(entry.EventNum);
   if (entry.Bow) {
     setVideoBow(entry.Bow);
@@ -64,22 +74,26 @@ export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
 
     if (lap?.Time && lap?.State !== 'Deleted') {
       const seekTime = lap.Time;
-      const requestId = bowSeekRequest + 1;
-      bowSeekRequest = requestId;
-      clearAutoZoomInterpolation();
-      clearAutoZoomDetectionCache();
       setBowSeekPending(true);
-      setTimeout(async () => {
+      bowSeekTimer = setTimeout(async () => {
+        bowSeekTimer = undefined;
+        if (requestId !== bowSeekRequest) {
+          return;
+        }
         try {
           if (getVideoScaling().zoomY !== 1) {
             await resetVideoZoom();
+          }
+          if (requestId !== bowSeekRequest) {
+            return;
           }
           const found = await seekToTimestampAndWait({
             time: seekTime,
             bow: lap.Bow,
             interpolate: true,
+            commitGuard: () => requestId === bowSeekRequest,
           });
-          if (!found) {
+          if (!found && requestId === bowSeekRequest) {
             setToast({
               severity: 'warning',
               msg: 'Associated video file not found',
@@ -91,6 +105,8 @@ export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
           }
         }
       }, 100);
+    } else {
+      setBowSeekPending(false);
     }
   }
 };

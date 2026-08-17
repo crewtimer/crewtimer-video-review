@@ -271,7 +271,7 @@ function handleFrameError(videoFile: string, seekPos: number, error: any) {
 const doRequestVideoFrame = async (
   request: VideoFrameRequest,
 ): Promise<AppImage | undefined> => {
-  if (!request.videoFile) {
+  if (!request.videoFile || request.commitGuard?.() === false) {
     return undefined;
   }
 
@@ -291,8 +291,9 @@ const doRequestVideoFrame = async (
 
     let image: AppImage | undefined;
     try {
+      const { commitGuard: _commitGuard, ...nativeRequest } = request;
       image = await VideoUtils.getFrame({
-        ...request,
+        ...nativeRequest,
         frameNum: clampedSeekPos,
         tsMilli: utcMilli,
       });
@@ -303,6 +304,9 @@ const doRequestVideoFrame = async (
 
     if (!image) {
       handleFrameError(request.videoFile, clampedSeekPos, 'No image returned');
+      return undefined;
+    }
+    if (request.commitGuard?.() === false) {
       return undefined;
     }
 
@@ -450,39 +454,41 @@ export const seekToTimestampAndWait = async ({
   time,
   bow,
   interpolate = false,
+  commitGuard,
 }: {
   time: string;
   bow?: string;
   interpolate?: boolean;
+  commitGuard?: () => boolean;
 }): Promise<string | undefined> => {
   const target = resolveSeekTarget({ time, bow });
   if (!target) {
     return undefined;
   }
   try {
+    const interpMethod = interpolate ? getInterpolationTechnique() : undefined;
     const image = await requestVideoFrame({
       videoFile: target.videoFile,
       toTimestamp: target.time,
-      blend: false,
+      blend: interpolate,
       saveAs: '',
       closeTo: false,
+      interpMethod,
+      // Native code clamps this intentionally oversized crop to the decoded
+      // frame, allowing an exact full-frame RIFE request without first
+      // committing a non-interpolated frame just to discover its dimensions.
+      crop:
+        interpMethod === 'rife'
+          ? { x: 0, y: 0, width: 100000, height: 100000 }
+          : undefined,
+      commitGuard,
     });
-    if (interpolate && image) {
-      const interpMethod = getInterpolationTechnique();
-      await requestVideoFrame({
-        videoFile: target.videoFile,
-        frameNum: image.frameNum,
-        blend: true,
-        closeTo: false,
-        interpMethod,
-        crop:
-          interpMethod === 'rife'
-            ? { x: 0, y: 0, width: image.width, height: image.height }
-            : undefined,
-      });
+    if (!image) {
+      return undefined;
     }
   } catch (error) {
     showErrorDialog(error);
+    return undefined;
   }
   return target.videoFile;
 };

@@ -427,8 +427,10 @@ export const getVisibleSourceRect = (): Rect => {
 export const moveToFrame = (
   frameNum: number,
   offset?: number,
-  blend: boolean = true,
+  blend?: boolean,
+  commitGuard?: () => boolean,
 ) => {
+  const shouldBlend = blend ?? true;
   const image = getImage();
   const videoScaling = getVideoScaling();
   const zoomFactor = videoScaling.zoomY;
@@ -479,9 +481,10 @@ export const moveToFrame = (
     videoFile: image.file,
     frameNum: videoFrameNum,
     zoom,
-    blend,
+    blend: shouldBlend,
     interpMethod,
     crop: interpMethod === 'rife' ? getVisibleSourceRect() : undefined,
+    commitGuard,
   });
 };
 

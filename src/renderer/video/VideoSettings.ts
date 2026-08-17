@@ -193,17 +193,24 @@ export const [useInterpolationTechnique, , getInterpolationTechnique] =
   UseStoredDatum<'blend' | 'rife'>('interpolationTechnique', 'rife');
 export const [useResetZoomCounter, setResetZoomCounter, getResetZoomCounter] =
   UseDatum(0);
-let zoomResetWaiters: Array<() => void> = [];
+let activeZoomReset:
+  { promise: Promise<void>; resolve: () => void } | undefined;
 export const resetVideoZoom = () => {
-  setResetZoomCounter((c) => c + 1);
-  return new Promise<void>((resolve) => {
-    zoomResetWaiters.push(resolve);
+  if (activeZoomReset) {
+    return activeZoomReset.promise;
+  }
+  let resolveReset = () => {};
+  const promise = new Promise<void>((resolve) => {
+    resolveReset = resolve;
   });
+  activeZoomReset = { promise, resolve: resolveReset };
+  setResetZoomCounter((c) => c + 1);
+  return promise;
 };
 export const completeVideoZoomReset = () => {
-  const waiters = zoomResetWaiters;
-  zoomResetWaiters = [];
-  waiters.forEach((resolve) => resolve());
+  const reset = activeZoomReset;
+  activeZoomReset = undefined;
+  reset?.resolve();
 };
 
 /// Mouse wheel zoom factor

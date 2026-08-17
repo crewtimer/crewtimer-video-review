@@ -64,7 +64,7 @@ import {
   videoRequestQueueRunning,
 } from './RequestVideoFrame';
 import { useSingleAndDoubleClick } from '../util/UseSingleAndDoubleClick';
-import type { BowDetection, Rect } from '../shared/AppTypes';
+import type { AppImage, BowDetection, Rect } from '../shared/AppTypes';
 import {
   getAutoZoomToFinish,
   getWaypoint,
@@ -94,15 +94,26 @@ type BowLabelHitRegion = {
 
 const drawBowDetections = (
   ctx: CanvasRenderingContext2D,
+  sourceCanvas: HTMLCanvasElement,
   detections: BowDetection[],
   currentBow: string,
   travelRightToLeft: boolean,
 ) => {
   const hitRegions: BowLabelHitRegion[] = [];
-  const zoomedIn = getVideoScaling().zoomY !== 1;
+  const scaling = getVideoScaling();
+  const zoomedIn = scaling.zoomY !== 1;
+  const screenScaleX = Math.max(0.001, Math.abs(scaling.scaleX));
+  const screenScaleY = Math.max(0.001, Math.abs(scaling.scaleY));
+  const visibleBounds = {
+    left: -scaling.destX / screenScaleX,
+    right: (ctx.canvas.width - scaling.destX) / screenScaleX,
+    top: -scaling.destY / screenScaleY,
+    bottom: (ctx.canvas.height - scaling.destY) / screenScaleY,
+  };
+  const displayedCardBoxes = new Map<BowDetection, Rect>();
   detections.forEach((detection) => {
     const { boatBox, box } = detection;
-    if (boatBox.width > 0 && boatBox.height > 0) {
+    if (!zoomedIn && boatBox.width > 0 && boatBox.height > 0) {
       ctx.lineWidth = 4;
       ctx.strokeStyle = 'rgba(0, 255, 76, 0.25)';
       ctx.beginPath();
@@ -112,81 +123,115 @@ const drawBowDetections = (
       ctx.lineTo(boatBox.x + boatBox.width, boatBox.y + boatBox.height);
       ctx.stroke();
 
-      if (!zoomedIn) {
-        ctx.strokeStyle = 'rgba(0, 255, 76, 0.35)';
-        ctx.beginPath();
-        ctx.moveTo(boatBox.x, boatBox.y);
-        ctx.lineTo(boatBox.x, boatBox.y + boatBox.height);
-        ctx.moveTo(boatBox.x + boatBox.width, boatBox.y);
-        ctx.lineTo(boatBox.x + boatBox.width, boatBox.y + boatBox.height);
-        ctx.stroke();
-      }
+      ctx.strokeStyle = 'rgba(0, 255, 76, 0.35)';
+      ctx.beginPath();
+      ctx.moveTo(boatBox.x, boatBox.y);
+      ctx.lineTo(boatBox.x, boatBox.y + boatBox.height);
+      ctx.moveTo(boatBox.x + boatBox.width, boatBox.y);
+      ctx.lineTo(boatBox.x + boatBox.width, boatBox.y + boatBox.height);
+      ctx.stroke();
     }
     if (box.width > 0 && box.height > 0) {
+      let displayedBox = box;
+      const cardIsFullyVisible =
+        box.x >= visibleBounds.left &&
+        box.x + box.width <= visibleBounds.right &&
+        box.y >= visibleBounds.top &&
+        box.y + box.height <= visibleBounds.bottom;
+      if (zoomedIn && !cardIsFullyVisible) {
+        const insetX = 3 / screenScaleX;
+        const insetY = 3 / screenScaleY;
+        displayedBox = {
+          x: Math.max(
+            visibleBounds.left + insetX,
+            Math.min(visibleBounds.right - box.width - insetX, box.x),
+          ),
+          y: Math.max(
+            visibleBounds.top + insetY,
+            Math.min(visibleBounds.bottom - box.height - insetY, box.y),
+          ),
+          width: box.width,
+          height: box.height,
+        };
+        ctx.drawImage(
+          sourceCanvas,
+          box.x,
+          box.y,
+          box.width,
+          box.height,
+          displayedBox.x,
+          displayedBox.y,
+          displayedBox.width,
+          displayedBox.height,
+        );
+      }
+      displayedCardBoxes.set(detection, displayedBox);
       ctx.strokeStyle = '#ff00ff';
       ctx.lineWidth = 2;
-      ctx.strokeRect(box.x - 2, box.y - 2, box.width + 4, box.height + 4);
+      ctx.strokeRect(
+        displayedBox.x - 2,
+        displayedBox.y - 2,
+        displayedBox.width + 4,
+        displayedBox.height + 4,
+      );
     }
   });
 
   // Draw labels after every bounding box so overlapping boat/card outlines
   // cannot cover the annotation panel.
   detections.forEach((detection) => {
-    const { box } = detection;
-    const scaling = getVideoScaling();
-    const screenScaleX = Math.max(0.001, Math.abs(scaling.scaleX));
-    const screenScaleY = Math.max(0.001, Math.abs(scaling.scaleY));
+    const box = displayedCardBoxes.get(detection) ?? detection.box;
     const fontSize = Math.max(14, 14 / screenScaleY);
     ctx.font = `bold ${fontSize}px sans-serif`;
     if (detection.text && box.width > 0 && box.height > 0) {
       const number = detection.text;
-      const labelWidth = Math.max(
-        box.width + 4,
-        ctx.measureText(number).width + 12,
+      const panelWidth = Math.max(
+        box.width,
+        ctx.measureText(number).width + 10 / screenScaleX,
       );
-      const panelWidth = labelWidth + 12;
       const panelHeight = Math.max(box.height, 20, 20 / screenScaleY);
       let panelX = travelRightToLeft
         ? box.x + box.width + 6
         : box.x - panelWidth - 6;
       let panelY = box.y + box.height / 2 - panelHeight / 2;
       if (zoomedIn) {
-        const visibleLeft = -scaling.destX / screenScaleX;
-        const visibleRight = (ctx.canvas.width - scaling.destX) / screenScaleX;
-        const visibleTop = -scaling.destY / screenScaleY;
-        const visibleBottom =
-          (ctx.canvas.height - scaling.destY) / screenScaleY;
         const annotationClipped =
-          panelX < visibleLeft ||
-          panelX + panelWidth > visibleRight ||
-          panelY < visibleTop ||
-          panelY + panelHeight > visibleBottom;
+          panelX < visibleBounds.left ||
+          panelX + panelWidth > visibleBounds.right ||
+          panelY < visibleBounds.top ||
+          panelY + panelHeight > visibleBounds.bottom;
         if (annotationClipped) {
           const edgeInset = 2 / screenScaleX;
           const verticalGap = 4 / screenScaleY;
           panelX = travelRightToLeft
-            ? visibleRight - panelWidth - edgeInset
-            : visibleLeft + edgeInset;
+            ? visibleBounds.right - panelWidth - edgeInset
+            : visibleBounds.left + edgeInset;
           panelY = box.y - panelHeight - verticalGap;
           panelX = Math.max(
-            visibleLeft,
-            Math.min(visibleRight - panelWidth, panelX),
+            visibleBounds.left,
+            Math.min(visibleBounds.right - panelWidth, panelX),
           );
           panelY = Math.max(
-            visibleTop,
-            Math.min(visibleBottom - panelHeight, panelY),
+            visibleBounds.top,
+            Math.min(visibleBounds.bottom - panelHeight, panelY),
           );
         }
       }
       const labelX = panelX + panelWidth / 2;
-      const numberY = panelY + Math.max(14, 14 / screenScaleY);
-      const barX = panelX + 6;
-      const barY = numberY + Math.max(2, 2 / screenScaleY);
+      const barInset = 2 / screenScaleX;
+      const barX = panelX + barInset;
+      const barWidth = Math.max(0, panelWidth - barInset * 2);
       const barHeight = Math.max(3, 3 / screenScaleY);
+      const contentGap = Math.max(2, 2 / screenScaleY);
+      const contentHeight = fontSize + contentGap + barHeight;
+      const contentY = panelY + Math.max(0, (panelHeight - contentHeight) / 2);
+      const numberY = contentY + fontSize / 2;
+      const barY = contentY + fontSize + contentGap;
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
       ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
       ctx.fillStyle = currentBow === number ? '#ffffff' : '#ff3b30';
       ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillText(number, labelX, numberY);
       hitRegions.push({
         box: {
@@ -198,11 +243,12 @@ const drawBowDetections = (
         value: number,
       });
       ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.fillRect(barX, barY, labelWidth, barHeight);
+      ctx.fillRect(barX, barY, barWidth, barHeight);
       const confidence = Math.max(0, Math.min(1, detection.confidence));
       ctx.fillStyle = `hsl(${confidence * 120}, 90%, 45%)`;
-      ctx.fillRect(barX, barY, labelWidth * confidence, barHeight);
+      ctx.fillRect(barX, barY, barWidth * confidence, barHeight);
       ctx.textAlign = 'start';
+      ctx.textBaseline = 'alphabetic';
     }
   });
   return hitRegions;
@@ -510,42 +556,33 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     image.tzOffset,
   );
 
+  const copyImageToOffscreenCanvas = useCallback((nextImage: AppImage) => {
+    offscreenCanvas.current.width = nextImage.width;
+    offscreenCanvas.current.height = nextImage.height;
+    const ctx = offscreenCanvas.current.getContext('2d');
+    if (ctx && nextImage.width) {
+      ctx.putImageData(
+        new ImageData(
+          new Uint8ClampedArray(nextImage.data),
+          nextImage.width,
+          nextImage.height,
+        ),
+        0,
+        0,
+      );
+      mouseTracking.current.imageLoaded = true;
+    } else {
+      mouseTracking.current.imageLoaded = false;
+    }
+  }, []);
+
   useEffect(() => {
     console.log(
       `frame ${image.frameNum}/${image.numFrames}, ${videoTimestamp} ts=${image.timestamp}`,
     );
     // Refresh the offscreenCanvas if the image changes
-    offscreenCanvas.current.width = image.width;
-    offscreenCanvas.current.height = image.height;
-    const ctx = offscreenCanvas.current?.getContext('2d');
-    if (ctx && image.width) {
-      ctx.putImageData(
-        new ImageData(
-          new Uint8ClampedArray(image.data),
-          image.width,
-          image.height,
-        ),
-        0,
-        0,
-      );
-
-      // Cover the early version watermark timestamp
-      // drawText(
-      //   ctx,
-      //   '                  CrewTimer Regatta Timing                   ',
-      //   16,
-      //   30,
-      //   32,
-      //   'below',
-      //   'left',
-      //   '#ccc',
-      // );
-
-      mouseTracking.current.imageLoaded = true;
-    } else {
-      mouseTracking.current.imageLoaded = false;
-    }
-  }, [image, videoTimestamp]);
+    copyImageToOffscreenCanvas(image);
+  }, [copyImageToOffscreenCanvas, image, videoTimestamp]);
 
   const drawContentDebounced = useDebouncedCallback(() => {
     if (holdCanvasDuringZoomReset.current) {
@@ -582,6 +619,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
                 : [];
           bowLabelHitRegions.current = drawBowDetections(
             ctx,
+            offscreenCanvas.current,
             visibleBowDetections,
             videoBow,
             travelRightToLeft,
@@ -909,6 +947,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       } else if (getAutoZoomToFinish() && !isZooming()) {
         autoZoomToFinish(srcCoords)
           .then((result) => {
+            if (result === null) {
+              return undefined;
+            }
             if (!result) {
               applyNormalDoubleClickZoom();
               return undefined;
@@ -1025,6 +1066,12 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       setHoldOverlayDuringZoomReset(true);
       clearZoom();
       Promise.resolve(moveToFrame(getVideoFrameNum(), undefined, false))
+        .then((refreshedImage) => {
+          if (refreshedImage) {
+            copyImageToOffscreenCanvas(refreshedImage);
+          }
+          return refreshedImage;
+        })
         .finally(() => {
           holdCanvasDuringZoomReset.current = false;
           drawContentDebounced();
@@ -1040,7 +1087,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     } else {
       completeVideoZoomReset();
     }
-  }, [drawContentDebounced, resetZoomCount]);
+  }, [copyImageToOffscreenCanvas, drawContentDebounced, resetZoomCount]);
 
   const handleMouseLeave = () => {
     setShowBlowup(false);

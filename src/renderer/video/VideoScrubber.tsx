@@ -1,5 +1,6 @@
 import { Stack, Button, Box, Slider, Tooltip } from '@mui/material';
 import React, { useRef, useEffect, useMemo, useState } from 'react';
+import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import {
   convertTimestampToLocalMicros,
   convertTimestampToString,
@@ -23,7 +24,7 @@ import {
 import { TimeObject, TimeSegment } from './VideoTypes';
 import { moveLeft, moveRight } from './VideoUtils';
 import { parseTimeToSeconds } from '../util/StringUtils';
-import { requestVideoFrame, seekToTimestamp } from './RequestVideoFrame';
+import { requestVideoFrame, seekToTimestampAndWait } from './RequestVideoFrame';
 
 const VideoScrubber = () => {
   const [videoFrameNum, setVideoFrameNum] = useVideoFrameNum();
@@ -38,6 +39,7 @@ const VideoScrubber = () => {
   const [, setSelectedBow] = useVideoBow();
   const ignoreNextChange = useRef(false);
   const sliderValueEvent = useRef(0);
+  const timestampSeekRequest = useRef(0);
 
   const [tooltip, setTooltip] = useState<TimeObject | undefined>();
   const { numFrames } = image;
@@ -60,6 +62,7 @@ const VideoScrubber = () => {
   }, [setVideoFrameNum, videoFileChanging]);
 
   const handleSlider = (_event: Event, value: number | number[]) => {
+    timestampSeekRequest.current += 1;
     sliderValueEvent.current = value as number;
     const newValue = value as number;
     if (ignoreNextChange.current) {
@@ -188,21 +191,25 @@ const VideoScrubber = () => {
   ) => {
     const click = findNearestClick(event);
     if (!click) {
+      timestampSeekRequest.current += 1;
       const frameNum = Math.round(sliderValueEvent.current);
       setVideoFrameNum(frameNum);
       requestVideoFrame({ videoFile, frameNum });
       setLastSeekTime({ time: '', bow: '' });
       return;
     }
-    resetVideoZoom();
-    setTimeout(
-      () =>
-        seekToTimestamp({
+    const requestId = timestampSeekRequest.current + 1;
+    timestampSeekRequest.current = requestId;
+    resetVideoZoom()
+      .then(() =>
+        seekToTimestampAndWait({
           time: click.Time,
           bow: click.Bow,
+          interpolate: true,
+          commitGuard: () => requestId === timestampSeekRequest.current,
         }),
-      100,
-    );
+      )
+      .catch(showErrorDialog);
     if (click.EventNum !== '?') {
       setSelectedEvent(click.EventNum);
     }

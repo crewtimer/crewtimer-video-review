@@ -47,10 +47,12 @@ type InterpolatedBoatOverlay = {
 const detectionCache = new Map<string, Promise<BowDetectionResult>>();
 let interpolatedBoatOverlay: InterpolatedBoatOverlay | undefined;
 let interpolationExtensionRequest = 0;
+let autoZoomOperation = 0;
 
 export const clearAutoZoomDetectionCache = () => detectionCache.clear();
 
 export const clearAutoZoomInterpolation = () => {
+  autoZoomOperation += 1;
   interpolatedBoatOverlay = undefined;
   interpolationExtensionRequest += 1;
 };
@@ -220,6 +222,11 @@ const detectFrame = (videoFile: string, frameNum: number) => {
       closeTo: false,
     });
     detectionCache.set(key, pending);
+    pending.catch(() => {
+      if (detectionCache.get(key) === pending) {
+        detectionCache.delete(key);
+      }
+    });
     if (detectionCache.size > MAX_CACHED_DETECTIONS) {
       const oldestKey = detectionCache.keys().next().value;
       if (oldestKey) {
@@ -284,11 +291,13 @@ export const interpolateDetectionPair = (
   } else {
     const reference = firstHasCard ? first : secondHasCard ? second : undefined;
     if (reference) {
+      const scaleX = boatBox.width / Math.max(1, reference.boatBox.width);
+      const scaleY = boatBox.height / Math.max(1, reference.boatBox.height);
       box = {
-        x: boatBox.x + reference.box.x - reference.boatBox.x,
-        y: boatBox.y + reference.box.y - reference.boatBox.y,
-        width: reference.box.width,
-        height: reference.box.height,
+        x: boatBox.x + (reference.box.x - reference.boatBox.x) * scaleX,
+        y: boatBox.y + (reference.box.y - reference.boatBox.y) * scaleY,
+        width: reference.box.width * scaleX,
+        height: reference.box.height * scaleY,
       };
     }
   }
@@ -305,6 +314,39 @@ export const interpolateDetectionPair = (
   };
 };
 
+const findDetectionMatch = (
+  reference: BowDetection,
+  candidates: BowDetection[],
+  availableIndexes: Set<number>,
+) => {
+  const centerX = reference.boatBox.x + reference.boatBox.width / 2;
+  const centerY = reference.boatBox.y + reference.boatBox.height / 2;
+  const match = [...availableIndexes]
+    .map((index) => {
+      const candidate = candidates[index];
+      const bowPenalty =
+        reference.text && candidate.text && reference.text !== candidate.text
+          ? 50
+          : 0;
+      return {
+        index,
+        detection: candidate,
+        distance:
+          Math.abs(
+            candidate.boatBox.x + candidate.boatBox.width / 2 - centerX,
+          ) +
+          Math.abs(
+            candidate.boatBox.y + candidate.boatBox.height / 2 - centerY,
+          ) +
+          bowPenalty,
+      };
+    })
+    .sort((a, b) => a.distance - b.distance)[0];
+  return match && match.distance <= Math.max(100, reference.boatBox.width)
+    ? match
+    : undefined;
+};
+
 export const getInterpolatedBowDetections = async (
   videoFile: string,
   frameNum: number,
@@ -318,34 +360,33 @@ export const getInterpolatedBowDetections = async (
     detectFrame(videoFile, firstFrame),
     detectFrame(videoFile, firstFrame + 1),
   ]);
+  if (fraction >= 0.5) {
+    const unusedFirst = new Set(firstResult.detections.keys());
+    return secondResult.detections.map((second) => {
+      const match = findDetectionMatch(
+        second,
+        firstResult.detections,
+        unusedFirst,
+      );
+      if (!match) {
+        return second;
+      }
+      unusedFirst.delete(match.index);
+      return interpolateDetectionPair(match.detection, second, fraction);
+    });
+  }
   const unusedSecond = new Set(secondResult.detections.keys());
   return firstResult.detections.map((first) => {
-    const firstCenterX = first.boatBox.x + first.boatBox.width / 2;
-    const firstCenterY = first.boatBox.y + first.boatBox.height / 2;
-    const match = [...unusedSecond]
-      .map((index) => {
-        const second = secondResult.detections[index];
-        const bowPenalty =
-          first.text && second.text && first.text !== second.text ? 50 : 0;
-        return {
-          index,
-          second,
-          distance:
-            Math.abs(
-              second.boatBox.x + second.boatBox.width / 2 - firstCenterX,
-            ) +
-            Math.abs(
-              second.boatBox.y + second.boatBox.height / 2 - firstCenterY,
-            ) +
-            bowPenalty,
-        };
-      })
-      .sort((a, b) => a.distance - b.distance)[0];
-    if (!match || match.distance > Math.max(100, first.boatBox.width)) {
+    const match = findDetectionMatch(
+      first,
+      secondResult.detections,
+      unusedSecond,
+    );
+    if (!match) {
       return first;
     }
     unusedSecond.delete(match.index);
-    return interpolateDetectionPair(first, match.second, fraction);
+    return interpolateDetectionPair(first, match.detection, fraction);
   });
 };
 
@@ -610,7 +651,10 @@ const runAutoZoomToFinish = async (
     detections: BowDetection[],
     finishX: number,
   ) => { detection: BowDetection; edge: BoxEdge } | undefined,
-): Promise<AutoZoomFinishResult | undefined> => {
+): Promise<AutoZoomFinishResult | undefined | null> => {
+  const operation = autoZoomOperation + 1;
+  autoZoomOperation = operation;
+  const operationIsCurrent = () => operation === autoZoomOperation;
   const videoFile = getVideoFile();
   interpolatedBoatOverlay = undefined;
   const image = getImage();
@@ -620,6 +664,9 @@ const runAutoZoomToFinish = async (
   let rightToLeft = getTravelRightToLeft();
   let reversedTravelDirection = false;
   const initialResult = await detectFrame(videoFile, initialFrame);
+  if (!operationIsCurrent()) {
+    return null;
+  }
   const selected = selectInitialBoat(initialResult.detections, finishX);
   if (!selected) {
     console.log('Auto Zoom to Finish: no eligible boat edge found');
@@ -645,6 +692,9 @@ const runAutoZoomToFinish = async (
     // Sequential observations are required to estimate and refine velocity.
     // eslint-disable-next-line no-await-in-loop
     let result = await detectFrame(videoFile, nextFrame);
+    if (!operationIsCurrent()) {
+      return null;
+    }
     const expectedEdgeAtFrame = (detectedFrame: number) =>
       observations.length >= 2
         ? prior.edgeX +
@@ -663,6 +713,9 @@ const runAutoZoomToFinish = async (
       // the direction of the finish search.
       // eslint-disable-next-line no-await-in-loop
       result = await detectFrame(videoFile, adjacentFrame);
+      if (!operationIsCurrent()) {
+        return null;
+      }
       matched = matchBoat(
         result.detections,
         prior,
@@ -742,7 +795,10 @@ const runAutoZoomToFinish = async (
         autoZoomed: true,
       });
       // eslint-disable-next-line no-await-in-loop
-      await moveToFrame(seekFrame, undefined, true);
+      await moveToFrame(seekFrame, undefined, true, operationIsCurrent);
+      if (!operationIsCurrent()) {
+        return null;
+      }
       return { frameNum: seekFrame, bow, observations };
     }
 

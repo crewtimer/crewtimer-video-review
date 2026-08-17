@@ -19,7 +19,7 @@ import {
   getVideoEvent,
   getVideoTimestamp,
   setLastScoredTimestamp,
-  setResetZoomCounter,
+  resetVideoZoom,
   setVideoBow,
 } from './VideoSettings';
 import { seekToNextTimePoint } from './VideoUtils';
@@ -164,7 +164,7 @@ const addSplitForBow = (videoBow: string) => {
       autoZoomAfterNextTimestamp,
     );
   } else {
-    setResetZoomCounter((c) => c + 1);
+    resetVideoZoom();
   }
 };
 

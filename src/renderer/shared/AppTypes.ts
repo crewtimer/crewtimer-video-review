@@ -68,4 +68,6 @@ export type VideoFrameRequest = {
   interpMethod?: 'blend' | 'rife'; // Fractional-frame interpolation technique (optional, defaults to 'blend').
   crop?: Rect; // Region to interpolate when interpMethod is 'rife' (optional, falls back to zoom).
   prune?: { side: 'top' | 'bottom'; percentage: number }; // Crop before returning/saving.
+  /** Renderer-only guard checked before committing a completed frame. */
+  commitGuard?: () => boolean;
 };
