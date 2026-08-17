@@ -7,20 +7,37 @@ import {
 import { gateFromWaypoint } from 'renderer/util/Util';
 import uuidgen from 'short-uuid';
 import { setToast } from 'renderer/Toast';
-import { getMobileConfig, getWaypoint } from 'renderer/util/UseSettings';
+import {
+  getAutoZoomToFinish,
+  getMobileConfig,
+  getWaypoint,
+} from 'renderer/util/UseSettings';
 import {
   getAutoNextTimestamp,
+  getAnnotatedBow,
   getVideoBow,
   getVideoEvent,
   getVideoTimestamp,
   setLastScoredTimestamp,
   setResetZoomCounter,
+  setVideoBow,
 } from './VideoSettings';
 import { seekToNextTimePoint } from './VideoUtils';
 import { setAutoSeekHoldoff } from './AutoFileSplit';
 import { saveInterpolationRecordForLap } from './InterpolationStore';
+import { autoZoomToFinishNearFinish } from './AutoZoomToFinish';
 
 let lastAddSplit = 0;
+
+const autoZoomAfterNextTimestamp = async (next: { Bow?: string }) => {
+  if (getAutoZoomToFinish()) {
+    const result = await autoZoomToFinishNearFinish(next.Bow || '', 100);
+    const detectedBow = result?.bow.trim();
+    if (next.Bow === '?' && detectedBow && detectedBow !== '?') {
+      setVideoBow(detectedBow);
+    }
+  }
+};
 
 const persistLap = (key: string, lap: Lap) => {
   setEntryResultAndPublish(key, lap);
@@ -32,9 +49,7 @@ const persistLap = (key: string, lap: Lap) => {
   });
 };
 
-export const performAddSplit = () => {
-  const videoBow = getVideoBow();
-
+const addSplitForBow = (videoBow: string) => {
   // A split must be associated with a known bow.
   if (videoBow === '?' || !videoBow) {
     setToast({
@@ -121,12 +136,14 @@ export const performAddSplit = () => {
         if (lap.Time) {
           setLastScoredTimestamp(lap.Time);
         }
-        setResetZoomCounter((c) => c + 1);
         setToast({
           severity: 'info',
           msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,
         });
-        seekToNextTimePoint({ time: lap.Time, bow: lap.Bow });
+        seekToNextTimePoint(
+          { time: lap.Time, bow: lap.Bow },
+          autoNextTimestamp ? autoZoomAfterNextTimestamp : undefined,
+        );
       },
     });
     return;
@@ -137,12 +154,46 @@ export const performAddSplit = () => {
   if (lap.Time) {
     setLastScoredTimestamp(lap.Time);
   }
-  setResetZoomCounter((c) => c + 1);
   setToast({
     severity: 'info',
     msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,
   });
   if (autoNextTimestamp) {
-    seekToNextTimePoint({ time: lap.Time, bow: lap.Bow });
+    seekToNextTimePoint(
+      { time: lap.Time, bow: lap.Bow },
+      autoZoomAfterNextTimestamp,
+    );
+  } else {
+    setResetZoomCounter((c) => c + 1);
   }
+};
+
+export const performAddSplit = () => {
+  const videoBow = getVideoBow();
+  const annotatedBow = getAnnotatedBow();
+  if (
+    videoBow &&
+    videoBow !== '?' &&
+    annotatedBow &&
+    annotatedBow !== '?' &&
+    videoBow !== annotatedBow
+  ) {
+    setDialogConfig({
+      title: 'Bow Number Mismatch',
+      message: `The current bow number (${videoBow}) does not match the detected bow number (${annotatedBow}).`,
+      secondaryButton: `Use ${videoBow}`,
+      secondaryColor: 'primary',
+      button: `Use ${annotatedBow}`,
+      showCancel: true,
+      handleSecondary: () => {
+        addSplitForBow(videoBow);
+      },
+      handleConfirm: () => {
+        setVideoBow(annotatedBow);
+        addSplitForBow(annotatedBow);
+      },
+    });
+    return;
+  }
+  addSplitForBow(videoBow);
 };

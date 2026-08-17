@@ -30,7 +30,13 @@ import {
   Point,
   useVideoScaling,
   getImage,
+  getVideoBow,
+  setAnnotatedBow,
+  setVideoBow,
   useVideoBow,
+  completeVideoZoomReset,
+  useBowSeekPending,
+  getVideoEvent,
 } from './VideoSettings';
 import VideoOverlay, {
   getNearEdge,
@@ -58,63 +64,166 @@ import {
   videoRequestQueueRunning,
 } from './RequestVideoFrame';
 import { useSingleAndDoubleClick } from '../util/UseSingleAndDoubleClick';
-import type { BowDetection } from '../shared/AppTypes';
-import { useLabelBoats, useLabelCardsWithoutBoat } from '../util/UseSettings';
+import type { BowDetection, Rect } from '../shared/AppTypes';
+import {
+  getAutoZoomToFinish,
+  getWaypoint,
+  useLabelBoats,
+  useLabelCardsWithoutBoat,
+} from '../util/UseSettings';
+import { getEntryResult } from '../util/LapStorageDatum';
+import { gateFromWaypoint, timeToMilli } from '../util/Util';
+import {
+  adjustInterpolatedBoatDetection,
+  autoZoomToFinish,
+  extendAutoZoomInterpolation,
+  getCachedAutoZoomDetections,
+  getInterpolatedBowDetections,
+  hasAutoZoomInterpolation,
+  hasAutoZoomInterpolationAtFrame,
+  restoreMissingCardDetections,
+} from './AutoZoomToFinish';
 
 // Avoid 'not a JSX component' warning
 const Measure = _Measure as unknown as FC<MeasureProps>;
 
+type BowLabelHitRegion = {
+  box: Rect;
+  value: string;
+};
+
 const drawBowDetections = (
   ctx: CanvasRenderingContext2D,
   detections: BowDetection[],
+  currentBow: string,
+  travelRightToLeft: boolean,
 ) => {
+  const hitRegions: BowLabelHitRegion[] = [];
+  const zoomedIn = getVideoScaling().zoomY !== 1;
   detections.forEach((detection) => {
     const { boatBox, box } = detection;
     if (boatBox.width > 0 && boatBox.height > 0) {
-      ctx.strokeStyle = '#00ff4c';
       ctx.lineWidth = 4;
-      ctx.strokeRect(boatBox.x, boatBox.y, boatBox.width, boatBox.height);
+      ctx.strokeStyle = 'rgba(0, 255, 76, 0.25)';
+      ctx.beginPath();
+      ctx.moveTo(boatBox.x, boatBox.y);
+      ctx.lineTo(boatBox.x + boatBox.width, boatBox.y);
+      ctx.moveTo(boatBox.x, boatBox.y + boatBox.height);
+      ctx.lineTo(boatBox.x + boatBox.width, boatBox.y + boatBox.height);
+      ctx.stroke();
+
+      if (!zoomedIn) {
+        ctx.strokeStyle = 'rgba(0, 255, 76, 0.35)';
+        ctx.beginPath();
+        ctx.moveTo(boatBox.x, boatBox.y);
+        ctx.lineTo(boatBox.x, boatBox.y + boatBox.height);
+        ctx.moveTo(boatBox.x + boatBox.width, boatBox.y);
+        ctx.lineTo(boatBox.x + boatBox.width, boatBox.y + boatBox.height);
+        ctx.stroke();
+      }
     }
     if (box.width > 0 && box.height > 0) {
       ctx.strokeStyle = '#ff00ff';
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 2;
       ctx.strokeRect(box.x - 2, box.y - 2, box.width + 4, box.height + 4);
     }
+  });
 
-    ctx.font = 'bold 22px sans-serif';
+  // Draw labels after every bounding box so overlapping boat/card outlines
+  // cannot cover the annotation panel.
+  detections.forEach((detection) => {
+    const { box } = detection;
+    const scaling = getVideoScaling();
+    const screenScaleX = Math.max(0.001, Math.abs(scaling.scaleX));
+    const screenScaleY = Math.max(0.001, Math.abs(scaling.scaleY));
+    const fontSize = Math.max(14, 14 / screenScaleY);
+    ctx.font = `bold ${fontSize}px sans-serif`;
     if (detection.text && box.width > 0 && box.height > 0) {
-      const confidence = `${Math.round(detection.confidence * 100)}%`;
       const number = detection.text;
       const labelWidth = Math.max(
-        ctx.measureText(confidence).width,
-        ctx.measureText(number).width,
+        box.width + 4,
+        ctx.measureText(number).width + 12,
       );
-      const labelX = box.x + box.width / 2;
-      const numberY = Math.max(48, box.y - 8);
-      const confidenceY = numberY - 24;
+      const panelWidth = labelWidth + 12;
+      const panelHeight = Math.max(box.height, 20, 20 / screenScaleY);
+      let panelX = travelRightToLeft
+        ? box.x + box.width + 6
+        : box.x - panelWidth - 6;
+      let panelY = box.y + box.height / 2 - panelHeight / 2;
+      if (zoomedIn) {
+        const visibleLeft = -scaling.destX / screenScaleX;
+        const visibleRight = (ctx.canvas.width - scaling.destX) / screenScaleX;
+        const visibleTop = -scaling.destY / screenScaleY;
+        const visibleBottom =
+          (ctx.canvas.height - scaling.destY) / screenScaleY;
+        const annotationClipped =
+          panelX < visibleLeft ||
+          panelX + panelWidth > visibleRight ||
+          panelY < visibleTop ||
+          panelY + panelHeight > visibleBottom;
+        if (annotationClipped) {
+          const edgeInset = 2 / screenScaleX;
+          const verticalGap = 4 / screenScaleY;
+          panelX = travelRightToLeft
+            ? visibleRight - panelWidth - edgeInset
+            : visibleLeft + edgeInset;
+          panelY = box.y - panelHeight - verticalGap;
+          panelX = Math.max(
+            visibleLeft,
+            Math.min(visibleRight - panelWidth, panelX),
+          );
+          panelY = Math.max(
+            visibleTop,
+            Math.min(visibleBottom - panelHeight, panelY),
+          );
+        }
+      }
+      const labelX = panelX + panelWidth / 2;
+      const numberY = panelY + Math.max(14, 14 / screenScaleY);
+      const barX = panelX + 6;
+      const barY = numberY + Math.max(2, 2 / screenScaleY);
+      const barHeight = Math.max(3, 3 / screenScaleY);
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(
-        labelX - labelWidth / 2 - 6,
-        confidenceY - 22,
-        labelWidth + 12,
-        52,
-      );
-      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
+      ctx.fillStyle = currentBow === number ? '#ffffff' : '#ff3b30';
       ctx.textAlign = 'center';
-      ctx.fillText(confidence, labelX, confidenceY);
       ctx.fillText(number, labelX, numberY);
+      hitRegions.push({
+        box: {
+          x: panelX,
+          y: panelY,
+          width: panelWidth,
+          height: panelHeight,
+        },
+        value: number,
+      });
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.fillRect(barX, barY, labelWidth, barHeight);
+      const confidence = Math.max(0, Math.min(1, detection.confidence));
+      ctx.fillStyle = `hsl(${confidence * 120}, 90%, 45%)`;
+      ctx.fillRect(barX, barY, labelWidth * confidence, barHeight);
       ctx.textAlign = 'start';
-    } else if (boatBox.width > 0 && boatBox.height > 0) {
-      const label = 'Boat';
-      const labelX = boatBox.x;
-      const labelY = Math.max(24, boatBox.y - 6);
-      const labelWidth = ctx.measureText(label).width + 12;
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(labelX, labelY - 22, labelWidth, 28);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(label, labelX + 6, labelY);
     }
   });
+  return hitRegions;
+};
+
+const selectFinishAnnotation = (
+  detections: BowDetection[],
+  imageWidth: number,
+) => {
+  const finish = getFinishLine();
+  const finishX = imageWidth / 2 + (finish.pt1 + finish.pt2) / 2;
+  return detections
+    .filter(({ text, boatBox }) => text && boatBox.width > 0)
+    .sort((first, second) => {
+      const edgeDistance = ({ boatBox }: BowDetection) =>
+        Math.min(
+          Math.abs(boatBox.x - finishX),
+          Math.abs(boatBox.x + boatBox.width - finishX),
+        );
+      return edgeDistance(first) - edgeDistance(second);
+    })[0]?.text;
 };
 
 const useStyles = makeStyles({
@@ -372,6 +481,8 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [videoScaling] = useVideoScaling();
   const [labelBoats] = useLabelBoats();
   const [labelCardsWithoutBoat] = useLabelCardsWithoutBoat();
+  const [videoBow] = useVideoBow();
+  const [bowSeekPending] = useBowSeekPending();
   const [bowDetections, setBowDetections] = useState<BowDetection[]>([]);
   destSize.current = { width, height };
 
@@ -387,7 +498,12 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const videoOverlayRef = useRef<VideoOverlayHandles>(null);
   const offscreenCanvas = useRef(document.createElement('canvas'));
   const bowDetectionRequestId = useRef(0);
+  const bowDetectionVideoFile = useRef('');
+  const bowDetectionsFrame = useRef(Number.NaN);
+  const bowLabelHitRegions = useRef<BowLabelHitRegion[]>([]);
   const holdCanvasDuringZoomReset = useRef(false);
+  const [holdOverlayDuringZoomReset, setHoldOverlayDuringZoomReset] =
+    useState(false);
 
   const videoTimestamp = convertTimestampToString(
     image.timestamp,
@@ -449,7 +565,27 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           ctx.translate(vScaling.destX, vScaling.destY);
           ctx.scale(vScaling.scaleX, vScaling.scaleY);
           ctx.drawImage(offscreenCanvas.current, 0, 0);
-          drawBowDetections(ctx, bowDetections);
+          const useTrackedInterpolation =
+            hasAutoZoomInterpolation(image.file) &&
+            (isZooming() ||
+              hasAutoZoomInterpolationAtFrame(image.file, image.frameNum));
+          const visibleBowDetections = bowSeekPending
+            ? []
+            : useTrackedInterpolation
+              ? adjustInterpolatedBoatDetection(
+                  image.file,
+                  image.frameNum,
+                  bowDetections,
+                )
+              : Math.abs(bowDetectionsFrame.current - image.frameNum) <= 0.01
+                ? bowDetections
+                : [];
+          bowLabelHitRegions.current = drawBowDetections(
+            ctx,
+            visibleBowDetections,
+            videoBow,
+            travelRightToLeft,
+          );
           ctx.restore();
 
           // ctx.beginPath();
@@ -471,18 +607,60 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     async (videoFileName: string, frameNum: number, requestId: number) => {
       const detectionStarted = performance.now();
       try {
-        const result = await window.VideoUtils.detectBow({
-          videoFile: videoFileName,
-          frameNum,
-          detectCardsWithoutBoat: labelCardsWithoutBoat,
-        });
+        const requestIsCurrent =
+          getImage().file === videoFileName &&
+          Math.abs(getVideoFrameNum() - frameNum) <= 0.01;
+        const interpolationExtended =
+          isZooming() && requestIsCurrent
+            ? await extendAutoZoomInterpolation(videoFileName, frameNum)
+            : false;
+        if (
+          interpolationExtended &&
+          requestId === bowDetectionRequestId.current
+        ) {
+          setBowDetections((current) => [...current]);
+        }
+        const interpolatedDetections = labelCardsWithoutBoat
+          ? undefined
+          : await getInterpolatedBowDetections(videoFileName, frameNum);
+        let detections: BowDetection[];
+        if (interpolatedDetections) {
+          detections = interpolatedDetections;
+        } else {
+          const result = await window.VideoUtils.detectBow({
+            videoFile: videoFileName,
+            frameNum,
+            detectCardsWithoutBoat: labelCardsWithoutBoat,
+          });
+          const cachedResult = await getCachedAutoZoomDetections(
+            videoFileName,
+            frameNum,
+          )?.catch(() => undefined);
+          detections = cachedResult
+            ? restoreMissingCardDetections(
+                result.detections,
+                cachedResult.detections,
+              )
+            : result.detections;
+        }
         const detectionMs = performance.now() - detectionStarted;
+        const cardCount = detections.filter(
+          ({ box }) => box.width > 0 && box.height > 0,
+        ).length;
         console.log(
-          `Bow detection frame=${frameNum} detections=${result.detections.length} ` +
+          `Bow detection frame=${frameNum} detections=${detections.length} cards=${cardCount} ` +
             `fallback=${labelCardsWithoutBoat} elapsed=${detectionMs.toFixed(1)}ms`,
         );
         if (requestId === bowDetectionRequestId.current) {
-          setBowDetections(result.detections);
+          // The native decoder may report the nearby decoded source frame for
+          // a scrubber seek. The request id proves this result belongs to the
+          // currently displayed request, so associate it with that requested
+          // position rather than hiding it due to a small frame discrepancy.
+          bowDetectionsFrame.current = frameNum;
+          setBowDetections(detections);
+          setAnnotatedBow(
+            selectFinishAnnotation(detections, getImage().width) || '',
+          );
         }
       } catch (error) {
         const detectionMs = performance.now() - detectionStarted;
@@ -491,7 +669,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             `elapsed=${detectionMs.toFixed(1)}ms`,
         );
         if (requestId === bowDetectionRequestId.current) {
-          setBowDetections([]);
+          if (!hasAutoZoomInterpolation(videoFileName)) {
+            bowDetectionsFrame.current = Number.NaN;
+            setBowDetections([]);
+            setAnnotatedBow('');
+          }
           console.error('Unable to label boats', error);
         }
       }
@@ -503,18 +685,41 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     const requestId = bowDetectionRequestId.current + 1;
     bowDetectionRequestId.current = requestId;
     labelBoatsDebounced.cancel();
-    setBowDetections([]);
 
     if (labelBoats && image.file && image.width > 0 && image.height > 0) {
+      if (
+        !isZooming() &&
+        !hasAutoZoomInterpolationAtFrame(image.file, image.frameNum)
+      ) {
+        bowDetectionsFrame.current = Number.NaN;
+        setBowDetections([]);
+        setAnnotatedBow('');
+      }
+      if (bowDetectionVideoFile.current !== image.file) {
+        bowDetectionVideoFile.current = image.file;
+        bowDetectionsFrame.current = Number.NaN;
+        setBowDetections([]);
+        setAnnotatedBow('');
+      }
       labelBoatsDebounced(image.file, image.frameNum, requestId);
+      if (isZooming()) {
+        labelBoatsDebounced.flush();
+      }
+    } else {
+      bowDetectionVideoFile.current = '';
+      bowDetectionsFrame.current = Number.NaN;
+      setBowDetections([]);
+      setAnnotatedBow('');
     }
 
     return () => labelBoatsDebounced.cancel();
   }, [
+    image,
     image.file,
     image.frameNum,
     image.height,
     image.width,
+    videoScaling.zoomY,
     labelBoats,
     labelCardsWithoutBoat,
     labelBoatsDebounced,
@@ -559,6 +764,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     videoScaling.scaleX,
     videoScaling.scaleY,
     bowDetections,
+    bowSeekPending,
+    videoBow,
+    travelRightToLeft,
   ]);
 
   useEffect(() => {
@@ -587,8 +795,15 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   }, [videoTimestamp, width]);
 
   const videoOverlay = useMemo(
-    () => <VideoOverlay ref={videoOverlayRef} width={width} height={height} />,
-    [width, height],
+    () => (
+      <VideoOverlay
+        ref={videoOverlayRef}
+        width={width}
+        height={height}
+        suspendDraw={holdOverlayDuringZoomReset}
+      />
+    ),
+    [width, height, holdOverlayDuringZoomReset],
   );
 
   const handleDragStart = (
@@ -600,18 +815,33 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const handleSingleClick = (
     event: React.MouseEvent<HTMLElement, MouseEvent>,
   ) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const { pt: srcCoords, withinBounds } = translateMouseEventCoords(
+      event,
+      rect,
+    );
+    if (withinBounds) {
+      const clickedLabel = bowLabelHitRegions.current.find(
+        ({ box }) =>
+          srcCoords.x >= box.x &&
+          srcCoords.x <= box.x + box.width &&
+          srcCoords.y >= box.y &&
+          srcCoords.y <= box.y + box.height,
+      );
+      if (clickedLabel) {
+        setAnnotatedBow(clickedLabel.value);
+        setVideoBow(clickedLabel.value);
+        event.preventDefault();
+        return;
+      }
+    }
+
     const videoSettings = getVideoSettings();
     if (
       (event.shiftKey || getVideoScaling().autoZoomed) &&
       videoSettings.enableAutoZoom &&
       !getNearEdge()
     ) {
-      const rect = canvasRef.current?.getBoundingClientRect();
-
-      const { pt: srcCoords, withinBounds } = translateMouseEventCoords(
-        event,
-        rect,
-      );
       if (!withinBounds) {
         return;
       }
@@ -649,9 +879,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         return;
       }
 
-      if (autoZoomRequested) {
-        performAutoZoomSeek(srcCoords);
-      } else {
+      const applyNormalDoubleClickZoom = () => {
         applyZoom({
           zoom: 5,
           srcPoint: {
@@ -660,6 +888,57 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           },
           srcClickPoint: srcCoords,
         });
+      };
+
+      const currentBow = getVideoBow();
+      const currentEvent = getVideoEvent();
+      const recordedLap =
+        currentBow && currentBow !== '?' && currentEvent
+          ? getEntryResult(
+              `${gateFromWaypoint(getWaypoint())}_${currentEvent}_${currentBow}`,
+            )
+          : undefined;
+      const atRecordedBowTime = !!(
+        recordedLap?.Time &&
+        recordedLap.State !== 'Deleted' &&
+        timeToMilli(recordedLap.Time) === timeToMilli(videoTimestamp)
+      );
+
+      if (atRecordedBowTime) {
+        applyNormalDoubleClickZoom();
+      } else if (getAutoZoomToFinish() && !isZooming()) {
+        autoZoomToFinish(srcCoords)
+          .then((result) => {
+            if (!result) {
+              applyNormalDoubleClickZoom();
+              return undefined;
+            }
+            if (getVideoBow() !== '' && getVideoBow() !== '?') {
+              return undefined;
+            }
+            const bow = result.bow.trim();
+            const supportingFrames = result.observations.filter(
+              ({ detection }) => detection.text === bow,
+            ).length;
+            const bowNumber = Number(bow);
+            if (
+              /^\d{1,3}$/.test(bow) &&
+              bowNumber >= 1 &&
+              bowNumber <= 999 &&
+              supportingFrames >= 2
+            ) {
+              setVideoBow(bow);
+            }
+            return undefined;
+          })
+          .catch((error) => {
+            console.error('Auto Zoom to Finish failed', error);
+            applyNormalDoubleClickZoom();
+          });
+      } else if (autoZoomRequested) {
+        performAutoZoomSeek(srcCoords);
+      } else {
+        applyNormalDoubleClickZoom();
       }
     } else {
       resetVideoZoom();
@@ -743,15 +1022,23 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       // is generated. Redrawing the previous crop at zoom 1 briefly exposes
       // its raw base frame before the replacement arrives.
       holdCanvasDuringZoomReset.current = true;
+      setHoldOverlayDuringZoomReset(true);
       clearZoom();
       Promise.resolve(moveToFrame(getVideoFrameNum(), undefined, false))
         .finally(() => {
           holdCanvasDuringZoomReset.current = false;
           drawContentDebounced();
+          drawContentDebounced.flush();
+          requestAnimationFrame(() => {
+            setHoldOverlayDuringZoomReset(false);
+            completeVideoZoomReset();
+          });
         })
         .catch((error) => {
           console.error('Unable to refresh frame after zoom reset', error);
         });
+    } else {
+      completeVideoZoomReset();
     }
   }, [drawContentDebounced, resetZoomCount]);
 

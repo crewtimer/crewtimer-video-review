@@ -20,6 +20,7 @@ import {
   getVideoSettings,
   GuideLine,
   useMouseWheelInverted,
+  useInterpolationTechnique,
   useVideoScaling,
   useVideoSettings,
 } from './VideoSettings';
@@ -40,6 +41,7 @@ export const [useNearEdge, setNearEdge, getNearEdge] = UseDatum(false);
 export interface VideoOverlayProps {
   width: number; /// Canas width
   height: number; /// Canvas height
+  suspendDraw?: boolean;
   onContextMenu?: (event: React.MouseEvent<HTMLCanvasElement>) => void;
 }
 
@@ -52,7 +54,7 @@ export interface VideoOverlayHandles {
  * @returns A canvas element
  */
 const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
-  ({ width, height, onContextMenu }, ref) => {
+  ({ width, height, suspendDraw = false, onContextMenu }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     // Use useImperativeHandle to expose custom functions or values to the parent
@@ -71,6 +73,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
     const [videoSettings, setVideoSettings] = useVideoSettings();
     const [videoScaling] = useVideoScaling();
     const [wheelInverted] = useMouseWheelInverted();
+    const [interpolationTechnique] = useInterpolationTechnique();
     const wheelTracking = useRef({
       millis: 0,
       dtAvg: 0,
@@ -217,6 +220,9 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
     );
 
     useEffect(() => {
+      if (suspendDraw) {
+        return;
+      }
       const canvas = canvasRef.current;
       const context = canvas?.getContext('2d');
       const image = getImage();
@@ -226,7 +232,11 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         context.clearRect(0, 0, canvas.width, canvas.height);
         const guideColor = courseConfig.guideColor || DEFAULT_GUIDE_COLOR;
 
-        if (videoScaling.zoomY > 1 && getHyperZoomFactor() > 0) {
+        if (
+          interpolationTechnique === 'blend' &&
+          videoScaling.zoomY > 1 &&
+          getHyperZoomFactor() > 0
+        ) {
           // Draw region used for hyperZoom
           const trackingRegion = getTrackingRegion();
           const xy = translateSrcCanvas2DestCanvas(
@@ -354,7 +364,9 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       height,
       videoScaling,
       videoScaling.zoomX,
+      interpolationTechnique,
       drawLine,
+      suspendDraw,
     ]);
 
     const handleMouseDown = (event: React.MouseEvent) => {

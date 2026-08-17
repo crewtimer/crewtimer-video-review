@@ -39,6 +39,7 @@ import {
   useDebugLevel,
   useLabelBoats,
   useLabelCardsWithoutBoat,
+  useAutoZoomToFinish,
 } from './util/UseSettings';
 import icon from '../assets/icons/crewtimer-review2-white.svg';
 import { setDialogConfig } from './util/ConfirmDialog';
@@ -60,6 +61,7 @@ const DebugDialogBody = () => {
   const [labelBoats, setLabelBoats] = useLabelBoats();
   const [labelCardsWithoutBoat, setLabelCardsWithoutBoat] =
     useLabelCardsWithoutBoat();
+  const [autoZoomToFinish, setAutoZoomToFinish] = useAutoZoomToFinish();
 
   const toggleDebug = () => {
     let newDebugLevel = debugLevel + 1;
@@ -97,6 +99,15 @@ const DebugDialogBody = () => {
           />
         }
         label="Detect cards without a boat"
+      />
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={autoZoomToFinish}
+            onChange={(event) => setAutoZoomToFinish(event.target.checked)}
+          />
+        }
+        label="Auto Zoom to Finish"
       />
       <InterpolationTechniqueSelector />
     </Stack>

@@ -163,6 +163,9 @@ export const [
 ] = UseDatum('');
 export const [useVideoBowUuid, setVideoBowUuid, getVideoBowUuid] = UseDatum('');
 export const [useVideoBow, _setVideoBow, getVideoBow] = UseDatum('');
+export const [useAnnotatedBow, setAnnotatedBow, getAnnotatedBow] = UseDatum('');
+export const [useBowSeekPending, setBowSeekPending, getBowSeekPending] =
+  UseDatum(false);
 
 export const setVideoBow = (bow: string, uuid?: string) => {
   _setVideoBow(bow);
@@ -190,8 +193,17 @@ export const [useInterpolationTechnique, , getInterpolationTechnique] =
   UseStoredDatum<'blend' | 'rife'>('interpolationTechnique', 'rife');
 export const [useResetZoomCounter, setResetZoomCounter, getResetZoomCounter] =
   UseDatum(0);
+let zoomResetWaiters: Array<() => void> = [];
 export const resetVideoZoom = () => {
   setResetZoomCounter((c) => c + 1);
+  return new Promise<void>((resolve) => {
+    zoomResetWaiters.push(resolve);
+  });
+};
+export const completeVideoZoomReset = () => {
+  const waiters = zoomResetWaiters;
+  zoomResetWaiters = [];
+  waiters.forEach((resolve) => resolve());
 };
 
 /// Mouse wheel zoom factor

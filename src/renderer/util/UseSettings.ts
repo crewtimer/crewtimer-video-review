@@ -10,6 +10,7 @@ import {
   N_DEBUG_LEVEL,
   N_LABEL_BOATS,
   N_LABEL_CARDS_WITHOUT_BOAT,
+  N_AUTO_ZOOM_TO_FINISH,
   N_FL_START_WAYPOINT,
   N_FL_START_WAYPOINT_ENABLE,
   N_MOBILE_ID,
@@ -84,6 +85,8 @@ export const [
   setLabelCardsWithoutBoat,
   getLabelCardsWithoutBoat,
 ] = UseMemDatum<boolean>(N_LABEL_CARDS_WITHOUT_BOAT, false);
+export const [useAutoZoomToFinish, setAutoZoomToFinish, getAutoZoomToFinish] =
+  UseMemDatum<boolean>(N_AUTO_ZOOM_TO_FINISH, false);
 
 // Tab position of the CenteredTabs component
 export const [useTabPosition, setTabPosition, getTabPosition] = UseStoredDatum(

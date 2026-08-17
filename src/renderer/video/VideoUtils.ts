@@ -24,10 +24,13 @@ import {
 } from './VideoSettings';
 import { TimeObject } from './VideoTypes';
 import { parseTimeToSeconds } from '../util/StringUtils';
+// RequestVideoFrame uses shared video geometry helpers from this module.
+// eslint-disable-next-line import/no-cycle
 import {
   requestVideoFrame,
   seekToClickInFile,
   seekToTimestamp,
+  seekToTimestampAndWait,
 } from './RequestVideoFrame';
 
 // Define types for points and lines for better type checking and readability
@@ -379,7 +382,7 @@ export const getTrackingRegion = (aroundFinish = true) => {
         (getTravelRightToLeft() ? width - pxBeforeFinish : pxBeforeFinish),
     ),
     y: Math.max(0, videoScaling.srcClickPoint.y - height / 2),
-    width: width,
+    width,
     height,
   };
   return region;
@@ -576,11 +579,14 @@ export const translateMouseEventCoords = (
  * After finding an initial candidate, it checks subsequent points until it finds one with a different `Bow`
  * value than `from.Bow`.
  */
-export const seekToNextTimePoint = (from: {
-  time?: string;
-  bow: string;
-  uuid?: string;
-}): TimeObject | undefined => {
+export const seekToNextTimePoint = (
+  from: {
+    time?: string;
+    bow: string;
+    uuid?: string;
+  },
+  afterSeek?: (timePoint: ExtendedLap) => void | Promise<void>,
+): TimeObject | undefined => {
   console.log('seeking...', from);
   if (!from.time) {
     return undefined;
@@ -628,18 +634,23 @@ export const seekToNextTimePoint = (from: {
     result = timePoints[resultIndex];
   }
 
-  resetVideoZoom();
-  setTimeout(() => {
-    const found = seekToTimestamp({
-      time: result?.Time || '00:00:00.000',
-      bow: result.Bow || '',
+  const zoomReset = resetVideoZoom();
+  const nextResult = result;
+  setTimeout(async () => {
+    await zoomReset;
+    const found = await seekToTimestampAndWait({
+      time: nextResult.Time || '00:00:00.000',
+      bow: nextResult.Bow || '',
     });
     if (found) {
-      if (result.EventNum !== '?') {
-        setVideoEvent(result.EventNum);
+      if (nextResult.EventNum !== '?') {
+        setVideoEvent(nextResult.EventNum);
       }
-      if (result.Bow && result.Bow !== '*') {
-        setVideoBow(result.Bow, result.uuid);
+      if (nextResult.Bow && nextResult.Bow !== '*') {
+        setVideoBow(nextResult.Bow, nextResult.uuid);
+      }
+      if (afterSeek) {
+        await afterSeek(nextResult);
       }
     }
   }, 10);

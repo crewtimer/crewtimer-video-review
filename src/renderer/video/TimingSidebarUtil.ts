@@ -3,10 +3,7 @@ import { getEntryResult } from 'renderer/util/LapStorageDatum';
 import { getWaypoint } from 'renderer/util/UseSettings';
 import { gateFromWaypoint } from 'renderer/util/Util';
 import { UseDatum } from 'react-usedatum';
-import {
-  seekToTimestamp,
-  seekToTimestampWithInterpolation,
-} from './RequestVideoFrame';
+import { seekToTimestampAndWait } from './RequestVideoFrame';
 import {
   getVideoScaling,
   getVideoSettings,
@@ -14,13 +11,12 @@ import {
   setVideoBow,
   resetVideoZoom,
   ResultRowType,
+  setBowSeekPending,
 } from './VideoSettings';
-import { loadInterpolationRecordForLap } from './InterpolationStore';
-
-const delay = (ms: number) =>
-  new Promise<void>((resolve) => {
-    setTimeout(resolve, ms);
-  });
+import {
+  clearAutoZoomDetectionCache,
+  clearAutoZoomInterpolation,
+} from './AutoZoomToFinish';
 
 export function sanitizeFirebaseKey(s: string) {
   return s.replace(/[#$/[.\]]/g, '-');
@@ -30,6 +26,8 @@ export const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
   element: Element;
   row: ResultRowType;
 } | null>(null);
+
+let bowSeekRequest = 0;
 
 export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
   setVideoEvent(entry.EventNum);
@@ -66,26 +64,31 @@ export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
 
     if (lap?.Time && lap?.State !== 'Deleted') {
       const seekTime = lap.Time;
+      const requestId = bowSeekRequest + 1;
+      bowSeekRequest = requestId;
+      clearAutoZoomInterpolation();
+      clearAutoZoomDetectionCache();
+      setBowSeekPending(true);
       setTimeout(async () => {
-        const interpolation = useScoredLap
-          ? await loadInterpolationRecordForLap(lap)
-          : undefined;
-        if (useScoredLap && !interpolation && getVideoScaling().zoomY !== 1) {
-          resetVideoZoom();
-          await delay(150);
-        }
-        const found = interpolation
-          ? await seekToTimestampWithInterpolation({
-              time: seekTime,
-              bow: lap.Bow,
-              interpolation,
-            })
-          : seekToTimestamp({ time: seekTime, bow: lap.Bow });
-        if (!found) {
-          setToast({
-            severity: 'warning',
-            msg: 'Associated video file not found',
+        try {
+          if (getVideoScaling().zoomY !== 1) {
+            await resetVideoZoom();
+          }
+          const found = await seekToTimestampAndWait({
+            time: seekTime,
+            bow: lap.Bow,
+            interpolate: true,
           });
+          if (!found) {
+            setToast({
+              severity: 'warning',
+              msg: 'Associated video file not found',
+            });
+          }
+        } finally {
+          if (requestId === bowSeekRequest) {
+            setBowSeekPending(false);
+          }
         }
       }, 100);
     }

@@ -136,10 +136,12 @@ const BowButton: React.FC<{
     sx.color = hasTime ? 'primary.main' : 'primary.contrastText';
     sx.fontWeight = 'bold';
     sx.backgroundColor = hasTime ? recordedBackgroundColor : 'primary.main';
+    sx.border = '2px solid #d2122e';
     sx.boxShadow = undefined;
     sx['&:hover'] = {
       backgroundColor: hasTime ? recordedBackgroundColor : 'primary.dark',
       color: hasTime ? 'primary.main' : 'white',
+      borderColor: '#d2122e',
     };
   } else if (hasTime) {
     sx.backgroundColor = recordedBackgroundColor;
@@ -229,7 +231,8 @@ const GroupHeader = React.memo(
         // use a solid background so items scrolled beneath are not visible through
         backgroundColor: isCurrent ? '#f6fafb' : 'background.paper',
         // add a distinctive left border when this is the current event
-        borderLeft: isCurrent ? '4px solid #6572ab' : undefined,
+        borderLeft: isCurrent ? '4px solid #d2122e' : undefined,
+        borderTop: isCurrent ? '4px solid #d2122e' : undefined,
         zIndex: 1,
       }}
       onClick={() => {
@@ -267,7 +270,8 @@ const BowRowComponent: React.FC<{
   row: string[];
   buttonWidth: number;
   buttonRefs: React.MutableRefObject<Record<string, HTMLButtonElement | null>>;
-}> = ({ ev, row, buttonWidth, buttonRefs }) => {
+  isLastRow: boolean;
+}> = ({ ev, row, buttonWidth, buttonRefs, isLastRow }) => {
   const [selectedEvent] = useVideoEvent();
   const isCurrent = String(ev.EventNum) === String(selectedEvent);
   return (
@@ -282,7 +286,8 @@ const BowRowComponent: React.FC<{
         pt: 0.5,
         pl: 1,
         // highlight current event rows with a left border to match the header
-        borderLeft: isCurrent ? '4px solid #6572ab' : undefined,
+        borderLeft: isCurrent ? '4px solid #d2122e' : undefined,
+        borderBottom: isCurrent && isLastRow ? '4px solid #d2122e' : undefined,
         // slightly offset the content so the border doesn't overlap
         paddingLeft: isCurrent ? '0.5rem' : undefined,
       }}
@@ -307,6 +312,7 @@ const BowRow = React.memo(
   (prev, next) =>
     prev.ev.EventNum === next.ev.EventNum &&
     prev.buttonWidth === next.buttonWidth &&
+    prev.isLastRow === next.isLastRow &&
     prev.row.join('|') === next.row.join('|'),
 );
 
@@ -493,6 +499,7 @@ export const BowGridView: React.FC<{
           row={r}
           buttonWidth={buttonWidth}
           buttonRefs={buttonRefs}
+          isLastRow={rowIndex === groups[groupIndex].rows.length - 1}
         />
       );
     },

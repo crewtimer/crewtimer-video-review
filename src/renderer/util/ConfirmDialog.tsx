@@ -1,5 +1,6 @@
 import {
   Button,
+  ButtonProps,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -28,6 +29,7 @@ export interface ConfirmDialogProps {
   confirmText?: string;
   button?: string;
   secondaryButton?: string;
+  secondaryColor?: ButtonProps['color'];
   showCancel: boolean;
   handleConfirm?: () => void;
   handleSecondary?: () => void;
@@ -83,7 +85,7 @@ export function ConfirmDialog() {
     config.secondaryButton ? (
       <Button
         key={config.secondaryButton}
-        color="error"
+        color={config.secondaryColor || 'error'}
         variant="outlined"
         size="small"
         onClick={() => {

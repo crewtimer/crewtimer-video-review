@@ -446,6 +446,47 @@ export const seekToTimestamp = ({
   return target.videoFile;
 };
 
+export const seekToTimestampAndWait = async ({
+  time,
+  bow,
+  interpolate = false,
+}: {
+  time: string;
+  bow?: string;
+  interpolate?: boolean;
+}): Promise<string | undefined> => {
+  const target = resolveSeekTarget({ time, bow });
+  if (!target) {
+    return undefined;
+  }
+  try {
+    const image = await requestVideoFrame({
+      videoFile: target.videoFile,
+      toTimestamp: target.time,
+      blend: false,
+      saveAs: '',
+      closeTo: false,
+    });
+    if (interpolate && image) {
+      const interpMethod = getInterpolationTechnique();
+      await requestVideoFrame({
+        videoFile: target.videoFile,
+        frameNum: image.frameNum,
+        blend: true,
+        closeTo: false,
+        interpMethod,
+        crop:
+          interpMethod === 'rife'
+            ? { x: 0, y: 0, width: image.width, height: image.height }
+            : undefined,
+      });
+    }
+  } catch (error) {
+    showErrorDialog(error);
+  }
+  return target.videoFile;
+};
+
 export const seekToTimestampWithInterpolation = async ({
   time,
   bow,
