@@ -1,6 +1,7 @@
 
 | Version | What's New |
 | --- | --- |
+| 2.0.1 | Add AI assisted boat detection and bow card reading. |
 | 2.0.0 | Use neural optical flow interpolator.  Usability improvements. |
 | 1.0.39 | Ensure Macos network permission prompt appears after first install. |
 | 1.0.38 | Improve scrubbing performance.  Variable Frame Rate support. Bug fixes.|
