@@ -1,4 +1,6 @@
 import path from 'path';
+import os from 'os';
+import JSZip from 'jszip';
 import {
   app,
   BrowserWindow,
@@ -11,6 +13,69 @@ import { getMainWindow } from '../mainWindow';
 const { exec } = require('child_process');
 
 const fs = require('fs');
+
+ipcMain.handle('create-temp-directory', async (_event, prefix: string) => {
+  try {
+    const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), prefix));
+    return { status: 'OK', path: directory };
+  } catch (err) {
+    return { status: 'Fail', path: '', error: String(err) };
+  }
+});
+
+ipcMain.handle(
+  'zip-directory',
+  async (
+    _event,
+    sourceDirectory: string,
+    destinationFile: string,
+    rootFolder: string,
+  ) => {
+    try {
+      const zip = new JSZip();
+      const addDirectory = async (directory: string) => {
+        const entries = await fs.promises.readdir(directory, {
+          withFileTypes: true,
+        });
+        await Promise.all(
+          entries.map(
+            async (entry: { name: string; isDirectory: () => boolean }) => {
+              const fullPath = path.join(directory, entry.name);
+              if (entry.isDirectory()) {
+                await addDirectory(fullPath);
+              } else {
+                const relativePath = path
+                  .relative(sourceDirectory, fullPath)
+                  .split(path.sep)
+                  .join('/');
+                zip.file(
+                  `${rootFolder}/${relativePath}`,
+                  fs.createReadStream(fullPath),
+                );
+              }
+            },
+          ),
+        );
+      };
+      await addDirectory(sourceDirectory);
+      await fs.promises.mkdir(path.dirname(destinationFile), {
+        recursive: true,
+      });
+      await new Promise<void>((resolve, reject) => {
+        zip
+          .generateNodeStream({ type: 'nodebuffer', streamFiles: true })
+          .pipe(fs.createWriteStream(destinationFile))
+          .on('finish', resolve)
+          .on('error', reject);
+      });
+      return { status: 'OK' };
+    } catch (err) {
+      return { status: 'Fail', error: String(err) };
+    } finally {
+      await fs.promises.rm(sourceDirectory, { recursive: true, force: true });
+    }
+  },
+);
 
 ipcMain.handle('delete-file', async (_event, filename) => {
   return new Promise((resolve, _reject) => {

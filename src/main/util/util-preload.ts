@@ -74,6 +74,25 @@ export function mkdir(directory: string): Promise<MkdirReturn> {
   });
 }
 
+export function createTempDirectory(
+  prefix: string,
+): Promise<{ status: string; path: string; error?: string }> {
+  return ipcRenderer.invoke('create-temp-directory', prefix);
+}
+
+export function zipDirectory(
+  sourceDirectory: string,
+  destinationFile: string,
+  rootFolder: string,
+): Promise<{ status: string; error?: string }> {
+  return ipcRenderer.invoke(
+    'zip-directory',
+    sourceDirectory,
+    destinationFile,
+    rootFolder,
+  );
+}
+
 export function storeTextFile(
   filePath: string,
   contents: string,
@@ -197,6 +216,8 @@ contextBridge.exposeInMainWorld('Util', {
   deleteFile,
   renameFile,
   mkdir,
+  createTempDirectory,
+  zipDirectory,
   storeTextFile,
   readJsonFile,
   storeJsonFile,

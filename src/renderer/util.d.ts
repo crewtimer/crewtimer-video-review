@@ -32,6 +32,14 @@ declare global {
       deleteFile(filename: string): Promise<CloseFileReturn>;
       renameFile(from: string, to: string): Promise<RenameFileReturn>;
       mkdir(directory: string): Promise<MkdirReturn>;
+      createTempDirectory(
+        prefix: string,
+      ): Promise<{ status: string; path: string; error?: string }>;
+      zipDirectory(
+        sourceDirectory: string,
+        destinationFile: string,
+        rootFolder: string,
+      ): Promise<{ status: string; error?: string }>;
       readJsonFile<T = KeyMap>(
         filePath: string,
       ): Promise<{ status: string; error?: string; json?: T }>;

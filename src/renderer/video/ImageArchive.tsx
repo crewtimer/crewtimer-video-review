@@ -14,18 +14,28 @@ import {
 import Stack from '@mui/material/Stack';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import { milliToString, timeToMilli } from 'renderer/util/Util';
+import {
+  getConnectionProps,
+  milliToString,
+  timeToMilli,
+} from 'renderer/util/Util';
 import { UseDatum } from 'react-usedatum';
 import { convertTimestampToString } from '../shared/Util';
 import { setDialogConfig } from '../util/ConfirmDialog';
 import { ProgressBarComponent } from '../util/ProgressBarComponent';
-import { setProgressBar, useDay, useWaypoint } from '../util/UseSettings';
+import {
+  setProgressBar,
+  useDay,
+  useMobileID,
+  useWaypoint,
+} from '../util/UseSettings';
 import { useClickerData } from './UseClickerData';
 import { requestVideoFrame } from './RequestVideoFrame';
 import { getFinishLine, moveToFileIndex } from './VideoUtils';
 import { UseStoredDatum } from '../store/UseElectronDatum';
 import { TimeObject } from './VideoTypes';
 import { useFileStatusList } from './VideoFileStatus';
+import { getTravelRightToLeft } from './VideoSettings';
 import { parseTimeToSeconds } from '../util/StringUtils';
 import type { BowDetection, Rect } from '../shared/AppTypes';
 
@@ -35,7 +45,7 @@ const [useArchiveFolder] = UseStoredDatum('ArchiveFolder', '/tmp');
 const [useArchivePrefix] = UseStoredDatum('ArchivePrefix', 'CT');
 const [useArchiveTimeOffset] = UseStoredDatum('ArchiveTimeOffset', 0);
 const [useArchiveRace, setArchiveRace] = UseDatum('');
-const [useArchiveYoloLabels, setArchiveYoloLabels] = UseDatum(false);
+const [useArchiveYoloLabels, setArchiveYoloLabels] = UseDatum(true);
 const [useArchivePruneSide, setArchivePruneSide] = UseDatum('none');
 const [useArchivePrunePercentage, setArchivePrunePercentage] = UseDatum(0);
 const [, setArchiveCancel, getArchiveCancel] = UseDatum(false);
@@ -238,8 +248,9 @@ export const ImageArchive = () => {
   const [dirList] = useFileStatusList();
   const [scoredWaypoint] = useWaypoint();
   const [folderPath] = useArchiveFolder();
-  let [prefix] = useArchivePrefix();
-  let [day] = useDay();
+  const [mobileID] = useMobileID();
+  const [prefix] = useArchivePrefix();
+  const [day] = useDay();
   const [timeOffset] = useArchiveTimeOffset();
   const [selectedRace] = useArchiveRace();
   const [augmentYoloLabels] = useArchiveYoloLabels();
@@ -262,10 +273,8 @@ export const ImageArchive = () => {
         : scoredLapdata,
     [scoredLapdata, selectedRace],
   );
-  if (day) {
-    day = `${day}-`;
-  }
-  prefix = prefix || 'CT';
+  const dayPrefix = day ? `${day}-` : '';
+  const normalizedPrefix = (prefix || 'CT').replace(/-+$/, '') || 'CT';
   const isWindows = folderPath.includes('\\');
   const separator = isWindows ? '\\' : '/';
 
@@ -285,19 +294,23 @@ export const ImageArchive = () => {
   );
 
   const selectFinishLineBoat = useCallback(
-    (detections: BowDetection[], imageWidth: number) => {
+    (detections: BowDetection[], imageWidth: number, expectedBow: string) => {
       const finish = getFinishLine();
       const finishX = imageWidth / 2 + (finish.pt1 + finish.pt2) / 2;
-      return detections
-        .filter(({ boatBox }) => boatBox.width > 0 && boatBox.height > 0)
-        .sort((a, b) => {
-          const distance = ({ boatBox }: BowDetection) =>
-            Math.min(
-              Math.abs(boatBox.x - finishX),
-              Math.abs(boatBox.x + boatBox.width - finishX),
-            );
-          return distance(a) - distance(b);
-        })[0];
+      const eligible = detections.filter(
+        ({ boatBox }) => boatBox.width > 0 && boatBox.height > 0,
+      );
+      const matching = eligible.filter(
+        ({ text }) => text.trim() === expectedBow.trim(),
+      );
+      return (matching.length ? matching : eligible).sort((a, b) => {
+        const distance = ({ boatBox }: BowDetection) =>
+          Math.min(
+            Math.abs(boatBox.x - finishX),
+            Math.abs(boatBox.x + boatBox.width - finishX),
+          );
+        return distance(a) - distance(b);
+      })[0];
     },
     [],
   );
@@ -305,6 +318,7 @@ export const ImageArchive = () => {
   const saveTrainingLabels = useCallback(
     async ({
       imagePath,
+      outputFolder,
       filename,
       videoFile,
       frameNum,
@@ -313,6 +327,7 @@ export const ImageArchive = () => {
       height,
     }: {
       imagePath: string;
+      outputFolder: string;
       filename: string;
       videoFile: string;
       frameNum: number;
@@ -329,11 +344,27 @@ export const ImageArchive = () => {
       const detectedBoats = detectionResult.detections.filter(
         ({ boatBox }) => boatBox.width > 0 && boatBox.height > 0,
       );
-      const selected = selectFinishLineBoat(detectedBoats, width);
+      const selected = selectFinishLineBoat(detectedBoats, width, expectedBow);
+      const selectedBoatIndex = selected ? detectedBoats.indexOf(selected) : -1;
       const detectedBow = selected?.text || '';
       const bowMismatch = detectedBow !== expectedBow;
       const cards: ArchiveCardLabel[] = [];
-      const yoloLabel = detectedBoats
+      const finish = getFinishLine();
+      const finishX = width / 2 + (finish.pt1 + finish.pt2) / 2;
+      const exportedBoats = detectedBoats.map((detection, boatIndex) => {
+        if (boatIndex !== selectedBoatIndex) {
+          return detection;
+        }
+        const right = detection.boatBox.x + detection.boatBox.width;
+        const boatBox = getTravelRightToLeft()
+          ? { ...detection.boatBox, x: finishX, width: right - finishX }
+          : {
+              ...detection.boatBox,
+              width: finishX - detection.boatBox.x,
+            };
+        return boatBox.width > 0 ? { ...detection, boatBox } : detection;
+      });
+      const yoloLabel = exportedBoats
         .map(({ boatBox }) => {
           const normalizedBoat = [
             (boatBox.x + boatBox.width / 2) / width,
@@ -345,12 +376,12 @@ export const ImageArchive = () => {
         })
         .join('\n');
 
-      detectedBoats.forEach((detection, boatIndex) => {
+      exportedBoats.forEach((detection, boatIndex) => {
         const { boatBox, box } = detection;
         if (box.width <= 0 || box.height <= 0) {
           return;
         }
-        const verified = detection === selected;
+        const verified = boatIndex === selectedBoatIndex;
         cards.push({
           boatIndex,
           boatBox: makeBoxMetadata(boatBox),
@@ -378,14 +409,14 @@ export const ImageArchive = () => {
       const labelContents = yoloLabel ? `${yoloLabel}\n` : '';
 
       const labelResult = await window.Util.storeTextFile(
-        joinPath(folderPath, 'labels', `${stem}.txt`),
+        joinPath(outputFolder, 'labels', `${stem}.txt`),
         labelContents,
       );
       if (labelResult.status !== 'OK') {
         throw new Error(labelResult.error || labelResult.status);
       }
       const sidecarResult = await window.Util.storeJsonFile(
-        joinPath(folderPath, 'card-labels', `${stem}.json`),
+        joinPath(outputFolder, 'card-labels', `${stem}.json`),
         {
           image: filename,
           imagePath,
@@ -394,7 +425,7 @@ export const ImageArchive = () => {
           expectedBow,
           detectedBow,
           bowMismatch,
-          selectedBoatIndex: selected ? detectedBoats.indexOf(selected) : -1,
+          selectedBoatIndex,
           detectedBoatCount: detectedBoats.length,
           detectedCardCount: cards.length,
           cards,
@@ -409,7 +440,7 @@ export const ImageArchive = () => {
         bowMismatch,
       } satisfies ArchiveDetectionResult;
     },
-    [folderPath, joinPath, makeBoxMetadata, prune, selectFinishLineBoat],
+    [joinPath, makeBoxMetadata, prune, selectFinishLineBoat],
   );
 
   const saveImageArchive = useCallback(async () => {
@@ -420,11 +451,31 @@ export const ImageArchive = () => {
       boatsIdentified: 0,
       bowsMatched: 0,
     };
+    let exportFolder = folderPath;
+    let zipPath = '';
+    let archiveName = '';
     if (augmentYoloLabels) {
+      const tempResult =
+        await window.Util.createTempDirectory('crewtimer-dataset-');
+      if (tempResult.status !== 'OK') {
+        throw new Error(tempResult.error || tempResult.status);
+      }
+      exportFolder = tempResult.path;
+      const { regattaID } = getConnectionProps(mobileID);
+      const safeRegattaId = regattaID || 'Regatta';
+      archiveName = [
+        'dataset',
+        normalizedPrefix,
+        safeRegattaId,
+        ...(day ? [day] : []),
+      ].join('-');
+      zipPath = joinPath(folderPath, `${archiveName}.zip`);
       const directories = ['images', 'labels', 'card-labels'];
       for (const directory of directories) {
         // eslint-disable-next-line no-await-in-loop
-        const result = await window.Util.mkdir(joinPath(folderPath, directory));
+        const result = await window.Util.mkdir(
+          joinPath(exportFolder, directory),
+        );
         if (result.error) {
           throw new Error(result.error);
         }
@@ -466,12 +517,12 @@ export const ImageArchive = () => {
         }
         const timeObj = filteredScoredTimes[j];
         const filename =
-          `${prefix}-${day}T${timeObj.Time}-B${timeObj.Bow}-E${timeObj.EventNum.replaceAll(' ', '_')}.png`.replaceAll(
+          `${normalizedPrefix}-${dayPrefix}T${timeObj.Time}-B${timeObj.Bow}-E${timeObj.EventNum.replaceAll(' ', '_')}.png`.replaceAll(
             ':',
             '',
           );
         const saveAs = augmentYoloLabels
-          ? joinPath(folderPath, 'images', filename)
+          ? joinPath(exportFolder, 'images', filename)
           : joinPath(folderPath, filename);
         const toTimestamp = milliToString(
           timeToMilli(timeObj.Time) + timeOffset * 1000,
@@ -497,7 +548,8 @@ export const ImageArchive = () => {
         if (augmentYoloLabels && savedFrame) {
           // eslint-disable-next-line no-await-in-loop
           const detection = await saveTrainingLabels({
-            imagePath: saveAs,
+            imagePath: `images/${filename}`,
+            outputFolder: exportFolder,
             filename,
             videoFile: image.filename,
             frameNum: savedFrame.frameNum,
@@ -519,6 +571,16 @@ export const ImageArchive = () => {
         setProgressBar(
           ((i + j / filteredScoredTimes.length) / dirList.length) * 100,
         );
+      }
+    }
+    if (augmentYoloLabels) {
+      const zipResult = await window.Util.zipDirectory(
+        exportFolder,
+        zipPath,
+        archiveName,
+      );
+      if (zipResult.status !== 'OK') {
+        throw new Error(zipResult.error || zipResult.status);
       }
     }
     setProgressBar(100);
@@ -553,10 +615,12 @@ export const ImageArchive = () => {
     });
   }, [
     day,
+    dayPrefix,
     augmentYoloLabels,
     dirList,
     folderPath,
-    prefix,
+    mobileID,
+    normalizedPrefix,
     selectedRaceTimes,
     timeOffset,
     joinPath,
@@ -576,7 +640,7 @@ export const ImageArchive = () => {
 
 export const initiateImageArchive = () => {
   setArchiveRace('');
-  setArchiveYoloLabels(false);
+  setArchiveYoloLabels(true);
   setArchivePruneSide('none');
   setArchivePrunePercentage(0);
   const onClose = () => {
