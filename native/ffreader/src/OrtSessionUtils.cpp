@@ -4,6 +4,7 @@
 #include <coreml_provider_factory.h>
 #endif
 
+#include <filesystem>
 #include <iostream>
 
 #ifdef _WIN32
@@ -59,7 +60,11 @@ Ort::Session createOrtSession(Ort::Env &env, const std::string &modelPath,
   }
 #endif
 
-  Ort::Session session(env, modelPath.c_str(), options);
+  // ONNX Runtime paths use wchar_t on Windows and char elsewhere. Convert
+  // the UTF-8 path to the platform-native filesystem representation.
+  const std::filesystem::path nativeModelPath =
+      std::filesystem::u8path(modelPath);
+  Ort::Session session(env, nativeModelPath.c_str(), options);
   std::cerr << logTag << ": session ready for " << modelPath << " ("
             << epName << " " << (epRequested ? "requested" : "unavailable")
             << ")" << std::endl;
