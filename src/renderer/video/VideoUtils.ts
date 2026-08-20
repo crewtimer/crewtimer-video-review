@@ -1,5 +1,5 @@
 import React from 'react';
-import { Rect } from 'renderer/shared/AppTypes';
+import { AppImage, Rect } from 'renderer/shared/AppTypes';
 import { getWaypoint, getWaypointList } from 'renderer/util/UseSettings';
 import { ExtendedLap, getClickerData } from './UseClickerData';
 import {
@@ -588,7 +588,7 @@ export const seekToNextTimePoint = (
     bow: string;
     uuid?: string;
   },
-  afterSeek?: (timePoint: ExtendedLap) => void | Promise<void>,
+  afterSeek?: (timePoint: ExtendedLap, image: AppImage) => void | Promise<void>,
 ): TimeObject | undefined => {
   console.log('seeking...', from);
   if (!from.time) {
@@ -622,9 +622,11 @@ export const seekToNextTimePoint = (
 
   // Move forward in the array until finding a time point with a different Bow value
   const isSameTimePoint = (candidate: ExtendedLap) => {
-    // Unknown bows are ambiguous, so use the UUID to avoid skipping other "?" entries.
-    if (from.bow === '?' && from.uuid) {
-      return candidate.uuid === from.uuid;
+    // Preserve the hint UUID after OCR replaces an unknown bow. The recorded
+    // crossing may precede its original hint time, so UUID matching prevents
+    // Tab/automatic-next from selecting that same hint again.
+    if (from.uuid && candidate.uuid === from.uuid) {
+      return true;
     }
 
     return candidate.Bow === from.bow;
@@ -641,11 +643,27 @@ export const seekToNextTimePoint = (
   const nextResult = result;
   setTimeout(async () => {
     await zoomReset;
+    const priorImage = getImage();
     const found = await seekToTimestampAndWait({
       time: nextResult.Time || '00:00:00.000',
       bow: nextResult.Bow || '',
+      interpolate: true,
     });
     if (found) {
+      // requestVideoFrame resolves when native decoding and the datum update
+      // are complete, but React may not yet have committed that datum as the
+      // current displayed image. Post-seek actions such as AI auto-zoom read
+      // getImage()/getVideoFrameNum(), so wait for the new image identity
+      // before running them.
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve());
+        });
+        if (getImage() !== priorImage) {
+          break;
+        }
+      }
       if (nextResult.EventNum !== '?') {
         setVideoEvent(nextResult.EventNum);
       }
@@ -653,7 +671,7 @@ export const seekToNextTimePoint = (
         setVideoBow(nextResult.Bow, nextResult.uuid);
       }
       if (afterSeek) {
-        await afterSeek(nextResult);
+        await afterSeek(nextResult, found);
       }
     }
   }, 10);

@@ -1,8 +1,12 @@
 import Container from '@mui/material/Container';
-import { Typography } from '@mui/material';
+import { Button, Stack, Typography } from '@mui/material';
 import makeStyles from '@mui/styles/makeStyles';
 import LapList from './LapList';
 import { useDay, useMobileConfig, useWaypoint } from './util/UseSettings';
+import { setDialogConfig } from './util/ConfirmDialog';
+import { setToast } from './Toast';
+
+const { LapStorage } = window;
 
 const useStyles = makeStyles({
   title: {
@@ -19,6 +23,29 @@ export default function Status() {
   const [day] = useDay();
 
   const title = mc?.info.Title || 'Loading...';
+  const confirmClearHistory = () => {
+    setDialogConfig({
+      title: 'Clear Local Timing History',
+      message:
+        'Permanently remove all timing history stored locally on this computer?',
+      button: 'Clear Local History',
+      showCancel: true,
+      handleConfirm: () => {
+        Promise.resolve(LapStorage.truncateLapTable())
+          .then(() => {
+            setToast({ severity: 'info', msg: 'Local timing history cleared' });
+            return undefined;
+          })
+          .catch((error) => {
+            console.error('Unable to clear local timing history', error);
+            setToast({
+              severity: 'error',
+              msg: 'Unable to clear local timing history',
+            });
+          });
+      },
+    });
+  };
 
   return (
     <Container
@@ -36,10 +63,22 @@ export default function Status() {
           {title}
         </Typography>
       )}
-      <Typography
+      <Stack
         className={classes.waypoint}
-        variant="h6"
-      >{`Waypoint: ${waypoint}${day ? `, Day: ${day}` : ''}`}</Typography>
+        direction="row"
+        spacing={2}
+        sx={{ alignItems: 'center', justifyContent: 'space-between' }}
+      >
+        <Typography variant="h6">{`Waypoint: ${waypoint}${day ? `, Day: ${day}` : ''}`}</Typography>
+        <Button
+          variant="outlined"
+          color="error"
+          size="small"
+          onClick={confirmClearHistory}
+        >
+          Clear Local History
+        </Button>
+      </Stack>
       <LapList />
     </Container>
   );

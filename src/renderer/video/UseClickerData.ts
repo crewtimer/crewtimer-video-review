@@ -9,6 +9,12 @@ import {
 } from 'renderer/util/UseSettings';
 import { gateFromWaypoint, getConnectionProps } from 'renderer/util/Util';
 import {
+  getEntryResult,
+  setEntryResult,
+  setEntryResultsChanged,
+} from 'renderer/util/LapStorageDatum';
+import { deepCompare } from 'renderer/util/Compare';
+import {
   getVideoBow,
   getVideoBowUuid,
   getVideoSettings,
@@ -17,12 +23,6 @@ import {
   useVideoSettings,
 } from './VideoSettings';
 import { parseTimeToSeconds } from '../util/StringUtils';
-import {
-  getEntryResult,
-  setEntryResult,
-  setEntryResultsChanged,
-} from 'renderer/util/LapStorageDatum';
-import { deepCompare } from 'renderer/util/Compare';
 
 export interface ExtendedLap extends Lap {
   seconds: number;
@@ -69,11 +69,17 @@ const onDataRxTransformer = (
     const keyedLaps = new Map<string, ExtendedLap>();
     const keysToDelete = new Set<string>();
 
-    // Remove entries that are deleted or have no matching day value if day is set
+    // Collapse each gate/event/bow to its last non-deleted timestamp. Deleted
+    // records never suppress another non-deleted record for the same key.
     lapList.forEach((lapraw) => {
       const lap = { ...lapraw };
       // If our current videoBow is '?' (not set) and this lap matches the videoUuid, set the videoBow to this lap's bow
-      if (videoBow === '?' && lap.EventNum !== '?' && lap.uuid === videoUuid) {
+      if (
+        lap.State !== 'Deleted' &&
+        videoBow === '?' &&
+        lap.EventNum !== '?' &&
+        lap.uuid === videoUuid
+      ) {
         setVideoBow(lap.Bow, lap.uuid);
         setVideoEvent(lap.EventNum);
       }
@@ -93,11 +99,11 @@ const onDataRxTransformer = (
       if (keep) {
         keyedLaps.set(key, lap);
         keysToDelete.delete(key); // have value, clear any accumulated delete
-      } else {
-        if (lap.State === 'Deleted') {
-          keysToDelete.add(key);
-        }
-        keyedLaps.delete(key);
+      } else if (!keyedLaps.has(key)) {
+        // Clear a stale cached value only when this data set contains no
+        // eligible non-deleted record for the key. An excluded or deleted
+        // record that follows a valid timestamp must not remove it.
+        keysToDelete.add(key);
       }
     });
 

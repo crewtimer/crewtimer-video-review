@@ -18,7 +18,6 @@ import VideoSideBar from './VideoSideBar';
 import {
   getTravelRightToLeft,
   getVideoFrameNum,
-  getVideoSettings,
   setVideoTimestamp,
   useResetZoomCounter,
   useImage,
@@ -59,10 +58,7 @@ import VideoScrubber from './VideoScrubber';
 import { performAddSplit } from './AddSplitUtil';
 import Blowup from './Blowup';
 import { updateVideoScaling } from '../util/ImageScaling';
-import {
-  performAutoZoomSeek,
-  videoRequestQueueRunning,
-} from './RequestVideoFrame';
+import { videoRequestQueueRunning } from './RequestVideoFrame';
 import { useSingleAndDoubleClick } from '../util/UseSingleAndDoubleClick';
 import type { AppImage, BowDetection, Rect } from '../shared/AppTypes';
 import {
@@ -81,6 +77,7 @@ import {
   getInterpolatedBowDetections,
   hasAutoZoomInterpolation,
   hasAutoZoomInterpolationAtFrame,
+  omitOverlappingBoatDetections,
   restoreMissingCardDetections,
 } from './AutoZoomToFinish';
 
@@ -674,12 +671,14 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             videoFileName,
             frameNum,
           )?.catch(() => undefined);
-          detections = cachedResult
-            ? restoreMissingCardDetections(
-                result.detections,
-                cachedResult.detections,
-              )
-            : result.detections;
+          detections = omitOverlappingBoatDetections(
+            cachedResult
+              ? restoreMissingCardDetections(
+                  result.detections,
+                  cachedResult.detections,
+                )
+              : result.detections,
+          );
         }
         const detectionMs = performance.now() - detectionStarted;
         const cardCount = detections.filter(
@@ -870,20 +869,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         setAnnotatedBow(clickedLabel.value);
         setVideoBow(clickedLabel.value);
         event.preventDefault();
-        return;
       }
-    }
-
-    const videoSettings = getVideoSettings();
-    if (
-      (event.shiftKey || getVideoScaling().autoZoomed) &&
-      videoSettings.enableAutoZoom &&
-      !getNearEdge()
-    ) {
-      if (!withinBounds) {
-        return;
-      }
-      performAutoZoomSeek(srcCoords);
     }
   };
 
@@ -903,9 +889,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       return;
     }
 
-    const autoZoomRequested =
-      getVideoSettings().enableAutoZoom && event.shiftKey;
-    if (!isZooming() || autoZoomRequested) {
+    if (!isZooming()) {
       const finish = getFinishLine();
       const rect = canvasRef.current?.getBoundingClientRect();
 
@@ -976,8 +960,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             console.error('Auto Zoom to Finish failed', error);
             applyNormalDoubleClickZoom();
           });
-      } else if (autoZoomRequested) {
-        performAutoZoomSeek(srcCoords);
       } else {
         applyNormalDoubleClickZoom();
       }

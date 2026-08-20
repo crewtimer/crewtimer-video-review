@@ -79,14 +79,14 @@ export const useAuthOK = () => {
 export const [useDebugLevel, setDebugLevel, getDebugLevel] =
   UseMemDatum<number>(N_DEBUG_LEVEL, 0);
 export const [useLabelBoats, setLabelBoats, getLabelBoats] =
-  UseMemDatum<boolean>(N_LABEL_BOATS, false);
+  UseStoredDatum<boolean>(N_LABEL_BOATS, false);
 export const [
   useLabelCardsWithoutBoat,
   setLabelCardsWithoutBoat,
   getLabelCardsWithoutBoat,
 ] = UseMemDatum<boolean>(N_LABEL_CARDS_WITHOUT_BOAT, false);
 export const [useAutoZoomToFinish, setAutoZoomToFinish, getAutoZoomToFinish] =
-  UseMemDatum<boolean>(N_AUTO_ZOOM_TO_FINISH, false);
+  UseStoredDatum<boolean>(N_AUTO_ZOOM_TO_FINISH, false);
 
 // Tab position of the CenteredTabs component
 export const [useTabPosition, setTabPosition, getTabPosition] = UseStoredDatum(

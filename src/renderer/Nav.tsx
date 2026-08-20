@@ -10,14 +10,12 @@ import DebugIcon from '@mui/icons-material/BugReport';
 import Menu from '@mui/material/Menu';
 import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
 import CloudOffOutlinedIcon from '@mui/icons-material/CloudOffOutlined';
-import Snackbar from '@mui/material/Snackbar';
 import Tooltip from '@mui/material/Tooltip';
 // import icon from '../assets/icons/crewtimer-review-white.svg';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
-import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import InfoIcon from '@mui/icons-material/Info';
 import ArticleIcon from '@mui/icons-material/Article';
@@ -39,7 +37,6 @@ import {
   useDebugLevel,
   useLabelBoats,
   useLabelCardsWithoutBoat,
-  useAutoZoomToFinish,
 } from './util/UseSettings';
 import icon from '../assets/icons/crewtimer-review2-white.svg';
 import { setDialogConfig } from './util/ConfirmDialog';
@@ -54,14 +51,11 @@ import InterpolationTechniqueSelector from './util/InterpolationTechniqueSelecto
 
 const AboutText = `CrewTimer Video Review ${window.platform.appVersion}`;
 
-const { LapStorage } = window;
-
 const DebugDialogBody = () => {
   const [debugLevel, setDebugLevel] = useDebugLevel();
-  const [labelBoats, setLabelBoats] = useLabelBoats();
+  const [labelBoats] = useLabelBoats();
   const [labelCardsWithoutBoat, setLabelCardsWithoutBoat] =
     useLabelCardsWithoutBoat();
-  const [autoZoomToFinish, setAutoZoomToFinish] = useAutoZoomToFinish();
 
   const toggleDebug = () => {
     let newDebugLevel = debugLevel + 1;
@@ -84,30 +78,12 @@ const DebugDialogBody = () => {
       <FormControlLabel
         control={
           <Checkbox
-            checked={labelBoats}
-            onChange={(event) => setLabelBoats(event.target.checked)}
-          />
-        }
-        label="Label boats"
-      />
-      <FormControlLabel
-        control={
-          <Checkbox
             checked={labelCardsWithoutBoat}
             disabled={!labelBoats}
             onChange={(event) => setLabelCardsWithoutBoat(event.target.checked)}
           />
         }
         label="Detect cards without a boat"
-      />
-      <FormControlLabel
-        control={
-          <Checkbox
-            checked={autoZoomToFinish}
-            onChange={(event) => setAutoZoomToFinish(event.target.checked)}
-          />
-        }
-        label="Auto Zoom to Finish"
       />
       <InterpolationTechniqueSelector />
     </Stack>
@@ -132,8 +108,6 @@ export default function Nav() {
   const [mobileID] = useMobileID();
   const [anchorEl, setAnchorEl] = React.useState<Element | null>(null);
   const [firebaseConnected] = useFirebaseConnected();
-  const [msgOpen, setMsgOpen] = useState(false);
-  const [msg, setMsg] = useState('');
   const [shiftMenu, setShiftMenu] = useState(false);
   const [fileStatusList] = useFileStatusList();
 
@@ -174,12 +148,6 @@ export default function Nav() {
     initiateImageArchive();
   };
 
-  const handleClearData = () => {
-    setAnchorEl(null);
-    LapStorage.truncateLapTable();
-    setMsgOpen(true);
-    setMsg('Local data cleared');
-  };
   const onViewResults = () => {
     setAnchorEl(null);
     const connectProps = getConnectionProps(mobileID);
@@ -360,14 +328,6 @@ export default function Nav() {
                 </MenuItem>
               )}
               {!shiftMenu && (
-                <MenuItem onClick={handleClearData}>
-                  <ListItemIcon>
-                    <HistoryToggleOffIcon />
-                  </ListItemIcon>
-                  <ListItemText primary="Clear Local History" />
-                </MenuItem>
-              )}
-              {!shiftMenu && (
                 <MenuItem onClick={handleArchiveData}>
                   <ListItemIcon>
                     <DeleteForeverIcon />
@@ -436,16 +396,6 @@ export default function Nav() {
                 </MenuItem>
               )}
             </Menu>
-            <Snackbar
-              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              open={msgOpen}
-              onClose={() => setMsgOpen(false)}
-              autoHideDuration={4000}
-              ContentProps={{
-                'aria-describedby': 'message-id',
-              }}
-              message={<span id="message-id">{msg}</span>}
-            />
           </div>
         </Toolbar>
       </AppBar>

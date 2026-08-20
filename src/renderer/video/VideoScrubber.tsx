@@ -191,11 +191,20 @@ const VideoScrubber = () => {
   ) => {
     const click = findNearestClick(event);
     if (!click) {
-      timestampSeekRequest.current += 1;
+      const requestId = timestampSeekRequest.current + 1;
+      timestampSeekRequest.current = requestId;
       const frameNum = Math.round(sliderValueEvent.current);
-      setVideoFrameNum(frameNum);
-      requestVideoFrame({ videoFile, frameNum });
-      setLastSeekTime({ time: '', bow: '' });
+      resetVideoZoom()
+        .then(() => {
+          if (requestId !== timestampSeekRequest.current) {
+            return undefined;
+          }
+          setVideoFrameNum(frameNum);
+          requestVideoFrame({ videoFile, frameNum });
+          setLastSeekTime({ time: '', bow: '' });
+          return undefined;
+        })
+        .catch(showErrorDialog);
       return;
     }
     const requestId = timestampSeekRequest.current + 1;

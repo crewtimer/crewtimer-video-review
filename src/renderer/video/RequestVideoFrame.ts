@@ -20,9 +20,6 @@ import {
   setVideoEvent,
   setVideoBow,
   setLastSeekTime,
-  getVideoFile,
-  getVideoFrameNum,
-  getVideoScaling,
   getInterpolationTechnique,
 } from './VideoSettings';
 import {
@@ -34,13 +31,7 @@ import { generateTestPattern } from '../util/ImageUtils';
 import { getClickerData } from './UseClickerData';
 import { saveVideoSidecar } from './Sidecar';
 // eslint-disable-next-line import/no-cycle
-import {
-  getFinishLine,
-  getTrackingRegion,
-  getVisibleSourceRect,
-  moveToFrame,
-  Point,
-} from './VideoUtils';
+import { getVisibleSourceRect } from './VideoUtils';
 import type { InterpolationRecord } from './InterpolationStore';
 
 const { VideoUtils } = window;
@@ -400,7 +391,7 @@ const resolveSeekTarget = ({ time, bow }: { time: string; bow?: string }) => {
   setLastSeekTime({ time, bow });
   const jumpTime = parseTimeToSeconds(time);
   const fileStatusList = getFileStatusList();
-  const fileIndex = fileStatusList.findIndex((item) => {
+  const fileBounds = fileStatusList.map((item, index) => {
     const start = secondsSinceLocalMidnight(
       item.startTime / 1000000,
       item.tzOffset,
@@ -409,16 +400,52 @@ const resolveSeekTarget = ({ time, bow }: { time: string; bow?: string }) => {
       item.endTime / 1000000,
       item.tzOffset,
     );
-    return jumpTime >= start && jumpTime <= end;
+    return { item, index, start, end };
   });
+  let fileIndex = fileBounds.findIndex(
+    ({ start, end }) => jumpTime >= start && jumpTime <= end,
+  );
+  let resolvedTime = time;
+
+  if (fileIndex < 0 && fileBounds.length) {
+    const nearest = fileBounds
+      .flatMap(({ item, index, start, end }) => [
+        { item, index, boundary: start, edge: 'start' as const },
+        { item, index, boundary: end, edge: 'end' as const },
+      ])
+      .map((candidate) => ({
+        ...candidate,
+        distance: Math.abs(candidate.boundary - jumpTime),
+      }))
+      .sort((a, b) => a.distance - b.distance)[0];
+    const tolerance = 2 / Math.max(1, nearest.item.fps || 60);
+    if (nearest.distance <= tolerance) {
+      fileIndex = nearest.index;
+      resolvedTime = milliToString(Math.round(nearest.boundary * 1000));
+      console.log(
+        `Timestamp ${time} falls between video files; using nearest ${nearest.edge} boundary ${resolvedTime} ` +
+          `from ${nearest.item.filename} (${(nearest.distance * 1000).toFixed(1)}ms away, ` +
+          `tolerance=${(tolerance * 1000).toFixed(1)}ms)`,
+      );
+    } else {
+      console.warn(
+        `No video contains timestamp ${time}; nearest boundary is ${(nearest.distance * 1000).toFixed(1)}ms away ` +
+          `at ${milliToString(Math.round(nearest.boundary * 1000))} in ${nearest.item.filename}, ` +
+          `beyond the ${(tolerance * 1000).toFixed(1)}ms tolerance`,
+      );
+    }
+  }
   if (fileIndex < 0) {
+    if (!fileBounds.length) {
+      console.warn(`No video files are available for timestamp ${time}`);
+    }
     return undefined;
   }
 
   const videoFile = fileStatusList[fileIndex].filename;
   setSelectedIndex(fileIndex);
   setVideoFile(videoFile);
-  return { time, videoFile };
+  return { time: resolvedTime, videoFile };
 };
 
 /**
@@ -460,7 +487,7 @@ export const seekToTimestampAndWait = async ({
   bow?: string;
   interpolate?: boolean;
   commitGuard?: () => boolean;
-}): Promise<string | undefined> => {
+}): Promise<AppImage | undefined> => {
   const target = resolveSeekTarget({ time, bow });
   if (!target) {
     return undefined;
@@ -486,11 +513,11 @@ export const seekToTimestampAndWait = async ({
     if (!image) {
       return undefined;
     }
+    return image;
   } catch (error) {
     showErrorDialog(error);
     return undefined;
   }
-  return target.videoFile;
 };
 
 export const seekToTimestampWithInterpolation = async ({
@@ -622,91 +649,4 @@ export const seekToClickInFile = (videoFile: string, seekPercent: number) => {
   setLastSeekTime({ time });
   // no clicks found, just seek to the file falling back on percent
   return requestVideoFrame({ videoFile, seekPercent });
-};
-
-/**
- * Performs an auto-zoom and seek operation on a video based on provided source coordinates.
- *
- * Updates the video scaling settings centered at the specified coordinates, then requests a video frame
- * zoomed around that area. If significant motion is detected in the frame (from video analysis),
- * the function estimates the required frame jump to center the tracked region and seeks to the new frame,
- * adjusting the zoom as needed.
- *
- * @param srcCoords - The point (with x and y) within the video frame to center the auto-zoom operation.
- * @returns {Promise<void>} Resolves when the operation is complete and video/UI state is updated.
- */
-export const performAutoZoomSeek = async (srcCoords: Point) => {
-  // First measure the velocity in px/frame at the point of interest
-  // srcCoords.x = 2528;
-  // srcCoords.y = 276;
-  updateVideoScaling({ srcClickPoint: srcCoords });
-
-  const zoom = getTrackingRegion(false);
-  const frameNum = getVideoFrameNum();
-  console.log(
-    'roi',
-    JSON.stringify({
-      frame: frameNum.toFixed(2),
-      x: srcCoords.x.toFixed(1),
-      y: srcCoords.y.toFixed(1),
-    }),
-  );
-  const autoZoomInterpMethod = getInterpolationTechnique();
-  const image = await requestVideoFrame({
-    videoFile: getVideoFile(),
-    frameNum: Math.floor(frameNum) + 0.1, // 0.1 to trigger dx measurement
-    zoom,
-    blend: true,
-    closeTo: true,
-    interpMethod: autoZoomInterpMethod,
-    crop: autoZoomInterpMethod === 'rife' ? getVisibleSourceRect() : undefined,
-  });
-
-  // If we have valid motiion
-  if (
-    image?.motion.valid &&
-    Math.abs(image.motion.x) > 2 &&
-    Math.abs(image.motion.x) < 60
-  ) {
-    // Calculate movement necessary to get to the finish line
-    // FUTURE: calculate as time instead using both dx and dt
-    const finish = getFinishLine();
-    const dx = image.width / 2 + finish.pt1 - srcCoords.x;
-    let frames = Math.min(120, dx / image.motion.x);
-
-    if (Math.abs(frames) > 5) {
-      // Apply some compression to avoid overshoot and seek to exact frame
-      frames = Math.floor(5 + (frames - 5) * 0.95);
-    }
-
-    // Move to approximate frame
-    let destFrame = frameNum + frames;
-    if (getHyperZoomFactor() === 0) {
-      destFrame = Math.round(destFrame);
-    }
-    console.log(
-      `dx=${image.motion.x} dt=${image.motion.dt} dframe=${frames.toFixed(1)} destFrame=${destFrame.toFixed(2)}`,
-    );
-
-    updateVideoScaling({
-      zoomY: 5,
-      srcCenterPoint: {
-        x: getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
-        y: srcCoords.y,
-      },
-      srcClickPoint: {
-        x: getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2,
-        y: srcCoords.y,
-      },
-      autoZoomed: true,
-    });
-    moveToFrame(destFrame, 0, true);
-  } else {
-    console.log(`Failed to auto-zoom rx frame=${getVideoFrameNum()}`);
-    updateVideoScaling({
-      zoomY: 5,
-      srcCenterPoint: getTrackingRegion(),
-      autoZoomed: true,
-    });
-  }
 };

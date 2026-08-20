@@ -1,4 +1,5 @@
 import { Entry, Lap } from 'crewtimer-common';
+import type { AppImage } from 'renderer/shared/AppTypes';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 import {
   setEntryResultAndPublish,
@@ -16,6 +17,7 @@ import {
   getAutoNextTimestamp,
   getAnnotatedBow,
   getVideoBow,
+  getVideoBowUuid,
   getVideoEvent,
   getVideoTimestamp,
   setLastScoredTimestamp,
@@ -29,12 +31,22 @@ import { autoZoomToFinishNearFinish } from './AutoZoomToFinish';
 
 let lastAddSplit = 0;
 
-const autoZoomAfterNextTimestamp = async (next: { Bow?: string }) => {
+const autoZoomAfterNextTimestamp = async (
+  next: { Bow?: string; uuid?: string },
+  image: AppImage,
+) => {
   if (getAutoZoomToFinish()) {
-    const result = await autoZoomToFinishNearFinish(next.Bow || '', 100);
-    const detectedBow = result?.bow.trim();
+    const result = await autoZoomToFinishNearFinish(
+      next.Bow || '',
+      Number.POSITIVE_INFINITY,
+      image,
+    );
+    if (!result) {
+      return;
+    }
+    const detectedBow = result.bow.trim();
     if (next.Bow === '?' && detectedBow && detectedBow !== '?') {
-      setVideoBow(detectedBow);
+      setVideoBow(detectedBow, next.uuid);
     }
   }
 };
@@ -59,6 +71,7 @@ const addSplitForBow = (videoBow: string) => {
     return;
   }
   const selectedEvent = getVideoEvent();
+  const videoBowUuid = getVideoBowUuid();
   const mobileConfig = getMobileConfig();
   const waypoint = getWaypoint();
   const gate = gateFromWaypoint(waypoint);
@@ -141,7 +154,7 @@ const addSplitForBow = (videoBow: string) => {
           msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,
         });
         seekToNextTimePoint(
-          { time: lap.Time, bow: lap.Bow },
+          { time: lap.Time, bow: lap.Bow, uuid: videoBowUuid },
           autoNextTimestamp ? autoZoomAfterNextTimestamp : undefined,
         );
       },
@@ -160,7 +173,7 @@ const addSplitForBow = (videoBow: string) => {
   });
   if (autoNextTimestamp) {
     seekToNextTimePoint(
-      { time: lap.Time, bow: lap.Bow },
+      { time: lap.Time, bow: lap.Bow, uuid: videoBowUuid },
       autoZoomAfterNextTimestamp,
     );
   } else {

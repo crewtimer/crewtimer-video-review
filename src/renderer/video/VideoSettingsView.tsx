@@ -36,6 +36,7 @@ import {
 import HyperZoomSelector from '../util/HyperZoomSelector';
 import { saveVideoSidecar } from './Sidecar';
 import { getFileStatusList } from './VideoFileStatus';
+import { useAutoZoomToFinish, useLabelBoats } from '../util/UseSettings';
 
 declare module '@mui/styles/defaultTheme' {
   interface DefaultTheme extends Theme {}
@@ -67,6 +68,8 @@ export const VideoSettingsDialog = () => {
   const [autoFileSplit, setAutoFileSplit] = useAutoFileSplitEnable();
   const [rightToLeft, setRightToLeft] = useTravelRightToLeft();
   const [autoNextTimestamp, setAutoNextTimestamp] = useAutoNextTimestamp();
+  const [labelBoats, setLabelBoats] = useLabelBoats();
+  const [autoZoomToFinish, setAutoZoomToFinish] = useAutoZoomToFinish();
 
   // Handler to update the wheelFactor state
   // const handleSliderChange = (_event: Event, newValue: number | number[]) => {
@@ -212,30 +215,6 @@ export const VideoSettingsDialog = () => {
             </Typography>
           </Toolbar>
           <Box className={classes.settings}>
-            <HyperZoomSelector />
-          </Box>
-          <Box className={classes.settings}>
-            <FormControlLabel
-              labelPlacement="end"
-              label="Enable Auto-Zoom with shift-click or shift-double-click"
-              control={
-                <Checkbox
-                  size="small"
-                  checked={videoSettings.enableAutoZoom}
-                  onChange={() => {
-                    setVideoSettings(
-                      {
-                        ...videoSettings,
-                        enableAutoZoom: !videoSettings.enableAutoZoom,
-                      },
-                      true,
-                    );
-                  }}
-                />
-              }
-            />
-          </Box>
-          <Box className={classes.settings}>
             <Tooltip title="Invert wheel direction" placement="right">
               <FormControlLabel
                 labelPlacement="end"
@@ -257,7 +236,7 @@ export const VideoSettingsDialog = () => {
             >
               <FormControlLabel
                 labelPlacement="end"
-                label="Auto next timestamp"
+                label="Automatic next timestamp"
                 control={
                   <Checkbox
                     size="small"
@@ -275,12 +254,62 @@ export const VideoSettingsDialog = () => {
             >
               <FormControlLabel
                 labelPlacement="end"
-                label="Automatic Recorder File Splitting (beta)"
+                label="Automatic Recorder File Splitting"
                 control={
                   <Checkbox
                     size="small"
                     checked={autoFileSplit}
                     onChange={() => setAutoFileSplit(!autoFileSplit)}
+                  />
+                }
+              />
+            </Tooltip>
+          </Box>
+        </Grid>
+        <Grid size={12}>
+          <Toolbar className={classes.header}>
+            <Typography
+              variant="h6"
+              display="inline"
+              className={classes.smaller}
+            >
+              AI Assist
+            </Typography>
+          </Toolbar>
+          <Box className={classes.settings}>
+            <HyperZoomSelector />
+          </Box>
+          <Box className={classes.settings}>
+            <Tooltip
+              title="Show detected boats, bow cards, bow numbers, and confidence on the video"
+              placement="right"
+            >
+              <FormControlLabel
+                labelPlacement="end"
+                label="Annotate Boat Detections"
+                control={
+                  <Checkbox
+                    checked={labelBoats}
+                    onChange={(event) => setLabelBoats(event.target.checked)}
+                  />
+                }
+              />
+            </Tooltip>
+          </Box>
+          <Box className={classes.settings}>
+            <Tooltip
+              title="On an unzoomed double click, detect the nearby boat and seek to its estimated crossing of the timing guide"
+              placement="right"
+            >
+              <FormControlLabel
+                labelPlacement="end"
+                label="Zoom to Timing Guide on Double Click"
+                control={
+                  <Checkbox
+                    checked={autoZoomToFinish}
+                    onChange={(event) =>
+                      setAutoZoomToFinish(event.target.checked)
+                    }
                   />
                 }
               />
@@ -301,7 +330,7 @@ export const VideoSettingsDialog = () => {
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
               <FormControlLabel
                 labelPlacement="end"
-                label="Finish"
+                label="Timing Guide"
                 control={
                   <Checkbox
                     checked={videoSettings.guides[0].enabled}

@@ -2,14 +2,14 @@
 
 | Video Gestures | Action |
 | --- | --- |
-| space | Trigger the video recorder to close the current video file being recorded and start a new file. |
-| Mouse Wheel, Left Arrow Key, or Right Arrow Key | Jog the timeline by one video frame.  If zoomed, jog by a partial frame if possible. |
+| Space | Trigger the video recorder to close the current video file being recorded and start a new file. |
+| Mouse Wheel, Left Arrow, Right Arrow, `,`, `.`, `<`, or `>` | Jog the timeline by one video frame. If zoomed, jog by a partial frame if possible. |
 | Right Click | Record the current Timestamp and Bow as if the Add Split button was pressed. | 
 | Tab | Jump to the next available clicker hint in the timeline. |
-| Double Click | Enter or Exit video zoom.  If auto-zoom is enabled and shift held, the click point is used to attempt to move the point to the finish guide. |
-| Shift click | Attempt to automatically move the selected point to the finish guide and enter 5x zoom.  Auto-zoom must be enabled in settings.|
-| z or / or double click | Exit video zoom. |
-| Shift Click on lane or finish guide drag handle| Restore guide to vertical or horizontal orientation. See also reset option in settings. |
+| Double Click | Enter or exit video zoom. When Zoom to Timing Guide on Double Click is enabled, an unzoomed double click attempts to locate the boat crossing. |
+| Escape, `z`, `Z`, or `/` | Exit video zoom. |
+| `p` | Start or stop video playback. |
+| Shift-drag a lane or timing guide handle | Restore the guide to vertical or horizontal orientation while dragging. See also the reset option in settings. |
 
 | Recorder Gestures | Action |
 | --- | --- |

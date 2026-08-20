@@ -51,7 +51,6 @@ export interface VideoGuides {
   guides: GuideLine[];
   laneBelowGuide: boolean;
   enableLaneGuides: boolean;
-  enableAutoZoom: boolean;
 }
 
 export const DEFAULT_GUIDE_COLOR = '#ffffffa0';
@@ -169,7 +168,7 @@ export const [useBowSeekPending, setBowSeekPending, getBowSeekPending] =
 
 export const setVideoBow = (bow: string, uuid?: string) => {
   _setVideoBow(bow);
-  setVideoBowUuid(bow === '?' && uuid ? uuid : '');
+  setVideoBowUuid(uuid || '');
 };
 
 export const [useVideoEvent, setVideoEvent, getVideoEvent] = UseDatum('');
@@ -233,7 +232,6 @@ export const VideoGuidesKeys: (keyof VideoGuides)[] = [
   'guides',
   'laneBelowGuide',
   'enableLaneGuides',
-  'enableAutoZoom',
 ];
 
 /**
@@ -253,7 +251,6 @@ export const [useVideoSettings, setVideoSettings, getVideoSettings] =
     guideColor: DEFAULT_GUIDE_COLOR,
     laneBelowGuide: false,
     enableLaneGuides: true,
-    enableAutoZoom: true,
     guides: [
       { dir: Dir.Vert, pt1: 0, pt2: 0, label: 'Finish', enabled: true },
       { dir: Dir.Horiz, pt1: 0.08, pt2: 0.08, label: 'Lane 0', enabled: false },
