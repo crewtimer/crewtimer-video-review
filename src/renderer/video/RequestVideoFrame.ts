@@ -529,16 +529,28 @@ export const seekToTimestampWithInterpolation = async ({
   bow?: string;
   interpolation: InterpolationRecord;
 }): Promise<string | undefined> => {
-  const target = resolveSeekTarget({ time, bow });
+  // Result times include the row-specific rolling-shutter correction. Video
+  // seeks and interpolation always operate on the original frame timeline.
+  const target = resolveSeekTarget({
+    time: interpolation.frameTime ?? time,
+    bow,
+  });
   if (!target) {
     return undefined;
   }
+  // Navigation remains anchored to the scored result time even though the
+  // video request below uses its uncorrected frame time.
+  setLastSeekTime({ time, bow });
+  const srcClickPoint = {
+    ...interpolation.srcClickPoint,
+    y: interpolation.recordedY ?? interpolation.srcClickPoint.y,
+  };
 
   updateVideoScaling({
     zoomX: 1,
     zoomY: interpolation.zoomY,
     srcCenterPoint: interpolation.srcCenterPoint,
-    srcClickPoint: interpolation.srcClickPoint,
+    srcClickPoint,
     autoZoomed: interpolation.autoZoomed,
   });
 
@@ -560,14 +572,19 @@ export const seekToTimestampWithInterpolation = async ({
       zoomX: 1,
       zoomY: interpolation.zoomY,
       srcCenterPoint: interpolation.srcCenterPoint,
-      srcClickPoint: interpolation.srcClickPoint,
+      srcClickPoint,
       autoZoomed: interpolation.autoZoomed,
     });
 
     const interpMethod = getInterpolationTechnique();
+    const interpolationFrameNum = interpolation.frameNum ?? image.frameNum;
+    // The initial timestamp seek above commits its nearby decoded frame. The
+    // restored interpolation may be fractional, so make that exact position
+    // canonical before zoom reset later requests a full-frame refresh.
+    setVideoFrameNum(interpolationFrameNum);
     await requestVideoFrame({
       videoFile: target.videoFile,
-      frameNum: image.frameNum,
+      frameNum: interpolationFrameNum,
       zoom: interpolation.trackingRegion,
       blend: true,
       closeTo: false,

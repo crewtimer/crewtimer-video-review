@@ -3,7 +3,10 @@ import { getEntryResult } from 'renderer/util/LapStorageDatum';
 import { getWaypoint } from 'renderer/util/UseSettings';
 import { gateFromWaypoint } from 'renderer/util/Util';
 import { UseDatum } from 'react-usedatum';
-import { seekToTimestampAndWait } from './RequestVideoFrame';
+import {
+  seekToTimestampAndWait,
+  seekToTimestampWithInterpolation,
+} from './RequestVideoFrame';
 import {
   getVideoScaling,
   getVideoSettings,
@@ -17,6 +20,7 @@ import {
   clearAutoZoomDetectionCache,
   clearAutoZoomInterpolation,
 } from './AutoZoomToFinish';
+import { loadInterpolationRecordForLap } from './InterpolationStore';
 
 export function sanitizeFirebaseKey(s: string) {
   return s.replace(/[#$/[.\]]/g, '-');
@@ -87,12 +91,22 @@ export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
           if (requestId !== bowSeekRequest) {
             return;
           }
-          const found = await seekToTimestampAndWait({
-            time: seekTime,
-            bow: lap.Bow,
-            interpolate: true,
-            commitGuard: () => requestId === bowSeekRequest,
-          });
+          const interpolation = await loadInterpolationRecordForLap(lap);
+          if (requestId !== bowSeekRequest) {
+            return;
+          }
+          const found = interpolation
+            ? await seekToTimestampWithInterpolation({
+                time: seekTime,
+                bow: lap.Bow,
+                interpolation,
+              })
+            : await seekToTimestampAndWait({
+                time: seekTime,
+                bow: lap.Bow,
+                interpolate: true,
+                commitGuard: () => requestId === bowSeekRequest,
+              });
           if (!found && requestId === bowSeekRequest) {
             setToast({
               severity: 'warning',

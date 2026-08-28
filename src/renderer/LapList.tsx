@@ -7,6 +7,7 @@ import clsx from 'clsx';
 import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
 import { Lap } from 'crewtimer-common';
 import { setEntryResultAndPublish, useLaps } from './util/LapStorageDatum';
+import { deleteInterpolationRecordForLap } from './video/InterpolationStore';
 
 // https://github.com/bvaughn/react-virtualized/issues/1739
 const AutoSizer = _AutoSizer as unknown as FC<Props>;
@@ -83,6 +84,9 @@ const Row = ({ data, index, style }: ListChildComponentProps) => {
       delete lap.State;
     } else {
       lap.State = 'Deleted';
+      deleteInterpolationRecordForLap(lap).catch((error) => {
+        console.warn('Failed to delete timestamp context', error);
+      });
     }
     setEntryResultAndPublish(lap.keyid || lap.uuid, lap);
   };

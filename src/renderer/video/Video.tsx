@@ -80,6 +80,13 @@ import {
   omitOverlappingBoatDetections,
   restoreMissingCardDetections,
 } from './AutoZoomToFinish';
+import { getFileStatusByName } from './VideoFileStatus';
+import {
+  retainedRollingShutterOffsetMs,
+  rollingShutterOffsetMs,
+  type RetainedRollingShutterCorrection,
+} from './RollingShutter';
+import type { VideoSidecar } from './VideoSettings';
 
 // Avoid 'not a JSX component' warning
 const Measure = _Measure as unknown as FC<MeasureProps>;
@@ -545,13 +552,52 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const bowDetectionsFrame = useRef(Number.NaN);
   const bowLabelHitRegions = useRef<BowLabelHitRegion[]>([]);
   const holdCanvasDuringZoomReset = useRef(false);
+  const retainedRollingShutterCorrection = useRef<
+    RetainedRollingShutterCorrection | undefined
+  >(undefined);
   const [holdOverlayDuringZoomReset, setHoldOverlayDuringZoomReset] =
     useState(false);
 
+  const timestampFinish = getFinishLine();
+  const finishX =
+    videoScaling.srcWidth / 2 + (timestampFinish.pt1 + timestampFinish.pt2) / 2;
+  const liveRollingShutterOffset =
+    videoScaling.zoomY > 1
+      ? rollingShutterOffsetMs(
+          getFileStatusByName(image.file)?.sidecar as VideoSidecar | undefined,
+          { x: finishX, y: videoScaling.srcClickPoint.y },
+        )
+      : undefined;
+  const displayedRollingShutterOffset =
+    liveRollingShutterOffset ??
+    retainedRollingShutterOffsetMs(
+      retainedRollingShutterCorrection.current,
+      image.file,
+      image.frameNum,
+    );
+  const displayTimestampMs = image.timestamp + displayedRollingShutterOffset;
   const videoTimestamp = convertTimestampToString(
-    image.timestamp,
+    Math.round(displayTimestampMs),
     image.tzOffset,
   );
+
+  useEffect(() => {
+    if (liveRollingShutterOffset !== undefined) {
+      retainedRollingShutterCorrection.current = {
+        videoFile: image.file,
+        frameNum: image.frameNum,
+        offsetMs: liveRollingShutterOffset,
+      };
+    } else if (
+      retainedRollingShutterCorrection.current &&
+      (retainedRollingShutterCorrection.current.videoFile !== image.file ||
+        Math.abs(
+          retainedRollingShutterCorrection.current.frameNum - image.frameNum,
+        ) > 0.001)
+    ) {
+      retainedRollingShutterCorrection.current = undefined;
+    }
+  }, [image.file, image.frameNum, liveRollingShutterOffset]);
 
   const copyImageToOffscreenCanvas = useCallback((nextImage: AppImage) => {
     offscreenCanvas.current.width = nextImage.width;

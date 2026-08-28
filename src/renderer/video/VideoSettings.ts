@@ -4,6 +4,7 @@ import { N_IMAGE, N_VIDEO_FILE, N_VIDEO_DIR } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
 import { Entry, Event } from 'crewtimer-common';
 import { generateTestPattern } from '../util/ImageUtils';
+import type { TimestampContext } from './TimestampContext';
 
 export interface VideoPosition {
   frameNum: number;
@@ -89,6 +90,34 @@ export interface VideoSidecar extends VideoGuides {
     pt1: number;
     pt2: number;
   };
+  source?: {
+    width: number;
+    height: number;
+    originalWidth: number;
+    originalHeight: number;
+    crop: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+  };
+  sensor?: {
+    nativeWidth?: number;
+    nativeHeight?: number;
+    sourceRotationDegrees?: -90 | 0 | 90;
+    rollingShutter: {
+      direction: string;
+      scanTimeMs: number;
+      frameTimeReference: {
+        coordinateSpace: string;
+        axis: 'x' | 'y';
+        position: number;
+      };
+    } | null;
+  };
+  /** Scored timestamps whose frame/interpolation context belongs to this video. */
+  timestamps?: Record<string, TimestampContext>;
 }
 
 /**

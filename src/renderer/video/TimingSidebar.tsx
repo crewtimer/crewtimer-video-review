@@ -71,6 +71,7 @@ import {
   seekToBow,
   sanitizeFirebaseKey,
 } from './TimingSidebarUtil';
+import { deleteInterpolationRecordForLap } from './InterpolationStore';
 
 const useStyles = makeStyles((/* _theme */) => ({
   row: {
@@ -331,6 +332,9 @@ const ContextMenu: React.FC = () => {
         handleConfirm: () => {
           lap.State = 'Deleted';
           setEntryResultAndPublish(lap.keyid, lap);
+          deleteInterpolationRecordForLap(lap).catch((error) => {
+            console.warn('Failed to delete timestamp context', error);
+          });
         },
       });
     }

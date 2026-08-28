@@ -1,32 +1,27 @@
 import { Lap } from 'crewtimer-common';
-import { Rect } from 'renderer/shared/AppTypes';
+import type { Rect } from '../shared/AppTypes';
 import {
   Dir,
   getDirList,
+  getImage,
   getTravelRightToLeft,
   getVideoFile,
   getVideoScaling,
   getVideoSettings,
 } from './VideoSettings';
+import { getFileStatusByName, getFileStatusList } from './VideoFileStatus';
+import { rollingShutterOffsetMs } from './RollingShutter';
+import type { VideoSidecar } from './VideoSettings';
+import { convertTimestampToString } from '../shared/Util';
+import type { TimestampContext } from './TimestampContext';
+import {
+  deleteVideoSidecarTimestamp,
+  saveVideoSidecarTimestamp,
+} from './Sidecar';
 
 const STORE_FILENAME = 'interpolation.json';
 
-export interface InterpolationRecord {
-  version: 1;
-  uuid: string;
-  keyid: string;
-  gate: string;
-  eventNum: string;
-  bow: string;
-  time: string;
-  videoFile: string;
-  srcClickPoint: { x: number; y: number };
-  srcCenterPoint: { x: number; y: number };
-  trackingRegion: Rect;
-  zoomY: number;
-  autoZoomed: boolean;
-  updatedAt: number;
-}
+export type InterpolationRecord = TimestampContext;
 
 interface InterpolationStoreFile {
   version: 1;
@@ -54,6 +49,15 @@ const getPathParts = (filePath: string) => {
     base: filePath.substring(lastSeparator + 1),
   };
 };
+
+const findTimestampVideoFiles = (uuid: string, record?: InterpolationRecord) =>
+  getFileStatusList()
+    .filter(
+      ({ filename, sidecar }) =>
+        (record && getPathParts(filename).base === record.videoFile) ||
+        !!(sidecar as VideoSidecar | undefined)?.timestamps?.[uuid],
+    )
+    .map(({ filename }) => filename);
 
 const getActiveVideoFile = () => {
   const videoFile = getVideoFile();
@@ -176,7 +180,8 @@ const createCurrentInterpolationRecord = (lap: Lap) => {
     videoScaling.srcWidth <= 1 ||
     videoScaling.srcHeight <= 1 ||
     !lap.Time ||
-    !lap.uuid
+    !lap.uuid ||
+    lap.State === 'Deleted'
   ) {
     return undefined;
   }
@@ -186,14 +191,32 @@ const createCurrentInterpolationRecord = (lap: Lap) => {
   }
   const { base } = getPathParts(videoFile);
   const zoomY = videoScaling.zoomY > 1 ? videoScaling.zoomY : 5;
+  const image = getImage();
+  const recordedY = videoScaling.srcClickPoint.y;
+  const finishGuide = getFinishGuide();
+  const recordedX =
+    videoScaling.srcWidth / 2 + (finishGuide.pt1 + finishGuide.pt2) / 2;
+  const sidecar = getFileStatusByName(videoFile)?.sidecar as
+    VideoSidecar | undefined;
+  const correctionMs = rollingShutterOffsetMs(sidecar, {
+    x: recordedX,
+    y: recordedY,
+  });
   return {
-    version: 1 as const,
+    version: 2 as const,
     uuid: lap.uuid,
     keyid: lap.keyid,
     gate: lap.Gate,
     eventNum: lap.EventNum,
     bow: lap.Bow,
     time: lap.Time,
+    frameTime: convertTimestampToString(image.timestamp, image.tzOffset),
+    frameTimestampMs: image.timestamp,
+    frameNum: image.frameNum,
+    recordedY,
+    recordedX,
+    correctionAxis: sidecar?.sensor?.rollingShutter?.frameTimeReference.axis,
+    correctionMs,
     videoFile: base,
     srcClickPoint: { ...videoScaling.srcClickPoint },
     srcCenterPoint: { ...videoScaling.srcCenterPoint },
@@ -219,11 +242,13 @@ export const saveInterpolationRecordForLap = async (lap: Lap) => {
   if (!videoFile || !lap.uuid) {
     return;
   }
+  // Snapshot before the first await: scoring may immediately reset zoom or
+  // advance to another timestamp while the store is being read.
+  const record = createCurrentInterpolationRecord(lap);
   const { storePath, store } = await readStore(videoFile);
   if (!storePath) {
     return;
   }
-  const record = createCurrentInterpolationRecord(lap);
   const nextStore: InterpolationStoreFile = {
     version: store.version,
     records: { ...store.records },
@@ -236,6 +261,52 @@ export const saveInterpolationRecordForLap = async (lap: Lap) => {
     return;
   }
   await writeStore(storePath, nextStore);
+  if (record) {
+    const obsoleteVideoFiles = findTimestampVideoFiles(
+      lap.uuid,
+      store.records[lap.uuid],
+    ).filter((filename) => filename !== videoFile);
+    await Promise.all(
+      obsoleteVideoFiles.map((filename) =>
+        deleteVideoSidecarTimestamp(filename, lap.uuid),
+      ),
+    );
+    await saveVideoSidecarTimestamp(videoFile, record);
+  } else {
+    const matchingFiles = findTimestampVideoFiles(
+      lap.uuid,
+      store.records[lap.uuid],
+    );
+    await Promise.all(
+      matchingFiles.map((filename) =>
+        deleteVideoSidecarTimestamp(filename, lap.uuid),
+      ),
+    );
+  }
+};
+
+/** Remove a scored timestamp's context from both cache and video sidecars. */
+export const deleteInterpolationRecordForLap = async (lap: Lap) => {
+  if (!lap.uuid) {
+    return;
+  }
+  const videoFile = getActiveVideoFile();
+  const { storePath, store } = await readStore(videoFile);
+  const cachedRecord = store.records[lap.uuid];
+  if (storePath && cachedRecord) {
+    const nextStore: InterpolationStoreFile = {
+      version: store.version,
+      records: { ...store.records },
+    };
+    delete nextStore.records[lap.uuid];
+    await writeStore(storePath, nextStore);
+  }
+  const matchingFiles = findTimestampVideoFiles(lap.uuid, cachedRecord);
+  await Promise.all(
+    matchingFiles.map((filename) =>
+      deleteVideoSidecarTimestamp(filename, lap.uuid),
+    ),
+  );
 };
 
 /**
@@ -252,5 +323,14 @@ export const loadInterpolationRecordForLap = async (lap: Lap) => {
     return undefined;
   }
   const { store } = await readStore();
-  return store.records[lap.uuid];
+  const cachedRecord = store.records[lap.uuid];
+  if (cachedRecord) {
+    return cachedRecord;
+  }
+  return getFileStatusList()
+    .map(
+      ({ sidecar }) =>
+        (sidecar as VideoSidecar | undefined)?.timestamps?.[lap.uuid],
+    )
+    .find((record): record is InterpolationRecord => !!record);
 };
