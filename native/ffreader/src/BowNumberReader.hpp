@@ -13,10 +13,12 @@ struct BowNumberPrediction
 
 /**
  * Wraps the CTC CRNN bow-number reader (bow_crnn.onnx). Given a single crop
- * covering the whole bow card (however many digits), reads the full number
- * in one forward pass and decodes it with greedy CTC (argmax per timestep,
- * collapse consecutive repeats, drop blank) -- there is no per-character
- * cropping or classification involved.
+ * covering the whole bow card, reads its 1-3 digits and, when the model supports
+ * it, an optional A-Z prefix in one forward pass. The output class count selects
+ * the numeric (11 classes) or alphanumeric (37 classes) vocabulary. It then
+ * decodes with greedy CTC (argmax per timestep,
+ * collapse consecutive repeats, drop blank). There is no per-character crop
+ * or classification step.
  */
 class BowNumberReader
 {

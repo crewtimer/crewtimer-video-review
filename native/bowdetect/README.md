@@ -31,7 +31,7 @@ and both bow card polarities (dark card / white text, light card / black text).
 | `bow_card_decoder.h` | C++ | Production implementation (ONNX back-end, single header) |
 | `bow_card_demo.cpp` | C++ | CLI demo for `bow_card_decoder.h` |
 | `CMakeLists.txt` | CMake | Build script for the C++ demo |
-| `train_bow_crnn.py` | Python | Trains `bow_crnn.onnx` from synthetic data |
+| `scripts/train_bow_crnn.py` | Python | Trains `bow_crnn.onnx` from synthetic data |
 | `bow_crnn.onnx` | ONNX | Trained CRNN model (replace with a fully trained version) |
 
 ---
@@ -75,16 +75,16 @@ annotate_image("image.png", text, bbox, char_boxes,
 #### 1. Train the model
 
 ```bash
-pip install torch onnx onnxscript opencv-python numpy
+pip install torch onnx onnxscript opencv-python numpy pillow
 
 # Synthetic data only (~5 min on CPU, good baseline)
-python train_bow_crnn.py --epochs 30 --samples 5000 --output bow_crnn.onnx
+python scripts/train_bow_crnn.py --epochs 30 --samples 5000 --output bow_crnn.onnx
 
 # If there is an error with onnx, it may need to be force updated:
 python -m pip install --upgrade --force-reinstall --no-cache-dir onnx
 
 # Add real labelled crops for best accuracy (see "Training" section)
-python train_bow_crnn.py --epochs 50 --real-data crops/ --output bow_crnn.onnx
+python scripts/train_bow_crnn.py --epochs 50 --real-data crops/ --output bow_crnn.onnx
 ```
 
 #### 2. Build
@@ -178,8 +178,8 @@ Gray conversion
 ### Stage 2 — Whole-card sequence recognition
 
 The card detector supplies one crop containing the complete bow number. The
-CRNN reads the entire 1–3 digit sequence in one pass; there is no per-character
-segmentation or Tesseract stage.
+CRNN reads 1–3 digits with an optional single A–Z prefix in one pass; there is
+no per-character segmentation or Tesseract stage.
 
 ```
 Detected card crop
@@ -190,7 +190,7 @@ Detected card crop
     │
     ▼  NCHW tensor (1, 1, 48, 60) → bow_crnn.onnx
     │
-    ▼  Output (T, 1, 11)  T = 60/4 = 15 time steps
+    ▼  Output (T, 1, 37)  T = 60/4 = 15 time steps
     │
     ▼  Greedy CTC decode (collapse repeats and remove blank)
 ```
@@ -216,7 +216,7 @@ samples use variable light, gray, and dark card backgrounds and run through
 the same pipeline:
 
 ```
-cv2.putText() → illumination gradient and noise → upscale 10×
+Roboto Condensed Bold via Pillow → illumination gradient and noise → upscale 10×
 → CLAHE → mild sharpen → polarity-normalise → resize to 60×48
 ```
 
@@ -225,67 +225,71 @@ what it will see at inference time.
 
 ### Font choice
 
-Training uses `FONT_HERSHEY_SIMPLEX` and `FONT_HERSHEY_DUPLEX` (chosen
-randomly 50/50 per sample). Both are stroke-based sans-serifs that closely
-match the bold block capitals printed on regatta bow cards.
-
-Accuracy on held-out synthetic samples by font, after a 30-epoch training run:
-
-| Font at inference | Accuracy |
-|---|---|
-| DUPLEX / SIMPLEX (matches training) | 94–97% |
-| COMPLEX / TRIPLEX (serif) | 60–62% |
-| PLAIN (thin strokes) | 20% |
-| Script fonts | 6–31% |
+Training uses the vendored `RobotoCondensed-Bold.ttf` for every synthetic
+label. Pillow renders the TrueType outlines before the normal image degradation
+and production preprocessing are applied.
 
 If your venue uses an unusual font, add real labelled crops with `--real-data`
 (see below).
 
 ### Polarity handling
 
-Training randomly generates both dark-card (white text) and light-card (black
-text) samples. The polarity auto-detection in the preprocessing pipeline
-normalises both to black-on-white before the model sees them, so a single
-model handles both card types at 94–100% accuracy.
+Training randomly generates numeric and A–Z-prefixed labels on both dark cards
+(white text) and light cards (black text). The polarity auto-detection in the
+preprocessing pipeline normalises both to black-on-white before the model sees
+them. Synthetic prefix letters use the same font scale, stroke thickness,
+and baseline as the numeric characters in both training and validation.
+`--alpha-prefix-fraction` controls how much of the synthetic training mix
+contains a prefix; the combined Makefile and Colab workflows use `0.80` with a
+60/40 real-to-synthetic sample mix. Checkpoint selection gives equal weight to
+held-out real-crop accuracy and a fixed validation set spanning every prefix.
+When real alpha-prefixed crops are available, `--real-alpha-fraction` prevents
+them from being diluted by the much larger numeric crop collection. The
+combined workflow uses `0.10`, yielding an overall training mix of roughly 62%
+numeric and 38% alpha-prefixed labels while production validation remains
+dominated by real numeric crops.
 
 ### Training commands
 
 ```bash
 # Baseline (~5 min on CPU)
-python train_bow_crnn.py --epochs 30 --samples 5000 --output bow_crnn.onnx
+python scripts/train_bow_crnn.py --epochs 30 --samples 5000 --output bow_crnn.onnx
 
 # Better accuracy with more data (~15 min)
-python train_bow_crnn.py --epochs 50 --samples 10000 --output bow_crnn.onnx
+python scripts/train_bow_crnn.py --epochs 50 --samples 10000 --output bow_crnn.onnx
 
 # Include real labelled crops
-python train_bow_crnn.py --epochs 50 --real-data crops/ --output bow_crnn.onnx
+python scripts/train_bow_crnn.py --epochs 50 --real-data crops/ --output bow_crnn.onnx
 
 # Verify an existing model
-python train_bow_crnn.py --verify bow_crnn.onnx
+python scripts/train_bow_crnn.py --verify bow_crnn.onnx
+
+# Train and verify an 11-class numeric-only model
+python scripts/train_bow_crnn.py --vocabulary numeric --output bow_crnn_numeric.onnx
+python scripts/train_bow_crnn.py --vocabulary numeric --verify bow_crnn_numeric.onnx
 ```
 
-### Compare YOLOv8 and YOLO26 in Google Colab
-
-Package the exact generated card-detector crops, labels, and deterministic
-train/validation split used by `make card`:
-
-```bash
-make colab-zip
-```
-
-This creates `build/card-detector-colab.zip`. Upload
-`compare_yolov8_yolo26_colab.py` to a GPU-enabled Google Colab session and run:
-
-```python
-%run compare_yolov8_yolo26_colab.py
-```
-
-When prompted, upload `build/card-detector-colab.zip`. The script trains
-`yolov8s.pt` and `yolo26s.pt` with identical settings, validates both, exports
-ONNX models, checks the C++ parser's required `[1, 5, N]` output shape, and
-downloads a ZIP containing the comparison and best model artifacts.
+`make ocr` trains both variants. `bow_crnn.onnx` retains the 37-class
+alphanumeric vocabulary; `bow_crnn_numeric.onnx` uses 11 classes and strips a
+leading A-Z prefix from real crop labels during training and validation. The
+native decoder selects the correct vocabulary from the ONNX output width. The
+review app's bow-detection request selects the numeric model with
+`numericOnly: true`; omitted or false continues to use the alphanumeric model.
 
 ### Train both card detection and OCR in Google Colab
+
+To use numeric-only OCR labels for a dataset, add a `config.json` beside its
+`images/` and `card-labels/` directories:
+
+```json
+{"ignoreAlpha": true}
+```
+
+OCR crop extraction removes leading letters from that dataset's labels (for
+example, `E043` becomes `043`) in both training and validation. Evaluation uses
+the same numeric ground truth. Source sidecars and images are unchanged. Omit
+the property or set it to `false` to retain prefixes. Regenerate the OCR crops
+and training ZIP after changing this setting.
 
 Generate both local datasets and package their exact train/validation splits:
 
@@ -300,8 +304,9 @@ and copy the ZIP to Google Drive at
 `MyDrive/yolo_training/data/bow-training-colab.zip`. The notebook mounts Drive
 and loads the archive from that location.
 
-The notebook trains and validates both models, exports `bow_card_detect.onnx`
-and `bow_crnn.onnx`, verifies the tensor shapes expected by the C++ runtime,
+The notebook trains and validates the card detector and both OCR variants. It
+exports `bow_card_detect.onnx`, `bow_crnn.onnx`, and
+`bow_crnn_numeric.onnx`, verifies the tensor shapes expected by the C++ runtime,
 and downloads `bow-model-training-results.zip` with the ONNX files, PyTorch
 checkpoints, metrics, and card-detector training log. It also copies those
 artifacts to a Pacific-time-stamped Drive folder such as
@@ -317,7 +322,7 @@ negative crop touching an annotated card is rejected.
 Known-negative full frames can be prepared with:
 
 ```bash
-python create_negative_labels.py /path/to/dataset-negatives
+python scripts/create_negative_labels.py /path/to/dataset-negatives
 ```
 
 This creates empty `labels/*.txt` files and `card-labels/*.json` sidecars with
@@ -335,8 +340,10 @@ crops/
   F2_final_bow4_frame091.png
 ```
 
-The label is everything before the first underscore. 50–100 real crops
-per label dramatically improves accuracy on your specific camera and cards.
+The label is everything before the first underscore. It must contain 1–3
+digits with at most one A–Z prefix. Lowercase sidecar and filename labels are
+normalized to uppercase. 50–100 real crops per label dramatically improves
+accuracy on your specific camera and cards.
 
 ### Model architecture
 
@@ -352,10 +359,16 @@ Reshape spatial columns into a 15-step sequence
 
 RNN: two-layer bidirectional GRU (hidden size 256)
 
-FC: Linear(512→11)              →  (15, 1, 11)    [time-major]
+FC: Linear(512→37 or 11)        →  (15, 1, C)     [time-major]
 
-Decode: greedy CTC over digits 0–9 plus the blank class
+Decode: greedy CTC over digits 0–9, optionally letters A–Z, plus the blank class.
+Class 0 is the required CTC blank; hyphen and space are not model characters.
 ```
+
+Synthetic labels are rendered with the vendored Roboto Condensed Bold TrueType
+font through Pillow. Font size, position, contrast, lighting, blur, morphology,
+and compression artifacts vary between samples. The combined Colab archive
+includes the same font and its Apache 2.0 license.
 
 Parameters: ~4.0M. Model file size: ~16 MB.
 Inference time on CPU: ~2 ms median / ~3 ms p95 (single character crop).
@@ -372,10 +385,10 @@ decoder concatenates the characters left-to-right with no delimiter:
 Two cards ("3" and "4") in one image  →  "34"
 ```
 
-Detection is simple: check string length. Valid single bow numbers are 1–3
-characters. Anything longer (or not in the start list after fuzzy matching)
-signals an ambiguous frame. The recommended handling is to flag the frame for
-manual review rather than guess.
+Detection is simple: check the label format. Valid single bow numbers contain
+1–3 digits and may have one A–Z prefix. Anything else (or anything not in the
+start list after fuzzy matching) signals an ambiguous frame. The recommended
+handling is to flag the frame for manual review rather than guess.
 
 ---
 
@@ -442,10 +455,104 @@ bow-card-decoder/
 ├── bow_card_decoder.h      # C++ single-header implementation
 ├── bow_card_demo.cpp       # C++ CLI demo
 ├── CMakeLists.txt          # CMake build
-├── train_bow_crnn.py       # CRNN training and ONNX export
+├── scripts/
+│   ├── train_bow_crnn.py   # CRNN training and ONNX export
+│   └── ...                 # Dataset, evaluation, and command-line utilities
+├── test/                    # Python unit and regression tests
 ├── bow_crnn.onnx           # Trained model (replace with fully-trained version)
 └── samples/                # Optional: test images
     ├── small.png           # 140×88 — white hull, "E1"
     ├── Screenshot_…54.png  # 78×58  — grey hull, "3"
     └── Screenshot_…55.png  # 94×56  — red hull,  "4"
 ```
+
+## Production detection pipeline
+
+`BowNumberPipeline::detectAll` processes each frame in this order:
+
+1. Run the boat detector on the full frame.
+2. For each boat, expand its box by 15% (with at least four pixels of padding)
+   and run the card detector on that crop.
+3. If one or more cards are found, select the highest-confidence card, map its
+   box back to full-frame coordinates, pad it by 15%, and run OCR once on that
+   card crop.
+4. If no card is found at the normal 0.30 confidence threshold, rerun the card
+   detector at 0.02 and select its highest-confidence candidate.
+5. OCR the padded fallback card crop. Accept the fallback card and bow number
+   only when OCR confidence is at least 0.80; otherwise return only the boat.
+6. Return one result per boat. Accepted normal and fallback card results contain
+   `boatBox`, `cardBox`, recognized text, and OCR confidence.
+
+When no boats are detected and `detectCardsWithoutBoat` is enabled, the pipeline
+instead runs the card detector over the full frame and OCRs every detected padded
+card. With the option disabled, no detections are returned. The single-result
+`detect` method runs this same sequence and then selects the result whose boat
+box (or card box for card-only detection) is closest to the supplied point of
+interest.
+
+## Validate the holdout dataset
+
+Run from `native/bowdetect`:
+
+```sh
+make validate-holdout
+# Optional overrides:
+make validate-holdout HOLDOUT_DATASET=/path/to/dataset HOLDOUT_OUTPUT=build/my-report HOLDOUT_IOU=0.5
+# Regattas whose cards display only the final digit:
+make validate-holdout HOLDOUT_LAST_DIGIT_ONLY=1
+```
+
+The default dataset is `~/training/datasets/dataset-holdout`. This target evaluates
+all images without training or changing models, using the current
+`crewtimer-boat-train.onnx`, `bow_card_detect.onnx`, `bow_crnn.onnx`, and
+`bow_crnn_numeric.onnx` files. Both OCR models run through the complete native
+pipeline; the report presents their detection and exact-text results separately.
+The validator checks that the alphanumeric and numeric outputs have 37 and 11
+classes respectively, so swapped or incorrectly trained models fail clearly.
+It builds a small adapter that directly calls the review app's
+`BowNumberPipeline::detectAll`, including the low-confidence card fallback
+documented above. It uses the app's default thresholds and ONNX execution providers, with
+card-only detection disabled.
+Images are evaluated in full, without the UI's optional region selection or
+video interpolation.
+
+Requirements: Python with OpenCV (`cv2`), a C++17 compiler, and the native OpenCV
+and ONNX Runtime libraries built for `native/ffreader`. The Makefile defaults to
+the repository's macOS library layout. For other installations, override
+`HOLDOUT_CPPFLAGS` and `HOLDOUT_LDLIBS` with the appropriate include/link flags.
+
+Outputs are `build/holdout-validation/report.md` (summary and bow-number errors)
+and `report.json` (model SHA-256 hashes, configuration, per-image predictions,
+annotations, timings, and scores). Boat truth comes from YOLO `labels/*.txt`;
+card boxes and legible bow numbers come from `card-labels/*.json`. Missing
+annotations are explicitly excluded per stage, whereas empty annotations are
+negatives. Detection precision/recall uses one-to-one descending-IoU matching
+at 0.5 by default, not mAP. Bow-number accuracy uses exact text on spatially
+matched cards, with both end-to-end and matched-card denominators. End-to-end
+accuracy counts upstream detection misses as failures. Numeric-model scoring
+removes an optional leading A-Z prefix from ground truth. Invalid/unreadable data
+fails the run instead of silently skipping images. Sidecars are matched by filename
+stem; stale embedded image names are reported. Card annotations whose dimensions
+differ from the actual image are reported and excluded from card/OCR scoring,
+while inference and boat scoring still run. Zero denominators report N/A.
+With `HOLDOUT_LAST_DIGIT_ONLY=1` (or the script's `--last-digit-only`), expected
+OCR labels and model predictions are compared by their final digit. The report
+retains the full raw prediction when it lists a mismatch.
+
+Both `holdout` and `dataset-holdout` (and `HOLDOUT_DATASET`) are excluded from the
+Makefile's training dataset list. This does not establish whether existing model
+weights were previously trained on these images.
+
+## Annotate a single image
+
+From the repository root, detect boats, bow cards, and bow numbers, save a new
+annotated PNG beside the input, and open it in a window:
+
+```sh
+python3 native/bowdetect/scripts/annotate_bow_detection.py /path/to/image.jpg
+```
+
+Use `--output /path/to/result.png` to choose the output location,
+`--numeric` for `bow_crnn_numeric.onnx`, or `--no-show` when running without a
+desktop display. The script uses the review app's default confidence thresholds
+and its highest-confidence-card-per-boat behavior.

@@ -25,6 +25,7 @@ import { setDialogConfig } from '../util/ConfirmDialog';
 import { ProgressBarComponent } from '../util/ProgressBarComponent';
 import {
   setProgressBar,
+  getBowDetectionOptions,
   useDay,
   useMobileID,
   useWaypoint,
@@ -340,6 +341,7 @@ export const ImageArchive = () => {
         videoFile,
         frameNum,
         prune,
+        ...getBowDetectionOptions(),
       });
       const detectedBoats = detectionResult.detections.filter(
         ({ boatBox }) => boatBox.width > 0 && boatBox.height > 0,

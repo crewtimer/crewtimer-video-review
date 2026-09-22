@@ -18,6 +18,8 @@ import {
   Toolbar,
   Tooltip,
   Typography,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Settings';
 import makeStyles from '@mui/styles/makeStyles';
@@ -36,7 +38,14 @@ import {
 import HyperZoomSelector from '../util/HyperZoomSelector';
 import { saveVideoSidecar } from './Sidecar';
 import { getFileStatusList } from './VideoFileStatus';
-import { useAutoZoomToFinish, useLabelBoats } from '../util/UseSettings';
+import {
+  BowCardLength,
+  BowOcrModel,
+  useAutoZoomToFinish,
+  useBowCardLength,
+  useBowOcrModel,
+  useLabelBoats,
+} from '../util/UseSettings';
 
 declare module '@mui/styles/defaultTheme' {
   interface DefaultTheme extends Theme {}
@@ -70,6 +79,8 @@ export const VideoSettingsDialog = () => {
   const [autoNextTimestamp, setAutoNextTimestamp] = useAutoNextTimestamp();
   const [labelBoats, setLabelBoats] = useLabelBoats();
   const [autoZoomToFinish, setAutoZoomToFinish] = useAutoZoomToFinish();
+  const [bowOcrModel, setBowOcrModel] = useBowOcrModel();
+  const [bowCardLength, setBowCardLength] = useBowCardLength();
 
   // Handler to update the wheelFactor state
   // const handleSliderChange = (_event: Event, newValue: number | number[]) => {
@@ -278,6 +289,53 @@ export const VideoSettingsDialog = () => {
           </Toolbar>
           <Box className={classes.settings}>
             <HyperZoomSelector />
+          </Box>
+          <Box className={classes.settings}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Typography
+                sx={{
+                  alignSelf: 'stretch',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                Card Type
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={bowOcrModel}
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    alignItems: 'center',
+                    display: 'flex',
+                  },
+                }}
+                onChange={(_event, value: BowOcrModel | null) => {
+                  if (value) setBowOcrModel(value);
+                }}
+              >
+                <ToggleButton value="numeric">Numeric</ToggleButton>
+                <ToggleButton value="alphanumeric">Alphanumeric</ToggleButton>
+              </ToggleButtonGroup>
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel id="bow-card-length-label">Card Digits</InputLabel>
+                <Select
+                  labelId="bow-card-length-label"
+                  value={bowCardLength}
+                  label="Card Digits"
+                  disabled={bowOcrModel === 'alphanumeric'}
+                  onChange={(event: SelectChangeEvent<string | number>) =>
+                    setBowCardLength(event.target.value as BowCardLength)
+                  }
+                >
+                  <MenuItem value="auto">Auto</MenuItem>
+                  <MenuItem value={1}>1</MenuItem>
+                  <MenuItem value={2}>2</MenuItem>
+                  <MenuItem value={3}>3</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
           </Box>
           <Box className={classes.settings}>
             <Tooltip

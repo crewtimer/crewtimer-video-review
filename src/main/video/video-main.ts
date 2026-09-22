@@ -95,15 +95,26 @@ ipcMain.handle('video:getFrame', (_event, request: VideoFrameRequest) => {
 
 ipcMain.handle('video:detectBow', (_event, request: BowDetectionRequest) => {
   try {
-    return nativeVideoExecutor({
+    const numericOnly = request.numericOnly !== false;
+    const result = nativeVideoExecutor({
       op: 'detectBowAtFrame',
       request: {
         ...request,
         boatModelFile: bowdetectModelFile('crewtimer-boat-train.onnx'),
         cardModelFile: bowdetectModelFile('bow_card_detect.onnx'),
-        numberModelFile: bowdetectModelFile('bow_crnn.onnx'),
+        numberModelFile: bowdetectModelFile(
+          numericOnly ? 'bow_crnn_numeric.onnx' : 'bow_crnn.onnx',
+        ),
       },
     } as unknown as DetectBowMessage);
+    const { cardLength } = request;
+    if (numericOnly && cardLength !== undefined && cardLength !== 'auto') {
+      result.detections = result.detections.map((detection) => ({
+        ...detection,
+        text: detection.text.slice(-cardLength),
+      }));
+    }
+    return result;
   } catch (err) {
     return { status: `${err instanceof Error ? err.message : err}` };
   }

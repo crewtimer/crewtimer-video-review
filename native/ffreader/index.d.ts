@@ -61,7 +61,7 @@ declare module 'crewtimer_video_reader' {
       boatModelFile: string;
       /** Path to the bow-card detector (bow_card_detect.onnx). */
       cardModelFile: string;
-      /** Path to the CTC bow-number reader (bow_crnn.onnx). */
+      /** Path to an 11-class numeric or 37-class alphanumeric CTC bow reader. */
       numberModelFile: string;
       /** Full-frame pixel coordinates near the bow, used to pick which boat to read. */
       point?: { x: number; y: number };

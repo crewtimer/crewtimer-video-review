@@ -13,20 +13,27 @@ struct BowNumberDetection
 {
   std::string text;
   float confidence = 0.0f;
-  cv::Rect cardBox; // full-frame pixel coordinates; empty if nothing found
+  // Full-frame pixel coordinates; empty when no accepted card is found.
+  cv::Rect cardBox;
   cv::Rect boatBox; // full-frame pixel coordinates; empty if nothing found
 };
 
 /**
- * Orchestrates the three-stage bow-number pipeline:
+ * Orchestrates the bow-number detection pipeline:
  *
  *   1. Boat detector on the full frame -> candidate boat boxes.
- *      Pick the one nearest the caller's point of interest.
  *   2. Card detector on the (padded) boat crop -> the bow-number's box.
  *      Map it back to full-frame coordinates.
- *   3. BowNumberReader on the (padded) card crop -> the full digit string,
- *      via a single CTC forward pass -- not per-character classification
- *      glued together afterward.
+ *   3. If cards are found, select the most confident card and run
+ *      BowNumberReader on its padded crop.
+ *   4. If no card is found at 0.30 confidence, retry at 0.02, select the most
+ *      confident candidate, and OCR its padded crop. Accept this fallback card
+ *      and OCR result only at OCR confidence 0.80 or above.
+ *
+ * If no boats are found and detectCardsWithoutBoat is true, detect cards over
+ * the full frame and OCR each padded card crop.
+ * detectAll returns every result; detect selects the result nearest the caller's
+ * point of interest after running the same sequence.
  *
  * Replaces BowCardDetector's classical-CV blob detection + per-glyph
  * classify + geometric sequence-stitching approach entirely.
@@ -52,7 +59,7 @@ public:
                             const cv::Point &pointOfInterest,
                             bool detectCardsWithoutBoat = false) const;
 
-  /** Detect and read the bow card for every boat found in the frame. */
+  /** Detect and read the bow number for every boat found in the frame. */
   std::vector<BowNumberDetection>
   detectAll(const cv::Mat &frame, bool detectCardsWithoutBoat = false) const;
 

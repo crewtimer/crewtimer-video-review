@@ -11,6 +11,7 @@ import { setToast } from 'renderer/Toast';
 import {
   getAutoZoomToFinish,
   getMobileConfig,
+  normalizeBowForCurrentEvent,
   getWaypoint,
 } from 'renderer/util/UseSettings';
 import {
@@ -46,7 +47,7 @@ const autoZoomAfterNextTimestamp = async (
     }
     const detectedBow = result.bow.trim();
     if (next.Bow === '?' && detectedBow && detectedBow !== '?') {
-      setVideoBow(detectedBow, next.uuid);
+      setVideoBow(normalizeBowForCurrentEvent(detectedBow), next.uuid);
     }
   }
 };
@@ -61,7 +62,8 @@ const persistLap = (key: string, lap: Lap) => {
   });
 };
 
-const addSplitForBow = (videoBow: string) => {
+const addSplitForBow = (enteredBow: string) => {
+  const videoBow = normalizeBowForCurrentEvent(enteredBow);
   // A split must be associated with a known bow.
   if (videoBow === '?' || !videoBow) {
     setToast({

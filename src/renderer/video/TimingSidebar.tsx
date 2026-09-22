@@ -38,6 +38,7 @@ import { Event, KeyMap } from 'crewtimer-common';
 import {
   useDay,
   useMobileConfig,
+  normalizeBowForCurrentEvent,
   useTabPosition,
   useWaypoint,
 } from 'renderer/util/UseSettings';
@@ -277,6 +278,9 @@ const VideoBow: React.FC = () => {
       value={videoBow}
       onChange={(event) => {
         setVideoBow(event.target.value);
+      }}
+      onBlur={(event) => {
+        setVideoBow(normalizeBowForCurrentEvent(event.target.value));
       }}
       sx={{
         fontSize: timingFontSize,

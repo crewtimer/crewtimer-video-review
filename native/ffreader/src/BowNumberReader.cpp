@@ -8,17 +8,21 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <stdexcept>
+#include <string_view>
 
 namespace {
-// Must match CHARSET in train_bow_crnn.py: index 0 = CTC blank.
-constexpr const char *CHARSET = "-0123456789";
+// Must match the vocabularies in bowdetect/scripts/bow_ocr_labels.py. Model class 0 is blank.
+constexpr std::string_view DIGITS = "0123456789";
+constexpr std::string_view ALPHANUMERIC =
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 constexpr int BLANK_IDX = 0;
 constexpr int OUTPUT_HEIGHT = 48;
 constexpr int OUTPUT_WIDTH = 60;
 
 // Preprocess a raw card crop into the contrast-enhanced grayscale,
 // polarity-normalised, fixed 48x60 image the CTC model was trained on.
-// Mirrors extract_card_training_crops.py's normalize_card() exactly.
+// Mirrors bowdetect/scripts/extract_card_training_crops.py's normalize_card() exactly.
 cv::Mat preprocessCardCrop(const cv::Mat &cardCrop) {
   cv::Mat gray;
   if (cardCrop.channels() == 1) {
@@ -69,8 +73,21 @@ cv::Mat preprocessCardCrop(const cv::Mat &cardCrop) {
 // Greedy CTC decode: argmax per timestep, collapse consecutive repeats,
 // drop blank. Confidence is the mean softmax probability of each emitted
 // (non-blank, non-repeat) character.
+std::string_view vocabularyForClassCount(int64_t numClasses) {
+  if (numClasses == static_cast<int64_t>(DIGITS.size()) + 1) {
+    return DIGITS;
+  }
+  if (numClasses == static_cast<int64_t>(ALPHANUMERIC.size()) + 1) {
+    return ALPHANUMERIC;
+  }
+  throw std::runtime_error(
+      "Unexpected bow number reader class count; expected 11 (CTC blank plus "
+      "digits) or 37 (CTC blank plus digits and A-Z)");
+}
+
 BowNumberPrediction ctcGreedyDecode(const float *logits, int64_t seqLen,
-                                    int64_t numClasses) {
+                                    int64_t numClasses,
+                                    std::string_view vocabulary) {
   BowNumberPrediction result;
   int previous = -1;
   double confidenceSum = 0.0;
@@ -90,7 +107,7 @@ BowNumberPrediction ctcGreedyDecode(const float *logits, int64_t seqLen,
       }
       const double probability = 1.0 / denominator;
 
-      result.text.push_back(CHARSET[best]);
+      result.text.push_back(vocabulary[best - 1]);
       confidenceSum += probability;
       ++emitted;
     }
@@ -159,7 +176,8 @@ BowNumberPrediction BowNumberReader::read(const cv::Mat &cardCrop) const {
   }
   const int64_t seqLen = shape[0];
   const int64_t numClasses = shape[2];
+  const std::string_view vocabulary = vocabularyForClassCount(numClasses);
   const float *logits = outputs[0].GetTensorData<float>();
 
-  return ctcGreedyDecode(logits, seqLen, numClasses);
+  return ctcGreedyDecode(logits, seqLen, numClasses, vocabulary);
 }

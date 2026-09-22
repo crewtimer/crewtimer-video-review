@@ -18,6 +18,9 @@ import {
 } from './AutoZoomToFinish';
 
 jest.mock('../util/ImageScaling', () => ({ updateVideoScaling: jest.fn() }));
+jest.mock('../util/UseSettings', () => ({
+  getBowDetectionOptions: () => ({ numericOnly: true, cardLength: 'auto' }),
+}));
 jest.mock('./VideoSettings', () => ({}));
 jest.mock('./VideoUtils', () => ({}));
 

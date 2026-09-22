@@ -33,12 +33,16 @@ export interface BowDetectionRequest {
   closeTo?: boolean;
   prune?: { side: 'top' | 'bottom'; percentage: number };
   detectCardsWithoutBoat?: boolean;
+  /** Use the digit-only bow OCR model instead of the alphanumeric model. */
+  numericOnly?: boolean;
+  /** For numeric OCR, retain at most this many trailing digits. */
+  cardLength?: 'auto' | 1 | 2 | 3;
 }
 
 export interface BowDetection {
   text: string;
   confidence: number;
-  /** Bow-card box, full-frame pixel coordinates. */
+  /** Bow-card box in full-frame pixels; empty when no card is accepted. */
   box: Rect;
   /** Boat box, full-frame pixel coordinates. */
   boatBox: Rect;

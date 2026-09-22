@@ -13,6 +13,8 @@ export const N_DEBUG_LEVEL = 'debugLevel';
 export const N_LABEL_BOATS = 'labelBoats';
 export const N_LABEL_CARDS_WITHOUT_BOAT = 'labelCardsWithoutBoat';
 export const N_AUTO_ZOOM_TO_FINISH = 'autoZoomToFinish';
+export const N_BOW_OCR_MODEL = 'bowOcrModel';
+export const N_BOW_CARD_LENGTH = 'bowCardLength';
 
 export const N_IMAGE = 'image';
 export const N_IMAGE_FRAMES = 'imageFrames';

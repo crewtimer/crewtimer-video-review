@@ -316,6 +316,10 @@
         "to": "bow_crnn.onnx"
       },
       {
+        "from": "native/bowdetect/bow_crnn_numeric.onnx",
+        "to": "bow_crnn_numeric.onnx"
+      },
+      {
         "from": "native/bowdetect/bow_card_detect.onnx",
         "to": "bow_card_detect.onnx"
       },

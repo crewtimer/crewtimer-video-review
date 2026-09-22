@@ -9,13 +9,13 @@
  * ------------
  * The blob-detection and grouping pipeline (OpenCV only) is the same as the
  * Python reference implementation.  Character recognition is handled by a
- * small CRNN ONNX model trained with train_bow_crnn.py.
+ * small CRNN ONNX model trained with scripts/train_bow_crnn.py.
  *
  * IMPORTANT — model training:
  *   The supplied bow_crnn.onnx must be trained on images that match the exact
  *   preprocessing pipeline used here (upscale → sharpen → threshold → invert).
- *   Run train_bow_crnn.py --mode pipeline to produce a correctly matched model.
- *   See train_bow_crnn.py for full details and the README for quick-start steps.
+ *   Run scripts/train_bow_crnn.py --mode pipeline to produce a correctly matched model.
+ *   See scripts/train_bow_crnn.py for full details and the README for quick-start steps.
  *
  * Inference contract (input/output tensor format)
  * -----------------------------------------------
@@ -100,7 +100,7 @@ public:
 
     /**
      * Construct a decoder and load the ONNX model.
-     * @param modelPath  Path to bow_crnn.onnx produced by train_bow_crnn.py.
+     * @param modelPath  Path to bow_crnn.onnx produced by scripts/train_bow_crnn.py.
      * @param params     Optional tuning overrides.
      */
     explicit BowCardDecoder(const std::string& modelPath,
@@ -154,8 +154,10 @@ private:
 
     Params params_;
 
-    // Charset: index 0 = blank / unknown
-    static constexpr const char* CHARSET = "-0123456789";
+    // Model class 0 is blank. Output width selects one of these vocabularies.
+    static constexpr const char* DIGITS = "0123456789";
+    static constexpr const char* ALPHANUMERIC =
+        "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     // ── Internal helpers ──────────────────────────────────────────────────
 
@@ -418,6 +420,14 @@ inline char BowCardDecoder::runCRNN(const cv::Mat& charCrop) const
     int   seqLen    = static_cast<int>(shape[0]);
     int   numCls    = static_cast<int>(shape[2]);
     const float* logits = outTensor.GetTensorData<float>();
+    const char* characters = nullptr;
+    if (numCls == 11)
+        characters = DIGITS;
+    else if (numCls == 37)
+        characters = ALPHANUMERIC;
+    else
+        throw std::runtime_error(
+            "Unsupported bow OCR class count; expected 11 or 37");
 
     // Mean-pool over time axis, then argmax
     std::vector<float> pooled(numCls, 0.0f);
@@ -428,7 +438,9 @@ inline char BowCardDecoder::runCRNN(const cv::Mat& charCrop) const
     int bestClass = static_cast<int>(
         std::max_element(pooled.begin(), pooled.end()) - pooled.begin());
 
-    return (bestClass > 0) ? CHARSET[bestClass] : '\0';
+    return (bestClass > 0 && bestClass < numCls)
+        ? characters[bestClass - 1]
+        : '\0';
 }
 
 

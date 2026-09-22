@@ -1,6 +1,7 @@
 import { UseDatum } from 'react-usedatum';
 import { MobileSettings } from 'crewtimer-common';
-import { useVideoSettings } from 'renderer/video/VideoSettings';
+import { getVideoEvent, useVideoSettings } from 'renderer/video/VideoSettings';
+import { normalizeBowForEvent } from 'renderer/video/BowNumber';
 import { UseMemDatum, UseStoredDatum } from '../store/UseElectronDatum';
 import {
   FirebaseConnectedKey,
@@ -11,6 +12,8 @@ import {
   N_LABEL_BOATS,
   N_LABEL_CARDS_WITHOUT_BOAT,
   N_AUTO_ZOOM_TO_FINISH,
+  N_BOW_CARD_LENGTH,
+  N_BOW_OCR_MODEL,
   N_FL_START_WAYPOINT,
   N_FL_START_WAYPOINT_ENABLE,
   N_MOBILE_ID,
@@ -87,6 +90,25 @@ export const [
 ] = UseMemDatum<boolean>(N_LABEL_CARDS_WITHOUT_BOAT, false);
 export const [useAutoZoomToFinish, setAutoZoomToFinish, getAutoZoomToFinish] =
   UseStoredDatum<boolean>(N_AUTO_ZOOM_TO_FINISH, false);
+export type BowOcrModel = 'numeric' | 'alphanumeric';
+export type BowCardLength = 'auto' | 1 | 2 | 3;
+export const [useBowOcrModel, setBowOcrModel, getBowOcrModel] =
+  UseStoredDatum<BowOcrModel>(N_BOW_OCR_MODEL, 'numeric');
+export const [useBowCardLength, setBowCardLength, getBowCardLength] =
+  UseStoredDatum<BowCardLength>(N_BOW_CARD_LENGTH, 'auto');
+
+export const getBowDetectionOptions = () => ({
+  numericOnly: getBowOcrModel() === 'numeric',
+  cardLength: getBowCardLength(),
+});
+
+export const normalizeBowForCurrentEvent = (bow: string) => {
+  const eventNum = getVideoEvent();
+  const event = getMobileConfig()?.eventList?.find(
+    (candidate) => candidate.EventNum === eventNum,
+  );
+  return normalizeBowForEvent(bow, event);
+};
 
 // Tab position of the CenteredTabs component
 export const [useTabPosition, setTabPosition, getTabPosition] = UseStoredDatum(

@@ -14,6 +14,7 @@ import {
   Point,
 } from './VideoSettings';
 import { getFinishLine, moveToFrame } from './VideoUtils';
+import { getBowDetectionOptions } from '../util/UseSettings';
 
 const MAX_CLICK_DISTANCE = 50;
 const MAX_SEARCH_ITERATIONS = 12;
@@ -43,6 +44,7 @@ export type AutoZoomFinishResult = {
 
 type InterpolatedBoatOverlay = {
   videoFile: string;
+  detectionOptionsKey: string;
   first: BoatObservation;
   second: BoatObservation;
   bow: string;
@@ -62,14 +64,21 @@ export const clearAutoZoomInterpolation = () => {
   interpolationExtensionRequest += 1;
 };
 
+const bowDetectionOptionsKey = () => {
+  const options = getBowDetectionOptions();
+  return `${options.numericOnly ? 'numeric' : 'alphanumeric'}:${options.cardLength}`;
+};
+
 export const hasAutoZoomInterpolation = (videoFile: string) =>
-  interpolatedBoatOverlay?.videoFile === videoFile;
+  interpolatedBoatOverlay?.videoFile === videoFile &&
+  interpolatedBoatOverlay.detectionOptionsKey === bowDetectionOptionsKey();
 
 export const hasAutoZoomInterpolationAtFrame = (
   videoFile: string,
   frameNum: number,
 ) =>
   interpolatedBoatOverlay?.videoFile === videoFile &&
+  interpolatedBoatOverlay.detectionOptionsKey === bowDetectionOptionsKey() &&
   Math.abs(interpolatedBoatOverlay.displayFrame - frameNum) <= 0.01;
 
 export const interpolateRect = (
@@ -380,13 +389,15 @@ export const selectBoatEdgeNearFinish = (
 
 const detectFrame = (videoFile: string, frameNum: number) => {
   const integerFrame = Math.round(frameNum);
-  const key = `${videoFile}:${integerFrame}`;
+  const options = getBowDetectionOptions();
+  const key = `${videoFile}:${integerFrame}:${bowDetectionOptionsKey()}`;
   let pending = detectionCache.get(key);
   if (!pending) {
     pending = window.VideoUtils.detectBow({
       videoFile,
       frameNum: integerFrame,
       closeTo: false,
+      ...options,
     }).then((result) => ({
       ...result,
       detections: omitOverlappingBoatDetections(result.detections),
@@ -410,7 +421,11 @@ const detectFrame = (videoFile: string, frameNum: number) => {
 export const getCachedAutoZoomDetections = (
   videoFile: string,
   frameNum: number,
-) => detectionCache.get(`${videoFile}:${Math.round(frameNum)}`);
+) => {
+  return detectionCache.get(
+    `${videoFile}:${Math.round(frameNum)}:${bowDetectionOptionsKey()}`,
+  );
+};
 
 export const restoreMissingCardDetections = (
   detections: BowDetection[],
@@ -631,7 +646,11 @@ export const extendAutoZoomInterpolation = async (
   const extensionRequest = interpolationExtensionRequest + 1;
   interpolationExtensionRequest = extensionRequest;
   const overlay = interpolatedBoatOverlay;
-  if (!overlay || overlay.videoFile !== videoFile) {
+  if (
+    !overlay ||
+    overlay.videoFile !== videoFile ||
+    overlay.detectionOptionsKey !== bowDetectionOptionsKey()
+  ) {
     return false;
   }
   const lowerBound = Math.min(overlay.first.frameNum, overlay.second.frameNum);
@@ -976,6 +995,7 @@ const runAutoZoomToFinish = async (
         )[0] || '';
       interpolatedBoatOverlay = {
         videoFile,
+        detectionOptionsKey: bowDetectionOptionsKey(),
         first: bracket[0],
         second: bracket[1],
         bow,

@@ -63,6 +63,8 @@ import { useSingleAndDoubleClick } from '../util/UseSingleAndDoubleClick';
 import type { AppImage, BowDetection, Rect } from '../shared/AppTypes';
 import {
   getAutoZoomToFinish,
+  getBowDetectionOptions,
+  normalizeBowForCurrentEvent,
   getWaypoint,
   useLabelBoats,
   useLabelCardsWithoutBoat,
@@ -184,8 +186,37 @@ const drawBowDetections = (
   // Draw labels after every bounding box so overlapping boat/card outlines
   // cannot cover the annotation panel.
   detections.forEach((detection) => {
-    const box = displayedCardBoxes.get(detection) ?? detection.box;
-    const fontSize = Math.max(14, 14 / screenScaleY);
+    const detectedCardBox = displayedCardBoxes.get(detection) ?? detection.box;
+    const hasCardBox = detectedCardBox.width > 0 && detectedCardBox.height > 0;
+    const fallbackWidth = Math.max(1, Math.ceil(detection.boatBox.width / 3));
+    const fallbackDisplayWidth = zoomedIn
+      ? Math.min(fallbackWidth, 96 / screenScaleX)
+      : fallbackWidth;
+    const fallbackDisplayHeight = zoomedIn
+      ? Math.min(detection.boatBox.height, 48 / screenScaleY)
+      : detection.boatBox.height;
+    // A no-card OCR result has an empty card box. Anchor its label to the
+    // leading end third of the boat instead, matching the regions OCR searched.
+    // Keep that synthetic anchor compact while zoomed so a tall/wide boat box
+    // cannot turn the annotation into an oversized panel.
+    const box = hasCardBox
+      ? detectedCardBox
+      : {
+          x: travelRightToLeft
+            ? detection.boatBox.x
+            : detection.boatBox.x +
+              detection.boatBox.width -
+              fallbackDisplayWidth,
+          y:
+            detection.boatBox.y +
+            (detection.boatBox.height - fallbackDisplayHeight) / 2,
+          width: fallbackDisplayWidth,
+          height: fallbackDisplayHeight,
+        };
+    const fontSize =
+      zoomedIn && !hasCardBox
+        ? 14 / screenScaleY
+        : Math.max(14, 14 / screenScaleY);
     ctx.font = `bold ${fontSize}px sans-serif`;
     if (detection.text && box.width > 0 && box.height > 0) {
       const number = detection.text;
@@ -193,7 +224,10 @@ const drawBowDetections = (
         box.width,
         ctx.measureText(number).width + 10 / screenScaleX,
       );
-      const panelHeight = Math.max(box.height, 20, 20 / screenScaleY);
+      const panelHeight =
+        zoomedIn && !hasCardBox
+          ? Math.max(box.height, 20 / screenScaleY)
+          : Math.max(box.height, 20, 20 / screenScaleY);
       let panelX = travelRightToLeft
         ? box.x + box.width + 6
         : box.x - panelWidth - 6;
@@ -712,6 +746,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             videoFile: videoFileName,
             frameNum,
             detectCardsWithoutBoat: labelCardsWithoutBoat,
+            ...getBowDetectionOptions(),
           });
           const cachedResult = await getCachedAutoZoomDetections(
             videoFileName,
@@ -742,7 +777,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           bowDetectionsFrame.current = frameNum;
           setBowDetections(detections);
           setAnnotatedBow(
-            selectFinishAnnotation(detections, getImage().width) || '',
+            normalizeBowForCurrentEvent(
+              selectFinishAnnotation(detections, getImage().width) || '',
+            ),
           );
         }
       } catch (error) {
@@ -912,8 +949,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           srcCoords.y <= box.y + box.height,
       );
       if (clickedLabel) {
-        setAnnotatedBow(clickedLabel.value);
-        setVideoBow(clickedLabel.value);
+        const bow = normalizeBowForCurrentEvent(clickedLabel.value);
+        setAnnotatedBow(bow);
+        setVideoBow(bow);
         event.preventDefault();
       }
     }
@@ -987,18 +1025,18 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             if (getVideoBow() !== '' && getVideoBow() !== '?') {
               return undefined;
             }
-            const bow = result.bow.trim();
+            const detectedBow = result.bow.trim();
             const supportingFrames = result.observations.filter(
-              ({ detection }) => detection.text === bow,
+              ({ detection }) => detection.text === detectedBow,
             ).length;
-            const bowNumber = Number(bow);
+            const bowNumber = Number(detectedBow);
             if (
-              /^\d{1,3}$/.test(bow) &&
+              /^\d{1,3}$/.test(detectedBow) &&
               bowNumber >= 1 &&
               bowNumber <= 999 &&
               supportingFrames >= 2
             ) {
-              setVideoBow(bow);
+              setVideoBow(normalizeBowForCurrentEvent(detectedBow));
             }
             return undefined;
           })

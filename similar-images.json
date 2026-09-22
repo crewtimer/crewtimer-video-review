@@ -1,0 +1,14 @@
+{
+  "settings": {
+    "max_distance": 0.05,
+    "max_size_ratio": 2.0,
+    "min_cards": 2,
+    "min_coverage": 1.0
+  },
+  "sidecars_scanned": 489,
+  "images_loaded": 489,
+  "images_with_too_few_cards": 489,
+  "warnings": [],
+  "pairs": [],
+  "groups": []
+}

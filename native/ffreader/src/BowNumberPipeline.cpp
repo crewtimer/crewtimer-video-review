@@ -7,8 +7,10 @@ namespace
 {
 constexpr float BOAT_CONFIDENCE_THRESHOLD = 0.25f;
 constexpr float CARD_CONFIDENCE_THRESHOLD = 0.3f;
+constexpr float FALLBACK_CARD_CONFIDENCE_THRESHOLD = 0.02f;
 constexpr double BOAT_PAD_FRACTION = 0.15;
 constexpr double CARD_PAD_FRACTION = 0.15;
+constexpr float FALLBACK_OCR_CONFIDENCE_THRESHOLD = 0.8f;
 constexpr int MIN_PAD_PX = 4;
 
 double distanceToBox(const cv::Point &point, const cv::Rect &box)
@@ -33,6 +35,7 @@ cv::Rect padAndClamp(const cv::Rect &box, double paddingFraction,
                         box.height + 2 * padY);
   return padded & cv::Rect(0, 0, bounds.width, bounds.height);
 }
+
 } // namespace
 
 BowNumberPipeline::BowNumberPipeline(const std::string &boatModelPath,
@@ -116,8 +119,16 @@ std::vector<BowNumberDetection> BowNumberPipeline::detectAll(
 
     // Stage 2: card detector within the boat crop; take the most confident
     // card (a boat crop should contain at most one bow card).
-    const auto cards =
+    auto cards =
         cardDetector_->detect(boatCrop, CARD_CONFIDENCE_THRESHOLD);
+    const bool usingFallbackCard = cards.empty();
+    if (cards.empty())
+    {
+      // Retry at a low card confidence and let the OCR confidence gate decide
+      // whether the strongest candidate is credible.
+      cards = cardDetector_->detect(boatCrop,
+                                    FALLBACK_CARD_CONFIDENCE_THRESHOLD);
+    }
     if (cards.empty())
     {
       results.push_back(result);
@@ -133,8 +144,6 @@ std::vector<BowNumberDetection> BowNumberPipeline::detectAll(
                                     bestCard->box.y + boatCropRect.y,
                                     bestCard->box.width,
                                     bestCard->box.height);
-    result.cardBox = cardBoxFullFrame;
-
     // Stage 3: read the card from the full-resolution frame.
     const cv::Rect cardCropRect =
         padAndClamp(cardBoxFullFrame, CARD_PAD_FRACTION, frameSize);
@@ -146,8 +155,13 @@ std::vector<BowNumberDetection> BowNumberPipeline::detectAll(
     const cv::Mat cardCrop = frame(cardCropRect);
 
     const BowNumberPrediction prediction = numberReader_->read(cardCrop);
-    result.text = prediction.text;
-    result.confidence = prediction.confidence;
+    if (!usingFallbackCard ||
+        prediction.confidence >= FALLBACK_OCR_CONFIDENCE_THRESHOLD)
+    {
+      result.cardBox = cardBoxFullFrame;
+      result.text = prediction.text;
+      result.confidence = prediction.confidence;
+    }
     results.push_back(result);
   }
   return results;
