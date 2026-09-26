@@ -37,7 +37,7 @@ import {
 
 // Compute rows (arrays of bow strings) for an event, honoring orderByTime and gate.
 export function eventToRows(ev: Event, orderByTime: boolean, gate: string) {
-  let bows = ev.eventItems
+  let bows = (ev.eventItems || [])
     .map((it: any) => it?.Bow)
     .filter(Boolean) as string[];
 

@@ -389,7 +389,7 @@ const generateEventRows = (
     });
   }
   if (includeEntries) {
-    event.eventItems.forEach((entry) => {
+    (event.eventItems || []).forEach((entry) => {
       const key = `${gate}_${event.EventNum}_${entry?.Bow}`;
       const lap = getEntryResult(key);
       const Time = lap?.State === 'Deleted' ? '' : lap?.Time || '';
@@ -430,7 +430,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
   const gate = gateFromWaypoint(waypoint);
   const { rows, filteredEvents } = useMemo(() => {
     let events = (mobileConfig?.eventList || []).filter(
-      (evt) => evt.RaceType !== 'Info',
+      (evt) => evt.RaceType !== 'Info' && Boolean(evt.EventNum),
     );
     if (day) {
       events = events.filter((event) => event.Day === day);
@@ -453,7 +453,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
     for (let i = events.length - 1; i >= 0; i -= 1) {
       const ev = events[i];
       // Check if any entry for this event has a recorded time
-      for (const entry of ev.eventItems) {
+      for (const entry of ev.eventItems || []) {
         const key = `${gateFromWaypoint(waypoint)}_${ev.EventNum}_${entry?.Bow}`;
         const lap = getEntryResult(key);
         if (lap && lap.State !== 'Deleted' && lap.Time) {
@@ -828,7 +828,20 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       </Stack>
       <ContextMenu />
       <div style={{ flexGrow: 'auto' }}>
-        {gridView ? (
+        {activeEventRows.length === 0 ? (
+          <Box
+            sx={{
+              height: height - 138,
+              border: '1px solid var(--rdg-border-color, #ddd)',
+              boxSizing: 'border-box',
+              padding: '0.5em',
+            }}
+          >
+            <Typography sx={{ fontSize: timingFontSize }}>
+              No races defined
+            </Typography>
+          </Box>
+        ) : gridView ? (
           <Box sx={{ overflowY: 'auto', height: height - 138 }}>
             <BowGridView
               events={filteredEvents}
