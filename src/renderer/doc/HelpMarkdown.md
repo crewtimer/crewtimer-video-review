@@ -5,7 +5,7 @@
 | Space | Trigger the video recorder to close the current video file being recorded and start a new file. |
 | Mouse Wheel, Left Arrow, Right Arrow, `,`, `.`, `<`, or `>` | Jog the timeline by one video frame. If zoomed, jog by a partial frame if possible. |
 | Right Click | Record the current Timestamp and Bow as if the Add Split button was pressed. | 
-| Tab | Jump to the next available clicker hint in the timeline. |
+| Tab | Jump to the next clicker hint. |
 | Double Click | Enter or exit video zoom. When Zoom to Timing Guide on Double Click is enabled, an unzoomed double click attempts to locate the boat crossing. |
 | Escape, `z`, `Z`, or `/` | Exit video zoom. |
 | `p` | Start or stop video playback. |
@@ -20,4 +20,4 @@
 | --- | --- |
 | Click on Bow| Set the **Add Split** button Bow and Event properties. |
 | Right click on Bow | Open menu to delete timestamp if a timestamp has been recorded. |
-| Double click on Bow| Seek to associated timestamp.  If no timestamp recorded yet, a seek using the timing hint waypoint is done. |
+| Double click on Bow| Seek to associated timestamp.  If no timestamp recorded yet, a seek using the timing hint waypoint. |

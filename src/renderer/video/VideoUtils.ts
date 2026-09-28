@@ -1,6 +1,8 @@
 import React from 'react';
 import { AppImage, Rect } from 'renderer/shared/AppTypes';
 import { getWaypoint, getWaypointList } from 'renderer/util/UseSettings';
+import { getEntryResult } from 'renderer/util/LapStorageDatum';
+import { gateFromWaypoint } from 'renderer/util/Util';
 import { ExtendedLap, getClickerData } from './UseClickerData';
 import {
   Dir,
@@ -24,6 +26,11 @@ import {
 } from './VideoSettings';
 import { TimeObject } from './VideoTypes';
 import { parseTimeToSeconds } from '../util/StringUtils';
+import {
+  findNextTimePoint,
+  isNearestHintForScore,
+  preferredTimeForHint,
+} from './NextTimePoint';
 // RequestVideoFrame uses shared video geometry helpers from this module.
 // eslint-disable-next-line import/no-cycle
 import {
@@ -574,19 +581,20 @@ export const translateMouseEventCoords = (
  * Finds the next time point in a sorted array of time points that meets the specified conditions.
  *
  * @param {TimeObject} from - The reference time object containing a `Time` property to compare and a `Bow` property to match.
- * @returns {TimeObject | undefined} The first `TimeObject` in the sorted `timePoints` array with a `seconds` value greater than or equal to `from.Time` and a different `Bow` value, or `undefined` if no such point is found.
+ * @returns {TimeObject | undefined} The time point after the identified current hint, or `undefined` if no such point is found.
  *
  * @remarks
- * This function retrieves the array of time points from `getClickerData()`. It then performs a binary search to
- * find the first `TimeObject` where `seconds >= s`, where `s` is the number of seconds parsed from `from.Time`.
- * After finding an initial candidate, it checks subsequent points until it finds one with a different `Bow`
- * value than `from.Bow`.
+ * UUID is preferred to identify the current hint. Without one, navigation
+ * selects the first hint strictly after the current video timestamp. Hint
+ * identity, not bow value, allows consecutive hints to have the same bow.
  */
 export const seekToNextTimePoint = (
   from: {
     time?: string;
     bow: string;
+    event?: string;
     uuid?: string;
+    skipHintAtOrAfterTime?: boolean;
   },
   afterSeek?: (timePoint: ExtendedLap, image: AppImage) => void | Promise<void>,
 ): TimeObject | undefined => {
@@ -595,57 +603,42 @@ export const seekToNextTimePoint = (
     return undefined;
   }
   const timePoints = getClickerData();
-  let left = 0;
-  let right = timePoints.length - 1;
-  let result: ExtendedLap | undefined;
-  let resultIndex = -1;
-  // prefre starting search from the last seek position
   const seekTime = from.time || '00:00:00.000';
   const s = parseTimeToSeconds(seekTime);
-
-  let mid: number = 0;
-  while (left <= right) {
-    mid = Math.floor((left + right) / 2);
-
-    if (timePoints[mid].seconds >= s) {
-      result = timePoints[mid];
-      resultIndex = mid;
-      right = mid - 1; // Keep searching in the left half for a closer match
-    } else {
-      left = mid + 1; // Search in the right half
-    }
-  }
+  const result = findNextTimePoint(timePoints, {
+    seconds: s,
+    bow: from.bow,
+    event: from.event,
+    uuid: from.uuid,
+    skipHintAtOrAfterTime: from.skipHintAtOrAfterTime,
+  });
 
   if (!result) {
     return undefined;
   }
 
-  // Move forward in the array until finding a time point with a different Bow value
-  const isSameTimePoint = (candidate: ExtendedLap) => {
-    // Preserve the hint UUID after OCR replaces an unknown bow. The recorded
-    // crossing may precede its original hint time, so UUID matching prevents
-    // Tab/automatic-next from selecting that same hint again.
-    if (from.uuid && candidate.uuid === from.uuid) {
-      return true;
-    }
-
-    return candidate.Bow === from.bow;
-  };
-  while (isSameTimePoint(result) || result.Bow === '*') {
-    resultIndex += 1;
-    if (resultIndex >= timePoints.length) {
-      return undefined;
-    }
-    result = timePoints[resultIndex];
-  }
-
   const zoomReset = resetVideoZoom();
   const nextResult = result;
+  const scoredLap = getEntryResult(
+    `${gateFromWaypoint(getWaypoint())}_${nextResult.EventNum}_${nextResult.Bow}`,
+  );
+  const scoreMatchesHint = scoredLap?.Time
+    ? isNearestHintForScore(
+        timePoints,
+        nextResult,
+        parseTimeToSeconds(scoredLap.Time),
+      )
+    : false;
+  const nextSeekTime = preferredTimeForHint(
+    nextResult.Time,
+    scoreMatchesHint ? scoredLap : undefined,
+    from.time,
+  );
   setTimeout(async () => {
     await zoomReset;
     const priorImage = getImage();
     const found = await seekToTimestampAndWait({
-      time: nextResult.Time || '00:00:00.000',
+      time: nextSeekTime,
       bow: nextResult.Bow || '',
       interpolate: true,
     });

@@ -89,6 +89,7 @@ import {
   type RetainedRollingShutterCorrection,
 } from './RollingShutter';
 import type { VideoSidecar } from './VideoSettings';
+import { selectBowCardNearestPoint } from './BowDetectionSelection';
 
 // Avoid 'not a JSX component' warning
 const Measure = _Measure as unknown as FC<MeasureProps>;
@@ -683,7 +684,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             hasAutoZoomInterpolation(image.file) &&
             (isZooming() ||
               hasAutoZoomInterpolationAtFrame(image.file, image.frameNum));
-          const visibleBowDetections = bowSeekPending
+          const currentBowDetections = bowSeekPending
             ? []
             : useTrackedInterpolation
               ? adjustInterpolatedBoatDetection(
@@ -694,6 +695,18 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
               : Math.abs(bowDetectionsFrame.current - image.frameNum) <= 0.01
                 ? bowDetections
                 : [];
+          const zoomedIn = vScaling.zoomY !== 1;
+          const nearestBowCard = zoomedIn
+            ? selectBowCardNearestPoint(
+                currentBowDetections,
+                vScaling.srcClickPoint,
+              )
+            : undefined;
+          const visibleBowDetections = zoomedIn
+            ? nearestBowCard
+              ? [nearestBowCard]
+              : []
+            : currentBowDetections;
           bowLabelHitRegions.current = drawBowDetections(
             ctx,
             offscreenCanvas.current,

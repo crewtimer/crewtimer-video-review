@@ -20,6 +20,7 @@ import {
   useVideoBow,
   resetVideoZoom,
   setLastSeekTime,
+  setVideoBowUuid,
 } from './VideoSettings';
 import { TimeObject, TimeSegment } from './VideoTypes';
 import { moveLeft, moveRight } from './VideoUtils';
@@ -62,6 +63,7 @@ const VideoScrubber = () => {
   }, [setVideoFrameNum, videoFileChanging]);
 
   const handleSlider = (_event: Event, value: number | number[]) => {
+    setVideoBowUuid('');
     timestampSeekRequest.current += 1;
     sliderValueEvent.current = value as number;
     const newValue = value as number;
@@ -189,6 +191,7 @@ const VideoScrubber = () => {
   const onSliderClick = (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>,
   ) => {
+    setVideoBowUuid('');
     const click = findNearestClick(event);
     if (!click) {
       const requestId = timestampSeekRequest.current + 1;

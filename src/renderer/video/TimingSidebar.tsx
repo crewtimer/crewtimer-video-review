@@ -29,6 +29,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SortIcon from '@mui/icons-material/Sort';
 import {
   CellMouseArgs,
+  CellMouseEvent,
   Column,
   DataGrid,
   DataGridHandle,
@@ -53,6 +54,7 @@ import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 import makeStyles from '@mui/styles/makeStyles';
 import {
   getTimeSort,
+  getVideoBowUuid,
   ResultRowType,
   setVideoBow,
   useShowGridView,
@@ -277,10 +279,13 @@ const VideoBow: React.FC = () => {
       size="small"
       value={videoBow}
       onChange={(event) => {
-        setVideoBow(event.target.value);
+        setVideoBow(event.target.value, getVideoBowUuid());
       }}
       onBlur={(event) => {
-        setVideoBow(normalizeBowForCurrentEvent(event.target.value));
+        setVideoBow(
+          normalizeBowForCurrentEvent(event.target.value),
+          getVideoBowUuid(),
+        );
       }}
       sx={{
         fontSize: timingFontSize,
@@ -512,6 +517,23 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       const args = clickArgsRef.current;
       if (args) seekToBow({ Bow: args.row.Bow, EventNum: args.row.eventNum });
     },
+  );
+
+  const handleTimestampContextMenu = useCallback(
+    (args: CellMouseArgs<ResultRowType, unknown>, event: CellMouseEvent) => {
+      if (args.column.key !== 'ts' || args.row.eventName) {
+        return;
+      }
+      const lap = getEntryResult(args.row.id);
+      if (!lap?.Time || lap.State === 'Deleted') {
+        return;
+      }
+
+      event.preventGridDefault();
+      event.preventDefault();
+      setContextMenuAnchor({ element: event.currentTarget, row: args.row });
+    },
+    [],
   );
 
   const scrollToEvent = useCallback(
@@ -864,6 +886,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
               clickArgsRef.current = args;
               onDoubleClick(e);
             }}
+            onCellContextMenu={handleTimestampContextMenu}
             rowHeight={24}
             rowClass={(row) => (row.eventName ? classes.row : undefined)}
             style={{ height: height - 138 }}

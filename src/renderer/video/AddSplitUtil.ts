@@ -156,7 +156,13 @@ const addSplitForBow = (enteredBow: string) => {
           msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,
         });
         seekToNextTimePoint(
-          { time: lap.Time, bow: lap.Bow, uuid: videoBowUuid },
+          {
+            time: lap.Time,
+            bow: lap.Bow,
+            event: lap.EventNum,
+            uuid: videoBowUuid,
+            skipHintAtOrAfterTime: true,
+          },
           autoNextTimestamp ? autoZoomAfterNextTimestamp : undefined,
         );
       },
@@ -175,7 +181,13 @@ const addSplitForBow = (enteredBow: string) => {
   });
   if (autoNextTimestamp) {
     seekToNextTimePoint(
-      { time: lap.Time, bow: lap.Bow, uuid: videoBowUuid },
+      {
+        time: lap.Time,
+        bow: lap.Bow,
+        event: lap.EventNum,
+        uuid: videoBowUuid,
+        skipHintAtOrAfterTime: true,
+      },
       autoZoomAfterNextTimestamp,
     );
   } else {
@@ -204,7 +216,7 @@ export const performAddSplit = () => {
         addSplitForBow(videoBow);
       },
       handleConfirm: () => {
-        setVideoBow(annotatedBow);
+        setVideoBow(annotatedBow, getVideoBowUuid());
         addSplitForBow(annotatedBow);
       },
     });
