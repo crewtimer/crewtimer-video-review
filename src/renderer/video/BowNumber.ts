@@ -2,6 +2,24 @@ export type BowEvent = {
   eventItems?: Array<{ Bow?: string }>;
 };
 
+export type BowCardLength = 'auto' | 1 | 2 | 3;
+
+/** Resolve auto to the numeric-ending width used by a one- or two-digit event. */
+export const cardLengthForEvent = (
+  cardLength: BowCardLength,
+  event: BowEvent | undefined,
+): BowCardLength => {
+  if (cardLength !== 'auto') return cardLength;
+
+  const endingLengths = (event?.eventItems || [])
+    .map((entry) => /\d+$/.exec(entry.Bow?.trim() || '')?.[0].length)
+    .filter((length): length is number => length !== undefined);
+  if (endingLengths.length === 0) return 'auto';
+
+  const maxLength = Math.max(...endingLengths);
+  return maxLength === 1 || maxLength === 2 ? maxLength : 'auto';
+};
+
 /** Add an event's unambiguous single-letter prefix to a digits-only bow. */
 export const normalizeBowForEvent = (
   bow: string,

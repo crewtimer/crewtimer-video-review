@@ -1,7 +1,10 @@
 import { UseDatum } from 'react-usedatum';
 import { MobileSettings } from 'crewtimer-common';
 import { getVideoEvent, useVideoSettings } from 'renderer/video/VideoSettings';
-import { normalizeBowForEvent } from 'renderer/video/BowNumber';
+import {
+  cardLengthForEvent,
+  normalizeBowForEvent,
+} from 'renderer/video/BowNumber';
 import { UseMemDatum, UseStoredDatum } from '../store/UseElectronDatum';
 import {
   FirebaseConnectedKey,
@@ -97,17 +100,20 @@ export const [useBowOcrModel, setBowOcrModel, getBowOcrModel] =
 export const [useBowCardLength, setBowCardLength, getBowCardLength] =
   UseStoredDatum<BowCardLength>(N_BOW_CARD_LENGTH, 'auto');
 
+const getCurrentEvent = () => {
+  const eventNum = getVideoEvent();
+  return getMobileConfig()?.eventList?.find(
+    (candidate) => candidate.EventNum === eventNum,
+  );
+};
+
 export const getBowDetectionOptions = () => ({
   numericOnly: getBowOcrModel() === 'numeric',
-  cardLength: getBowCardLength(),
+  cardLength: cardLengthForEvent(getBowCardLength(), getCurrentEvent()),
 });
 
 export const normalizeBowForCurrentEvent = (bow: string) => {
-  const eventNum = getVideoEvent();
-  const event = getMobileConfig()?.eventList?.find(
-    (candidate) => candidate.EventNum === eventNum,
-  );
-  return normalizeBowForEvent(bow, event);
+  return normalizeBowForEvent(bow, getCurrentEvent());
 };
 
 // Tab position of the CenteredTabs component

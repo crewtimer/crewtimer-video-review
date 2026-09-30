@@ -1,4 +1,28 @@
-import { normalizeBowForEvent } from './BowNumber';
+import { cardLengthForEvent, normalizeBowForEvent } from './BowNumber';
+
+describe('cardLengthForEvent', () => {
+  test('uses one digit when all numeric endings are one digit', () => {
+    const event = { eventItems: [{ Bow: 'A1' }, { Bow: 'A9' }] };
+    expect(cardLengthForEvent('auto', event)).toBe(1);
+  });
+
+  test('uses two digits when the event includes a two-digit ending', () => {
+    const event = { eventItems: [{ Bow: 'A1' }, { Bow: 'A12' }] };
+    expect(cardLengthForEvent('auto', event)).toBe(2);
+  });
+
+  test('keeps auto for three-digit or unavailable endings', () => {
+    expect(cardLengthForEvent('auto', { eventItems: [{ Bow: 'A123' }] })).toBe(
+      'auto',
+    );
+    expect(cardLengthForEvent('auto', undefined)).toBe('auto');
+  });
+
+  test('preserves an explicitly selected card length', () => {
+    const event = { eventItems: [{ Bow: 'A1' }] };
+    expect(cardLengthForEvent(3, event)).toBe(3);
+  });
+});
 
 describe('normalizeBowForEvent', () => {
   test('adds the current event prefix to a numeric bow', () => {
