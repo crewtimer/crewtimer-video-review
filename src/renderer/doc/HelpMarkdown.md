@@ -1,3 +1,8 @@
+## Help and training
+
+- [CrewTimer Video Review guide](https://crewtimer.com/help/VideoReview)
+- [CrewTimer Video Review training videos](https://www.youtube.com/playlist?list=PLSIPH6-6DDtDjL5tFoddhv9D5MfUjvS0b)
+
 ## Keyboard Shortcuts
 
 | Video Gestures | Action |

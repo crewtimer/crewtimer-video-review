@@ -72,7 +72,7 @@ const installExtensions = async () => {
   return installer
     .default(
       extensions.map((name) => installer[name]),
-      forceDownload
+      forceDownload,
     )
     .catch(console.log);
 };
@@ -146,6 +146,14 @@ const createWindow = async () => {
  */
 
 app.on('window-all-closed', () => {
+  // ONNX Runtime/DirectML owns process-lifetime native worker threads. On
+  // Windows, Electron's graceful quit can leave the process and taskbar entry
+  // alive after the final window closes, so terminate the process explicitly.
+  if (process.platform === 'win32') {
+    app.exit(0);
+    return;
+  }
+
   // Respect the OSX convention of having the application in memory even
   // after all windows have been closed
   // if (process.platform !== 'darwin') {

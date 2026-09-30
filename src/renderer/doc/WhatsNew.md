@@ -1,7 +1,7 @@
 
 | Version | What's New |
 | --- | --- |
-| 2.0.3 | Auto-seek UI improvements. |
+| 2.0.3-4 | Auto-seek UI improvements. |
 | 2.0.2 | AI Options for card detection. |
 | 2.0.1 | Add AI assisted boat detection and bow card reading. |
 | 2.0.0 | Use neural optical flow interpolator.  Usability improvements. |
