@@ -2,6 +2,7 @@
 | Version | What's New |
 | --- | --- |
 | 2.0.3-4 | Auto-seek UI improvements. |
+| | Consistent replay quality: sharp video on scaled Windows displays and unsmoothed pixels when zoomed. |
 | 2.0.2 | AI Options for card detection. |
 | 2.0.1 | Add AI assisted boat detection and bow card reading. |
 | 2.0.0 | Use neural optical flow interpolator.  Usability improvements. |

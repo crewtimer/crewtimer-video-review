@@ -113,9 +113,9 @@ const drawBowDetections = (
   const screenScaleY = Math.max(0.001, Math.abs(scaling.scaleY));
   const visibleBounds = {
     left: -scaling.destX / screenScaleX,
-    right: (ctx.canvas.width - scaling.destX) / screenScaleX,
+    right: (ctx.canvas.clientWidth - scaling.destX) / screenScaleX,
     top: -scaling.destY / screenScaleY,
-    bottom: (ctx.canvas.height - scaling.destY) / screenScaleY,
+    bottom: (ctx.canvas.clientHeight - scaling.destY) / screenScaleY,
   };
   const displayedCardBoxes = new Map<BowDetection, Rect>();
   detections.forEach((detection) => {
@@ -673,12 +673,18 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       }
       const ctx = canvas.getContext('2d');
       if (ctx) {
+        // The backing store is in device pixels; draw in CSS pixels on top.
+        const dpr = canvas.width / width;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, width, height);
         if (image.width) {
           const vScaling = getVideoScaling();
           ctx.save();
           ctx.translate(vScaling.destX, vScaling.destY);
           ctx.scale(vScaling.scaleX, vScaling.scaleY);
+          // Show magnified source pixels as-is so judges see the real edge,
+          // but keep smoothing when downscaling to avoid aliasing.
+          ctx.imageSmoothingEnabled = vScaling.scaleY < 1;
           ctx.drawImage(offscreenCanvas.current, 0, 0);
           const useTrackedInterpolation =
             hasAutoZoomInterpolation(image.file) &&
@@ -914,14 +920,15 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         return;
       }
       const vScaling = getVideoScaling();
+      const dpr = window.devicePixelRatio;
       downloadImageFromCanvasLayers(
         // 'video-snapshot.png',
         `Image_${videoTimestamp}.png`,
         [canvasRef.current, videoOverlayRef.current?.getCanvas()],
-        (width - vScaling.destWidth) / 2,
+        ((width - vScaling.destWidth) / 2) * dpr,
         0,
-        vScaling.destWidth,
-        vScaling.destHeight,
+        Math.round(vScaling.destWidth * dpr),
+        Math.round(vScaling.destHeight * dpr),
       );
     });
     return () => setGenerateImageSnapshotCallback(undefined);
@@ -1301,9 +1308,13 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         </Stack>
         <canvas
           ref={canvasRef}
-          width={`${width}px`}
-          height={`${height}px`}
+          // Match the backing store to physical pixels so Windows display
+          // scaling doesn't stretch (and blur) the frame.
+          width={Math.round(width * window.devicePixelRatio)}
+          height={Math.round(height * window.devicePixelRatio)}
           style={{
+            width: `${width}px`,
+            height: `${height}px`,
             position: 'absolute', // keeps the size from influencing the parent size
           }}
         />

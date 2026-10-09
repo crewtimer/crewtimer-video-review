@@ -227,9 +227,16 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       const context = canvas?.getContext('2d');
       const image = getImage();
       if (canvas && context) {
-        canvas.width = videoScaling.destWidth;
-        canvas.height = videoScaling.destHeight;
-        context.clearRect(0, 0, canvas.width, canvas.height);
+        const dpr = window.devicePixelRatio;
+        canvas.width = Math.round(videoScaling.destWidth * dpr);
+        canvas.height = Math.round(videoScaling.destHeight * dpr);
+        context.setTransform(dpr, 0, 0, dpr, 0, 0);
+        context.clearRect(
+          0,
+          0,
+          videoScaling.destWidth,
+          videoScaling.destHeight,
+        );
         const guideColor = courseConfig.guideColor || DEFAULT_GUIDE_COLOR;
 
         if (
@@ -537,9 +544,11 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         onMouseMove={handleMouseMove}
         onMouseUp={dragging ? handleMouseUp : undefined}
         onMouseLeave={handleMouseLeave}
-        width={`${videoScaling.destWidth}px`}
-        height={`${videoScaling.destHeight}px`}
+        width={Math.round(videoScaling.destWidth * window.devicePixelRatio)}
+        height={Math.round(videoScaling.destHeight * window.devicePixelRatio)}
         style={{
+          width: `${videoScaling.destWidth}px`,
+          height: `${videoScaling.destHeight}px`,
           zIndex: dragging ? 300 : 100, // adjustingOverlay ? 100 : undefined,
           position: 'absolute', // keeps the size from influencing the parent size
         }}
