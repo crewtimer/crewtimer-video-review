@@ -1,4 +1,4 @@
-*       text    eol=lf
+*       text=auto eol=lf
 *.exe   binary
 *.icns  binary
 *.eot   binary
@@ -11,6 +11,7 @@
 *.dll   binary
 *.a     binary
 *.onnx  binary
+*.pt    binary
 # - Include binary diff in patches instead of "binary files differ."
 *.sln     -text diff
 *.suo     -text diff
