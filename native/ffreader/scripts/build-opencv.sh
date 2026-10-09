@@ -17,7 +17,9 @@ elif [[ "$OSTYPE" == "cygwin" || "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || 
   # OpenCV 5's vendored MLAS x64 kernels are GNU-style .S files and are not
   # linked into opencv_dnn by the MSVC generator. Use the built-in DNN GEMM
   # implementation to avoid unresolved Mlas* symbols in static consumers.
-  CMAKE_PLATFORM_OPTS="-DOPENCV_DNN_DISABLE_MLAS=ON"
+  # OpenCV 5.0.0 has no MLAS switch; it only skips MLAS when no ASM compiler
+  # is configured, so mark ASM as not found.
+  CMAKE_PLATFORM_OPTS="-DCMAKE_ASM_COMPILER=CMAKE_ASM_COMPILER-NOTFOUND"
 else
   PLATFORM="linux"
 fi
