@@ -1,6 +1,9 @@
 import { ExtendedLap, getClickerData } from './UseClickerData';
-import { getOpenFilename, requestVideoFrame } from './RequestVideoFrame';
-import { getFileStatusList } from './VideoFileStatus';
+import {
+  getOpenFilename,
+  requestVideoFrame,
+  seekToTimestampAndWait,
+} from './RequestVideoFrame';
 import {
   DEFAULT_GUIDE_COLOR,
   getImage,
@@ -10,7 +13,6 @@ import {
   setVideoFile,
 } from './VideoSettings';
 import { getFinishLine } from './VideoUtils';
-import { milliToString, secondsSinceLocalMidnight } from '../util/Util';
 import { getMobileConfig, getWaypoint } from '../util/UseSettings';
 import logoUrl from '../../assets/icons/crewtimer-review2-white.svg';
 
@@ -46,20 +48,6 @@ const computeIntWidth = (values: number[]): number => {
     if (len > max) max = len;
   });
   return max;
-};
-
-const findFileForTime = (seconds: number) => {
-  return getFileStatusList().find((status) => {
-    const start = secondsSinceLocalMidnight(
-      status.startTime / 1000000,
-      status.tzOffset,
-    );
-    const end = secondsSinceLocalMidnight(
-      status.endTime / 1000000,
-      status.tzOffset,
-    );
-    return seconds >= start && seconds <= end;
-  });
 };
 
 interface SidebarRow {
@@ -239,18 +227,12 @@ const renderSlice = async (
   finisher: ExtendedLap,
   maxSliceWidth: number,
 ): Promise<SliceRender | undefined> => {
-  const fileStatus = findFileForTime(finisher.seconds);
-  if (!fileStatus) return undefined;
-
-  const targetTimestamp = milliToString(finisher.seconds * 1000);
-
-  setSelectedIndex(getFileStatusList().indexOf(fileStatus));
-  setVideoFile(fileStatus.filename);
-  const image = await requestVideoFrame({
-    videoFile: fileStatus.filename,
-    toTimestamp: targetTimestamp,
-    blend: false,
-    closeTo: false,
+  if (!finisher.Time) return undefined;
+  // Interpolate so the slice matches what the reviewer saw when scoring at
+  // the current Hyperzoom settings, not the nearest decoded frame.
+  const image = await seekToTimestampAndWait({
+    time: finisher.Time,
+    interpolate: true,
   });
   if (!image) return undefined;
 
