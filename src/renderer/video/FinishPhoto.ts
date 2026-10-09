@@ -1,6 +1,9 @@
 import { ExtendedLap, getClickerData } from './UseClickerData';
-import { getOpenFilename, requestVideoFrame } from './RequestVideoFrame';
-import { getFileStatusList } from './VideoFileStatus';
+import {
+  getOpenFilename,
+  requestVideoFrame,
+  seekToTimestampAndWait,
+} from './RequestVideoFrame';
 import {
   DEFAULT_GUIDE_COLOR,
   getImage,
@@ -10,9 +13,9 @@ import {
   setVideoFile,
 } from './VideoSettings';
 import { getFinishLine } from './VideoUtils';
-import { milliToString, secondsSinceLocalMidnight } from '../util/Util';
 import { getMobileConfig, getWaypoint } from '../util/UseSettings';
-import logoUrl from '../../assets/icons/crewtimer-review2-white.svg';
+import logoUrl from '../../assets/icons/crewtimer-review2.svg';
+import logoWhiteUrl from '../../assets/icons/crewtimer-review2-white.svg';
 
 const SLICE_FRACTION_OF_WIDTH = 0.8;
 const SLICE_GAP_FRACTION = 0.04;
@@ -48,20 +51,6 @@ const computeIntWidth = (values: number[]): number => {
   return max;
 };
 
-const findFileForTime = (seconds: number) => {
-  return getFileStatusList().find((status) => {
-    const start = secondsSinceLocalMidnight(
-      status.startTime / 1000000,
-      status.tzOffset,
-    );
-    const end = secondsSinceLocalMidnight(
-      status.endTime / 1000000,
-      status.tzOffset,
-    );
-    return seconds >= start && seconds <= end;
-  });
-};
-
 interface SidebarRow {
   position: number;
   label: string;
@@ -73,10 +62,43 @@ const POSITION_CIRCLE_COLOR = '#1976d2';
 const MONO_FONT_FAMILY = "'Roboto Mono', Consolas, 'Courier New', monospace";
 const DELTA_PREV_PLACEHOLDER = '—';
 
+interface Theme {
+  suffix: string;
+  background: string;
+  text: string;
+  label: string;
+  value: string;
+  placeholder: string;
+  logoUrl: string;
+}
+
+// White variant is for printing.
+const THEMES: Theme[] = [
+  {
+    suffix: '-black',
+    background: 'black',
+    text: 'white',
+    label: '#888888',
+    value: '#dddddd',
+    placeholder: '#666666',
+    logoUrl: logoWhiteUrl,
+  },
+  {
+    suffix: '-white',
+    background: 'white',
+    text: 'black',
+    label: '#666666',
+    value: '#222222',
+    placeholder: '#999999',
+    logoUrl,
+  },
+];
+
 const buildSidebar = (
   finishers: ExtendedLap[],
   crewByBow: Map<string, string>,
   height: number,
+  theme: Theme,
   logo?: HTMLImageElement,
 ): HTMLCanvasElement => {
   const usableHeight = height - 2 * SIDEBAR_PADDING;
@@ -155,7 +177,7 @@ const buildSidebar = (
   const ctx = canvas.getContext('2d');
   if (!ctx) return canvas;
 
-  ctx.fillStyle = 'black';
+  ctx.fillStyle = theme.background;
   ctx.fillRect(0, 0, sidebarWidth, height);
 
   const totalHeight = rowHeight * finishers.length;
@@ -178,7 +200,7 @@ const buildSidebar = (
     ctx.fillText(`${r.position}`, circleCenterX, circleCenterY + 1);
 
     ctx.font = `bold ${titleSize}px Roboto, sans-serif`;
-    ctx.fillStyle = 'white';
+    ctx.fillStyle = theme.text;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(r.label, titleTextX, circleCenterY);
@@ -187,19 +209,19 @@ const buildSidebar = (
     const deltasTop = y + circleSize + lineGap;
 
     ctx.font = `${detailSize}px Roboto, sans-serif`;
-    ctx.fillStyle = '#888888';
+    ctx.fillStyle = theme.label;
     ctx.fillText('Δ 1st', titleTextX, deltasTop);
     ctx.font = monoFont;
-    ctx.fillStyle = '#dddddd';
+    ctx.fillStyle = theme.value;
     ctx.fillText(r.deltaLeader, valueX, deltasTop);
 
     const prevTop = deltasTop + detailSize + 4;
     ctx.font = `${detailSize}px Roboto, sans-serif`;
-    ctx.fillStyle = '#888888';
+    ctx.fillStyle = theme.label;
     ctx.fillText('Δ prev', titleTextX, prevTop);
     ctx.font = monoFont;
     ctx.fillStyle =
-      r.deltaPrev === DELTA_PREV_PLACEHOLDER ? '#666666' : '#dddddd';
+      r.deltaPrev === DELTA_PREV_PLACEHOLDER ? theme.placeholder : theme.value;
     ctx.fillText(r.deltaPrev, valueX, prevTop);
 
     y += rowHeight;
@@ -239,18 +261,12 @@ const renderSlice = async (
   finisher: ExtendedLap,
   maxSliceWidth: number,
 ): Promise<SliceRender | undefined> => {
-  const fileStatus = findFileForTime(finisher.seconds);
-  if (!fileStatus) return undefined;
-
-  const targetTimestamp = milliToString(finisher.seconds * 1000);
-
-  setSelectedIndex(getFileStatusList().indexOf(fileStatus));
-  setVideoFile(fileStatus.filename);
-  const image = await requestVideoFrame({
-    videoFile: fileStatus.filename,
-    toTimestamp: targetTimestamp,
-    blend: false,
-    closeTo: false,
+  if (!finisher.Time) return undefined;
+  // Interpolate so the slice matches what the reviewer saw when scoring at
+  // the current Hyperzoom settings, not the nearest decoded frame.
+  const image = await seekToTimestampAndWait({
+    time: finisher.Time,
+    interpolate: true,
   });
   if (!image) return undefined;
 
@@ -315,6 +331,48 @@ const renderSlice = async (
   return { width: sliceWidth, canvas: out };
 };
 
+const composePng = async (
+  finishers: ExtendedLap[],
+  crewByBow: Map<string, string>,
+  renders: SliceRender[],
+  theme: Theme,
+): Promise<string> => {
+  let logo: HTMLImageElement | undefined;
+  try {
+    logo = await loadImage(theme.logoUrl);
+  } catch {
+    logo = undefined;
+  }
+
+  const { height } = renders[0].canvas;
+  const sidebar = buildSidebar(finishers, crewByBow, height, theme, logo);
+  const slicesWidth = renders.reduce((s, r) => s + r.width, 0);
+  const meanSliceWidth = slicesWidth / renders.length;
+  const gapWidth = Math.round(meanSliceWidth * SLICE_GAP_FRACTION);
+  const totalGapWidth = gapWidth * renders.length;
+  const totalWidth = sidebar.width + slicesWidth + totalGapWidth;
+
+  const composite = document.createElement('canvas');
+  composite.width = totalWidth;
+  composite.height = height;
+  const cctx = composite.getContext('2d') as CanvasRenderingContext2D;
+
+  cctx.fillStyle = theme.background;
+  cctx.fillRect(0, 0, totalWidth, height);
+
+  cctx.drawImage(sidebar, 0, 0);
+  let xOff = sidebar.width;
+  for (const r of renders) {
+    xOff += gapWidth;
+    cctx.drawImage(r.canvas, xOff, 0);
+    xOff += r.width;
+  }
+
+  return composite
+    .toDataURL('image/png')
+    .replace(/^data:image\/png;base64,/, '');
+};
+
 export const generateFinishPhoto = async (event: string): Promise<string> => {
   if (!event) {
     return 'No event selected.';
@@ -345,13 +403,6 @@ export const generateFinishPhoto = async (event: string): Promise<string> => {
   const origFrame = getImage().frameNum;
   const origIndex = getSelectedIndex();
 
-  let logo: HTMLImageElement | undefined;
-  try {
-    logo = await loadImage(logoUrl);
-  } catch {
-    logo = undefined;
-  }
-
   const maxSliceWidth = Math.max(
     32,
     Math.floor(TOTAL_SLICES_MAX_WIDTH / finishers.length),
@@ -371,36 +422,15 @@ export const generateFinishPhoto = async (event: string): Promise<string> => {
     return 'Could not render any finishes — check that the video files cover the finish times.';
   }
 
-  const height = renders[0].canvas.height;
-  const sidebar = buildSidebar(finishers, crewByBow, height, logo);
-  const slicesWidth = renders.reduce((s, r) => s + r.width, 0);
-  const meanSliceWidth = slicesWidth / renders.length;
-  const gapWidth = Math.round(meanSliceWidth * SLICE_GAP_FRACTION);
-  const totalGapWidth = gapWidth * renders.length;
-  const totalWidth = sidebar.width + slicesWidth + totalGapWidth;
-
-  const composite = document.createElement('canvas');
-  composite.width = totalWidth;
-  composite.height = height;
-  const cctx = composite.getContext('2d');
-  if (!cctx) return 'Failed to allocate composite canvas.';
-
-  cctx.fillStyle = 'black';
-  cctx.fillRect(0, 0, totalWidth, height);
-
-  cctx.drawImage(sidebar, 0, 0);
-  let xOff = sidebar.width;
-  for (const r of renders) {
-    xOff += gapWidth;
-    cctx.drawImage(r.canvas, xOff, 0);
-    xOff += r.width;
-  }
-
-  const dataUrl = composite.toDataURL('image/png');
-  const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
+  const images = await Promise.all(
+    THEMES.map(async (theme) => ({
+      suffix: theme.suffix,
+      base64: await composePng(finishers, crewByBow, renders, theme),
+    })),
+  );
   const saveResult = await window.Util.savePngFile(
     `finish-event-${event}.png`,
-    base64,
+    images,
   );
 
   if (origFile) {

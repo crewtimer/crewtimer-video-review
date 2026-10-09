@@ -129,11 +129,11 @@ export interface SavePngFileReturn {
 
 export function savePngFile(
   defaultName: string,
-  base64: string,
+  images: { suffix: string; base64: string }[],
 ): Promise<SavePngFileReturn> {
   return new Promise((resolve) => {
     ipcRenderer
-      .invoke('save-png-file', defaultName, base64)
+      .invoke('save-png-file', defaultName, images)
       .then((result) => resolve(result))
       .catch((err) =>
         resolve({ canceled: false, filePath: '', error: String(err) }),
