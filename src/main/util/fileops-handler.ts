@@ -252,7 +252,11 @@ ipcMain.handle('open-file-explorer', (_event, dirPath) => {
 
 ipcMain.handle(
   'save-png-file',
-  async (_event, defaultName: string, base64: string) => {
+  async (
+    _event,
+    defaultName: string,
+    images: { suffix: string; base64: string }[],
+  ) => {
     const result = await dialog.showSaveDialog(
       getMainWindow() as BrowserWindow,
       {
@@ -263,9 +267,12 @@ ipcMain.handle(
     if (result.canceled || !result.filePath) {
       return { canceled: true, filePath: '' };
     }
+    // One dialog names the set; each image is written as <name><suffix>.png.
+    const base = result.filePath.replace(/\.png$/i, '');
     try {
-      const buffer = Buffer.from(base64, 'base64');
-      fs.writeFileSync(result.filePath, buffer);
+      images.forEach(({ suffix, base64 }) => {
+        fs.writeFileSync(`${base}${suffix}.png`, Buffer.from(base64, 'base64'));
+      });
       return { canceled: false, filePath: result.filePath };
     } catch (err) {
       return {

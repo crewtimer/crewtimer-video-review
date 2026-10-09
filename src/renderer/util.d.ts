@@ -59,7 +59,7 @@ declare global {
       clearAppLog(): Promise<{ status: string; path: string }>;
       savePngFile(
         defaultName: string,
-        base64: string,
+        images: { suffix: string; base64: string }[],
       ): Promise<{ canceled: boolean; filePath: string; error?: string }>;
     };
     platform: {
