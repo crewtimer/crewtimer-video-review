@@ -31,6 +31,7 @@ import {
 } from './VideoSettings';
 import {
   sanitizeFirebaseKey,
+  findSeekLap,
   seekToBow,
   setContextMenuAnchor,
 } from './TimingSidebarUtil';
@@ -101,8 +102,8 @@ const BowButton: React.FC<{
       }
     },
     () => {
-      // double click
-      seekToBow({ Bow: bow, EventNum: eventNum });
+      // double click: full view; zooming is available from the context menu
+      seekToBow({ Bow: bow, EventNum: eventNum }, { zoom: false });
     },
   );
 
@@ -165,7 +166,7 @@ const BowButton: React.FC<{
         onClick={onSingleClick}
         onContextMenu={(e: React.MouseEvent<HTMLButtonElement>) => {
           e.preventDefault();
-          if (hasTime) {
+          if (findSeekLap({ EventNum: eventNum, Bow: bow })) {
             // construct a minimal ResultRowType-like object so ContextMenu can act on it
             const row = {
               id: entryKey,

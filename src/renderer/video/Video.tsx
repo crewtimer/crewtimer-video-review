@@ -25,6 +25,7 @@ import {
   useVideoError,
   useVideoFile,
   resetVideoZoom,
+  consumeZoomPreservedFile,
   getVideoScaling,
   Point,
   useVideoScaling,
@@ -1138,9 +1139,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     [travelRightToLeft],
   );
 
-  // Clear zoom if file changes
+  // Clear zoom if file changes, unless a zoomed seek switched files
   useEffect(() => {
-    clearZoom();
+    if (!consumeZoomPreservedFile(image.file)) {
+      clearZoom();
+    }
   }, [image.file]);
 
   useEffect(() => {

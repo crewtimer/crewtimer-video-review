@@ -72,6 +72,7 @@ import {
   setContextMenuAnchor,
   useContextMenuAnchor,
   seekToBow,
+  findSeekLap,
   sanitizeFirebaseKey,
 } from './TimingSidebarUtil';
 import { deleteInterpolationRecordForLap } from './InterpolationStore';
@@ -328,7 +329,19 @@ const ContextMenu: React.FC = () => {
   if (!row || !row.entry) {
     return <></>;
   }
-  const lap = getEntryResult(row.id);
+  const entry = { EventNum: row.eventNum, Bow: row.Bow };
+  const seekLap = findSeekLap(entry);
+  const scoredLap = getEntryResult(row.id);
+  const lap =
+    scoredLap?.Time && scoredLap.State !== 'Deleted' ? scoredLap : undefined;
+  const onZoom = () => {
+    handleClose();
+    seekToBow(entry, { zoom: true });
+  };
+  const onSeek = () => {
+    handleClose();
+    seekToBow(entry, { zoom: false });
+  };
   const onDelete = () => {
     handleClose();
 
@@ -364,9 +377,17 @@ const ContextMenu: React.FC = () => {
       open={anchorEl !== null}
       onClose={handleClose}
     >
-      <MenuItem onClick={onDelete}>
-        Delete {lap?.Bow} ({lap?.Time})
-      </MenuItem>
+      {seekLap?.scored && <MenuItem onClick={onZoom}>Zoom to time</MenuItem>}
+      {seekLap && (
+        <MenuItem onClick={onSeek}>
+          Seek to {seekLap.scored ? 'time' : 'hint'} ({seekLap.lap.Time})
+        </MenuItem>
+      )}
+      {lap && (
+        <MenuItem onClick={onDelete}>
+          Delete {lap.Bow} ({lap.Time})
+        </MenuItem>
+      )}
     </Menu>
   );
 };
@@ -514,18 +535,24 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       }
     },
     () => {
+      // Double click on the time zooms to the recorded view; elsewhere the
+      // full frame is shown.
       const args = clickArgsRef.current;
-      if (args) seekToBow({ Bow: args.row.Bow, EventNum: args.row.eventNum });
+      if (args) {
+        seekToBow(
+          { Bow: args.row.Bow, EventNum: args.row.eventNum },
+          { zoom: args.column.key === 'ts' },
+        );
+      }
     },
   );
 
   const handleTimestampContextMenu = useCallback(
     (args: CellMouseArgs<ResultRowType, unknown>, event: CellMouseEvent) => {
-      if (args.column.key !== 'ts' || args.row.eventName) {
+      if (args.row.eventName) {
         return;
       }
-      const lap = getEntryResult(args.row.id);
-      if (!lap?.Time || lap.State === 'Deleted') {
+      if (!findSeekLap({ EventNum: args.row.eventNum, Bow: args.row.Bow })) {
         return;
       }
 

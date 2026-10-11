@@ -21,6 +21,9 @@ import {
   setVideoBow,
   setLastSeekTime,
   getInterpolationTechnique,
+  setZoomPreservedFile,
+  cancelZoomPreservedFile,
+  getImage,
 } from './VideoSettings';
 import {
   getFileStatusByName,
@@ -546,6 +549,11 @@ export const seekToTimestampWithInterpolation = async ({
     y: interpolation.recordedY ?? interpolation.srcClickPoint.y,
   };
 
+  // Mark only a real file switch: the image effect consumes the mark when the
+  // new file renders, so it must not be left behind for a same-file seek.
+  if (getImage().file !== target.videoFile) {
+    setZoomPreservedFile(target.videoFile);
+  }
   updateVideoScaling({
     zoomX: 1,
     zoomY: interpolation.zoomY,
@@ -563,6 +571,8 @@ export const seekToTimestampWithInterpolation = async ({
       closeTo: false,
     });
     if (!image) {
+      // Failed or superseded before the target file was displayed.
+      cancelZoomPreservedFile(target.videoFile);
       return target.videoFile;
     }
 
@@ -592,6 +602,9 @@ export const seekToTimestampWithInterpolation = async ({
       crop: interpMethod === 'rife' ? getVisibleSourceRect() : undefined,
     });
   } catch (error) {
+    if (getImage().file !== target.videoFile) {
+      cancelZoomPreservedFile(target.videoFile);
+    }
     showErrorDialog(error);
   }
 

@@ -15,6 +15,7 @@ import {
   resetVideoZoom,
   ResultRowType,
   setBowSeekPending,
+  setLastSeekTime,
 } from './VideoSettings';
 import {
   clearAutoZoomDetectionCache,
@@ -34,7 +35,47 @@ export const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
 let bowSeekRequest = 0;
 let bowSeekTimer: ReturnType<typeof setTimeout> | undefined;
 
-export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
+/**
+ * Finds the time to seek to for an entry: the scored time first, then the
+ * primary and secondary timing hints.
+ *
+ * @returns The lap to seek to and whether it is the scored lap, or undefined.
+ */
+export const findSeekLap = (entry: { EventNum: string; Bow: string }) => {
+  if (!entry.Bow) {
+    return undefined;
+  }
+  const lapForWaypoint = (waypoint: string | undefined) => {
+    if (!waypoint) {
+      return undefined;
+    }
+    const lap = getEntryResult(
+      `${gateFromWaypoint(waypoint)}_${entry.EventNum}_${entry.Bow}`,
+    );
+    return lap?.Time && lap.State !== 'Deleted' ? lap : undefined;
+  };
+  const scoredLap = lapForWaypoint(getWaypoint());
+  if (scoredLap) {
+    return { lap: scoredLap, scored: true };
+  }
+  const { timingHintSource, secondaryTimingHintSource } = getVideoSettings();
+  const hintLap =
+    lapForWaypoint(timingHintSource) ||
+    lapForWaypoint(secondaryTimingHintSource);
+  return hintLap ? { lap: hintLap, scored: false } : undefined;
+};
+
+/**
+ * Selects an entry and seeks the video to its scored time, falling back to a
+ * timing hint.
+ *
+ * With `zoom` true, a scored time with saved interpolation context restores
+ * the zoomed view used when it was recorded. Otherwise the full frame is shown.
+ */
+export const seekToBow = (
+  entry: { EventNum: string; Bow: string },
+  { zoom = true }: { zoom?: boolean } = {},
+) => {
   const requestId = bowSeekRequest + 1;
   bowSeekRequest = requestId;
   if (bowSeekTimer) {
@@ -48,35 +89,8 @@ export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
   if (entry.Bow) {
     setVideoBow(entry.Bow);
 
-    const key = `${gateFromWaypoint(getWaypoint())}_${entry.EventNum}_${entry.Bow}`;
-    const scoredLap = getEntryResult(key);
-    const useScoredLap = !!(scoredLap?.Time && scoredLap.State !== 'Deleted');
-    let lap = useScoredLap ? scoredLap : undefined;
-    if (!lap) {
-      const hintWaypoint = getVideoSettings().timingHintSource;
-      const hintKey = hintWaypoint
-        ? `${gateFromWaypoint(hintWaypoint)}_${entry.EventNum}_${entry.Bow}`
-        : '';
-      const hintLap = hintKey ? getEntryResult(hintKey) : undefined;
-      if (hintLap?.Time && hintLap.State !== 'Deleted') {
-        lap = hintLap;
-      }
-    }
-    if (!lap) {
-      const secondaryHintWaypoint =
-        getVideoSettings().secondaryTimingHintSource;
-      const secondaryHintKey = secondaryHintWaypoint
-        ? `${gateFromWaypoint(secondaryHintWaypoint)}_${entry.EventNum}_${entry.Bow}`
-        : '';
-      const secondaryHintLap = secondaryHintKey
-        ? getEntryResult(secondaryHintKey)
-        : undefined;
-      if (secondaryHintLap?.Time && secondaryHintLap.State !== 'Deleted') {
-        lap = secondaryHintLap;
-      }
-    }
-
-    if (lap?.Time && lap?.State !== 'Deleted') {
+    const lap = findSeekLap(entry)?.lap;
+    if (lap?.Time) {
       const seekTime = lap.Time;
       setBowSeekPending(true);
       bowSeekTimer = setTimeout(async () => {
@@ -95,18 +109,27 @@ export const seekToBow = (entry: { EventNum: string; Bow: string }) => {
           if (requestId !== bowSeekRequest) {
             return;
           }
-          const found = interpolation
-            ? await seekToTimestampWithInterpolation({
-                time: seekTime,
-                bow: lap.Bow,
-                interpolation,
-              })
-            : await seekToTimestampAndWait({
-                time: seekTime,
-                bow: lap.Bow,
-                interpolate: true,
-                commitGuard: () => requestId === bowSeekRequest,
-              });
+          let found;
+          if (interpolation && zoom) {
+            found = await seekToTimestampWithInterpolation({
+              time: seekTime,
+              bow: lap.Bow,
+              interpolation,
+            });
+          } else {
+            // Scored times include rolling-shutter correction; seek to the
+            // original frame time when it was saved.
+            found = await seekToTimestampAndWait({
+              time: interpolation?.frameTime ?? seekTime,
+              bow: lap.Bow,
+              interpolate: true,
+              commitGuard: () => requestId === bowSeekRequest,
+            });
+            if (interpolation?.frameTime && requestId === bowSeekRequest) {
+              // Keep navigation anchored to the scored result time.
+              setLastSeekTime({ time: seekTime, bow: lap.Bow });
+            }
+          }
           if (!found && requestId === bowSeekRequest) {
             setToast({
               severity: 'warning',

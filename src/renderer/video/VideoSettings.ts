@@ -241,6 +241,24 @@ export const completeVideoZoomReset = () => {
   reset?.resolve();
 };
 
+/// A file change normally clears the zoom. A seek that restores a zoomed view
+/// in another file marks that file so the zoom it applies survives the switch.
+let zoomPreservedFile = '';
+export const setZoomPreservedFile = (file: string) => {
+  zoomPreservedFile = file;
+};
+/// Drop the mark when the seek that set it never displayed that file.
+export const cancelZoomPreservedFile = (file: string) => {
+  if (zoomPreservedFile === file) {
+    zoomPreservedFile = '';
+  }
+};
+export const consumeZoomPreservedFile = (file: string) => {
+  const preserved = !!file && zoomPreservedFile === file;
+  zoomPreservedFile = '';
+  return preserved;
+};
+
 /// Mouse wheel zoom factor
 export const [useMouseWheelFactor, setMouseWheelFactor, getMouseWheelFactor] =
   UseStoredDatum<number>('wheelFactor', 4);
