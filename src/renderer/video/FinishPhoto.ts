@@ -8,6 +8,7 @@ import {
   DEFAULT_GUIDE_COLOR,
   getImage,
   getSelectedIndex,
+  getVideoBow,
   getVideoSettings,
   setSelectedIndex,
   setVideoFile,
@@ -18,6 +19,7 @@ import logoUrl from '../../assets/icons/crewtimer-review2.svg';
 import logoWhiteUrl from '../../assets/icons/crewtimer-review2-white.svg';
 
 const SLICE_FRACTION_OF_WIDTH = 0.8;
+const HEAD_RACE_MAX_FINISHERS = 10;
 const SLICE_GAP_FRACTION = 0.04;
 const SIDEBAR_PADDING = 20;
 const TOTAL_SLICES_MAX_WIDTH = 2560;
@@ -40,6 +42,41 @@ const formatDelta = (delta: number, intWidth = 1): string => {
   const intPart = absFixed.slice(0, dotIdx).padStart(intWidth, ' ');
   const fracPart = absFixed.slice(dotIdx);
   return `${sign}${intPart}${fracPart}`;
+};
+
+/**
+ * Finishing place for each finisher (sorted by time). Finishers with the same
+ * time to the millisecond share a place and the following place is skipped:
+ * 1, 2, 2, 4.
+ */
+const finishPlaces = (finishers: ExtendedLap[]) => {
+  const places: number[] = [];
+  finishers.forEach((lap, idx) => {
+    const tied =
+      idx > 0 &&
+      Math.round(lap.seconds * 1000) ===
+        Math.round(finishers[idx - 1].seconds * 1000);
+    places.push(tied ? places[idx - 1] : idx + 1);
+  });
+  return places;
+};
+
+/** Place and time gaps for a finisher, measured across the whole event. */
+interface FinishStanding {
+  place: number;
+  /** Seconds behind the event's first finisher. */
+  deltaLeader: number;
+  /** Seconds behind the previous finisher; undefined for the first. */
+  deltaPrev?: number;
+}
+
+const finishStandings = (finishers: ExtendedLap[]): FinishStanding[] => {
+  const places = finishPlaces(finishers);
+  return finishers.map((lap, idx) => ({
+    place: places[idx],
+    deltaLeader: lap.seconds - finishers[0].seconds,
+    deltaPrev: idx > 0 ? lap.seconds - finishers[idx - 1].seconds : undefined,
+  }));
 };
 
 const computeIntWidth = (values: number[]): number => {
@@ -96,6 +133,7 @@ const THEMES: Theme[] = [
 
 const buildSidebar = (
   finishers: ExtendedLap[],
+  standings: FinishStanding[],
   crewByBow: Map<string, string>,
   height: number,
   theme: Theme,
@@ -113,29 +151,26 @@ const buildSidebar = (
   const detailLabelGap = Math.round(detailSize * 0.6);
   const monoFont = `${detailSize}px ${MONO_FONT_FAMILY}`;
 
-  const allDeltas: number[] = [0];
-  for (let i = 1; i < finishers.length; i += 1) {
-    allDeltas.push(finishers[i].seconds - finishers[0].seconds);
-    allDeltas.push(finishers[i].seconds - finishers[i - 1].seconds);
-  }
-  const intWidth = computeIntWidth(allDeltas);
+  const intWidth = computeIntWidth(
+    standings.flatMap((st) =>
+      st.deltaPrev === undefined
+        ? [st.deltaLeader]
+        : [st.deltaLeader, st.deltaPrev],
+    ),
+  );
 
   const rows: SidebarRow[] = finishers.map((lap, idx) => {
     const crew = crewByBow.get(lap.Bow) || lap.Crew || lap.CrewAbbrev || '';
     const label = [lap.Bow, crew].filter(Boolean).join('  ');
-    if (idx === 0) {
-      return {
-        position: 1,
-        label,
-        deltaLeader: `${formatDelta(0, intWidth)}s`,
-        deltaPrev: DELTA_PREV_PLACEHOLDER,
-      };
-    }
+    const { place, deltaLeader, deltaPrev } = standings[idx];
     return {
-      position: idx + 1,
+      position: place,
       label,
-      deltaLeader: `${formatDelta(lap.seconds - finishers[0].seconds, intWidth)}s`,
-      deltaPrev: `${formatDelta(lap.seconds - finishers[idx - 1].seconds, intWidth)}s`,
+      deltaLeader: `${formatDelta(deltaLeader, intWidth)}s`,
+      deltaPrev:
+        deltaPrev === undefined
+          ? DELTA_PREV_PLACEHOLDER
+          : `${formatDelta(deltaPrev, intWidth)}s`,
     };
   });
 
@@ -257,8 +292,56 @@ interface SliceRender {
   canvas: HTMLCanvasElement;
 }
 
+const ordinal = (n: number) => {
+  const tens = n % 100;
+  const suffix =
+    tens >= 11 && tens <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th';
+  return `${n}${suffix}`;
+};
+
+/**
+ * Draws white text lines on a semi-transparent gray badge in a bottom corner.
+ * Badges sharing a `rowFontSize` are centered on the same line, so a smaller
+ * badge lines up with a larger one.
+ */
+const drawCornerBadge = (
+  ctx: CanvasRenderingContext2D,
+  lines: string[],
+  corner: 'left' | 'right',
+  fontSize: number,
+  rowFontSize = fontSize,
+) => {
+  const padX = Math.round(fontSize * 0.4);
+  const padY = Math.round(fontSize * 0.2);
+  const lineHeight = Math.round(fontSize * 1.15);
+  const margin = Math.round(rowFontSize * 0.3);
+  const rowHeight = rowFontSize + 2 * Math.round(rowFontSize * 0.2);
+  ctx.font = `bold ${fontSize}px Roboto, sans-serif`;
+  const textWidth = Math.max(
+    ...lines.map((line) => Math.ceil(ctx.measureText(line).width)),
+  );
+  const badgeWidth = textWidth + 2 * padX;
+  const badgeHeight = fontSize + (lines.length - 1) * lineHeight + 2 * padY;
+  const badgeX =
+    corner === 'left' ? margin : ctx.canvas.width - badgeWidth - margin;
+  const badgeY = ctx.canvas.height - margin - rowHeight / 2 - badgeHeight / 2;
+  ctx.fillStyle = 'rgba(64, 64, 64, 0.6)';
+  ctx.fillRect(badgeX, badgeY, badgeWidth, badgeHeight);
+  ctx.fillStyle = 'white';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  lines.forEach((line, index) => {
+    ctx.fillText(
+      line,
+      badgeX + badgeWidth / 2,
+      badgeY + padY + fontSize / 2 + index * lineHeight,
+    );
+  });
+};
+
 const renderSlice = async (
   finisher: ExtendedLap,
+  standing: FinishStanding,
   maxSliceWidth: number,
 ): Promise<SliceRender | undefined> => {
   if (!finisher.Time) return undefined;
@@ -328,11 +411,25 @@ const renderSlice = async (
     );
   }
 
+  // Bow in the lower right corner; delta from 1st and place in the lower left.
+  const fontSize = Math.max(16, Math.round(image.height * 0.04));
+  if (finisher.Bow) {
+    drawCornerBadge(ctx, [finisher.Bow], 'right', fontSize);
+  }
+  drawCornerBadge(
+    ctx,
+    [`${formatDelta(standing.deltaLeader)}s`, ordinal(standing.place)],
+    'left',
+    Math.max(20, Math.round(fontSize / 2)),
+    fontSize,
+  );
+
   return { width: sliceWidth, canvas: out };
 };
 
 const composePng = async (
   finishers: ExtendedLap[],
+  standings: FinishStanding[],
   crewByBow: Map<string, string>,
   renders: SliceRender[],
   theme: Theme,
@@ -345,7 +442,14 @@ const composePng = async (
   }
 
   const { height } = renders[0].canvas;
-  const sidebar = buildSidebar(finishers, crewByBow, height, theme, logo);
+  const sidebar = buildSidebar(
+    finishers,
+    standings,
+    crewByBow,
+    height,
+    theme,
+    logo,
+  );
   const slicesWidth = renders.reduce((s, r) => s + r.width, 0);
   const meanSliceWidth = slicesWidth / renders.length;
   const gapWidth = Math.round(meanSliceWidth * SLICE_GAP_FRACTION);
@@ -378,7 +482,7 @@ export const generateFinishPhoto = async (event: string): Promise<string> => {
     return 'No event selected.';
   }
 
-  const finishers = getClickerData(getWaypoint())
+  const allFinishers = getClickerData(getWaypoint())
     .filter(
       (lap) =>
         lap.EventNum === event &&
@@ -388,13 +492,34 @@ export const generateFinishPhoto = async (event: string): Promise<string> => {
     )
     .sort((a, b) => a.seconds - b.seconds);
 
-  if (finishers.length === 0) {
+  if (allFinishers.length === 0) {
     return `No finishers found for event ${event}.`;
   }
 
-  const crewByBow = new Map<string, string>();
   const eventList = getMobileConfig()?.eventList || [];
   const matchingEvent = eventList.find((ev) => ev.EventNum === event);
+
+  // Places and gaps count every finisher in the event, even when only some
+  // are shown.
+  const allStandings = finishStandings(allFinishers);
+  let first = 0;
+  let count = allFinishers.length;
+  if (
+    matchingEvent?.RaceType === 'Head' &&
+    allFinishers.length > HEAD_RACE_MAX_FINISHERS
+  ) {
+    // Head races have too many finishers for one photo, so show the
+    // selected bow and the finishers after it.
+    first = Math.max(
+      0,
+      allFinishers.findIndex((lap) => lap.Bow === getVideoBow()),
+    );
+    count = HEAD_RACE_MAX_FINISHERS;
+  }
+  const finishers = allFinishers.slice(first, first + count);
+  const standings = allStandings.slice(first, first + count);
+
+  const crewByBow = new Map<string, string>();
   matchingEvent?.eventItems.forEach((entry) => {
     if (entry.Bow && entry.Crew) crewByBow.set(entry.Bow, entry.Crew);
   });
@@ -409,9 +534,9 @@ export const generateFinishPhoto = async (event: string): Promise<string> => {
   );
 
   const renders: SliceRender[] = [];
-  for (const finisher of finishers) {
+  for (const [index, finisher] of finishers.entries()) {
     // eslint-disable-next-line no-await-in-loop
-    const r = await renderSlice(finisher, maxSliceWidth);
+    const r = await renderSlice(finisher, standings[index], maxSliceWidth);
     if (r) renders.push(r);
   }
 
@@ -425,7 +550,7 @@ export const generateFinishPhoto = async (event: string): Promise<string> => {
   const images = await Promise.all(
     THEMES.map(async (theme) => ({
       suffix: theme.suffix,
-      base64: await composePng(finishers, crewByBow, renders, theme),
+      base64: await composePng(finishers, standings, crewByBow, renders, theme),
     })),
   );
   const saveResult = await window.Util.savePngFile(
