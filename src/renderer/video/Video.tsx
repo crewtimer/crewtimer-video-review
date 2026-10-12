@@ -65,10 +65,12 @@ import type { AppImage, BowDetection, Rect } from '../shared/AppTypes';
 import {
   getAutoZoomToFinish,
   getBowDetectionOptions,
+  getLabelNumbers,
   normalizeBowForCurrentEvent,
   getWaypoint,
   useLabelBoats,
   useLabelCardsWithoutBoat,
+  useLabelNumbers,
 } from '../util/UseSettings';
 import { getEntryResult } from '../util/LapStorageDatum';
 import { gateFromWaypoint, timeToMilli } from '../util/Util';
@@ -567,6 +569,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [videoScaling] = useVideoScaling();
   const [labelBoats] = useLabelBoats();
   const [labelCardsWithoutBoat] = useLabelCardsWithoutBoat();
+  const [labelNumbers] = useLabelNumbers();
   const [videoBow] = useVideoBow();
   const [bowSeekPending] = useBowSeekPending();
   const [bowDetections, setBowDetections] = useState<BowDetection[]>([]);
@@ -709,11 +712,19 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
                 vScaling.srcClickPoint,
               )
             : undefined;
-          const visibleBowDetections = zoomedIn
+          const selectedBowDetections = zoomedIn
             ? nearestBowCard
               ? [nearestBowCard]
               : []
             : currentBowDetections;
+          // Without number annotation, keep the boat and card outlines but
+          // drop the detected numbers (and their clickable labels).
+          const visibleBowDetections = labelNumbers
+            ? selectedBowDetections
+            : selectedBowDetections.map((detection) => ({
+                ...detection,
+                text: '',
+              }));
           bowLabelHitRegions.current = drawBowDetections(
             ctx,
             offscreenCanvas.current,
@@ -797,9 +808,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           bowDetectionsFrame.current = frameNum;
           setBowDetections(detections);
           setAnnotatedBow(
-            normalizeBowForCurrentEvent(
-              selectFinishAnnotation(detections, getImage().width) || '',
-            ),
+            getLabelNumbers()
+              ? normalizeBowForCurrentEvent(
+                  selectFinishAnnotation(detections, getImage().width) || '',
+                )
+              : '',
           );
         }
       } catch (error) {
@@ -907,7 +920,14 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     bowSeekPending,
     videoBow,
     travelRightToLeft,
+    labelNumbers,
   ]);
+
+  useEffect(() => {
+    if (!labelNumbers) {
+      setAnnotatedBow('');
+    }
+  }, [labelNumbers]);
 
   useEffect(() => {
     // A bit of a hack but set a global callback function instead of passing it down the tree
@@ -1043,7 +1063,10 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
               applyNormalDoubleClickZoom();
               return undefined;
             }
-            if (getVideoBow() !== '' && getVideoBow() !== '?') {
+            if (
+              !getLabelNumbers() ||
+              (getVideoBow() !== '' && getVideoBow() !== '?')
+            ) {
               return undefined;
             }
             const detectedBow = result.bow.trim();

@@ -10,6 +10,7 @@ import uuidgen from 'short-uuid';
 import { setToast } from 'renderer/Toast';
 import {
   getAutoZoomToFinish,
+  getLabelNumbers,
   getMobileConfig,
   normalizeBowForCurrentEvent,
   getWaypoint,
@@ -46,7 +47,12 @@ const autoZoomAfterNextTimestamp = async (
       return;
     }
     const detectedBow = result.bow.trim();
-    if (next.Bow === '?' && detectedBow && detectedBow !== '?') {
+    if (
+      getLabelNumbers() &&
+      next.Bow === '?' &&
+      detectedBow &&
+      detectedBow !== '?'
+    ) {
       setVideoBow(normalizeBowForCurrentEvent(detectedBow), next.uuid);
     }
   }

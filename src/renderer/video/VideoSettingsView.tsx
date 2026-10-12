@@ -45,6 +45,7 @@ import {
   useBowCardLength,
   useBowOcrModel,
   useLabelBoats,
+  useLabelNumbers,
 } from '../util/UseSettings';
 
 declare module '@mui/styles/defaultTheme' {
@@ -78,6 +79,7 @@ export const VideoSettingsDialog = () => {
   const [rightToLeft, setRightToLeft] = useTravelRightToLeft();
   const [autoNextTimestamp, setAutoNextTimestamp] = useAutoNextTimestamp();
   const [labelBoats, setLabelBoats] = useLabelBoats();
+  const [labelNumbers, setLabelNumbers] = useLabelNumbers();
   const [autoZoomToFinish, setAutoZoomToFinish] = useAutoZoomToFinish();
   const [bowOcrModel, setBowOcrModel] = useBowOcrModel();
   const [bowCardLength, setBowCardLength] = useBowCardLength();
@@ -336,6 +338,23 @@ export const VideoSettingsDialog = () => {
                 </Select>
               </FormControl>
             </Stack>
+          </Box>
+          <Box className={classes.settings}>
+            <Tooltip
+              title="Show detected bow card numbers on the video and use them to fill in the bow number"
+              placement="right"
+            >
+              <FormControlLabel
+                labelPlacement="end"
+                label="Annotate Number Detections"
+                control={
+                  <Checkbox
+                    checked={labelNumbers}
+                    onChange={(event) => setLabelNumbers(event.target.checked)}
+                  />
+                }
+              />
+            </Tooltip>
           </Box>
           <Box className={classes.settings}>
             <Tooltip

@@ -13,6 +13,7 @@ import {
   MobileConfigKey,
   N_DEBUG_LEVEL,
   N_LABEL_BOATS,
+  N_LABEL_NUMBERS,
   N_LABEL_CARDS_WITHOUT_BOAT,
   N_AUTO_ZOOM_TO_FINISH,
   N_BOW_CARD_LENGTH,
@@ -86,6 +87,10 @@ export const [useDebugLevel, setDebugLevel, getDebugLevel] =
   UseMemDatum<number>(N_DEBUG_LEVEL, 0);
 export const [useLabelBoats, setLabelBoats, getLabelBoats] =
   UseStoredDatum<boolean>(N_LABEL_BOATS, false);
+/// When false, detected bow card numbers are neither shown nor used to fill
+/// in the bow number.
+export const [useLabelNumbers, setLabelNumbers, getLabelNumbers] =
+  UseStoredDatum<boolean>(N_LABEL_NUMBERS, true);
 export const [
   useLabelCardsWithoutBoat,
   setLabelCardsWithoutBoat,
