@@ -29,8 +29,8 @@ import {
   setVideoBow,
   ResultRowType,
 } from './VideoSettings';
+import { sanitizeFirebaseKey } from '../util/StringUtils';
 import {
-  sanitizeFirebaseKey,
   findSeekLap,
   seekToBow,
   setContextMenuAnchor,

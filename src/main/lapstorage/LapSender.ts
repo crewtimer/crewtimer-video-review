@@ -1,11 +1,15 @@
 import axios, { Method, ResponseType } from 'axios';
+import { hostname } from 'os';
 import { Lap, TxLapItem, CrewTimerHttpResponse } from 'crewtimer-common';
 import { getMobileID, getMobilePin } from '../main-settings';
 import Log from '../../renderer/util/Log';
 import { getConnectionProps } from '../../renderer/util/Util';
+import { sanitizeFirebaseKey } from '../../renderer/util/StringUtils';
 import LapStorage from './LapStorage';
 
 let sendInProgress = false;
+const hostName = hostname().trim();
+const src = sanitizeFirebaseKey(hostName ? `ctvideo-${hostName}` : 'ctvideo');
 const txSendState = {
   txPendList: [] as Lap[],
   txSendingList: [] as Lap[],
@@ -32,9 +36,9 @@ async function sendToCrewTimer(messages: TxLapItem[]) {
     const { regattaID, url } = getConnectionProps(mobileID);
     const mobilePin = getMobilePin();
     const data = `regatta=${encodeURIComponent(
-      regattaID
+      regattaID,
     )}&password=${encodeURIComponent(mobilePin)}&list=${encodeURIComponent(
-      JSON.stringify(messages)
+      JSON.stringify(messages),
     )}`;
 
     const options = {
@@ -80,7 +84,12 @@ async function sendPendList(retryCount = 0) {
     txSendState.txPendList = [];
     const messages: TxLapItem[] = txSendState.txSendingList.map((lap) => {
       const { uuid } = lap;
-      const envelope: TxLapItem = { uuid, op: 'store-lap', data: lap };
+      const envelope: TxLapItem & { src: string } = {
+        uuid,
+        op: 'store-lap',
+        src,
+        data: lap,
+      };
       return envelope;
     });
 
@@ -101,7 +110,7 @@ async function sendPendList(retryCount = 0) {
           if (!ok) {
             Log.warn(
               'Lap',
-              `Failed on ${JSON.stringify(messages[index], null, 2)}`
+              `Failed on ${JSON.stringify(messages[index], null, 2)}`,
             );
             failedList.push(txSendState.txSendingList[index]);
           }
@@ -144,7 +153,7 @@ async function sendPendList(retryCount = 0) {
       /* do nothing */
     }
     txSendState.txPendList = txSendState.txSendingList.concat(
-      txSendState.txPendList
+      txSendState.txPendList,
     );
     txSendState.txSendingList = [];
     sendInProgress = false;

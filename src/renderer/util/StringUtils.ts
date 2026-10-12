@@ -58,3 +58,10 @@ export function formatSecondsAsTime(secondsInput: number): string {
 
   return `${paddedHours}:${paddedMinutes}:${paddedSeconds}`;
 }
+
+/** Replace Firebase key-invalid characters and path separators with hyphens. */
+export function sanitizeFirebaseKey(s: string) {
+  // Firebase keys cannot contain . # $ [ ] / or ASCII control characters (0-31, 127)
+  // eslint-disable-next-line no-control-regex
+  return s.replace(/[.#$[\]/\x00-\x1f\x7f]/g, '-');
+}

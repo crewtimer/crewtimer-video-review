@@ -23,10 +23,6 @@ import {
 } from './AutoZoomToFinish';
 import { loadInterpolationRecordForLap } from './InterpolationStore';
 
-export function sanitizeFirebaseKey(s: string) {
-  return s.replace(/[#$/[.\]]/g, '-');
-}
-
 export const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
   element: Element;
   row: ResultRowType;

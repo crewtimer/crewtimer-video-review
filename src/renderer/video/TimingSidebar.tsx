@@ -73,8 +73,8 @@ import {
   useContextMenuAnchor,
   seekToBow,
   findSeekLap,
-  sanitizeFirebaseKey,
 } from './TimingSidebarUtil';
+import { sanitizeFirebaseKey } from '../util/StringUtils';
 import { deleteInterpolationRecordForLap } from './InterpolationStore';
 
 const useStyles = makeStyles((/* _theme */) => ({
