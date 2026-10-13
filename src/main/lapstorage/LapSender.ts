@@ -84,11 +84,11 @@ async function sendPendList(retryCount = 0) {
     txSendState.txPendList = [];
     const messages: TxLapItem[] = txSendState.txSendingList.map((lap) => {
       const { uuid } = lap;
-      const envelope: TxLapItem & { src: string } = {
+      // The server reads src from the lap record itself, defaulting to 'mobile'
+      const envelope: TxLapItem = {
         uuid,
         op: 'store-lap',
-        src,
-        data: lap,
+        data: { ...lap, src } as TxLapItem['data'],
       };
       return envelope;
     });
