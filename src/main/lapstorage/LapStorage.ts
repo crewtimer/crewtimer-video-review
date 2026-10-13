@@ -41,25 +41,25 @@ class LapStorage {
 
   static onQueueLapForTx: (lap: Lap) => void = () => {};
 
-  initDatabase = async () => {
+  static initDatabase = async () => {
     try {
       Log.info('Sqlite', `Database stored at ${app.getPath('userData')}`);
       LapStorage.db = new SQLite.Database(
-        path.join(app.getPath('userData'), DATABASE_NAME) /* ':memory:' */
+        path.join(app.getPath('userData'), DATABASE_NAME) /* ':memory:' */,
       );
-      await this.verifyDatabase();
+      await LapStorage.verifyDatabase();
     } catch (error) {
       Log.error(
         'Sqlite',
         `echoTest failed - plugin not functional${
           error instanceof Error ? error.message : String(error)
-        }`
+        }`,
       );
       throw error;
     }
   };
 
-  verifyDatabase = async () => {
+  static verifyDatabase = async () => {
     return new Promise((resolve, reject) => {
       try {
         updateProgress('Database integrity check');
@@ -73,18 +73,18 @@ class LapStorage {
               return;
             }
             updateProgress('Database not yet ready ... populating data');
-            const err2 = this.populateDB();
+            const err2 = LapStorage.populateDB();
 
             if (err2) {
               updateProgress(
-                err2 instanceof Error ? err2.message : String(err2)
+                err2 instanceof Error ? err2.message : String(err2),
               );
               reject(err2);
             } else {
               updateProgress('Database populated ... ');
               resolve(undefined);
             }
-          }
+          },
         );
       } catch (error) {
         updateProgress(error instanceof Error ? error.message : String(error));
@@ -93,7 +93,7 @@ class LapStorage {
     });
   };
 
-  closeDatabase = async () => {
+  static closeDatabase = async () => {
     const promiseClose = new Promise((resolve) => {
       if (LapStorage.db) {
         updateProgress('Closing DB');
@@ -111,7 +111,7 @@ class LapStorage {
     return promiseClose;
   };
 
-  populateDB = () => {
+  static populateDB = () => {
     try {
       LapStorage.db.serialize(() => {
         updateProgress('Executing DROP stmts');
@@ -119,10 +119,10 @@ class LapStorage {
         // await tx.run('DROP VIEW IF EXISTS GetTimeRecords;');
         updateProgress('Executing CREATE stmts');
         LapStorage.db.run(
-          'CREATE TABLE IF NOT EXISTS Version( version_id INTEGER PRIMARY KEY NOT NULL);'
+          'CREATE TABLE IF NOT EXISTS Version( version_id INTEGER PRIMARY KEY NOT NULL);',
         );
         LapStorage.db.run(
-          `CREATE TABLE ${TABLE_NAME} (${DATUM_COL} STRING, ${UUID_COL} STRING PRIMARY KEY);`
+          `CREATE TABLE ${TABLE_NAME} (${DATUM_COL} STRING, ${UUID_COL} STRING PRIMARY KEY);`,
         );
 
         // await tx.run(
@@ -149,7 +149,7 @@ class LapStorage {
       LapStorage.db.serialize(() => {
         LapStorage.db.run(`DROP TABLE IF EXISTS ${TABLE_NAME};`);
         LapStorage.db.run(
-          `CREATE TABLE ${TABLE_NAME} (${DATUM_COL} STRING, ${UUID_COL} STRING PRIMARY KEY);`
+          `CREATE TABLE ${TABLE_NAME} (${DATUM_COL} STRING, ${UUID_COL} STRING PRIMARY KEY);`,
         );
         LapStorage.dropping = false;
       });
@@ -199,10 +199,10 @@ class LapStorage {
                 updateProgress(err2.message);
                 LapStorage.errorCB(err2);
               }
-            }
+            },
           );
         }
-      }
+      },
     );
   };
 
@@ -230,7 +230,7 @@ class LapStorage {
     LapStorage.onQueueLapForTx(lap);
   };
 
-  getLaps = async () => {
+  static getLaps = async () => {
     return new Promise<Lap[]>((resolve, reject) => {
       try {
         updateProgress('Initiating laps query');
@@ -250,7 +250,7 @@ class LapStorage {
               laps.push(JSON.parse(row[DATUM_COL]));
             }
             const sortedLaps = laps.sort(
-              (a, b) => (a.Timestamp || 0) - (b.Timestamp || 0)
+              (a, b) => (a.Timestamp || 0) - (b.Timestamp || 0),
             );
             resolve(sortedLaps);
           });
@@ -298,9 +298,6 @@ export const storeLap = (datum: Lap) => {
   LapStorage.onQueueLapForTx(datum);
 };
 
-// Singleton instance
-const lapStorage = new LapStorage();
-
 export function startLapUpdater() {
   const laps = getLaps();
   laps.forEach((lap) => {
@@ -312,14 +309,14 @@ export function startLapUpdater() {
 
 export const startLapStorage = async (queueLapForTx: (lap: Lap) => void) => {
   LapStorage.onQueueLapForTx = queueLapForTx;
-  await lapStorage.initDatabase();
-  const laps = await lapStorage.getLaps();
+  await LapStorage.initDatabase();
+  const laps = await LapStorage.getLaps();
   setLaps(laps);
   incrementLapInitCount();
   startLapUpdater();
 };
 export const stopLapStorage = async () => {
-  await lapStorage.closeDatabase();
+  await LapStorage.closeDatabase();
 };
 
 export default LapStorage;

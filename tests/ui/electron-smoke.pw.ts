@@ -24,7 +24,9 @@ test('opens the UI without renderer errors', async () => {
 
   try {
     const window =
-      electronApp.windows().find((page) => !page.url().startsWith('devtools:')) ??
+      electronApp
+        .windows()
+        .find((page) => !page.url().startsWith('devtools:')) ??
       (await electronApp.waitForEvent('window', {
         predicate: (page) => !page.url().startsWith('devtools:'),
       }));

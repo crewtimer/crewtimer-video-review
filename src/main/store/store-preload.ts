@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld('store', {
     return ipcRenderer.send('store:delete', key);
   },
   onStoredDatumUpdate: (
-    callback: (_event: IpcRendererEvent, key: string, value: unknown) => void
+    callback: (_event: IpcRendererEvent, key: string, value: unknown) => void,
   ) => ipcRenderer.on('stored-datum-update', callback),
 });
 
@@ -37,6 +37,6 @@ contextBridge.exposeInMainWorld('mem', {
     return ipcRenderer.send('mem:delete', key);
   },
   onDatumUpdate: (
-    callback: (_event: IpcRendererEvent, key: string, value: unknown) => void
+    callback: (_event: IpcRendererEvent, key: string, value: unknown) => void,
   ) => ipcRenderer.on('datum-update', callback),
 });

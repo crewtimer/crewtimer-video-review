@@ -47,7 +47,7 @@ const configuration: webpack.Configuration = {
             options: {
               modules: true,
               sourceMap: false,
-              importLoaders: 1,              // Use the modern Dart Sass API explicitly
+              importLoaders: 1, // Use the modern Dart Sass API explicitly
               implementation: require('sass'),
             },
           },

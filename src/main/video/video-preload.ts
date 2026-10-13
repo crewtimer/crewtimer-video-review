@@ -15,41 +15,29 @@ contextBridge.exposeInMainWorld('VideoUtils', {
   setDebugLevel: (debugLevel: number) =>
     ipcRenderer.invoke('video:setDebugLevel', debugLevel),
   openFile: async (filePath: string) => {
-    try {
-      const result = await ipcRenderer.invoke('video:openFile', filePath);
-      // console.log('result', result);
-      if (result.status !== 'OK') {
-        throw new Error(result.status);
-      }
-      return result;
-    } catch (err) {
-      throw err;
+    const result = await ipcRenderer.invoke('video:openFile', filePath);
+    // console.log('result', result);
+    if (result.status !== 'OK') {
+      throw new Error(result.status);
     }
+    return result;
   },
   closeFile: async (filePath: string) => {
-    try {
-      const result = await ipcRenderer.invoke('video:closeFile', filePath);
-      if (result.status !== 'OK') {
-        throw new Error(result.status);
-      }
-      return result;
-    } catch (err) {
-      throw err;
+    const result = await ipcRenderer.invoke('video:closeFile', filePath);
+    if (result.status !== 'OK') {
+      throw new Error(result.status);
     }
+    return result;
   },
   getFrame: async (request: VideoFrameRequest) => {
-    try {
-      const result = (await ipcRenderer.invoke(
-        'video:getFrame',
-        request,
-      )) as AppImage;
-      if (result.status !== 'OK') {
-        throw new Error(result.status);
-      }
-      return result;
-    } catch (err) {
-      throw err;
+    const result = (await ipcRenderer.invoke(
+      'video:getFrame',
+      request,
+    )) as AppImage;
+    if (result.status !== 'OK') {
+      throw new Error(result.status);
     }
+    return result;
   },
   detectBow: async (request: BowDetectionRequest) => {
     const result = (await ipcRenderer.invoke(
@@ -62,19 +50,15 @@ contextBridge.exposeInMainWorld('VideoUtils', {
     return result;
   },
   sendMulticast: async (msg: string, dest: string, port: number) => {
-    try {
-      const result = await ipcRenderer.invoke(
-        'video:sendMulticast',
-        msg,
-        dest,
-        port,
-      );
-      if (result.status !== 'OK') {
-        throw new Error(result.status);
-      }
-      return result;
-    } catch (err) {
-      throw err;
+    const result = await ipcRenderer.invoke(
+      'video:sendMulticast',
+      msg,
+      dest,
+      port,
+    );
+    if (result.status !== 'OK') {
+      throw new Error(result.status);
     }
+    return result;
   },
 });

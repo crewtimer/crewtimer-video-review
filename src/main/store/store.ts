@@ -49,7 +49,7 @@ export function getStoredValue<T>(key: string, defaultValue: T): T {
 export function setStoredValue<T>(
   key: string,
   value: T | undefined,
-  main = true
+  main = true,
 ) {
   // console.log(`setting stored ${key} from ${main ? 'main' : 'renderer'}`);
   const changed = memCache.get(key) !== value; // shallow compare
@@ -81,9 +81,8 @@ export function getMemValue<T>(key: string, defaultValue: T): T {
     const value = memCache.get(key) as T;
     if (isObject(defaultValue)) {
       return { ...defaultValue, ...value };
-    } else {
-      return value;
     }
+    return value;
   }
   return defaultValue;
 }
@@ -111,13 +110,13 @@ export function setMemValue<T>(key: string, value: T | undefined, main = true) {
 ipcMain.handle(
   'store:get',
   (_event: IpcMainInvokeEvent, key: string, defaultValue: unknown) =>
-    getStoredValue(key, defaultValue)
+    getStoredValue(key, defaultValue),
 );
 ipcMain.on(
   'store:set',
   (_event: IpcMainInvokeEvent, key: string, value: unknown) => {
     setStoredValue(key, value, false);
-  }
+  },
 );
 ipcMain.on('store:delete', (_event: IpcMainInvokeEvent, key: string) => {
   setStoredValue(key, undefined, false);
@@ -127,14 +126,14 @@ ipcMain.on('store:delete', (_event: IpcMainInvokeEvent, key: string) => {
 ipcMain.handle(
   'mem:get',
   (_event: IpcMainInvokeEvent, key: string, defaultValue: unknown) =>
-    getMemValue(key, defaultValue)
+    getMemValue(key, defaultValue),
 );
 ipcMain.on(
   'mem:set',
   (_event: IpcMainInvokeEvent, key: string, value: unknown) => {
     setMemValue(key, value, false);
-  }
+  },
 );
 ipcMain.on('mem:delete', (_event: IpcMainInvokeEvent, key: string) =>
-  setMemValue(key, undefined, false)
+  setMemValue(key, undefined, false),
 );

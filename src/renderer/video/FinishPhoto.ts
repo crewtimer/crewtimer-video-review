@@ -191,9 +191,15 @@ const buildSidebar = (
     );
     measureCtx.font = monoFont;
     rows.forEach((r) => {
-      valueWidth = Math.max(valueWidth, measureCtx.measureText(r.deltaLeader).width);
+      valueWidth = Math.max(
+        valueWidth,
+        measureCtx.measureText(r.deltaLeader).width,
+      );
       if (r.deltaPrev) {
-        valueWidth = Math.max(valueWidth, measureCtx.measureText(r.deltaPrev).width);
+        valueWidth = Math.max(
+          valueWidth,
+          measureCtx.measureText(r.deltaPrev).width,
+        );
       }
     });
   }
@@ -372,11 +378,7 @@ const renderSlice = async (
   const sourceCtx = sourceCanvas.getContext('2d');
   if (!sourceCtx) return undefined;
   sourceCtx.putImageData(
-    new ImageData(
-      new Uint8ClampedArray(image.data),
-      image.width,
-      image.height,
-    ),
+    new ImageData(new Uint8ClampedArray(image.data), image.width, image.height),
     0,
     0,
   );
@@ -572,11 +574,13 @@ export const generateFinishPhoto = async (event: string): Promise<string> => {
   }
 
   const sep =
-    saveResult.filePath.lastIndexOf('\\') >
-    saveResult.filePath.lastIndexOf('/')
+    saveResult.filePath.lastIndexOf('\\') > saveResult.filePath.lastIndexOf('/')
       ? '\\'
       : '/';
-  const dir = saveResult.filePath.slice(0, saveResult.filePath.lastIndexOf(sep));
+  const dir = saveResult.filePath.slice(
+    0,
+    saveResult.filePath.lastIndexOf(sep),
+  );
   await window.Util.openFileExplorer(dir);
   return '';
 };

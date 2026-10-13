@@ -1,8 +1,8 @@
 import { Lap } from 'crewtimer-common';
+import { UseDatum } from 'react-usedatum';
 import { UseMemDatum } from '../store/UseElectronDatum';
 import { LapDatumName } from '../shared/Constants';
 import { UseKeyedDatum } from './UseKeyedDatum';
-import { UseDatum } from 'react-usedatum';
 
 /**
  * Hooks and accessors for the in-memory list of laps.
@@ -72,8 +72,12 @@ export const [
   setEntryResultsChanged((n) => n + 1);
   // When an entry result changes, we should
   // also alert the containing event that something changed.  May affect list sort.
-  prior && signalEventUpdated(prior.EventNum);
-  current && signalEventUpdated(current.EventNum);
+  if (prior) {
+    signalEventUpdated(prior.EventNum);
+  }
+  if (current) {
+    signalEventUpdated(current.EventNum);
+  }
 });
 
 /**

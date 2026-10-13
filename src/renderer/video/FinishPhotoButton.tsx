@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import BurstMode from '@mui/icons-material/BurstMode';
+import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { useVideoEvent } from './VideoSettings';
 import { generateFinishPhoto } from './FinishPhoto';
-import { showErrorDialog } from 'renderer/util/ErrorDialog';
 
 const FinishPhotoButton: React.FC = () => {
   const [event] = useVideoEvent();
