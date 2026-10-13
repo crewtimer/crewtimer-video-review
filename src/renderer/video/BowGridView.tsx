@@ -35,6 +35,7 @@ import {
   seekToBow,
   setContextMenuAnchor,
 } from './TimingSidebarUtil';
+import { useTimeAnalysisColor } from './UseTimeAnalysisColor';
 
 // Compute rows (arrays of bow strings) for an event, honoring orderByTime and gate.
 export function eventToRows(ev: Event, orderByTime: boolean, gate: string) {
@@ -83,6 +84,7 @@ const BowButton: React.FC<{
   const entryKey = `${scoredGate}_${eventNum}_${bow}`;
   const [scoredValue] = useEntryResult(entryKey);
   const [hintValue] = useEntryResult(`${hintGate}_${eventNum}_${bow}`);
+  const analysisColor = useTimeAnalysisColor(eventNum, bow);
   // compute derived properties here
   const hasTime = !!(
     scoredValue &&
@@ -131,7 +133,7 @@ const BowButton: React.FC<{
         : scoredValue !== undefined
           ? `linear-gradient(to right, ${inactiveColor} 0%, ${inactiveColor} 50%, ${activeColor} 50%, ${activeColor} 100%)`
           : inactiveColor;
-  const recordedBackgroundColor = '#ddd';
+  const recordedBackgroundColor = analysisColor || '#ddd';
 
   if (isSelected) {
     sx.color = hasTime ? 'primary.main' : 'primary.contrastText';

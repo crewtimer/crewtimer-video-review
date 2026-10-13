@@ -269,6 +269,11 @@ export const [useAutoNextTimestamp, , getAutoNextTimestamp] = UseStoredDatum(
 );
 export const [useAutoFileSplitEnable, , getAutoFileSplitEnable] =
   UseStoredDatum('autoFileSplit', false);
+/// Color recorded times by how closely they match their timing hint.
+export const [useAnalyzeTimes, , getAnalyzeTimes] = UseStoredDatum(
+  'analyzeTimes',
+  true,
+);
 
 export const [useVideoDir, setVideoDir, getVideoDir] = UseStoredDatum(
   N_VIDEO_DIR,

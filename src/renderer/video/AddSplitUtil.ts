@@ -5,7 +5,7 @@ import {
   setEntryResultAndPublish,
   getEntryResult,
 } from 'renderer/util/LapStorageDatum';
-import { gateFromWaypoint } from 'renderer/util/Util';
+import { gateFromWaypoint, timeToMilli } from 'renderer/util/Util';
 import uuidgen from 'short-uuid';
 import { setToast } from 'renderer/Toast';
 import {
@@ -30,6 +30,8 @@ import { seekToNextTimePoint } from './VideoUtils';
 import { setAutoSeekHoldoff } from './AutoFileSplit';
 import { saveInterpolationRecordForLap } from './InterpolationStore';
 import { autoZoomToFinishNearFinish } from './AutoZoomToFinish';
+import { TIME_ANALYSIS_COLORS, timeAnalysisColor } from './TimeAnalysis';
+import { getAnalysisHintTime } from './UseTimeAnalysisColor';
 
 let lastAddSplit = 0;
 
@@ -68,7 +70,13 @@ const persistLap = (key: string, lap: Lap) => {
   });
 };
 
-const addSplitForBow = (enteredBow: string) => {
+/**
+ * Records a split for a bow at the current video timestamp.
+ *
+ * @param hintMismatchConfirmed True once the user has accepted a time that is
+ * far from its timing hint.
+ */
+const addSplitForBow = (enteredBow: string, hintMismatchConfirmed = false) => {
   const videoBow = normalizeBowForCurrentEvent(enteredBow);
   // A split must be associated with a known bow.
   if (videoBow === '?' || !videoBow) {
@@ -92,7 +100,7 @@ const addSplitForBow = (enteredBow: string) => {
 
   const now = Date.now();
   const deltaT = now - lastAddSplit;
-  if (deltaT < 500) {
+  if (deltaT < 500 && !hintMismatchConfirmed) {
     return; // probable double click
   }
   lastAddSplit = now;
@@ -125,6 +133,26 @@ const addSplitForBow = (enteredBow: string) => {
     Place: 0,
     Stroke: '',
   };
+
+  const hintTime = hintMismatchConfirmed
+    ? undefined
+    : getAnalysisHintTime(lap.EventNum, videoBow);
+  if (
+    hintTime &&
+    timeAnalysisColor(videoTimestamp, hintTime) === TIME_ANALYSIS_COLORS.bad
+  ) {
+    const deltaMilli = timeToMilli(videoTimestamp) - timeToMilli(hintTime);
+    const seconds = (Math.abs(deltaMilli) / 1000).toFixed(3);
+    const direction = deltaMilli > 0 ? 'after' : 'before';
+    setDialogConfig({
+      title: 'Time Far From Hint',
+      message: `The time for bow ${videoBow} is ${seconds}s ${direction} the hint.  Record anyway?`,
+      button: 'Record',
+      showCancel: true,
+      handleConfirm: () => addSplitForBow(enteredBow, true),
+    });
+    return;
+  }
 
   if (!entry) {
     setDialogConfig({

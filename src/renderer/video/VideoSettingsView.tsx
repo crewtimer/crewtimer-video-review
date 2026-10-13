@@ -29,6 +29,7 @@ import {
   DEFAULT_GUIDE_COLOR,
   GUIDE_COLOR_OPTIONS,
   getVideoFile,
+  useAnalyzeTimes,
   useAutoFileSplitEnable,
   useAutoNextTimestamp,
   useMouseWheelInverted,
@@ -78,6 +79,7 @@ export const VideoSettingsDialog = () => {
   const [autoFileSplit, setAutoFileSplit] = useAutoFileSplitEnable();
   const [rightToLeft, setRightToLeft] = useTravelRightToLeft();
   const [autoNextTimestamp, setAutoNextTimestamp] = useAutoNextTimestamp();
+  const [analyzeTimes, setAnalyzeTimes] = useAnalyzeTimes();
   const [labelBoats, setLabelBoats] = useLabelBoats();
   const [labelNumbers, setLabelNumbers] = useLabelNumbers();
   const [autoZoomToFinish, setAutoZoomToFinish] = useAutoZoomToFinish();
@@ -273,6 +275,24 @@ export const VideoSettingsDialog = () => {
                     size="small"
                     checked={autoFileSplit}
                     onChange={() => setAutoFileSplit(!autoFileSplit)}
+                  />
+                }
+              />
+            </Tooltip>
+          </Box>
+          <Box className={classes.settings}>
+            <Tooltip
+              title="Color recorded times by how closely they match the timing hint: green < 700ms, yellow < 1200ms, red >= 1200ms"
+              placement="right"
+            >
+              <FormControlLabel
+                labelPlacement="end"
+                label="Analyze Times"
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={analyzeTimes}
+                    onChange={() => setAnalyzeTimes(!analyzeTimes)}
                   />
                 }
               />

@@ -76,6 +76,7 @@ import {
 } from './TimingSidebarUtil';
 import { sanitizeFirebaseKey } from '../util/StringUtils';
 import { deleteInterpolationRecordForLap } from './InterpolationStore';
+import { useTimeAnalysisColor } from './UseTimeAnalysisColor';
 
 const useStyles = makeStyles((/* _theme */) => ({
   row: {
@@ -89,6 +90,7 @@ const TimestampCell = ({ row }: { row: ResultRowType }) => {
   const [lap] = useEntryResult(row.id);
   const time = lap?.State === 'Deleted' ? '' : lap?.Time || '';
   const timeChange = time !== row.Time;
+  const analysisColor = useTimeAnalysisColor(row.eventNum, row.Bow);
 
   // Re-render the parent component if the time changes
   const sortByTime = getTimeSort();
@@ -110,6 +112,7 @@ const TimestampCell = ({ row }: { row: ResultRowType }) => {
           paddingLeft: '0.5em',
           fontSize: timingFontSize,
           lineHeight: '24px',
+          backgroundColor: analysisColor,
         }}
       >
         {time}
