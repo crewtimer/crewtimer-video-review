@@ -43,6 +43,7 @@ import {
   BowCardLength,
   BowOcrModel,
   useAutoZoomToFinish,
+  useZoomOnSingleClick,
   useBowCardLength,
   useBowOcrModel,
   useLabelBoats,
@@ -83,6 +84,7 @@ export const VideoSettingsDialog = () => {
   const [labelBoats, setLabelBoats] = useLabelBoats();
   const [labelNumbers, setLabelNumbers] = useLabelNumbers();
   const [autoZoomToFinish, setAutoZoomToFinish] = useAutoZoomToFinish();
+  const [zoomOnSingleClick, setZoomOnSingleClick] = useZoomOnSingleClick();
   const [bowOcrModel, setBowOcrModel] = useBowOcrModel();
   const [bowCardLength, setBowCardLength] = useBowCardLength();
 
@@ -313,7 +315,7 @@ export const VideoSettingsDialog = () => {
             <HyperZoomSelector />
           </Box>
           <Box className={classes.settings}>
-            <Stack direction="row" spacing={2} alignItems="center">
+            <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
               <Typography
                 sx={{
                   alignSelf: 'stretch',
@@ -406,6 +408,25 @@ export const VideoSettingsDialog = () => {
                     checked={autoZoomToFinish}
                     onChange={(event) =>
                       setAutoZoomToFinish(event.target.checked)
+                    }
+                  />
+                }
+              />
+            </Tooltip>
+          </Box>
+          <Box className={classes.settings}>
+            <Tooltip
+              title="A single click on the video does the same as a double click. Dragging guides is not affected."
+              placement="right"
+            >
+              <FormControlLabel
+                labelPlacement="end"
+                label="Zoom to Timing Guide on Single Click"
+                control={
+                  <Checkbox
+                    checked={zoomOnSingleClick}
+                    onChange={(event) =>
+                      setZoomOnSingleClick(event.target.checked)
                     }
                   />
                 }

@@ -16,6 +16,7 @@ import {
   N_LABEL_NUMBERS,
   N_LABEL_CARDS_WITHOUT_BOAT,
   N_AUTO_ZOOM_TO_FINISH,
+  N_ZOOM_ON_SINGLE_CLICK,
   N_BOW_CARD_LENGTH,
   N_BOW_OCR_MODEL,
   N_FL_START_WAYPOINT,
@@ -98,6 +99,12 @@ export const [
 ] = UseMemDatum<boolean>(N_LABEL_CARDS_WITHOUT_BOAT, false);
 export const [useAutoZoomToFinish, setAutoZoomToFinish, getAutoZoomToFinish] =
   UseStoredDatum<boolean>(N_AUTO_ZOOM_TO_FINISH, false);
+/** When set, a single click on the video does the same as a double click. */
+export const [
+  useZoomOnSingleClick,
+  setZoomOnSingleClick,
+  getZoomOnSingleClick,
+] = UseStoredDatum<boolean>(N_ZOOM_ON_SINGLE_CLICK, false);
 export type BowOcrModel = 'numeric' | 'alphanumeric';
 export type BowCardLength = 'auto' | 1 | 2 | 3;
 export const [useBowOcrModel, setBowOcrModel, getBowOcrModel] =

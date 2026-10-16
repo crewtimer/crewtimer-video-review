@@ -64,6 +64,7 @@ import { useSingleAndDoubleClick } from '../util/UseSingleAndDoubleClick';
 import type { AppImage, BowDetection, Rect } from '../shared/AppTypes';
 import {
   getAutoZoomToFinish,
+  getZoomOnSingleClick,
   getBowDetectionOptions,
   getLabelNumbers,
   normalizeBowForCurrentEvent,
@@ -554,6 +555,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [image] = useImage();
   const classes = useStyles();
   const [overlayActive] = useOverlayActive();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const clickStartedDrag = useRef(false);
+  const mouseDownEvent = useRef<MouseEvent | undefined>(undefined);
   const [videoFile] = useVideoFile();
   const holdoffChanges = useRef<boolean>(false);
   const [videoError] = useVideoError();
@@ -973,42 +977,21 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     event.preventDefault();
   };
 
-  const handleSingleClick = (
-    event: React.MouseEvent<HTMLElement, MouseEvent>,
-  ) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    const { pt: srcCoords, withinBounds } = translateMouseEventCoords(
-      event,
-      rect,
-    );
-    if (withinBounds) {
-      const clickedLabel = bowLabelHitRegions.current.find(
-        ({ box }) =>
-          srcCoords.x >= box.x &&
-          srcCoords.x <= box.x + box.width &&
-          srcCoords.y >= box.y &&
-          srcCoords.y <= box.y + box.height,
-      );
-      if (clickedLabel) {
-        const bow = normalizeBowForCurrentEvent(clickedLabel.value);
-        setAnnotatedBow(bow);
-        setVideoBow(bow);
-        event.preventDefault();
-      }
-    }
-  };
-
   const handleDoubleClick = (
     event: React.MouseEvent<HTMLElement, MouseEvent>,
   ) => {
-    const mousePositionY =
-      event.clientY - event.currentTarget.getBoundingClientRect().top;
+    // Use the container rather than event.currentTarget, which React clears
+    // before the delayed single click handler runs.
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    if (!containerRect) {
+      return;
+    }
+    const mousePositionY = event.clientY - containerRect.top;
     if (mousePositionY < 30) {
       event.preventDefault();
       return;
     }
-    const mousePositionX =
-      event.clientX - event.currentTarget.getBoundingClientRect().left;
+    const mousePositionX = event.clientX - containerRect.left;
     if (mousePositionX < 30) {
       event.preventDefault();
       return;
@@ -1096,10 +1079,60 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     }
   };
 
+  const handleSingleClick = (
+    event: React.MouseEvent<HTMLElement, MouseEvent>,
+  ) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const { pt: srcCoords, withinBounds } = translateMouseEventCoords(
+      event,
+      rect,
+    );
+    if (withinBounds) {
+      const clickedLabel = bowLabelHitRegions.current.find(
+        ({ box }) =>
+          srcCoords.x >= box.x &&
+          srcCoords.x <= box.x + box.width &&
+          srcCoords.y >= box.y &&
+          srcCoords.y <= box.y + box.height,
+      );
+      if (clickedLabel) {
+        const bow = normalizeBowForCurrentEvent(clickedLabel.value);
+        setAnnotatedBow(bow);
+        setVideoBow(bow);
+        event.preventDefault();
+        return;
+      }
+    }
+    if (getZoomOnSingleClick() && !clickStartedDrag.current) {
+      handleDoubleClick(event);
+    }
+  };
+
+  /**
+   * Records whether a press is a drag rather than a click. Runs in the capture
+   * phase because the guide overlay stops mousedown from reaching this box,
+   * yet the browser still delivers a click here when the guide drag ends.
+   */
+  const handleMouseDownCapture = (event: React.MouseEvent<HTMLDivElement>) => {
+    clickStartedDrag.current = overlayActive;
+    mouseDownEvent.current = event.nativeEvent;
+  };
+
   const { onSingleClick, onDoubleClick } = useSingleAndDoubleClick(
     handleSingleClick,
     handleDoubleClick,
   );
+
+  const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const down = mouseDownEvent.current;
+    const moved =
+      !down ||
+      Math.abs(event.clientX - down.clientX) > 4 ||
+      Math.abs(event.clientY - down.clientY) > 4;
+    // The guide overlay prevents default on a mousedown that grabs a guide.
+    clickStartedDrag.current ||= moved || down.defaultPrevented;
+    onSingleClick(event);
+  };
 
   const handleMouseDown = useCallback(
     (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
@@ -1244,8 +1277,10 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         onMouseUp={overlayActive ? undefined : handleMouseUp}
         onMouseLeave={handleMouseLeave}
         onDragStart={overlayActive ? undefined : handleDragStart}
+        onMouseDownCapture={handleMouseDownCapture}
         onDoubleClick={onDoubleClick}
-        onClick={onSingleClick}
+        onClick={handleClick}
+        ref={containerRef}
         onContextMenu={handleRightClick}
         sx={{
           // margin: '16px', // Use state variable for padding

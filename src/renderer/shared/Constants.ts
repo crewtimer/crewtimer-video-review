@@ -14,6 +14,7 @@ export const N_LABEL_BOATS = 'labelBoats';
 export const N_LABEL_NUMBERS = 'labelNumbers';
 export const N_LABEL_CARDS_WITHOUT_BOAT = 'labelCardsWithoutBoat';
 export const N_AUTO_ZOOM_TO_FINISH = 'autoZoomToFinish';
+export const N_ZOOM_ON_SINGLE_CLICK = 'zoomOnSingleClick';
 export const N_BOW_OCR_MODEL = 'bowOcrModel';
 export const N_BOW_CARD_LENGTH = 'bowCardLength';
 
