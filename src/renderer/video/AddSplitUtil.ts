@@ -60,6 +60,30 @@ const autoZoomAfterNextTimestamp = async (
   }
 };
 
+/**
+ * Seeks to the next hint after a recorded split. When there is no later hint
+ * to jump to, zoom out instead of leaving the view zoomed on the old crossing.
+ */
+const seekToNextOrZoomOut = (
+  lap: Lap,
+  uuid: string,
+  afterSeek?: typeof autoZoomAfterNextTimestamp,
+) => {
+  const next = seekToNextTimePoint(
+    {
+      time: lap.Time,
+      bow: lap.Bow,
+      event: lap.EventNum,
+      uuid,
+      skipHintAtOrAfterTime: true,
+    },
+    afterSeek,
+  );
+  if (!next) {
+    resetVideoZoom();
+  }
+};
+
 const persistLap = (key: string, lap: Lap) => {
   setEntryResultAndPublish(key, lap);
   saveInterpolationRecordForLap(lap).catch((error) => {
@@ -167,6 +191,7 @@ const addSplitForBow = (enteredBow: string, hintMismatchConfirmed = false) => {
         if (lap.Time) {
           setLastScoredTimestamp(lap.Time);
         }
+        resetVideoZoom();
       },
     });
     return;
@@ -189,14 +214,9 @@ const addSplitForBow = (enteredBow: string, hintMismatchConfirmed = false) => {
           severity: 'info',
           msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,
         });
-        seekToNextTimePoint(
-          {
-            time: lap.Time,
-            bow: lap.Bow,
-            event: lap.EventNum,
-            uuid: videoBowUuid,
-            skipHintAtOrAfterTime: true,
-          },
+        seekToNextOrZoomOut(
+          lap,
+          videoBowUuid,
           autoNextTimestamp ? autoZoomAfterNextTimestamp : undefined,
         );
       },
@@ -214,16 +234,7 @@ const addSplitForBow = (enteredBow: string, hintMismatchConfirmed = false) => {
     msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,
   });
   if (autoNextTimestamp) {
-    seekToNextTimePoint(
-      {
-        time: lap.Time,
-        bow: lap.Bow,
-        event: lap.EventNum,
-        uuid: videoBowUuid,
-        skipHintAtOrAfterTime: true,
-      },
-      autoZoomAfterNextTimestamp,
-    );
+    seekToNextOrZoomOut(lap, videoBowUuid, autoZoomAfterNextTimestamp);
   } else {
     resetVideoZoom();
   }
