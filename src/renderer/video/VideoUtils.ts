@@ -3,6 +3,7 @@ import { AppImage, Rect } from 'renderer/shared/AppTypes';
 import { getWaypoint, getWaypointList } from 'renderer/util/UseSettings';
 import { getEntryResult } from 'renderer/util/LapStorageDatum';
 import { gateFromWaypoint } from 'renderer/util/Util';
+import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { ExtendedLap, getClickerData } from './UseClickerData';
 import {
   Dir,
@@ -34,6 +35,7 @@ import {
 // RequestVideoFrame uses shared video geometry helpers from this module.
 // eslint-disable-next-line import/no-cycle
 import {
+  findSeekTarget,
   requestVideoFrame,
   seekToClickInFile,
   seekToTimestamp,
@@ -677,19 +679,23 @@ export const seekToNextTimePoint = (
  * contains the click, allowing callers to retry when the file list changes.
  */
 export const seekToTimePoint = (timePoint: ExtendedLap): boolean => {
-  const found = seekToTimestamp({
-    time: timePoint.Time || '00:00:00.000',
-    bow: timePoint.Bow || '',
-  });
-  if (!found) {
+  const time = timePoint.Time || '00:00:00.000';
+  if (!findSeekTarget(time)) {
     return false;
   }
-  resetVideoZoom();
-  if (timePoint.EventNum !== '?') {
-    setVideoEvent(timePoint.EventNum);
-  }
-  if (timePoint.Bow && timePoint.Bow !== '*') {
-    setVideoBow(timePoint.Bow, timePoint.uuid);
-  }
+  // Reset zoom before seeking. A zoom reset re-requests the frame currently
+  // displayed, which would otherwise supersede a seek into another file.
+  resetVideoZoom()
+    .then(() => {
+      seekToTimestamp({ time, bow: timePoint.Bow || '' });
+      if (timePoint.EventNum !== '?') {
+        setVideoEvent(timePoint.EventNum);
+      }
+      if (timePoint.Bow && timePoint.Bow !== '*') {
+        setVideoBow(timePoint.Bow, timePoint.uuid);
+      }
+      return undefined;
+    })
+    .catch(showErrorDialog);
   return true;
 };

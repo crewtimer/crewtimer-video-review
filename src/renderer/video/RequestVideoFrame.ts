@@ -390,8 +390,11 @@ export function requestVideoFrame(
   });
 }
 
-const resolveSeekTarget = ({ time, bow }: { time: string; bow?: string }) => {
-  setLastSeekTime({ time, bow });
+/**
+ * Finds the video file containing the given timestamp without changing any
+ * selection state.
+ */
+export const findSeekTarget = (time: string) => {
   const jumpTime = parseTimeToSeconds(time);
   const fileStatusList = getFileStatusList();
   const fileBounds = fileStatusList.map((item, index) => {
@@ -446,9 +449,18 @@ const resolveSeekTarget = ({ time, bow }: { time: string; bow?: string }) => {
   }
 
   const videoFile = fileStatusList[fileIndex].filename;
-  setSelectedIndex(fileIndex);
-  setVideoFile(videoFile);
-  return { time: resolvedTime, videoFile };
+  return { time: resolvedTime, videoFile, fileIndex };
+};
+
+const resolveSeekTarget = ({ time, bow }: { time: string; bow?: string }) => {
+  setLastSeekTime({ time, bow });
+  const target = findSeekTarget(time);
+  if (!target) {
+    return undefined;
+  }
+  setSelectedIndex(target.fileIndex);
+  setVideoFile(target.videoFile);
+  return { time: target.time, videoFile: target.videoFile };
 };
 
 /**
