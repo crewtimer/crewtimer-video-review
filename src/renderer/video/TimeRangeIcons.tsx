@@ -62,6 +62,11 @@ type TimeRangeIconsProps = {
   iconType?: 'upper' | 'lower';
   fileStatusList?: FileStatus[];
   resetClickTally?: boolean;
+  /**
+   * Optional position (0..1) of a timestamp within a segment. Defaults to a
+   * linear position based on the segment's pctOffset and pct.
+   */
+  positionOf?: (segmentIndex: number, tsMicro: number) => number;
 };
 
 /**
@@ -80,6 +85,7 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
   iconType = 'lower',
   fileStatusList,
   resetClickTally,
+  positionOf,
 }) => {
   const startSeconds = parseTimeToSeconds(startTime);
   const endSeconds = parseTimeToSeconds(endTime);
@@ -118,11 +124,12 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
           timeMicroSeconds,
         );
         if (segment) {
-          relativePosition =
-            (segment.pctOffset +
-              (segment.pct * (timeMicroSeconds - segment.startTsMicro)) /
-                (segment.endTsMicro - segment.startTsMicro)) *
-            100;
+          relativePosition = positionOf
+            ? positionOf(segmentIndex, timeMicroSeconds) * 100
+            : (segment.pctOffset +
+                (segment.pct * (timeMicroSeconds - segment.startTsMicro)) /
+                  (segment.endTsMicro - segment.startTsMicro)) *
+              100;
           const fileStatus = fileStatusList?.[segmentIndex];
           if (fileStatus) {
             fileStatus.numClicks = (fileStatus.numClicks || 0) + 1;

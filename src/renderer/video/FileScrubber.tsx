@@ -18,6 +18,12 @@ import TimeSegments from './TimeSegments';
 import { useClickerData } from './UseClickerData';
 import { TimeObject, TimeSegment } from './VideoTypes';
 import { useFileStatusList } from './VideoFileStatus';
+import { createFocusScale, focusWindow } from './FocusScale';
+
+/** Time around the selected file shown at full scale, in microseconds. */
+const FOCUS_MICRO = 4 * 60 * 1000000;
+/** Fraction of the scrubber width given to the focus time. */
+const FOCUS_FRACTION = 0.6;
 
 interface SxPropsArgs {
   sx?: SxProps<Theme>;
@@ -30,14 +36,31 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   const [scoredWaypoint] = useWaypoint();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
 
-  // Calc the time segment list
-  const segmentList = useMemo(() => {
+  // Calc the time segment list. Files are laid end to end (gaps removed) and
+  // drawn on a focus scale: FOCUS_MICRO around the selected file gets
+  // FOCUS_FRACTION of the width and other files are compressed around it.
+  const { segmentList, segmentStarts, scale } = useMemo(() => {
+    const starts: number[] = [];
     let totalTime = 0;
     fileStatusList.forEach((item) => {
+      starts.push(totalTime);
       totalTime += item.duration;
     });
-    let pctOffset = 0;
-    const segments = fileStatusList.map((item) => {
+    const selected = fileStatusList[selectedIndex];
+    const selectedStart = starts[selectedIndex] ?? 0;
+    const selectedDuration = selected?.duration ?? 0;
+    const window = focusWindow(
+      totalTime,
+      selectedStart + selectedDuration / 2,
+      Math.max(FOCUS_MICRO, selectedDuration),
+    );
+    const focusScale = createFocusScale(
+      totalTime,
+      window.start,
+      window.end,
+      FOCUS_FRACTION,
+    );
+    const segments = fileStatusList.map((item, index) => {
       const startTime = convertTimestampToString(
         item.startTime / 1000,
         item.tzOffset,
@@ -47,7 +70,8 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
         item.tzOffset,
       );
 
-      const pct = item.duration / totalTime;
+      const pctOffset = focusScale.toPct(starts[index]);
+      const pct = focusScale.toPct(starts[index] + item.duration) - pctOffset;
       const segment: TimeSegment = {
         startTsMicro: convertTimestampToLocalMicros(
           item.startTime,
@@ -60,11 +84,31 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
         pct,
         label: item.filename.replace(/.*\//, ''),
       };
-      pctOffset += pct;
       return segment;
     });
-    return segments;
-  }, [fileStatusList]);
+    return { segmentList: segments, segmentStarts: starts, scale: focusScale };
+  }, [fileStatusList, selectedIndex]);
+
+  /** Position (0..1) of a local timestamp within a file on the focus scale. */
+  const positionOf = (segmentIndex: number, tsMicro: number) => {
+    const segment = segmentList[segmentIndex];
+    const duration = fileStatusList[segmentIndex]?.duration ?? 0;
+    const span = segment.endTsMicro - segment.startTsMicro || 1;
+    const fileFraction = (tsMicro - segment.startTsMicro) / span;
+    return scale.toPct(segmentStarts[segmentIndex] + fileFraction * duration);
+  };
+
+  /** Converts a click position within a segment to a position within its file. */
+  const onSegmentClick = (index: number, clickPct: number) => {
+    const segment = segmentList[index];
+    const duration = fileStatusList[index]?.duration || 1;
+    const time = scale.fromPct(segment.pctOffset + clickPct * segment.pct);
+    const filePct = Math.min(
+      1,
+      Math.max(0, (time - segmentStarts[index]) / duration),
+    );
+    moveToFileIndex(index, filePct);
+  };
 
   const startTime = segmentList[0]?.startTime || '12:00:00';
   const endTime = segmentList[segmentList.length - 1]?.endTime || '17:00:00';
@@ -114,6 +158,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           iconColor="#2e7d32"
           iconType="lower"
           fileStatusList={fileStatusList}
+          positionOf={positionOf}
           resetClickTally
         />
         <TimeRangeIcons
@@ -125,6 +170,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           iconColor="#d2122e"
           iconType="upper"
           fileStatusList={fileStatusList}
+          positionOf={positionOf}
         />
 
         <Box
@@ -144,9 +190,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
             startTime={startTime}
             endTime={endTime}
             activeIndex={selectedIndex}
-            onChange={(newValue, pct) => {
-              moveToFileIndex(newValue, pct);
-            }}
+            onChange={onSegmentClick}
             fileStatusList={fileStatusList}
           />
         </Box>
