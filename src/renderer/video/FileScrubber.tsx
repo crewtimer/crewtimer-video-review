@@ -101,6 +101,10 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   /** Converts a click position within a segment to a position within its file. */
   const onSegmentClick = (index: number, clickPct: number) => {
     const segment = segmentList[index];
+    if (!segment) {
+      // The 'No Data Available' placeholder shown when there are no files.
+      return;
+    }
     const duration = fileStatusList[index]?.duration || 1;
     const time = scale.fromPct(segment.pctOffset + clickPct * segment.pct);
     const filePct = Math.min(
