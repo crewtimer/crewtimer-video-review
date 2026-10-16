@@ -441,10 +441,35 @@ export const VideoSettingsDialog = () => {
               sx={{ display: 'inline' }}
               className={classes.smaller}
             >
-              Guide Visibility
+              Guides
             </Typography>
           </Toolbar>
           <Box className={classes.settings}>
+            <Box sx={{ marginBottom: '0.5em' }}>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel id="guide-color-label">Guide Color</InputLabel>
+                <Select
+                  labelId="guide-color-label"
+                  value={videoSettings.guideColor || DEFAULT_GUIDE_COLOR}
+                  label="Guide Color"
+                  onChange={(event: SelectChangeEvent<string>) => {
+                    setVideoSettings(
+                      {
+                        ...videoSettings,
+                        guideColor: event.target.value,
+                      },
+                      true,
+                    );
+                  }}
+                >
+                  {GUIDE_COLOR_OPTIONS.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
               <FormControlLabel
                 labelPlacement="end"
@@ -502,29 +527,6 @@ export const VideoSettingsDialog = () => {
                   />
                 }
               />
-              <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel id="guide-color-label">Guide Color</InputLabel>
-                <Select
-                  labelId="guide-color-label"
-                  value={videoSettings.guideColor || DEFAULT_GUIDE_COLOR}
-                  label="Guide Color"
-                  onChange={(event: SelectChangeEvent<string>) => {
-                    setVideoSettings(
-                      {
-                        ...videoSettings,
-                        guideColor: event.target.value,
-                      },
-                      true,
-                    );
-                  }}
-                >
-                  {GUIDE_COLOR_OPTIONS.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
             </Stack>
             <Box sx={{ marginLeft: '11px' }}>
               {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(
