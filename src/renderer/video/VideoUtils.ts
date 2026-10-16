@@ -4,7 +4,7 @@ import { getWaypoint, getWaypointList } from 'renderer/util/UseSettings';
 import { getEntryResult } from 'renderer/util/LapStorageDatum';
 import { gateFromWaypoint } from 'renderer/util/Util';
 import { showErrorDialog } from 'renderer/util/ErrorDialog';
-import { ExtendedLap, getClickerData } from './UseClickerData';
+import { ExtendedLap, getClickerData, getLatestHint } from './UseClickerData';
 import {
   Dir,
   getHyperZoomFactor,
@@ -659,14 +659,16 @@ export const seekToNextTimePoint = (
           break;
         }
       }
-      if (nextResult.EventNum !== '?') {
-        setVideoEvent(nextResult.EventNum);
+      // The hint may have been improved (e.g. '?' to a bow) during the seek.
+      const latest = getLatestHint(nextResult);
+      if (latest.EventNum !== '?') {
+        setVideoEvent(latest.EventNum);
       }
-      if (nextResult.Bow && nextResult.Bow !== '*') {
-        setVideoBow(nextResult.Bow, nextResult.uuid);
+      if (latest.Bow && latest.Bow !== '*') {
+        setVideoBow(latest.Bow, latest.uuid);
       }
       if (afterSeek) {
-        await afterSeek(nextResult, found);
+        await afterSeek(latest, found);
       }
     }
   }, 10);
@@ -687,12 +689,14 @@ export const seekToTimePoint = (timePoint: ExtendedLap): boolean => {
   // displayed, which would otherwise supersede a seek into another file.
   resetVideoZoom()
     .then(() => {
-      seekToTimestamp({ time, bow: timePoint.Bow || '' });
-      if (timePoint.EventNum !== '?') {
-        setVideoEvent(timePoint.EventNum);
+      // The hint may have been improved (e.g. '?' to a bow) during the reset.
+      const latest = getLatestHint(timePoint);
+      seekToTimestamp({ time, bow: latest.Bow || '' });
+      if (latest.EventNum !== '?') {
+        setVideoEvent(latest.EventNum);
       }
-      if (timePoint.Bow && timePoint.Bow !== '*') {
-        setVideoBow(timePoint.Bow, timePoint.uuid);
+      if (latest.Bow && latest.Bow !== '*') {
+        setVideoBow(latest.Bow, latest.uuid);
       }
       return undefined;
     })

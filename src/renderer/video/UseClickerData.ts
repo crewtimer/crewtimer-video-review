@@ -77,11 +77,13 @@ const onDataRxTransformer = (
       if (
         lap.State !== 'Deleted' &&
         videoBow === '?' &&
-        lap.EventNum !== '?' &&
+        (lap.EventNum !== '?' || lap.Bow !== '?') &&
         lap.uuid === videoUuid
       ) {
         setVideoBow(lap.Bow, lap.uuid);
-        setVideoEvent(lap.EventNum);
+        if (lap.EventNum !== '?') {
+          setVideoEvent(lap.EventNum);
+        }
       }
       // omit deleted, "?" event, and non-matching day
       const keep =
@@ -137,6 +139,23 @@ export const getClickerData = (waypoint?: string): ExtendedLap[] => {
     waypoint || getVideoSettings().timingHintSource,
   );
   return clickerDataCache[gate] || [];
+};
+
+/**
+ * Returns the most recently received version of a hint, matched by uuid.
+ * Hints can be improved (e.g. '?' bow to a number) while a seek is pending,
+ * so callers holding a hint across an async gap should refresh it first.
+ */
+export const getLatestHint = <T extends { uuid?: string }>(
+  hint: T,
+): T | ExtendedLap => {
+  if (!hint.uuid) {
+    return hint;
+  }
+  const found = Object.values(clickerDataCache)
+    .flat()
+    .find((lap) => lap.uuid === hint.uuid);
+  return found || hint;
 };
 
 export const useClickerData = (waypoint?: string) => {
