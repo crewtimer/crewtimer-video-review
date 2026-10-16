@@ -144,7 +144,7 @@ export const VideoSettingsDialog = () => {
           <Toolbar className={classes.header}>
             <Typography
               variant="h6"
-              display="inline"
+              sx={{ display: 'inline' }}
               className={classes.smaller}
             >
               Course Configuration
@@ -225,7 +225,7 @@ export const VideoSettingsDialog = () => {
           <Toolbar className={classes.header}>
             <Typography
               variant="h6"
-              display="inline"
+              sx={{ display: 'inline' }}
               className={classes.smaller}
             >
               Interface Settings
@@ -305,7 +305,7 @@ export const VideoSettingsDialog = () => {
           <Toolbar className={classes.header}>
             <Typography
               variant="h6"
-              display="inline"
+              sx={{ display: 'inline' }}
               className={classes.smaller}
             >
               AI Assist
@@ -438,7 +438,7 @@ export const VideoSettingsDialog = () => {
           <Toolbar className={classes.header}>
             <Typography
               variant="h6"
-              display="inline"
+              sx={{ display: 'inline' }}
               className={classes.smaller}
             >
               Guide Visibility
