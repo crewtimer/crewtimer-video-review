@@ -75,3 +75,22 @@ export type VideoFrameRequest = {
   /** Renderer-only guard checked before committing a completed frame. */
   commitGuard?: () => boolean;
 };
+
+/** Progress of lap image uploads to Cloud Storage, published by main. */
+export interface LapImageStatus {
+  /** Uploads and deletes waiting for the current regatta. */
+  pending: number;
+  /** Most recent failure, cleared after a successful transfer. */
+  error?: string;
+}
+
+/**
+ * Custom metadata stored on each uploaded lap image.  crewtimer-results copies
+ * it to /regatta/{id}/lapimages/{uuid} when the image lands.
+ */
+export interface LapImageMeta {
+  gate: string;
+  eventNum: string;
+  bow: string;
+  time: string;
+}

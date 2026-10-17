@@ -5,6 +5,7 @@ export const MobileConfigKey = 'mobileConfig';
 export const MobileConfigCountKey = 'mobileConfigCount';
 export const MobileConfigDateKey = 'mobileConfigDate';
 export const FirebaseConnectedKey = 'firebaseConnected';
+export const LapImageStatusKey = 'lapImageStatus';
 export const N_MOBILE_ID = 'mobileID';
 export const N_WAYPOINT = 'waypoint';
 export const N_FL_START_WAYPOINT_ENABLE = 'flStartEnable';
@@ -17,6 +18,7 @@ export const N_AUTO_ZOOM_TO_FINISH = 'autoZoomToFinish';
 export const N_ZOOM_ON_SINGLE_CLICK = 'zoomOnSingleClick';
 export const N_BOW_OCR_MODEL = 'bowOcrModel';
 export const N_BOW_CARD_LENGTH = 'bowCardLength';
+export const N_UPLOAD_LAP_IMAGES = 'uploadLapImages';
 
 export const N_IMAGE = 'image';
 export const N_IMAGE_FRAMES = 'imageFrames';

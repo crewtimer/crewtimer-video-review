@@ -65,3 +65,16 @@ export function sanitizeFirebaseKey(s: string) {
   // eslint-disable-next-line no-control-regex
   return s.replace(/[.#$[\]/\x00-\x1f\x7f]/g, '-');
 }
+
+/**
+ * Label for an event as 'E{num} {name}', omitting the 'E{num}' prefix when the
+ * name already starts with the event number (e.g. '12 Men's 8+').
+ */
+export function eventLabel(eventNum: string, eventName = '') {
+  const name = eventName.trim();
+  const rest = name.slice(eventNum.length);
+  if (eventNum && name.startsWith(eventNum) && !/^[A-Za-z0-9]/.test(rest)) {
+    return name;
+  }
+  return `E${eventNum} ${name}`.trim();
+}

@@ -93,6 +93,7 @@ import {
   type RetainedRollingShutterCorrection,
 } from './RollingShutter';
 import type { VideoSidecar } from './VideoSettings';
+import { setDisplayedTimestampImage } from './LapImage';
 import { selectBowCardNearestPoint } from './BowDetectionSelection';
 
 // Avoid 'not a JSX component' warning
@@ -1262,6 +1263,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
   useEffect(() => {
     setVideoTimestamp(videoTimestamp);
+    setDisplayedTimestampImage(image, videoTimestamp);
   }, [image, videoTimestamp]);
 
   const frameNum = getVideoFrameNum();

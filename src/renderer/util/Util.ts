@@ -8,6 +8,14 @@ export function gateFromWaypoint(waypoint: string) {
   return gate;
 }
 
+/** Display name for a lap Gate: 'S' -> 'Start', 'F' -> 'Finish', 'G_500m' -> '500m'. */
+export function waypointFromGate(gate = '') {
+  return gate
+    .replace(/^G_/, '')
+    .replace(/^S$/, 'Start')
+    .replace(/^F$/, 'Finish');
+}
+
 function get3digitString(i: number | string) {
   let s = String(i);
   while (s.length < 3) s = `0${s}`;
@@ -125,6 +133,11 @@ export function formatTime(date: Date, milliDigits = 3) {
   }
   return startTimeFormatted;
 }
+/** Mobile IDs prefixed with 't.' or starting with '9' belong to the dev project. */
+export function isDevMobileID(mobileID: string) {
+  return mobileID.startsWith('t.') || mobileID.startsWith('9');
+}
+
 export function getConnectionProps(mobileID: string) {
   let firebaseurl = 'https://results.crewtimer.com';
   let resultbase = 'https://crewtimer.com';
@@ -132,10 +145,12 @@ export function getConnectionProps(mobileID: string) {
   if (!id) {
     id = '';
   }
-  if (id.indexOf('t.') === 0) {
+  if (isDevMobileID(id)) {
     firebaseurl = 'https://crewtimer-results-dev.firebaseapp.com';
-    id = id.substring(2);
     resultbase = 'https://dev.crewtimer.com';
+  }
+  if (id.indexOf('t.') === 0) {
+    id = id.substring(2);
   }
   const regattaID = id.replace('.', '');
   return {

@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
+import { isDevMobileID } from '../util/Util';
 
 // Initialize Firebase
 const config = {
@@ -26,9 +27,12 @@ const firedev = initializeApp(devconfig, 'dev');
 const database = getDatabase(fire);
 const databasedev = getDatabase(firedev);
 
+/** The Firebase app (prod or dev project) that serves the given mobile ID. */
+export function firebaseApp(mobileID: string) {
+  return isDevMobileID(mobileID) ? firedev : fire;
+}
+
 function firebasedb(mobileID: string) {
-  return mobileID.startsWith('t.') || mobileID.startsWith('9')
-    ? databasedev
-    : database;
+  return isDevMobileID(mobileID) ? databasedev : database;
 }
 export default firebasedb;

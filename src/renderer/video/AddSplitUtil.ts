@@ -29,6 +29,7 @@ import {
 import { seekToNextTimePoint } from './VideoUtils';
 import { setAutoSeekHoldoff } from './AutoFileSplit';
 import { saveInterpolationRecordForLap } from './InterpolationStore';
+import { captureLapFrame } from './LapImage';
 import { autoZoomToFinishNearFinish } from './AutoZoomToFinish';
 import { TIME_ANALYSIS_COLORS, timeAnalysisColor } from './TimeAnalysis';
 import { getAnalysisHintTime } from './UseTimeAnalysisColor';
@@ -85,6 +86,8 @@ const seekToNextOrZoomOut = (
 };
 
 const persistLap = (key: string, lap: Lap) => {
+  // Capture the frame behind this time before publishing moves the view on.
+  captureLapFrame(lap);
   setEntryResultAndPublish(key, lap);
   saveInterpolationRecordForLap(lap).catch((error) => {
     console.warn(

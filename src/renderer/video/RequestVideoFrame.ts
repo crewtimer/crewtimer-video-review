@@ -247,8 +247,16 @@ function calculateSeekFrame(
 /**
  * Handles errors: logs, sets error state, and shows a test pattern.
  */
-function handleFrameError(videoFile: string, seekPos: number, error: any) {
+function handleFrameError(
+  videoFile: string,
+  seekPos: number,
+  error: any,
+  commit = true,
+) {
   console.log(`Failed to get frame for ${videoFile}@${seekPos}`, error);
+  if (!commit) {
+    return;
+  }
   setImage(generateTestPattern());
   setVideoError(error instanceof Error ? error.message : String(error));
 }
@@ -264,6 +272,7 @@ function handleFrameError(videoFile: string, seekPos: number, error: any) {
  */
 const doRequestVideoFrame = async (
   request: VideoFrameRequest,
+  commit = true,
 ): Promise<AppImage | undefined> => {
   if (!request.videoFile || request.commitGuard?.() === false) {
     return undefined;
@@ -292,12 +301,17 @@ const doRequestVideoFrame = async (
         tsMilli: utcMilli,
       });
     } catch (e) {
-      handleFrameError(request.videoFile, clampedSeekPos, e);
+      handleFrameError(request.videoFile, clampedSeekPos, e, commit);
       return undefined;
     }
 
     if (!image) {
-      handleFrameError(request.videoFile, clampedSeekPos, 'No image returned');
+      handleFrameError(
+        request.videoFile,
+        clampedSeekPos,
+        'No image returned',
+        commit,
+      );
       return undefined;
     }
     if (request.commitGuard?.() === false) {
@@ -314,6 +328,9 @@ const doRequestVideoFrame = async (
     image.fileEndTime = status.endTime / 1000;
     image.tzOffset = status.tzOffset;
     image.sidecar = status.sidecar;
+    if (!commit) {
+      return image;
+    }
     setImage(image);
 
     if (
@@ -325,17 +342,22 @@ const doRequestVideoFrame = async (
     setVideoError(undefined);
     return image;
   } catch (e) {
-    handleFrameError(request.videoFile, request.frameNum ?? 1, e);
+    handleFrameError(request.videoFile, request.frameNum ?? 1, e, commit);
     return undefined;
   }
 };
 
-let running = false;
-let nextRequest: {
+interface QueuedFrameRequest {
   params: VideoFrameRequest;
   resolve: (frame: AppImage | undefined) => void;
   reject: (e: any) => void;
-} | null = null;
+  /** performance.now() when a background request was queued. */
+  queuedAt?: number;
+}
+let running = false;
+let nextRequest: QueuedFrameRequest | null = null;
+/** Requests that never touch the displayed image; run when display is idle. */
+const backgroundRequests: QueuedFrameRequest[] = [];
 
 /**
  * Returns the current running state of the video request queue.
@@ -354,18 +376,52 @@ async function runQueue() {
     return;
   }
   running = true;
-  while (nextRequest) {
-    const { params, resolve, reject } = nextRequest;
-    nextRequest = null;
+  while (nextRequest || backgroundRequests.length) {
+    // Display requests always take priority over background ones.
+    const commit = nextRequest !== null;
+    const request = nextRequest || backgroundRequests.shift();
+    nextRequest = commit ? null : nextRequest;
+    if (!request) break;
+    const { params, resolve, reject, queuedAt } = request;
+    const startedAt = performance.now();
     try {
       // eslint-disable-next-line no-await-in-loop
-      const frame = await doRequestVideoFrame(params);
+      const frame = await doRequestVideoFrame(params, commit);
+      if (!commit) {
+        const { videoFile, frameNum, toTimestamp, interpMethod, crop } = params;
+        console.log(
+          `Background frame ${interpMethod || 'blend'}${crop ? ' crop' : ''} ` +
+            `${videoFile}@${frameNum ?? toTimestamp}: ` +
+            `${Math.round(performance.now() - startedAt)}ms ` +
+            `(queued ${Math.round(startedAt - (queuedAt ?? startedAt))}ms)` +
+            `${frame ? '' : ' no frame'}`,
+        );
+      }
       resolve(frame);
     } catch (e) {
       reject(e);
     }
   }
   running = false;
+}
+
+/**
+ * Fetches a frame without displaying it, e.g. for rendering lap images.
+ * Background requests are never coalesced and run only when no display
+ * request is waiting.
+ */
+export function requestBackgroundVideoFrame(
+  params: VideoFrameRequest,
+): Promise<AppImage | undefined> {
+  return new Promise<AppImage | undefined>((resolve, reject) => {
+    backgroundRequests.push({
+      params,
+      resolve,
+      reject,
+      queuedAt: performance.now(),
+    });
+    runQueue();
+  });
 }
 
 /**

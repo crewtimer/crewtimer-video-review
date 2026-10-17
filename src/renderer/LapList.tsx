@@ -7,6 +7,7 @@ import clsx from 'clsx';
 import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
 import { Lap } from 'crewtimer-common';
 import { setEntryResultAndPublish, useLaps } from './util/LapStorageDatum';
+import { waypointFromGate } from './util/Util';
 import { deleteInterpolationRecordForLap } from './video/InterpolationStore';
 
 // https://github.com/bvaughn/react-virtualized/issues/1739
@@ -71,9 +72,7 @@ const Row = ({ data, index, style }: ListChildComponentProps) => {
   const classes = useStyles();
   const lap = data.laps[index] as Lap;
   const { PenaltyCode, Gate, EventNum, Bow, Status, Time, State } = lap;
-  let gate = Gate?.replace(/^G_/, '')
-    .replace(/^S$/, 'Start')
-    .replace(/^F$/, 'Finish');
+  let gate = waypointFromGate(Gate);
   if (gate === 'Pen' && PenaltyCode) {
     gate = PenaltyCode;
   }

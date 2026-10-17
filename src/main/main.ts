@@ -17,6 +17,7 @@ import './lapstorage/lapstorage-ipc-handler';
 import './store/store';
 import './util/fileops-handler';
 import './firebase/firebase-ipc-handler';
+import './lapimages/lapimages-ipc-handler';
 import { startVideoServices } from './video/video-main';
 import { getMainWindow, setMainWindow } from './mainWindow';
 

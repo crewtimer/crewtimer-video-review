@@ -1,5 +1,6 @@
 import { UseDatum } from 'react-usedatum';
 import { MobileSettings } from 'crewtimer-common';
+import { LapImageStatus } from 'renderer/shared/AppTypes';
 import { getVideoEvent, useVideoSettings } from 'renderer/video/VideoSettings';
 import {
   cardLengthForEvent,
@@ -17,6 +18,8 @@ import {
   N_LABEL_CARDS_WITHOUT_BOAT,
   N_AUTO_ZOOM_TO_FINISH,
   N_ZOOM_ON_SINGLE_CLICK,
+  N_UPLOAD_LAP_IMAGES,
+  LapImageStatusKey,
   N_BOW_CARD_LENGTH,
   N_BOW_OCR_MODEL,
   N_FL_START_WAYPOINT,
@@ -105,6 +108,14 @@ export const [
   setZoomOnSingleClick,
   getZoomOnSingleClick,
 ] = UseStoredDatum<boolean>(N_ZOOM_ON_SINGLE_CLICK, false);
+
+/** When set, an image of each recorded lap is uploaded to CrewTimer. */
+export const [useUploadLapImages, setUploadLapImages, getUploadLapImages] =
+  UseStoredDatum<boolean>(N_UPLOAD_LAP_IMAGES, false);
+export const [useLapImageStatus] = UseMemDatum<LapImageStatus>(
+  LapImageStatusKey,
+  { pending: 0 },
+);
 export type BowOcrModel = 'numeric' | 'alphanumeric';
 export type BowCardLength = 'auto' | 1 | 2 | 3;
 export const [useBowOcrModel, setBowOcrModel, getBowOcrModel] =

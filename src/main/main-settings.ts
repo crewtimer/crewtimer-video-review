@@ -9,6 +9,7 @@ import {
   N_FL_START_WAYPOINT,
   N_FL_START_WAYPOINT_ENABLE,
   N_MOBILE_ID,
+  N_UPLOAD_LAP_IMAGES,
   N_WAYPOINT,
 } from '../renderer/shared/Constants';
 import {
@@ -19,6 +20,8 @@ import {
 } from './store/store';
 
 export const getWaypoint = () => getStoredValue(N_WAYPOINT, '');
+export const getUploadLapImages = () =>
+  getStoredValue<boolean>(N_UPLOAD_LAP_IMAGES, false);
 export const getFLStartWaypoint = () => getStoredValue(N_FL_START_WAYPOINT, '');
 export const getFLStartWaypointEnable = () =>
   getStoredValue(N_FL_START_WAYPOINT_ENABLE, '');

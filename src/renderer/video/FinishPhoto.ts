@@ -310,7 +310,7 @@ const ordinal = (n: number) => {
  * Badges sharing a `rowFontSize` are centered on the same line, so a smaller
  * badge lines up with a larger one.
  */
-const drawCornerBadge = (
+export const drawCornerBadge = (
   ctx: CanvasRenderingContext2D,
   lines: string[],
   corner: 'left' | 'right',

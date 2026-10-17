@@ -19,6 +19,7 @@ import {
 } from './video/VideoSettings';
 import { openNagScreen } from './NagScreen';
 import { AutoFileSplit } from './video/AutoFileSplit';
+import { startLapImages } from './video/LapImage';
 
 const { startLapStorage } = window.LapStorage;
 const { stopLapStorage } = window.LapStorage;
@@ -42,6 +43,7 @@ export default function App() {
       setInitProgress(25);
 
       await startLapStorage();
+      startLapImages();
       setInitProgress(50);
 
       setInitProgress(75);

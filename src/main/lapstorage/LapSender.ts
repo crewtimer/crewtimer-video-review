@@ -29,7 +29,18 @@ export function clearPendingData() {
 //   });
 // }
 
-async function sendToCrewTimer(messages: TxLapItem[]) {
+/** An op envelope posted to the CrewTimer /util endpoint. */
+export interface CrewTimerOp {
+  uuid: string;
+  op: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Post a list of ops to CrewTimer /util, authenticated with the current mobile
+ * ID and pin.  Returns the per-op result list, or an error string.
+ */
+export async function sendToCrewTimer(messages: (TxLapItem | CrewTimerOp)[]) {
   const mobileID = getMobileID();
   // console.log(`Sending ${  JSON.stringify(messages)}`);
   try {

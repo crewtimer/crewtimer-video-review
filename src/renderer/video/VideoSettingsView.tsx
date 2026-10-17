@@ -48,6 +48,8 @@ import {
   useBowOcrModel,
   useLabelBoats,
   useLabelNumbers,
+  useLapImageStatus,
+  useUploadLapImages,
 } from '../util/UseSettings';
 
 declare module '@mui/styles/defaultTheme' {
@@ -87,6 +89,8 @@ export const VideoSettingsDialog = () => {
   const [zoomOnSingleClick, setZoomOnSingleClick] = useZoomOnSingleClick();
   const [bowOcrModel, setBowOcrModel] = useBowOcrModel();
   const [bowCardLength, setBowCardLength] = useBowCardLength();
+  const [uploadLapImages, setUploadLapImages] = useUploadLapImages();
+  const [lapImageStatus] = useLapImageStatus();
 
   // Handler to update the wheelFactor state
   // const handleSliderChange = (_event: Event, newValue: number | number[]) => {
@@ -299,6 +303,31 @@ export const VideoSettingsDialog = () => {
                 }
               />
             </Tooltip>
+          </Box>
+          <Box className={classes.settings}>
+            <Tooltip
+              title="Upload an image of each recorded time to CrewTimer.  Requires the regatta admin pin."
+              placement="right"
+            >
+              <FormControlLabel
+                labelPlacement="end"
+                label="Upload Lap Images"
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={uploadLapImages}
+                    onChange={() => setUploadLapImages(!uploadLapImages)}
+                  />
+                }
+              />
+            </Tooltip>
+            {uploadLapImages &&
+              (lapImageStatus.pending > 0 || lapImageStatus.error) && (
+                <Typography variant="caption" sx={{ display: 'block' }}>
+                  {`${lapImageStatus.pending} pending`}
+                  {lapImageStatus.error ? ` — ${lapImageStatus.error}` : ''}
+                </Typography>
+              )}
           </Box>
         </Grid>
         <Grid size={12}>

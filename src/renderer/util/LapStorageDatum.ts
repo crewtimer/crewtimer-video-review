@@ -80,6 +80,8 @@ export const [
   }
 });
 
+const lapPublishListeners = new Map<string, (lap: Lap) => void>();
+
 /**
  * Store an entry result and notify subscribers.
  *
@@ -93,4 +95,14 @@ export const setEntryResultAndPublish = (key: string, lap: Lap) => {
   signalEventUpdated(lap.EventNum);
   lap.SequenceNum = (lap.SequenceNum || 0) + 1;
   window.LapStorage.updateLap(lap);
+  lapPublishListeners.forEach((listener) => listener(lap));
+};
+
+/**
+ * Register a callback invoked for every lap published from this app.  A later
+ * registration with the same key replaces the earlier one (e.g. after a hot
+ * module reload), so each listener runs once per publish.
+ */
+export const onLapPublished = (key: string, listener: (lap: Lap) => void) => {
+  lapPublishListeners.set(key, listener);
 };
