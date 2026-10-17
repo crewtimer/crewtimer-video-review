@@ -57,21 +57,27 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
             startTime,
             endTime,
             label: 'No Data Available',
-            pct: 100,
+            pctOffset: 0,
+            pct: 1,
           },
         ]
       : segments;
 
+  // Segments are absolutely positioned from pctOffset/pct so they line up
+  // exactly with the icons drawn by TimeRangeIcons. A flex layout lets borders
+  // and minWidth on narrow segments push later segments out of position.
+  // The outline (rather than a border) keeps the full width for segments.
   return (
     <Box
       sx={{
         width: '100%',
-        display: 'flex',
+        position: 'relative',
         height: '20px',
-        border: '1px solid #bbbbbb',
+        outline: '1px solid #bbbbbb',
       }}
     >
       {displaySegments.map((segment, index) => {
+        const leftPercent = segment.pctOffset * 100;
         const widthPercent = segment.pct * 100;
         const title = `${segment.label} ${segment.startTime} - ${segment.endTime}`;
         const key = `${title}-${index}`;
@@ -93,13 +99,14 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
             <Box
               onClick={(event) => handleSegmentClick(event, index)}
               sx={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: `${leftPercent}%`,
                 width: `${widthPercent}%`,
                 backgroundColor: index === activeIndex ? '#00ffff' : '#f0f0f0',
                 borderRight: '1px solid #888',
                 borderLeft: '1px solid #888',
-
-                paddingLeft: '-1px',
-                paddingRight: '-px',
                 minWidth: '2px',
                 cursor: 'pointer',
                 ...style,
