@@ -27,6 +27,7 @@ import {
   useVideoBow,
   setVideoEvent,
   setVideoBow,
+  getVideoBowUuid,
   ResultRowType,
 } from './VideoSettings';
 import { sanitizeFirebaseKey } from '../util/StringUtils';
@@ -97,10 +98,10 @@ const BowButton: React.FC<{
 
   const { onSingleClick, onDoubleClick } = useSingleAndDoubleClick(
     () => {
-      // single click
+      // single click: names the crew at the current hint without moving
       setVideoEvent(eventNum);
       if (bow) {
-        setVideoBow(bow);
+        setVideoBow(bow, getVideoBowUuid());
       }
     },
     () => {

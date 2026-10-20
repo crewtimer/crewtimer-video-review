@@ -1,5 +1,6 @@
 import {
   findNextTimePoint,
+  findUnnumberedHintForScore,
   isNearestHintForScore,
   preferredTimeForHint,
 } from './NextTimePoint';
@@ -158,6 +159,39 @@ describe('isNearestHintForScore', () => {
     ];
 
     expect(isNearestHintForScore(hints, hints[1], 19.5)).toBe(true);
+  });
+});
+
+describe('findUnnumberedHintForScore', () => {
+  const eventPoint = (
+    Bow: string,
+    seconds: number,
+    uuid: string,
+    EventNum = '1',
+  ) => ({ Bow, seconds, uuid, EventNum });
+
+  test('finds the ? hint a score was adjusted earlier from', () => {
+    const hints = [eventPoint('3', 10, 'a'), eventPoint('?', 20, 'b')];
+
+    expect(findUnnumberedHintForScore(hints, '1', 19.4)).toBe(hints[1]);
+  });
+
+  test('includes hints with no event', () => {
+    const hints = [eventPoint('?', 20, 'b', '?')];
+
+    expect(findUnnumberedHintForScore(hints, '1', 19.4)).toBe(hints[0]);
+  });
+
+  test('ignores a ? hint when a numbered hint is nearer', () => {
+    const hints = [eventPoint('3', 19.5, 'a'), eventPoint('?', 20, 'b')];
+
+    expect(findUnnumberedHintForScore(hints, '1', 19.4)).toBeUndefined();
+  });
+
+  test('ignores hints in other events and far away', () => {
+    const hints = [eventPoint('?', 20, 'b', '2'), eventPoint('?', 30, 'c')];
+
+    expect(findUnnumberedHintForScore(hints, '1', 20)).toBeUndefined();
   });
 });
 

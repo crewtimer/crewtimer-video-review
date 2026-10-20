@@ -22,6 +22,9 @@ import {
   clearAutoZoomInterpolation,
 } from './AutoZoomToFinish';
 import { loadInterpolationRecordForLap } from './InterpolationStore';
+import { getClickerData } from './UseClickerData';
+import { findUnnumberedHintForScore } from './NextTimePoint';
+import { parseTimeToSeconds } from '../util/StringUtils';
 
 export const [useContextMenuAnchor, setContextMenuAnchor] = UseDatum<{
   element: Element;
@@ -50,15 +53,26 @@ export const findSeekLap = (entry: { EventNum: string; Bow: string }) => {
     );
     return lap?.Time && lap.State !== 'Deleted' ? lap : undefined;
   };
-  const scoredLap = lapForWaypoint(getWaypoint());
-  if (scoredLap) {
-    return { lap: scoredLap, scored: true };
-  }
   const { timingHintSource, secondaryTimingHintSource } = getVideoSettings();
+  const scoredLap = lapForWaypoint(getWaypoint());
+  if (scoredLap?.Time) {
+    // The hint this score was recorded from: the hint with the same bow, or a
+    // '?' hint scored under this bow.
+    const hintUuid =
+      lapForWaypoint(timingHintSource)?.uuid ||
+      findUnnumberedHintForScore(
+        getClickerData(),
+        entry.EventNum,
+        parseTimeToSeconds(scoredLap.Time),
+      )?.uuid;
+    return { lap: scoredLap, scored: true, hintUuid };
+  }
   const hintLap =
     lapForWaypoint(timingHintSource) ||
     lapForWaypoint(secondaryTimingHintSource);
-  return hintLap ? { lap: hintLap, scored: false } : undefined;
+  return hintLap
+    ? { lap: hintLap, scored: false, hintUuid: hintLap.uuid }
+    : undefined;
 };
 
 /**
@@ -83,9 +97,12 @@ export const seekToBow = (
   setBowSeekPending(false);
   setVideoEvent(entry.EventNum);
   if (entry.Bow) {
-    setVideoBow(entry.Bow);
+    const seekLap = findSeekLap(entry);
+    // Keep the hint association so scoring marks this hint and auto next
+    // continues from it.
+    setVideoBow(entry.Bow, seekLap?.hintUuid);
 
-    const lap = findSeekLap(entry)?.lap;
+    const lap = seekLap?.lap;
     if (lap?.Time) {
       const seekTime = lap.Time;
       setBowSeekPending(true);

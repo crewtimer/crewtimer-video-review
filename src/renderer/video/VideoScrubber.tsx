@@ -17,15 +17,24 @@ import {
   useImage,
   getImage,
   useVideoEvent,
-  useVideoBow,
   resetVideoZoom,
   setLastSeekTime,
+  setVideoBow,
   setVideoBowUuid,
 } from './VideoSettings';
 import { TimeObject, TimeSegment } from './VideoTypes';
 import { moveLeft, moveRight } from './VideoUtils';
 import { parseTimeToSeconds } from '../util/StringUtils';
 import { requestVideoFrame, seekToTimestampAndWait } from './RequestVideoFrame';
+
+/** True for mouse, pointer and touch input; false for keyboard steps. */
+const isPointerEvent = (event: Event | React.SyntheticEvent) => {
+  const nativeEvent = 'nativeEvent' in event ? event.nativeEvent : event;
+  return (
+    nativeEvent instanceof MouseEvent ||
+    (typeof TouchEvent !== 'undefined' && nativeEvent instanceof TouchEvent)
+  );
+};
 
 const VideoScrubber = () => {
   const [videoFrameNum, setVideoFrameNum] = useVideoFrameNum();
@@ -37,7 +46,6 @@ const VideoScrubber = () => {
   const lastVideoFile = useRef('');
   const sliderRef = useRef<HTMLSpanElement>(null);
   const [, setSelectedEvent] = useVideoEvent();
-  const [, setSelectedBow] = useVideoBow();
   const ignoreNextChange = useRef(false);
   const sliderValueEvent = useRef(0);
   const timestampSeekRequest = useRef(0);
@@ -62,8 +70,12 @@ const VideoScrubber = () => {
     }
   }, [setVideoFrameNum, videoFileChanging]);
 
-  const handleSlider = (_event: Event, value: number | number[]) => {
-    setVideoBowUuid('');
+  const handleSlider = (event: Event, value: number | number[]) => {
+    // Dragging leaves the hint.  A keyboard step moves one frame like the
+    // arrow buttons, so it keeps the hint association.
+    if (isPointerEvent(event)) {
+      setVideoBowUuid('');
+    }
     timestampSeekRequest.current += 1;
     sliderValueEvent.current = value as number;
     const newValue = value as number;
@@ -191,9 +203,9 @@ const VideoScrubber = () => {
   const onSliderClick = (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>,
   ) => {
-    setVideoBowUuid('');
     const click = findNearestClick(event);
     if (!click) {
+      setVideoBowUuid('');
       const requestId = timestampSeekRequest.current + 1;
       timestampSeekRequest.current = requestId;
       const frameNum = Math.round(sliderValueEvent.current);
@@ -226,7 +238,21 @@ const VideoScrubber = () => {
       setSelectedEvent(click.EventNum);
     }
     if (click.Bow && click.Bow !== '*') {
-      setSelectedBow(click.Bow);
+      // Landing on a hint associates it, as auto advance does.
+      setVideoBow(click.Bow, click.uuid);
+    } else {
+      setVideoBowUuid('');
+    }
+  };
+
+  const onSliderCommitted = (event: Event | React.SyntheticEvent) => {
+    // MUI leaves focus on the thumb, which would capture the arrow keys from
+    // the video's frame stepping (and hyperzoom) after any scrubber click.
+    if (
+      isPointerEvent(event) &&
+      document.activeElement instanceof HTMLElement
+    ) {
+      document.activeElement.blur();
     }
   };
 
@@ -312,6 +338,7 @@ const VideoScrubber = () => {
               max={numFrames}
               onClick={onSliderClick}
               onChange={handleSlider}
+              onChangeCommitted={onSliderCommitted}
               onMouseDown={onMouseDown}
               onMouseUp={onMouseUp}
               onMouseMove={onMouseMove}

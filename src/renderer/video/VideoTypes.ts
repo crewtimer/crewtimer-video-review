@@ -23,6 +23,7 @@ export type TimeObject = {
   Bow: string;
   EventNum: string;
   Gate: string;
+  uuid?: string;
 };
 
 export interface FileStatus {

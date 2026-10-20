@@ -34,7 +34,22 @@ export const [useAutoFileSplit, setAutoFileSplit, getAutoFileSplit] =
 export const [useAutoSeekHoldoff, setAutoSeekHoldoff, getAutoSeekHoldoff] =
   UseDatum(false);
 
+/**
+ * Hints scored under a bow other than their own, e.g. a '?' hint whose bow was
+ * clicked or detected.  The hint record keeps its bow, so only its uuid ties it
+ * to the score.
+ */
+const scoredHintUuids = new Set<string>();
+
+/** Record that the hint with this uuid has been scored. */
+export const markHintScored = (uuid: string) => {
+  if (uuid) {
+    scoredHintUuids.add(uuid);
+  }
+};
+
 const isScored = (lap: ExtendedLap, scoredGate: string) =>
+  (!!lap.uuid && scoredHintUuids.has(lap.uuid)) ||
   getEntryResult(`${scoredGate}_${lap.EventNum}_${lap.Bow}`) !== undefined;
 
 /**

@@ -100,6 +100,39 @@ export const isNearestHintForScore = <T extends OrderedTimePoint>(
   return nearest === target;
 };
 
+/** Farthest a score may be from the '?' hint it was recorded from. */
+const MAX_UNNUMBERED_HINT_SECONDS = 3;
+
+/**
+ * The '?' hint a score was most likely recorded from: the hint nearest the
+ * score among the event's hints and unassigned ('?' event) hints, when that
+ * hint has no bow.  A hint with a bow pairs with its score by bow instead.
+ */
+export const findUnnumberedHintForScore = <T extends OrderedTimePoint>(
+  timePoints: T[],
+  eventNum: string,
+  scoreSeconds: number,
+) => {
+  let nearest: T | undefined;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  timePoints.forEach((timePoint) => {
+    if (
+      timePoint.Bow === '*' ||
+      (timePoint.EventNum !== eventNum && timePoint.EventNum !== '?')
+    ) {
+      return;
+    }
+    const distance = Math.abs(timePoint.seconds - scoreSeconds);
+    if (distance < nearestDistance) {
+      nearest = timePoint;
+      nearestDistance = distance;
+    }
+  });
+  return nearest?.Bow === '?' && nearestDistance <= MAX_UNNUMBERED_HINT_SECONDS
+    ? nearest
+    : undefined;
+};
+
 export const preferredTimeForHint = (
   hintTime: string | undefined,
   scoredLap: { Time?: string; State?: string } | undefined,

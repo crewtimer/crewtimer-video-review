@@ -31,6 +31,7 @@ import {
   useVideoScaling,
   getImage,
   getVideoBow,
+  getVideoBowUuid,
   setAnnotatedBow,
   setVideoBow,
   useVideoBow,
@@ -1064,7 +1065,10 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
               bowNumber <= 999 &&
               supportingFrames >= 2
             ) {
-              setVideoBow(normalizeBowForCurrentEvent(detectedBow));
+              setVideoBow(
+                normalizeBowForCurrentEvent(detectedBow),
+                getVideoBowUuid(),
+              );
             }
             return undefined;
           })
@@ -1099,7 +1103,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
       if (clickedLabel) {
         const bow = normalizeBowForCurrentEvent(clickedLabel.value);
         setAnnotatedBow(bow);
-        setVideoBow(bow);
+        setVideoBow(bow, getVideoBowUuid());
         event.preventDefault();
         return;
       }

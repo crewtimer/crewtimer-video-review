@@ -27,7 +27,7 @@ import {
   setVideoBow,
 } from './VideoSettings';
 import { seekToNextTimePoint } from './VideoUtils';
-import { setAutoSeekHoldoff } from './AutoFileSplit';
+import { markHintScored, setAutoSeekHoldoff } from './AutoFileSplit';
 import { saveInterpolationRecordForLap } from './InterpolationStore';
 import { captureLapFrame } from './LapImage';
 import { autoZoomToFinishNearFinish } from './AutoZoomToFinish';
@@ -85,9 +85,11 @@ const seekToNextOrZoomOut = (
   }
 };
 
-const persistLap = (key: string, lap: Lap) => {
+const persistLap = (key: string, lap: Lap, hintUuid: string) => {
   // Capture the frame behind this time before publishing moves the view on.
   captureLapFrame(lap);
+  // Before publishing, so auto seek does not treat the hint as still open.
+  markHintScored(hintUuid);
   setEntryResultAndPublish(key, lap);
   saveInterpolationRecordForLap(lap).catch((error) => {
     console.warn(
@@ -190,7 +192,7 @@ const addSplitForBow = (enteredBow: string, hintMismatchConfirmed = false) => {
       handleConfirm: () => {
         delete lap.State;
         setAutoSeekHoldoff(false);
-        persistLap(key, lap);
+        persistLap(key, lap, videoBowUuid);
         if (lap.Time) {
           setLastScoredTimestamp(lap.Time);
         }
@@ -209,7 +211,7 @@ const addSplitForBow = (enteredBow: string, hintMismatchConfirmed = false) => {
       handleConfirm: () => {
         delete lap.State;
         setAutoSeekHoldoff(false);
-        persistLap(key, lap);
+        persistLap(key, lap, videoBowUuid);
         if (lap.Time) {
           setLastScoredTimestamp(lap.Time);
         }
@@ -228,7 +230,7 @@ const addSplitForBow = (enteredBow: string, hintMismatchConfirmed = false) => {
   }
 
   setAutoSeekHoldoff(false);
-  persistLap(key, lap);
+  persistLap(key, lap, videoBowUuid);
   if (lap.Time) {
     setLastScoredTimestamp(lap.Time);
   }

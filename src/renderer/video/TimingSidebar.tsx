@@ -533,7 +533,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       if (args) {
         setSelectedEvent(args.row.eventNum);
         if (args.row.Bow) {
-          setVideoBow(args.row.Bow);
+          setVideoBow(args.row.Bow, getVideoBowUuid());
         }
       }
     },

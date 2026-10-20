@@ -23,6 +23,10 @@ import {
   useVideoSettings,
 } from './VideoSettings';
 import { parseTimeToSeconds } from '../util/StringUtils';
+import { findMovedLapKeys } from './MovedLapKeys';
+
+/** The entry result key each lap uuid was last stored under, per gate. */
+const keyByUuid = new Map<string, string>();
 
 export interface ExtendedLap extends Lap {
   seconds: number;
@@ -105,6 +109,15 @@ const onDataRxTransformer = (
         // Clear a stale cached value only when this data set contains no
         // eligible non-deleted record for the key. An excluded or deleted
         // record that follows a valid timestamp must not remove it.
+        keysToDelete.add(key);
+      }
+    });
+
+    // A lap improved in place (e.g. '?' to a bow) keeps its uuid but moves to a
+    // new key.  Clear the old key, or its stale copy would remain an unscored
+    // hint that auto seek jumps back to after the improved hint is scored.
+    findMovedLapKeys(keyedLaps, keyByUuid).forEach(({ key, uuid }) => {
+      if (getEntryResult(key)?.uuid === uuid) {
         keysToDelete.add(key);
       }
     });
