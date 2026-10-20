@@ -1,6 +1,9 @@
 
 | Version | What's New |
 | --- | --- |
+| 2.0.6 | Make the File Scrubber expanded around current image time |
+|       | Add option to upload images of each timed entry |
+|       | Add Single click to zoom settings option.
 | 2.0.5 | Colorize recorded times based on comparison to hint times |
 |  | Detail added to Photo Finish photo |
 | | Consistent replay quality: sharp video on scaled Windows displays and unsmoothed pixels when zoomed. |
