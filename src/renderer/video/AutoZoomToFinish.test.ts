@@ -13,6 +13,7 @@ import {
   omitOverlappingBoatDetections,
   selectBoatEdgeNearPoint,
   selectBoatEdgeNearFinish,
+  isRecordedBoatSelection,
   restoreMissingCardDetections,
   type BoatObservation,
 } from './AutoZoomToFinish';
@@ -153,6 +154,36 @@ describe('Auto Zoom to Finish geometry', () => {
       },
     );
     expect(selected?.detection).toBe(target);
+  });
+
+  test('identifies the recorded crew by its normalized bow', () => {
+    const clicked = detection(100);
+    clicked.text = '4';
+    expect(
+      isRecordedBoatSelection(
+        { detection: clicked, edge: 'right' },
+        500,
+        'C4',
+        prefixC,
+      ),
+    ).toBe(true);
+    clicked.text = '3';
+    expect(
+      isRecordedBoatSelection(
+        { detection: clicked, edge: 'right' },
+        300,
+        'C4',
+        prefixC,
+      ),
+    ).toBe(false);
+  });
+
+  test('identifies an unreadable boat by its edge at the finish', () => {
+    const clicked = detection(100);
+    clicked.text = '';
+    const atFinish = { detection: clicked, edge: 'right' as const };
+    expect(isRecordedBoatSelection(atFinish, 310, 'C4', prefixC)).toBe(true);
+    expect(isRecordedBoatSelection(atFinish, 500, 'C4', prefixC)).toBe(false);
   });
 
   test('rejects finish-line boat edges beyond 100 pixels', () => {

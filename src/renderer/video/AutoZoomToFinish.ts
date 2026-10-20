@@ -438,6 +438,38 @@ const detectFrame = (videoFile: string, frameNum: number) => {
   return pending;
 };
 
+/** Farthest a recorded boat's edge may be from the finish at its time. */
+const MAX_RECORDED_EDGE_DISTANCE = 30;
+
+/**
+ * Whether a clicked boat is the crew whose recorded time is displayed: its
+ * bow reads as that crew or, when unreadable, its edge is at the finish.
+ * No boat near the click is treated as the recorded crew.
+ */
+export const isRecordedBoatSelection = (
+  selected: { detection: BowDetection; edge: BoxEdge } | undefined,
+  finishX: number,
+  recordedBow: string,
+  normalizeBow: (bow: string) => string,
+) => {
+  if (!selected) {
+    return true;
+  }
+  if (hasValidBow(selected.detection)) {
+    return normalizeBow(selected.detection.text.trim()) === recordedBow;
+  }
+  return (
+    Math.abs(edgeX(selected.detection.boatBox, selected.edge) - finishX) <=
+    MAX_RECORDED_EDGE_DISTANCE
+  );
+};
+
+/** The boat edge nearest a click on the displayed frame. */
+export const detectBoatNearPoint = async (point: Point) => {
+  const result = await detectFrame(getVideoFile(), getVideoFrameNum());
+  return selectBoatEdgeNearPoint(result.detections, point);
+};
+
 export const getCachedAutoZoomDetections = (
   videoFile: string,
   frameNum: number,

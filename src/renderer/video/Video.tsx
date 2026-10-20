@@ -86,6 +86,8 @@ import {
   hasAutoZoomInterpolationAtFrame,
   omitOverlappingBoatDetections,
   restoreMissingCardDetections,
+  detectBoatNearPoint,
+  isRecordedBoatSelection,
 } from './AutoZoomToFinish';
 import { getFileStatusByName } from './VideoFileStatus';
 import {
@@ -1036,9 +1038,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         timeToMilli(recordedLap.Time) === timeToMilli(videoTimestamp)
       );
 
-      if (atRecordedBowTime) {
-        applyNormalDoubleClickZoom();
-      } else if (getAutoZoomToFinish() && !isZooming()) {
+      const runAutoZoom = () => {
         autoZoomToFinish(srcCoords)
           .then((result) => {
             if (result === null) {
@@ -1076,6 +1076,45 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             console.error('Auto Zoom to Finish failed', error);
             applyNormalDoubleClickZoom();
           });
+      };
+
+      if (atRecordedBowTime && getAutoZoomToFinish()) {
+        // Zoom in place on the recorded crew, but a click on another boat
+        // finds that boat's crossing instead.
+        detectBoatNearPoint(srcCoords)
+          .then((selected) => {
+            const guideX =
+              getVideoScaling().srcWidth / 2 + (finish.pt1 + finish.pt2) / 2;
+            if (
+              !selected ||
+              isRecordedBoatSelection(
+                selected,
+                guideX,
+                currentBow,
+                normalizeBowForCurrentEvent,
+              )
+            ) {
+              applyNormalDoubleClickZoom();
+              return undefined;
+            }
+            // Do not leave the recorded crew selected for another boat.
+            const clickedBow = selected.detection.text.trim();
+            setVideoBow(
+              clickedBow && clickedBow !== '?'
+                ? normalizeBowForCurrentEvent(clickedBow)
+                : '?',
+            );
+            runAutoZoom();
+            return undefined;
+          })
+          .catch((error) => {
+            console.error('Boat detection failed', error);
+            applyNormalDoubleClickZoom();
+          });
+      } else if (atRecordedBowTime) {
+        applyNormalDoubleClickZoom();
+      } else if (getAutoZoomToFinish()) {
+        runAutoZoom();
       } else {
         applyNormalDoubleClickZoom();
       }
