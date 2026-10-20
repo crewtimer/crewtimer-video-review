@@ -19,6 +19,7 @@ import './util/fileops-handler';
 import './firebase/firebase-ipc-handler';
 import './lapimages/lapimages-ipc-handler';
 import { startVideoServices } from './video/video-main';
+import { startRecorderStatusListener } from './video/recorder-status-main';
 import { getMainWindow, setMainWindow } from './mainWindow';
 
 // import { autoUpdater } from 'electron-updater';
@@ -136,6 +137,7 @@ const createWindow = async () => {
   });
 
   startVideoServices(logFilePath);
+  startRecorderStatusListener();
 
   // Remove this if your app does not use auto updates
   // eslint-disable-next-line

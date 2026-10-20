@@ -4,6 +4,7 @@ import {
   BowDetectionResult,
   VideoFrameRequest,
 } from 'renderer/shared/AppTypes';
+import type { RecorderMessage } from 'renderer/video/RecorderStatus';
 
 declare global {
   interface Window {
@@ -19,6 +20,8 @@ declare global {
         dest: string,
         port: number,
       ): Promise<{ status: string }>;
+      /** Subscribe to recorder multicast status reports; returns an unsubscribe. */
+      onRecorderStatus(callback: (msg: RecorderMessage) => void): () => void;
     };
   }
 }

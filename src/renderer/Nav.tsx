@@ -48,6 +48,7 @@ import { setUserMessages } from './util/UserMessage';
 import { openNagScreen } from './NagScreen';
 import { compareVersions } from './util/Version';
 import InterpolationTechniqueSelector from './util/InterpolationTechniqueSelector';
+import { RecorderStatusBar } from './video/RecorderStatus';
 
 const RELEASES_URL =
   'https://github.com/crewtimer/crewtimer-video-review/releases/latest';
@@ -279,6 +280,7 @@ export default function Nav() {
               Update
             </Button>
           )}
+          <RecorderStatusBar />
           <div>
             <Tooltip
               title={

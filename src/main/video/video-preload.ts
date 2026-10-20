@@ -3,7 +3,7 @@
  *
  * Add ```import './video/video-preload';``` to preload.ts to integrate with main
  */
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 import {
   AppImage,
   BowDetectionRequest,
@@ -60,5 +60,13 @@ contextBridge.exposeInMainWorld('VideoUtils', {
       throw new Error(result.status);
     }
     return result;
+  },
+  onRecorderStatus: (callback: (status: unknown) => void) => {
+    const listener = (_event: IpcRendererEvent, status: unknown) =>
+      callback(status);
+    ipcRenderer.on('recorder-status', listener);
+    return () => {
+      ipcRenderer.removeListener('recorder-status', listener);
+    };
   },
 });
