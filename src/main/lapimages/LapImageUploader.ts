@@ -245,7 +245,8 @@ const scheduleRetry = () => {
 
 /**
  * Transfer everything spooled for the current regatta.  Nothing is sent while
- * Upload Lap Images is off; spooled ops wait until it is turned back on.
+ * 'Upload scored result photos' is off; spooled ops wait until it is turned
+ * back on.
  */
 const processPending = async () => {
   if (!getUploadLapImages()) return;
@@ -365,7 +366,7 @@ export const queueLapImageDelete = (uuid: string) =>
 
 /**
  * Resume any transfers left over from a previous session, and again whenever
- * Upload Lap Images is turned on.
+ * 'Upload scored result photos' is turned on.
  */
 export const startLapImageUploader = () => {
   onPropertyChange(N_UPLOAD_LAP_IMAGES, () => processQueue());

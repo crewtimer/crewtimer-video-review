@@ -311,7 +311,7 @@ export const VideoSettingsDialog = () => {
             >
               <FormControlLabel
                 labelPlacement="end"
-                label="Upload Lap Images"
+                label="Upload scored result photos"
                 control={
                   <Checkbox
                     size="small"
