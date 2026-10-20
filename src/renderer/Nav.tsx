@@ -49,6 +49,9 @@ import { openNagScreen } from './NagScreen';
 import { compareVersions } from './util/Version';
 import InterpolationTechniqueSelector from './util/InterpolationTechniqueSelector';
 
+const RELEASES_URL =
+  'https://github.com/crewtimer/crewtimer-video-review/releases/latest';
+
 const AboutText = `CrewTimer Video Review ${window.platform.appVersion}`;
 
 const DebugDialogBody = () => {
@@ -261,16 +264,15 @@ export default function Nav() {
                       <Typography>
                         Version: {latestVersion}: {latestText}.
                       </Typography>
-                      <Link
-                        href="https://github.com/crewtimer/crewtimer-video-review/releases/latest"
-                        target="_blank"
-                      >
+                      <Link href={RELEASES_URL} target="_blank">
                         Download from github
                       </Link>
                     </Stack>
                   ),
-                  button: 'OK',
-                  showCancel: false,
+                  button: 'Update',
+                  showCancel: true,
+                  // Opens in the system browser, like the link
+                  handleConfirm: () => window.open(RELEASES_URL, '_blank'),
                 })
               }
             >
