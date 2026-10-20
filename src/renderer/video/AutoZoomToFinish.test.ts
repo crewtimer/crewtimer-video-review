@@ -31,6 +31,9 @@ const detection = (x: number, y = 100): BowDetection => ({
   boatBox: { x, y, width: 200, height: 50 },
 });
 
+// Like normalizeBowForEvent for an event whose bows are C1, C2, ...
+const prefixC = (bow: string) => (/^\d+$/.test(bow) ? `C${bow}` : bow);
+
 const observation = (frameNum: number, x: number): BoatObservation => ({
   frameNum,
   detection: detection(x),
@@ -98,6 +101,58 @@ describe('Auto Zoom to Finish geometry', () => {
     );
     expect(selected?.detection.text).toBe('17');
     expect(selected?.edge).toBe('right');
+  });
+
+  test('matches a detected number to a prefixed scheduled bow', () => {
+    const nearer = detection(280);
+    nearer.text = '3';
+    const target = detection(250);
+    target.text = '4';
+    const selected = selectBoatEdgeNearFinish(
+      [nearer, target],
+      500,
+      'C4',
+      100,
+      undefined,
+      { normalizeBow: prefixC, isScoredBow: () => false },
+    );
+    expect(selected?.detection).toBe(target);
+  });
+
+  test('skips a scored crew nearer the finish', () => {
+    const scored = detection(280);
+    scored.text = '3';
+    const unknown = detection(250);
+    unknown.text = '';
+    const selected = selectBoatEdgeNearFinish(
+      [scored, unknown],
+      500,
+      '?',
+      100,
+      undefined,
+      {
+        normalizeBow: prefixC,
+        isScoredBow: (bow) => bow === 'C3',
+      },
+    );
+    expect(selected?.detection).toBe(unknown);
+  });
+
+  test('keeps the target crew when it is already scored', () => {
+    const target = detection(280);
+    target.text = '4';
+    const selected = selectBoatEdgeNearFinish(
+      [target],
+      500,
+      'C4',
+      100,
+      undefined,
+      {
+        normalizeBow: prefixC,
+        isScoredBow: () => true,
+      },
+    );
+    expect(selected?.detection).toBe(target);
   });
 
   test('rejects finish-line boat edges beyond 100 pixels', () => {

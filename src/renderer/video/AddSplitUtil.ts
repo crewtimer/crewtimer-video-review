@@ -41,10 +41,19 @@ const autoZoomAfterNextTimestamp = async (
   image: AppImage,
 ) => {
   if (getAutoZoomToFinish()) {
+    // The seek has already selected the hint's event.
+    const scoredPrefix = `${gateFromWaypoint(getWaypoint())}_${getVideoEvent()}`;
     const result = await autoZoomToFinishNearFinish(
       next.Bow || '',
       Number.POSITIVE_INFINITY,
       image,
+      {
+        normalizeBow: normalizeBowForCurrentEvent,
+        isScoredBow: (bow) => {
+          const lap = getEntryResult(`${scoredPrefix}_${bow}`);
+          return !!lap?.Time && lap.State !== 'Deleted';
+        },
+      },
     );
     if (!result) {
       return;

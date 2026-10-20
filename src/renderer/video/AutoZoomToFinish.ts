@@ -351,18 +351,38 @@ export const selectBoatEdgeNearPoint = (
   return closest && closest.distance <= maxDistance ? closest : undefined;
 };
 
+/** Maps detected bow text to scheduled bows and identifies scored crews. */
+export interface BowSelectionFilter {
+  /** e.g. a detected '4' to a scheduled 'C4'. */
+  normalizeBow: (bow: string) => string;
+  /** True when this crew already has a recorded time. */
+  isScoredBow: (bow: string) => boolean;
+}
+
 export const selectBoatEdgeNearFinish = (
   detections: BowDetection[],
   finishX: number,
   knownBow = '',
   maxDistance = 100,
   leadingEdge: BoxEdge | undefined = undefined,
+  bowFilter: BowSelectionFilter | undefined = undefined,
 ): { detection: BowDetection; edge: BoxEdge } | undefined => {
-  const normalizedBow = knownBow.trim();
+  const normalize = (bow: string) =>
+    bowFilter ? bowFilter.normalizeBow(bow.trim()) : bow.trim();
+  const normalizedBow = normalize(knownBow);
   const candidateEdges = leadingEdge
     ? ([leadingEdge] as const)
     : (['left', 'right'] as const);
-  const choices = detections
+  // A crew that already has a time is not the one being looked for, even
+  // when its bow is nearer the finish.
+  const eligible = detections.filter((detection) => {
+    if (!bowFilter || !hasValidBow(detection)) {
+      return true;
+    }
+    const bow = normalize(detection.text);
+    return bow === normalizedBow || !bowFilter.isScoredBow(bow);
+  });
+  const choices = eligible
     .flatMap((detection) =>
       candidateEdges.map((edge) => ({
         detection,
@@ -373,8 +393,8 @@ export const selectBoatEdgeNearFinish = (
     .filter(({ distance }) => distance <= maxDistance)
     .sort((a, b) => {
       if (normalizedBow && normalizedBow !== '?') {
-        const aMatches = a.detection.text.trim() === normalizedBow;
-        const bMatches = b.detection.text.trim() === normalizedBow;
+        const aMatches = normalize(a.detection.text) === normalizedBow;
+        const bMatches = normalize(b.detection.text) === normalizedBow;
         if (aMatches !== bMatches) {
           return aMatches ? -1 : 1;
         }
@@ -1081,6 +1101,7 @@ export const autoZoomToFinishNearFinish = (
   knownBow: string,
   maxDistance: number,
   initialImage?: AppImage,
+  bowFilter?: BowSelectionFilter,
 ) =>
   runAutoZoomToFinish(
     (detections, finishX) =>
@@ -1090,6 +1111,7 @@ export const autoZoomToFinishNearFinish = (
         knownBow,
         maxDistance,
         getTravelRightToLeft() ? 'left' : 'right',
+        bowFilter,
       ),
     undefined,
     initialImage,
