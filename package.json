@@ -236,6 +236,10 @@
     "appId": "net.entazza.CrewTimerVideoReview",
     "asar": true,
     "asarUnpack": "**\\*.{node,dll,dylib}",
+    "electronLanguages": [
+      "en",
+      "en-US"
+    ],
     "files": [
       "dist/**/*",
       "!dist/**/*.map",
