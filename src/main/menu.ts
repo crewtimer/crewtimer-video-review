@@ -85,6 +85,9 @@ export default class MenuBuilder {
       ],
     };
 
+    // macOS routes copy and paste shortcuts in text fields through the Edit
+    // menu, so without it Command+V does nothing.
+    const subMenuEdit: MenuItemConstructorOptions = { role: 'editMenu' };
     const subMenuViewDev: MenuItemConstructorOptions = {
       label: 'View',
       submenu: [
@@ -188,7 +191,7 @@ export default class MenuBuilder {
         ? subMenuViewDev
         : subMenuViewProd;
 
-    return [subMenuAbout, subMenuView, subMenuWindow, subMenuHelp];
+    return [subMenuAbout, subMenuEdit, subMenuView, subMenuWindow, subMenuHelp];
   }
 
   buildDefaultTemplate() {

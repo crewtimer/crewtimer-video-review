@@ -47,6 +47,27 @@ export const parseTimeToSeconds = (time: string | undefined): number => {
   return secs;
 };
 
+/**
+ * Parses a typed time of day such as '14:23:22.123' or '142322.123' into
+ * 'HH:MM:SS.sss'. Seconds and the fraction may be omitted.  Returns undefined
+ * when the text is not a valid time.
+ */
+export const parseTypedTime = (text: string): string | undefined => {
+  const match =
+    text.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/) ||
+    text.trim().match(/^(\d{1,2})(\d{2})(\d{2})(?:\.(\d+))?$/);
+  if (!match) {
+    return undefined;
+  }
+  const [, hours, minutes, seconds = '00', fraction = ''] = match;
+  if (Number(hours) > 23 || Number(minutes) > 59 || Number(seconds) > 59) {
+    return undefined;
+  }
+  return `${hours.padStart(2, '0')}:${minutes}:${seconds}.${fraction
+    .padEnd(3, '0')
+    .slice(0, 3)}`;
+};
+
 export function formatSecondsAsTime(secondsInput: number): string {
   const hours = Math.floor(secondsInput / 3600);
   const minutes = Math.floor((secondsInput % 3600) / 60);

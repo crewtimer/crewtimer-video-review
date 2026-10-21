@@ -1,4 +1,4 @@
-import { eventLabel, sanitizeFirebaseKey } from './StringUtils';
+import { eventLabel, parseTypedTime, sanitizeFirebaseKey } from './StringUtils';
 import { waypointFromGate } from './Util';
 
 describe('sanitizeFirebaseKey', () => {
@@ -50,5 +50,28 @@ describe('waypointFromGate', () => {
     expect(waypointFromGate('G_500m')).toBe('500m');
     expect(waypointFromGate('Pen')).toBe('Pen');
     expect(waypointFromGate(undefined)).toBe('');
+  });
+});
+
+describe('parseTypedTime', () => {
+  it('accepts colon separated times', () => {
+    expect(parseTypedTime('14:23:22.123')).toBe('14:23:22.123');
+    expect(parseTypedTime(' 9:05:07.5 ')).toBe('09:05:07.500');
+    expect(parseTypedTime('14:23')).toBe('14:23:00.000');
+  });
+
+  it('accepts digits without separators', () => {
+    expect(parseTypedTime('142322.123')).toBe('14:23:22.123');
+    expect(parseTypedTime('142322')).toBe('14:23:22.000');
+    expect(parseTypedTime('92322.1234')).toBe('09:23:22.123');
+  });
+
+  it('rejects invalid times', () => {
+    expect(parseTypedTime('')).toBeUndefined();
+    expect(parseTypedTime('24:00:00')).toBeUndefined();
+    expect(parseTypedTime('14:60:00')).toBeUndefined();
+    expect(parseTypedTime('1423')).toBeUndefined();
+    expect(parseTypedTime('14:23:22.')).toBeUndefined();
+    expect(parseTypedTime('abc')).toBeUndefined();
   });
 });

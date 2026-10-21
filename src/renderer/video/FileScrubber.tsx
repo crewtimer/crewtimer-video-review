@@ -19,6 +19,7 @@ import { useClickerData } from './UseClickerData';
 import { TimeObject, TimeSegment } from './VideoTypes';
 import { useFileStatusList } from './VideoFileStatus';
 import { createFocusScale, focusWindow } from './FocusScale';
+import GoToTime from './GoToTime';
 
 /** Time around the selected file shown at full scale, in microseconds. */
 const FOCUS_MICRO = 4 * 60 * 1000000;
@@ -230,6 +231,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           <FastForwardIcon fontSize="small" />
         </Button>
       </Tooltip>
+      <GoToTime />
     </Stack>
   );
 };

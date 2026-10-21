@@ -1,9 +1,18 @@
 
 | Version | What's New |
 | --- | --- |
-| 2.0.6 | Make the File Scrubber expanded around current image time |
-|       | Add option to upload images of each timed entry |
-|       | Add Single click to zoom settings option.
+| 2.0.6 | Smarter auto zoom, result photo uploads, recorder status, a more responsive app, and bug fixes. |
+| | File Scrubber zooms to 4 minutes around the current video time. |
+| | Go to Time button jumps the video to a typed time such as 14:23:22.123 or 142322.123. |
+| | Option to upload a photo of each scored result to CrewTimer. |
+| | Single click zoom setting replaces the double click timing guide setting. |
+| | Auto zoom when seeking to a hint (auto seek, hint buttons, double click) or clicking another boat at a recorded time. |
+| | Auto zoom skips crews already scored after auto advance.  Zoom out after adding a split with no next hint. |
+| | Recorder status shown in the toolbar. |
+| | Update dialog offers Cancel and Update. |
+| | App stays responsive while interpolating frames or detecting bow numbers. |
+| | Smaller install size. |
+| | Fixes: video bow stuck at '?', prior file's video shown after an auto file split, crash clicking the File Scrubber with no video files, jumping back to a hint after recording an earlier time. |
 | 2.0.5 | Colorize recorded times based on comparison to hint times |
 |  | Detail added to Photo Finish photo |
 | | Consistent replay quality: sharp video on scaled Windows displays and unsmoothed pixels when zoomed. |
