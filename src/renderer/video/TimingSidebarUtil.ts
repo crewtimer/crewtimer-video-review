@@ -8,6 +8,7 @@ import {
   seekToTimestampWithInterpolation,
 } from './RequestVideoFrame';
 import {
+  getImage,
   getVideoScaling,
   getVideoSettings,
   setVideoEvent,
@@ -22,6 +23,8 @@ import {
   clearAutoZoomInterpolation,
 } from './AutoZoomToFinish';
 import { loadInterpolationRecordForLap } from './InterpolationStore';
+import { autoZoomAfterSeekToHint } from './AutoZoomToHint';
+import { waitForImageChange } from './VideoUtils';
 import { getClickerData } from './UseClickerData';
 import { findUnnumberedHintForScore } from './NextTimePoint';
 import { parseTimeToSeconds } from '../util/StringUtils';
@@ -81,10 +84,15 @@ export const findSeekLap = (entry: { EventNum: string; Bow: string }) => {
  *
  * With `zoom` true, a scored time with saved interpolation context restores
  * the zoomed view used when it was recorded. Otherwise the full frame is shown.
+ * With `autoZoomHint` true, a seek to a timing hint (no scored time) auto
+ * zooms to the crossing when zoom to timing guide is enabled.
  */
 export const seekToBow = (
   entry: { EventNum: string; Bow: string },
-  { zoom = true }: { zoom?: boolean } = {},
+  {
+    zoom = true,
+    autoZoomHint = false,
+  }: { zoom?: boolean; autoZoomHint?: boolean } = {},
 ) => {
   const requestId = bowSeekRequest + 1;
   bowSeekRequest = requestId;
@@ -122,6 +130,7 @@ export const seekToBow = (
           if (requestId !== bowSeekRequest) {
             return;
           }
+          const priorImage = getImage();
           let found;
           if (interpolation && zoom) {
             found = await seekToTimestampWithInterpolation({
@@ -141,6 +150,21 @@ export const seekToBow = (
             if (interpolation?.frameTime && requestId === bowSeekRequest) {
               // Keep navigation anchored to the scored result time.
               setLastSeekTime({ time: seekTime, bow: lap.Bow });
+            }
+          }
+          if (
+            found &&
+            typeof found !== 'string' &&
+            autoZoomHint &&
+            !seekLap?.scored &&
+            requestId === bowSeekRequest
+          ) {
+            await waitForImageChange(priorImage);
+            if (requestId === bowSeekRequest) {
+              await autoZoomAfterSeekToHint(
+                { Bow: entry.Bow, uuid: seekLap?.hintUuid },
+                found,
+              );
             }
           }
           if (!found && requestId === bowSeekRequest) {

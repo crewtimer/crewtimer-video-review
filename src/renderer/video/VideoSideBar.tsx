@@ -17,11 +17,10 @@ import {
 import { useScoredGate } from 'renderer/util/UseSettings';
 import { timeToMilli } from '../util/Util';
 import FileList from '../FileList';
-import { seekToTimestamp } from './RequestVideoFrame';
 import { useClickerData } from './UseClickerData';
+import { seekToTimePoint } from './VideoUtils';
+import { autoZoomAfterSeekToHint } from './AutoZoomToHint';
 import {
-  setVideoBow,
-  setVideoEvent,
   useDirList,
   useVideoBow,
   useVideoBowUuid,
@@ -222,16 +221,8 @@ const VideoSideBar: React.FC<CustomTableProps> = ({ sx, height }) => {
     if (!hint?.Time) {
       return;
     }
-    if (hint.EventNum && hint.EventNum !== '?') {
-      setVideoEvent(hint.EventNum);
-    }
-    if (hint.Bow) {
-      setVideoBow(hint.Bow, hint.uuid);
-    }
-    seekToTimestamp({
-      time: hint.Time,
-      bow: hint.Bow,
-    });
+    // Auto zooms to the crossing when zoom to timing guide is enabled.
+    seekToTimePoint(hint, autoZoomAfterSeekToHint);
   };
 
   return (

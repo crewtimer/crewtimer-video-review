@@ -1,5 +1,4 @@
 import { Entry, Lap } from 'crewtimer-common';
-import type { AppImage } from 'renderer/shared/AppTypes';
 import { setDialogConfig } from 'renderer/util/ConfirmDialog';
 import {
   setEntryResultAndPublish,
@@ -9,8 +8,6 @@ import { gateFromWaypoint, timeToMilli } from 'renderer/util/Util';
 import uuidgen from 'short-uuid';
 import { setToast } from 'renderer/Toast';
 import {
-  getAutoZoomToFinish,
-  getLabelNumbers,
   getMobileConfig,
   normalizeBowForCurrentEvent,
   getWaypoint,
@@ -30,45 +27,11 @@ import { seekToNextTimePoint } from './VideoUtils';
 import { markHintScored, setAutoSeekHoldoff } from './AutoFileSplit';
 import { saveInterpolationRecordForLap } from './InterpolationStore';
 import { captureLapFrame } from './LapImage';
-import { autoZoomToFinishNearFinish } from './AutoZoomToFinish';
+import { autoZoomAfterSeekToHint } from './AutoZoomToHint';
 import { TIME_ANALYSIS_COLORS, timeAnalysisColor } from './TimeAnalysis';
 import { getAnalysisHintTime } from './UseTimeAnalysisColor';
 
 let lastAddSplit = 0;
-
-const autoZoomAfterNextTimestamp = async (
-  next: { Bow?: string; uuid?: string },
-  image: AppImage,
-) => {
-  if (getAutoZoomToFinish()) {
-    // The seek has already selected the hint's event.
-    const scoredPrefix = `${gateFromWaypoint(getWaypoint())}_${getVideoEvent()}`;
-    const result = await autoZoomToFinishNearFinish(
-      next.Bow || '',
-      Number.POSITIVE_INFINITY,
-      image,
-      {
-        normalizeBow: normalizeBowForCurrentEvent,
-        isScoredBow: (bow) => {
-          const lap = getEntryResult(`${scoredPrefix}_${bow}`);
-          return !!lap?.Time && lap.State !== 'Deleted';
-        },
-      },
-    );
-    if (!result) {
-      return;
-    }
-    const detectedBow = result.bow.trim();
-    if (
-      getLabelNumbers() &&
-      next.Bow === '?' &&
-      detectedBow &&
-      detectedBow !== '?'
-    ) {
-      setVideoBow(normalizeBowForCurrentEvent(detectedBow), next.uuid);
-    }
-  }
-};
 
 /**
  * Seeks to the next hint after a recorded split. When there is no later hint
@@ -77,7 +40,7 @@ const autoZoomAfterNextTimestamp = async (
 const seekToNextOrZoomOut = (
   lap: Lap,
   uuid: string,
-  afterSeek?: typeof autoZoomAfterNextTimestamp,
+  afterSeek?: typeof autoZoomAfterSeekToHint,
 ) => {
   const next = seekToNextTimePoint(
     {
@@ -231,7 +194,7 @@ const addSplitForBow = (enteredBow: string, hintMismatchConfirmed = false) => {
         seekToNextOrZoomOut(
           lap,
           videoBowUuid,
-          autoNextTimestamp ? autoZoomAfterNextTimestamp : undefined,
+          autoNextTimestamp ? autoZoomAfterSeekToHint : undefined,
         );
       },
     });
@@ -248,7 +211,7 @@ const addSplitForBow = (enteredBow: string, hintMismatchConfirmed = false) => {
     msg: `E${selectedEvent}/${videoBow} = ${videoTimestamp}`,
   });
   if (autoNextTimestamp) {
-    seekToNextOrZoomOut(lap, videoBowUuid, autoZoomAfterNextTimestamp);
+    seekToNextOrZoomOut(lap, videoBowUuid, autoZoomAfterSeekToHint);
   } else {
     resetVideoZoom();
   }

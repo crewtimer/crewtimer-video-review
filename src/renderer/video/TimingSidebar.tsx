@@ -544,7 +544,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
       if (args) {
         seekToBow(
           { Bow: args.row.Bow, EventNum: args.row.eventNum },
-          { zoom: args.column.key === 'ts' },
+          { zoom: args.column.key === 'ts', autoZoomHint: true },
         );
       }
     },

@@ -580,6 +580,25 @@ export const translateMouseEventCoords = (
 };
 
 /**
+ * requestVideoFrame resolves when native decoding and the datum update are
+ * complete, but React may not yet have committed that datum as the current
+ * displayed image. Post-seek actions such as AI auto-zoom read
+ * getImage()/getVideoFrameNum(), so wait for the new image identity before
+ * running them.
+ */
+export const waitForImageChange = async (priorImage: AppImage | undefined) => {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+    if (getImage() !== priorImage) {
+      break;
+    }
+  }
+};
+
+/**
  * Finds the next time point in a sorted array of time points that meets the specified conditions.
  *
  * @param {TimeObject} from - The reference time object containing a `Time` property to compare and a `Bow` property to match.
@@ -645,20 +664,7 @@ export const seekToNextTimePoint = (
       interpolate: true,
     });
     if (found) {
-      // requestVideoFrame resolves when native decoding and the datum update
-      // are complete, but React may not yet have committed that datum as the
-      // current displayed image. Post-seek actions such as AI auto-zoom read
-      // getImage()/getVideoFrameNum(), so wait for the new image identity
-      // before running them.
-      for (let attempt = 0; attempt < 10; attempt += 1) {
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => resolve());
-        });
-        if (getImage() !== priorImage) {
-          break;
-        }
-      }
+      await waitForImageChange(priorImage);
       // The hint may have been improved (e.g. '?' to a bow) during the seek.
       const latest = getLatestHint(nextResult);
       if (latest.EventNum !== '?') {
@@ -680,23 +686,42 @@ export const seekToNextTimePoint = (
  * Seek directly to a known click. Returns false when no available recording
  * contains the click, allowing callers to retry when the file list changes.
  */
-export const seekToTimePoint = (timePoint: ExtendedLap): boolean => {
+export const seekToTimePoint = (
+  timePoint: ExtendedLap,
+  afterSeek?: (timePoint: ExtendedLap, image: AppImage) => void | Promise<void>,
+): boolean => {
   const time = timePoint.Time || '00:00:00.000';
   if (!findSeekTarget(time)) {
     return false;
   }
+  const selectHint = (hint: ExtendedLap) => {
+    if (hint.EventNum !== '?') {
+      setVideoEvent(hint.EventNum);
+    }
+    if (hint.Bow && hint.Bow !== '*') {
+      setVideoBow(hint.Bow, hint.uuid);
+    }
+  };
   // Reset zoom before seeking. A zoom reset re-requests the frame currently
   // displayed, which would otherwise supersede a seek into another file.
   resetVideoZoom()
-    .then(() => {
+    .then(async () => {
       // The hint may have been improved (e.g. '?' to a bow) during the reset.
       const latest = getLatestHint(timePoint);
-      seekToTimestamp({ time, bow: latest.Bow || '' });
-      if (latest.EventNum !== '?') {
-        setVideoEvent(latest.EventNum);
+      if (!afterSeek) {
+        seekToTimestamp({ time, bow: latest.Bow || '' });
+        selectHint(latest);
+        return undefined;
       }
-      if (latest.Bow && latest.Bow !== '*') {
-        setVideoBow(latest.Bow, latest.uuid);
+      const priorImage = getImage();
+      const seek = seekToTimestampAndWait({ time, bow: latest.Bow || '' });
+      selectHint(latest);
+      const found = await seek;
+      if (found) {
+        await waitForImageChange(priorImage);
+        const improved = getLatestHint(timePoint);
+        selectHint(improved);
+        await afterSeek(improved, found);
       }
       return undefined;
     })

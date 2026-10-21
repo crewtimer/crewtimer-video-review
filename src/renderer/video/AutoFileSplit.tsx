@@ -16,6 +16,7 @@ import {
   useVideoSettings,
 } from './VideoSettings';
 import { ExtendedLap } from './UseClickerData';
+import { autoZoomAfterSeekToHint } from './AutoZoomToHint';
 import { useFileStatusList } from './VideoFileStatus';
 
 export interface SplitStatus {
@@ -326,7 +327,7 @@ export const AutoFileSplit: FC = () => {
           })
           .sort((a, b) => a.seconds - b.seconds)[0];
 
-        if (nextHint && seekToTimePoint(nextHint)) {
+        if (nextHint && seekToTimePoint(nextHint, autoZoomAfterSeekToHint)) {
           // Do not seek again until this click has been scored.
           setAutoSeekHoldoff(true);
         }

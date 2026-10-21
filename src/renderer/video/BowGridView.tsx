@@ -106,7 +106,10 @@ const BowButton: React.FC<{
     },
     () => {
       // double click: full view; zooming is available from the context menu
-      seekToBow({ Bow: bow, EventNum: eventNum }, { zoom: false });
+      seekToBow(
+        { Bow: bow, EventNum: eventNum },
+        { zoom: false, autoZoomHint: true },
+      );
     },
   );
 
