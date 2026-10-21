@@ -1,4 +1,5 @@
 import {
+  DebugMessage,
   DetectBowMessage,
   GrabFrameMessage,
   nativeVideoExecutor,
@@ -37,26 +38,26 @@ ipcMain.handle('video:setDebugLevel', (_event, debugLevel: number) => {
     return nativeVideoExecutor({
       op: 'debug',
       debugLevel,
-    } as unknown as GrabFrameMessage);
+    } as DebugMessage);
   } catch (err) {
     return { status: `${err instanceof Error ? err.message : err}` };
   }
 });
 
-ipcMain.handle('video:openFile', (_event, filePath) => {
+ipcMain.handle('video:openFile', async (_event, filePath) => {
   // Invoke native c++ handler
   try {
-    const ret = nativeVideoExecutor({ op: 'openFile', file: filePath });
+    const ret = await nativeVideoExecutor({ op: 'openFile', file: filePath });
     return ret;
   } catch (err) {
     return { status: `${err instanceof Error ? err.message : err}` };
   }
 });
 
-ipcMain.handle('video:closeFile', (_event, filePath) => {
+ipcMain.handle('video:closeFile', async (_event, filePath) => {
   // Invoke native c++ handler
   try {
-    const ret = nativeVideoExecutor({ op: 'closeFile', file: filePath });
+    const ret = await nativeVideoExecutor({ op: 'closeFile', file: filePath });
     return ret;
   } catch (err) {
     return { status: `${err instanceof Error ? err.message : err}` };
@@ -73,14 +74,14 @@ const bowdetectModelFile = (fileName: string) =>
     ? path.join(process.resourcesPath, fileName)
     : path.join(__dirname, '../../native/bowdetect', fileName);
 
-ipcMain.handle('video:getFrame', (_event, request: VideoFrameRequest) => {
+ipcMain.handle('video:getFrame', async (_event, request: VideoFrameRequest) => {
   try {
     // console.log('Grabbing frame', JSON.stringify(request, null, 2));
     const nativeRequest =
       request.interpMethod === 'rife'
         ? { ...request, modelFile: rifeModelFile() }
         : request;
-    const ret = nativeVideoExecutor({
+    const ret = await nativeVideoExecutor({
       op: 'grabFrameAt',
       // clean request of undefined keys
       request: Object.fromEntries(
@@ -93,29 +94,32 @@ ipcMain.handle('video:getFrame', (_event, request: VideoFrameRequest) => {
   }
 });
 
-ipcMain.handle('video:detectBow', (_event, request: BowDetectionRequest) => {
-  try {
-    const numericOnly = request.numericOnly !== false;
-    const result = nativeVideoExecutor({
-      op: 'detectBowAtFrame',
-      request: {
-        ...request,
-        boatModelFile: bowdetectModelFile('crewtimer-boat-train.onnx'),
-        cardModelFile: bowdetectModelFile('bow_card_detect.onnx'),
-        numberModelFile: bowdetectModelFile(
-          numericOnly ? 'bow_crnn_numeric.onnx' : 'bow_crnn.onnx',
-        ),
-      },
-    } as unknown as DetectBowMessage);
-    const { cardLength } = request;
-    if (numericOnly && cardLength !== undefined && cardLength !== 'auto') {
-      result.detections = result.detections.map((detection) => ({
-        ...detection,
-        text: detection.text.slice(-cardLength),
-      }));
+ipcMain.handle(
+  'video:detectBow',
+  async (_event, request: BowDetectionRequest) => {
+    try {
+      const numericOnly = request.numericOnly !== false;
+      const result = await nativeVideoExecutor({
+        op: 'detectBowAtFrame',
+        request: {
+          ...request,
+          boatModelFile: bowdetectModelFile('crewtimer-boat-train.onnx'),
+          cardModelFile: bowdetectModelFile('bow_card_detect.onnx'),
+          numberModelFile: bowdetectModelFile(
+            numericOnly ? 'bow_crnn_numeric.onnx' : 'bow_crnn.onnx',
+          ),
+        },
+      } as unknown as DetectBowMessage);
+      const { cardLength } = request;
+      if (numericOnly && cardLength !== undefined && cardLength !== 'auto') {
+        result.detections = result.detections.map((detection) => ({
+          ...detection,
+          text: detection.text.slice(-cardLength),
+        }));
+      }
+      return result;
+    } catch (err) {
+      return { status: `${err instanceof Error ? err.message : err}` };
     }
-    return result;
-  } catch (err) {
-    return { status: `${err instanceof Error ? err.message : err}` };
-  }
-});
+  },
+);

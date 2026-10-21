@@ -101,18 +101,23 @@ declare module 'crewtimer_video_reader' {
   }
 
   export function nativeVideoExecutor(
-    message:
-      | OpenFileMessage
-      | CloseFileMessage
-      | SendMulticastMessage
-      | DebugMessage,
+    message: SendMulticastMessage | DebugMessage,
   ): MessageResponseBase;
+
+  /**
+   * File, frame and detection ops run on a native worker thread so slow
+   * decode or ONNX inference never blocks the calling (Electron main) thread.
+   * The promise rejects with an Error on failure.
+   */
+  export function nativeVideoExecutor(
+    message: OpenFileMessage | CloseFileMessage,
+  ): Promise<MessageResponseBase>;
 
   export function nativeVideoExecutor(
     message: GrabFrameMessage,
-  ): GrabFrameMessageResponse;
+  ): Promise<GrabFrameMessageResponse>;
 
   export function nativeVideoExecutor(
     message: DetectBowMessage,
-  ): DetectBowMessageResponse;
+  ): Promise<DetectBowMessageResponse>;
 }
