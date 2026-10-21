@@ -45,10 +45,19 @@ if (isPeFile(nativeBuild)) {
   console.log(`Staged Windows native build: ${nativeBuild} -> ${stagedAddon}`);
 } else {
   const prebuildDir = path.join(nativeRoot, 'prebuilds');
+  // Only a tarball for this module version, so a leftover one from an older
+  // version is never packaged in place of the published prebuild
+  const { name: moduleName, version } = require(
+    path.join(nativeRoot, 'package.json'),
+  );
+  const archivePrefix = `${moduleName}-v${version}-`;
   const archives = (
     fs.existsSync(prebuildDir) ? fs.readdirSync(prebuildDir) : []
   )
-    .filter((name) => name.endsWith('-win32-x64.tar.gz'))
+    .filter(
+      (name) =>
+        name.startsWith(archivePrefix) && name.endsWith('-win32-x64.tar.gz'),
+    )
     .map((name) => ({
       name,
       mtimeMs: fs.statSync(path.join(prebuildDir, name)).mtimeMs,
@@ -67,7 +76,7 @@ if (isPeFile(nativeBuild)) {
       paths: [nativeRoot],
     });
     console.log(
-      'No local Windows prebuild found; downloading published prebuild',
+      `No local Windows prebuild for v${version} found; downloading published prebuild`,
     );
     try {
       execFileSync(

@@ -139,8 +139,8 @@ them — the sed extracts the `lib.exe ...` portion after the `;`.)
 **Build the `.node` and use it:**
 ```bash
 cd native/ffreader
-yarn install --network-timeout 600000
-npx node-gyp rebuild --arch=x64
+yarn install --network-timeout 600000   # skip if the Mac has installed node_modules
+node node_modules/node-gyp/bin/node-gyp.js rebuild --arch=x64
 cp build/Release/crewtimer_video_reader.node \
    ../../release/app/node_modules/crewtimer_video_reader/build/Release/
 ```
@@ -210,17 +210,23 @@ cd crewtimer-video-review/native/ffreader
 yarn clean && yarn install && yarn build:mac
 ```
 
-For windows:
-```bash
-# on mac when sharing file system
-yarn clean
+For windows, when sharing the file system with the Mac, run `yarn install` in
+`native/ffreader` on the Mac only. Its `node_modules` holds only JavaScript tools, and the
+build scripts run them through `node` rather than the `node_modules/.bin` shims, so
+Windows builds use the same install. Running `yarn install` on Windows would reinstall
+everything for Windows and leave the Mac needing another install.
 
-# on windows bash shell
+```bash
+# on windows bash shell, using the node_modules installed on the Mac
 cd y:/git/crewtimer-video-review/native/ffreader
-yarn install && yarn build:win && yarn prebuild
+yarn build:win:local   # build the tarball but never upload it
+# or: yarn prebuild    # build and upload to github
 ```
 
 The result is placed into a file such as prebuilds/crewtimer_video_reader-v1.0.2-napi-v6-win32-x64.tar.gz.
+`yarn build:win` and `yarn build:release` at the repo root package that tarball when it
+matches the module version, and otherwise download the published prebuild. `yarn clean`
+keeps it; delete it when you want the published prebuild again.
 
 The command will also upload the binary module to github if a ~/.prebuildrc file with a github token is present such as 
 

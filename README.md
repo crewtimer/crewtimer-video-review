@@ -88,6 +88,15 @@ See also [the Electron React Boilerplate page](https://electron-react-boilerplat
 4. Look in release/ for the dmg and exe files
 5. Copy the dmg and exe to a Releases set on github
 
+### Mac packaging notes
+
+`yarn build:mac` builds the native module from source in `native/ffreader` and stages it,
+with the ONNX Runtime library, into `release/app`, so no published Mac prebuild is
+needed. It rebuilds `sqlite3` for macOS first, since `build:win` leaves a Windows build
+of it in `release/app`, and packages with `-c.npmRebuild=false` so electron-builder does
+not replace the local module with the published prebuild. `build:macx64` and
+`build:macarm64` still use the module installed by `yarn install`.
+
 ### Windows packaging notes
 
 When packaging on Windows from a locally-built native module (i.e. you've
@@ -109,7 +118,12 @@ yarn build:win
 ```
 
 It copies the freshly built native module and matching ONNX Runtime DLLs into
-`release/app` before packaging with dependency rebuilding disabled.
+`release/app` before packaging with dependency rebuilding disabled. The module comes
+from `native/ffreader/build/Release` if that holds a Windows build, otherwise from the
+tarball in `native/ffreader/prebuilds` for the current module version, otherwise from
+the published prebuild. `yarn clean`, and so `yarn build:release`, deletes
+`native/ffreader/build` but keeps the tarballs, so build a tarball with
+`yarn build:win:local` in `native/ffreader` to have a release package it.
 
 The `-c.npmRebuild=false` flag is **required** for two reasons:
 

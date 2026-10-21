@@ -48,6 +48,7 @@
     "lint:fix": "cross-env NODE_ENV=development eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "package": "ts-node ./.erb/scripts/clean.js dist && npm run build && electron-builder build --publish never && npm run build:dll",
     "rebuild": "electron-rebuild --parallel --types prod,dev,optional --module-dir release/app",
+    "rebuild:mac-sqlite": "electron-rebuild --force --only sqlite3 --module-dir release/app --arch arm64 --platform darwin",
     "rebuild:win-sqlite": "electron-rebuild --force --only sqlite3 --module-dir release/app --arch x64 --platform win32",
     "prestart": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true webpack --config ./.erb/configs/webpack.config.main.dev.ts",
     "start": "ts-node ./.erb/scripts/check-port-in-use.js && npm run prestart && npm run start:renderer",
@@ -57,14 +58,15 @@
     "test": "jest",
     "test:ui": "npm run build && playwright test --config=playwright.electron.config.ts",
     "build:win": "npm run rebuild:win-sqlite && node .erb/scripts/stage-win-native.js && npm run build && node_modules/.bin/electron-builder --win -c.npmRebuild=false && node .erb/scripts/verify-win-package.js",
-    "build:mac": "npm run build && APPLE_KEYCHAIN_PROFILE=crewtimer-app-signing node_modules/.bin/electron-builder --mac",
+    "build:mac": "npm run rebuild:mac-sqlite && npm run build:native:mac && npm run build && APPLE_KEYCHAIN_PROFILE=crewtimer-app-signing node_modules/.bin/electron-builder --mac -c.npmRebuild=false",
+    "build:native:mac": "node .erb/scripts/build-native-mac.js",
     "build:macx64": "npm run build && node_modules/.bin/electron-builder --mac --arch x64",
     "build:macarm64": "npm run build && node_modules/.bin/electron-builder --mac --arch arm64",
     "kill": "kill -9 `lsof -i:1212 -t`",
     "build:native": "cd release/app && yarn add ../../native/ffreader && cd node_modules/crewtimer_video_reader && yarn rebuild",
     "build:release": "yarn clean && yarn build && yarn build:mac && yarn build:win && open release/build",
     "cleanbasic": "ts-node ./.erb/scripts/clean.js && rm -rf release/build",
-    "clean": "rm -rf .erb/node_modules .erb/dll node_modules src/node_modules release/build release/app/node_modules native/ffreader/prebuilds native/ffreader/build && yarn install"
+    "clean": "rm -rf .erb/node_modules .erb/dll node_modules src/node_modules release/build release/app/node_modules native/ffreader/build && yarn install"
   },
   "browserslist": [
     "extends browserslist-config-erb"
