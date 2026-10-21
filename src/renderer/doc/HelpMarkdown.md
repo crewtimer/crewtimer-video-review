@@ -11,7 +11,8 @@
 | Mouse Wheel, Left Arrow, Right Arrow, `,`, `.`, `<`, or `>` | Jog the timeline by one video frame. If zoomed, jog by a partial frame if possible. |
 | Right Click | Record the current Timestamp and Bow as if the Add Split button was pressed. | 
 | Tab | Jump to the next clicker hint. |
-| Double Click | Enter or exit video zoom. When Zoom to Timing Guide on Double Click is enabled, an unzoomed double click attempts to locate the boat crossing. |
+| Double Click | Enter or exit video zoom at the timing guide. |
+| Single Click | When Zoom to Timing Guide on Single Click is enabled, an unzoomed click locates the nearby boat's crossing of the timing guide and zooms to it. A click while zoomed exits zoom. |
 | Escape, `z`, `Z`, or `/` | Exit video zoom. |
 | `p` | Start or stop video playback. |
 | Shift-drag a lane or timing guide handle | Restore the guide to vertical or horizontal orientation while dragging. See also the reset option in settings. |
@@ -25,4 +26,4 @@
 | --- | --- |
 | Click on Bow| Set the **Add Split** button Bow and Event properties. |
 | Right click on Bow | Open menu to delete timestamp if a timestamp has been recorded. |
-| Double click on Bow| Seek to associated timestamp.  If no timestamp recorded yet, a seek using the timing hint waypoint. |
+| Double click on Bow| Seek to associated timestamp.  If no timestamp recorded yet, a seek using the timing hint waypoint, zooming to the crossing when Zoom to Timing Guide on Single Click is enabled. |

@@ -2,7 +2,7 @@ import type { AppImage } from 'renderer/shared/AppTypes';
 import { getEntryResult } from 'renderer/util/LapStorageDatum';
 import { gateFromWaypoint } from 'renderer/util/Util';
 import {
-  getAutoZoomToFinish,
+  getZoomToTimingGuide,
   getLabelNumbers,
   normalizeBowForCurrentEvent,
   getWaypoint,
@@ -18,7 +18,7 @@ export const autoZoomAfterSeekToHint = async (
   next: { Bow?: string; uuid?: string },
   image: AppImage,
 ) => {
-  if (getAutoZoomToFinish()) {
+  if (getZoomToTimingGuide()) {
     // The seek has already selected the hint's event.
     const scoredPrefix = `${gateFromWaypoint(getWaypoint())}_${getVideoEvent()}`;
     const result = await autoZoomToFinishNearFinish(

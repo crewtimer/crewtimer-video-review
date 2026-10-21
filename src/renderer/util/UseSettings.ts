@@ -16,8 +16,7 @@ import {
   N_LABEL_BOATS,
   N_LABEL_NUMBERS,
   N_LABEL_CARDS_WITHOUT_BOAT,
-  N_AUTO_ZOOM_TO_FINISH,
-  N_ZOOM_ON_SINGLE_CLICK,
+  N_ZOOM_TO_TIMING_GUIDE,
   N_UPLOAD_LAP_IMAGES,
   LapImageStatusKey,
   N_BOW_CARD_LENGTH,
@@ -100,14 +99,15 @@ export const [
   setLabelCardsWithoutBoat,
   getLabelCardsWithoutBoat,
 ] = UseMemDatum<boolean>(N_LABEL_CARDS_WITHOUT_BOAT, false);
-export const [useAutoZoomToFinish, setAutoZoomToFinish, getAutoZoomToFinish] =
-  UseStoredDatum<boolean>(N_AUTO_ZOOM_TO_FINISH, false);
-/** When set, a single click on the video does the same as a double click. */
+/**
+ * When set, a single click on the video zooms to the nearby boat's crossing of
+ * the timing guide, and seeks to a timing hint auto zoom to its crossing.
+ */
 export const [
-  useZoomOnSingleClick,
-  setZoomOnSingleClick,
-  getZoomOnSingleClick,
-] = UseStoredDatum<boolean>(N_ZOOM_ON_SINGLE_CLICK, false);
+  useZoomToTimingGuide,
+  setZoomToTimingGuide,
+  getZoomToTimingGuide,
+] = UseStoredDatum<boolean>(N_ZOOM_TO_TIMING_GUIDE, false);
 
 /** When set, an image of each recorded lap is uploaded to CrewTimer. */
 export const [useUploadLapImages, setUploadLapImages, getUploadLapImages] =

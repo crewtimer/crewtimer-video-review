@@ -64,8 +64,7 @@ import { videoRequestQueueRunning } from './RequestVideoFrame';
 import { useSingleAndDoubleClick } from '../util/UseSingleAndDoubleClick';
 import type { AppImage, BowDetection, Rect } from '../shared/AppTypes';
 import {
-  getAutoZoomToFinish,
-  getZoomOnSingleClick,
+  getZoomToTimingGuide,
   getBowDetectionOptions,
   getLabelNumbers,
   normalizeBowForCurrentEvent,
@@ -981,8 +980,14 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     event.preventDefault();
   };
 
-  const handleDoubleClick = (
+  /**
+   * Zooms in at the timing guide on the clicked row, or exits zoom when
+   * already zoomed. With `toTimingGuide`, the boat near the click is detected
+   * and the video seeks to its estimated crossing of the timing guide.
+   */
+  const toggleZoomAtClick = (
     event: React.MouseEvent<HTMLElement, MouseEvent>,
+    toTimingGuide: boolean,
   ) => {
     // Use the container rather than event.currentTarget, which React clears
     // before the delayed single click handler runs.
@@ -1013,7 +1018,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         return;
       }
 
-      const applyNormalDoubleClickZoom = () => {
+      const applyFinishZoom = () => {
         applyZoom({
           zoom: 5,
           srcPoint: {
@@ -1023,6 +1028,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           srcClickPoint: srcCoords,
         });
       };
+
+      if (!toTimingGuide) {
+        applyFinishZoom();
+        return;
+      }
 
       const currentBow = getVideoBow();
       const currentEvent = getVideoEvent();
@@ -1045,7 +1055,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
               return undefined;
             }
             if (!result) {
-              applyNormalDoubleClickZoom();
+              applyFinishZoom();
               return undefined;
             }
             if (
@@ -1074,11 +1084,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           })
           .catch((error) => {
             console.error('Auto Zoom to Finish failed', error);
-            applyNormalDoubleClickZoom();
+            applyFinishZoom();
           });
       };
 
-      if (atRecordedBowTime && getAutoZoomToFinish()) {
+      if (atRecordedBowTime) {
         // Zoom in place on the recorded crew, but a click on another boat
         // finds that boat's crossing instead.
         detectBoatNearPoint(srcCoords)
@@ -1094,7 +1104,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
                 normalizeBowForCurrentEvent,
               )
             ) {
-              applyNormalDoubleClickZoom();
+              applyFinishZoom();
               return undefined;
             }
             // Do not leave the recorded crew selected for another boat.
@@ -1109,14 +1119,10 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           })
           .catch((error) => {
             console.error('Boat detection failed', error);
-            applyNormalDoubleClickZoom();
+            applyFinishZoom();
           });
-      } else if (atRecordedBowTime) {
-        applyNormalDoubleClickZoom();
-      } else if (getAutoZoomToFinish()) {
-        runAutoZoom();
       } else {
-        applyNormalDoubleClickZoom();
+        runAutoZoom();
       }
     } else {
       resetVideoZoom();
@@ -1147,10 +1153,14 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         return;
       }
     }
-    if (getZoomOnSingleClick() && !clickStartedDrag.current) {
-      handleDoubleClick(event);
+    if (getZoomToTimingGuide() && !clickStartedDrag.current) {
+      toggleZoomAtClick(event, true);
     }
   };
+
+  const handleDoubleClick = (
+    event: React.MouseEvent<HTMLElement, MouseEvent>,
+  ) => toggleZoomAtClick(event, false);
 
   /**
    * Records whether a press is a drag rather than a click. Runs in the capture

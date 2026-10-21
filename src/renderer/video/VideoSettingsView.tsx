@@ -42,8 +42,7 @@ import { getFileStatusList } from './VideoFileStatus';
 import {
   BowCardLength,
   BowOcrModel,
-  useAutoZoomToFinish,
-  useZoomOnSingleClick,
+  useZoomToTimingGuide,
   useBowCardLength,
   useBowOcrModel,
   useLabelBoats,
@@ -85,8 +84,7 @@ export const VideoSettingsDialog = () => {
   const [analyzeTimes, setAnalyzeTimes] = useAnalyzeTimes();
   const [labelBoats, setLabelBoats] = useLabelBoats();
   const [labelNumbers, setLabelNumbers] = useLabelNumbers();
-  const [autoZoomToFinish, setAutoZoomToFinish] = useAutoZoomToFinish();
-  const [zoomOnSingleClick, setZoomOnSingleClick] = useZoomOnSingleClick();
+  const [zoomToTimingGuide, setZoomToTimingGuide] = useZoomToTimingGuide();
   const [bowOcrModel, setBowOcrModel] = useBowOcrModel();
   const [bowCardLength, setBowCardLength] = useBowCardLength();
   const [uploadLapImages, setUploadLapImages] = useUploadLapImages();
@@ -426,26 +424,7 @@ export const VideoSettingsDialog = () => {
           </Box>
           <Box className={classes.settings}>
             <Tooltip
-              title="On an unzoomed double click, detect the nearby boat and seek to its estimated crossing of the timing guide"
-              placement="right"
-            >
-              <FormControlLabel
-                labelPlacement="end"
-                label="Zoom to Timing Guide on Double Click"
-                control={
-                  <Checkbox
-                    checked={autoZoomToFinish}
-                    onChange={(event) =>
-                      setAutoZoomToFinish(event.target.checked)
-                    }
-                  />
-                }
-              />
-            </Tooltip>
-          </Box>
-          <Box className={classes.settings}>
-            <Tooltip
-              title="A single click on the video does the same as a double click. Dragging guides is not affected."
+              title="A single click on the video detects the nearby boat and seeks to its estimated crossing of the timing guide. Jumping to a timing hint also zooms to the crossing. Dragging guides is not affected."
               placement="right"
             >
               <FormControlLabel
@@ -453,9 +432,9 @@ export const VideoSettingsDialog = () => {
                 label="Zoom to Timing Guide on Single Click"
                 control={
                   <Checkbox
-                    checked={zoomOnSingleClick}
+                    checked={zoomToTimingGuide}
                     onChange={(event) =>
-                      setZoomOnSingleClick(event.target.checked)
+                      setZoomToTimingGuide(event.target.checked)
                     }
                   />
                 }
