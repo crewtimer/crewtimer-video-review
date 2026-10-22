@@ -164,9 +164,9 @@ const TimestampCol = ({ row }: { row: ResultRowType }) => {
 // BowButton: small component for individual bow buttons. Shows exception text (if any)
 // and supports compact wrapping when exception text exists.
 
-export const RenderHeaderCell: React.FC<
-  RenderHeaderCellProps<ResultRowType>
-> = ({ column }) => {
+export const RenderHeaderCell = ({
+  column,
+}: RenderHeaderCellProps<ResultRowType>) => {
   const [timeSort, setTimeSort] = useTimeSort();
   return (
     <Stack direction="row" onClick={() => setTimeSort(!timeSort)}>
@@ -183,9 +183,9 @@ export const RenderHeaderCell: React.FC<
   );
 };
 
-export const RenderTimeHeaderCell: React.FC<
-  RenderHeaderCellProps<ResultRowType>
-> = ({ column }) => {
+export const RenderTimeHeaderCell = ({
+  column,
+}: RenderHeaderCellProps<ResultRowType>) => {
   return (
     <Typography
       sx={{
@@ -792,14 +792,16 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
             onChange={onEventChange}
             sx={{ fontSize: timingFontSize }}
             MenuProps={{
-              PaperProps: {
-                sx: {
-                  backgroundColor: '#fff',
+              slotProps: {
+                paper: {
+                  sx: {
+                    backgroundColor: '#fff',
+                  },
                 },
-              },
-              MenuListProps: {
-                sx: {
-                  fontSize: timingFontSize,
+                list: {
+                  sx: {
+                    fontSize: timingFontSize,
+                  },
                 },
               },
             }}

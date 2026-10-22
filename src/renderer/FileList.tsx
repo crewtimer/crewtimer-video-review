@@ -36,10 +36,13 @@ function rowKeyGetter(row: FileInfo) {
   return row.id;
 }
 
-const HeaderRenderer: React.FC<{
+const HeaderRenderer = ({
+  column,
+  ...props
+}: {
   column: Column<any>;
   [key: string]: any;
-}> = ({ column, ...props }) => {
+}) => {
   // Strip the sortDirection prop as it is not supported by div.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars, react/prop-types
   const { sortDirection, ...restOfProps } = props;

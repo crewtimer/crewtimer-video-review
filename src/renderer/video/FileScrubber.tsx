@@ -218,7 +218,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
       <Tooltip title="Request recorder to split video" placement="top">
         <Button
           variant="contained"
-          onClick={triggerFileSplit}
+          onClick={() => triggerFileSplit()}
           size="small"
           sx={{
             height: 24,

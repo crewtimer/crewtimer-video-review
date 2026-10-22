@@ -207,12 +207,12 @@ export default function Setup() {
           <Toolbar className={classes.header}>
             <Typography
               variant="h6"
-              display="inline"
+              sx={{ display: 'inline' }}
               className={classes.smaller}
             >{`CrewTimer Race Credentials `}</Typography>
             {authError && (
               <Typography
-                display="inline"
+                sx={{ display: 'inline' }}
                 color="error"
                 className={clsx(classes.space, classes.smaller)}
               >{`[${authStatus}]`}</Typography>
@@ -297,7 +297,7 @@ export default function Setup() {
               <Toolbar className={classes.header}>
                 <Typography
                   variant="h6"
-                  display="inline"
+                  sx={{ display: 'inline' }}
                   className={classes.smaller}
                 >
                   {dayList.length

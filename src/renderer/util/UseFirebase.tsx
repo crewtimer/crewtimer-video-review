@@ -112,5 +112,5 @@ export function useFirebaseDatum<T, P = T>(
     };
   }, [key, path]);
 
-  return val;
+  return val as P | undefined;
 }

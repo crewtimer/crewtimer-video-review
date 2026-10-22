@@ -206,7 +206,7 @@ const createCurrentInterpolationRecord = (lap: Lap) => {
     version: 2 as const,
     uuid: lap.uuid,
     keyid: lap.keyid,
-    gate: lap.Gate,
+    gate: lap.Gate || '',
     eventNum: lap.EventNum,
     bow: lap.Bow,
     time: lap.Time,

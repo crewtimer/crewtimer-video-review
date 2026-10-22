@@ -136,7 +136,7 @@ const Row = ({ data, index, style }: ListChildComponentProps) => {
 let renderCount = 0;
 const LapListImpl = ({ height, width }: { height: number; width: number }) => {
   const classes = useStyles();
-  const listRef = useRef<List>();
+  const listRef = useRef<List>(null);
   const [laps] = useLaps();
 
   useEffect(() => {

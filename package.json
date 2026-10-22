@@ -6,6 +6,7 @@
   },
   "resolutions": {
     "@protobufjs/utf8": "1.1.2",
+    "@types/react": "19.2.18",
     "browserslist": "4.28.7",
     "electron-to-chromium": "1.5.401",
     "protobufjs": "7.6.3",
@@ -166,7 +167,7 @@
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/jest": "^29.5.5",
-    "@types/node": "20.6.2",
+    "@types/node": "^22",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@types/react-measure": "^2.0.12",

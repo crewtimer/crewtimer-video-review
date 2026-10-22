@@ -47,7 +47,8 @@ const [useArchivePrefix] = UseStoredDatum('ArchivePrefix', 'CT');
 const [useArchiveTimeOffset] = UseStoredDatum('ArchiveTimeOffset', 0);
 const [useArchiveRace, setArchiveRace] = UseDatum('');
 const [useArchiveYoloLabels, setArchiveYoloLabels] = UseDatum(true);
-const [useArchivePruneSide, setArchivePruneSide] = UseDatum('none');
+type PruneSide = 'none' | 'top' | 'bottom';
+const [useArchivePruneSide, setArchivePruneSide] = UseDatum<PruneSide>('none');
 const [useArchivePrunePercentage, setArchivePrunePercentage] = UseDatum(0);
 const [, setArchiveCancel, getArchiveCancel] = UseDatum(false);
 
@@ -205,7 +206,9 @@ const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
               labelId="archive-prune-select-label"
               label="Prune"
               value={pruneSide}
-              onChange={(event) => setPruneSide(event.target.value)}
+              onChange={(event) =>
+                setPruneSide(event.target.value as PruneSide)
+              }
             >
               <MenuItem value="none">None</MenuItem>
               <MenuItem value="top">Top</MenuItem>
@@ -217,7 +220,7 @@ const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
             type="number"
             value={prunePercentage}
             disabled={pruneSide === 'none'}
-            inputProps={{ min: 0, max: 95, step: 1 }}
+            slotProps={{ htmlInput: { min: 0, max: 95, step: 1 } }}
             onChange={(event) => {
               const percentage = Number(event.target.value);
               if (!Number.isNaN(percentage)) {
