@@ -13,6 +13,8 @@ export type TimeSegment = {
   pctOffset: number;
   startTsMicro: number;
   endTsMicro: number;
+  /** Frame rate used to include hints within one frame of the file. */
+  fps?: number;
 };
 
 /**

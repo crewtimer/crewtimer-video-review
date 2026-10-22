@@ -81,6 +81,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
         endTsMicro: convertTimestampToLocalMicros(item.endTime, item.tzOffset),
         startTime,
         endTime,
+        fps: item.fps,
         pctOffset,
         pct,
         label: item.filename.replace(/.*\//, ''),
@@ -158,7 +159,6 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
         <TimeRangeIcons
           segments={segmentList}
           times={scoredLapdata}
-          startTime={startTime}
           endTime={endTime}
           iconColor="#2e7d32"
           iconType="lower"
@@ -169,7 +169,6 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
         <TimeRangeIcons
           segments={segmentList}
           times={lapdata}
-          startTime={startTime}
           endTime={endTime}
           showBeyondRange
           iconColor="#d2122e"

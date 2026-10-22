@@ -6,56 +6,17 @@ import Blinking from 'renderer/Blinking';
 import { FileStatus, TimeObject, TimeSegment } from './VideoTypes';
 import { parseTimeToSeconds } from '../util/StringUtils';
 
-/**
- * Finds the TimeSegment where the given timestamp in microseconds falls between startTsMicro and endTsMicro.
- * Uses binary search for efficiency, assuming the array is sorted by startTsMicro.
- * @param segments - Array of TimeSegment objects sorted by startTsMicro.
- * @param timestampMicro - Timestamp in microseconds.
- * @returns The TimeSegment where the timestamp falls, or undefined if not found.
- */
-function findTimeSegment(
-  segments: TimeSegment[],
-  timestampMicro: number,
-): { segment: TimeSegment | undefined; segmentIndex: number } {
-  if (segments.length === 0) {
-    return { segment: undefined, segmentIndex: -1 };
-  }
-  if (
-    timestampMicro < segments[0].startTsMicro ||
-    timestampMicro > segments[segments.length - 1].endTsMicro
-  ) {
-    return { segment: undefined, segmentIndex: -1 };
-  }
-  let low = 0;
-  let high = segments.length - 1;
-
-  while (low <= high) {
-    const mid = Math.floor((low + high) / 2);
-    const segment = segments[mid];
-
-    if (timestampMicro < segment.startTsMicro) {
-      high = mid - 1;
-    } else if (timestampMicro > segment.endTsMicro) {
-      low = mid + 1;
-    } else {
-      return { segment, segmentIndex: mid }; // The timestamp falls within the current segment
-    }
-  }
-
-  return { segment: undefined, segmentIndex: -1 }; // No matching segment found
-}
+import { findTimeSegment } from './TimeSegmentUtils';
 
 /**
  * Props for the TimeRangeIcons component.
  * @param times - An array of time objects.
- * @param startTime - The start time in HH:MM:SS.sss format for the range.
  * @param endTime - The end time in HH:MM:SS.sss format for the range.
  * @param showBeyondRange - Whether to show icons for times outside the start and end times.
  */
 type TimeRangeIconsProps = {
   segments: TimeSegment[];
   times: TimeObject[];
-  startTime: string;
   endTime: string;
   showBeyondRange?: boolean;
   iconColor?: string;
@@ -78,7 +39,6 @@ type TimeRangeIconsProps = {
 const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
   segments,
   times,
-  startTime,
   endTime,
   showBeyondRange,
   iconColor,
@@ -87,7 +47,6 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
   resetClickTally,
   positionOf,
 }) => {
-  const startSeconds = parseTimeToSeconds(startTime);
   const endSeconds = parseTimeToSeconds(endTime);
 
   // Filter times to only include those within the start and end times.
@@ -97,8 +56,9 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
       return false;
     }
     const timeSeconds = parseTimeToSeconds(timeObj.Time);
-    timeAfterEnd ||= timeSeconds > endSeconds;
-    return timeSeconds >= startSeconds && timeSeconds <= endSeconds;
+    const { segment } = findTimeSegment(segments, timeSeconds * 1000000);
+    timeAfterEnd ||= !segment && timeSeconds > endSeconds;
+    return Boolean(segment);
   });
   timeAfterEnd = timeAfterEnd && showBeyondRange;
   if (resetClickTally) {
@@ -124,11 +84,16 @@ const TimeRangeIcons: React.FC<TimeRangeIconsProps> = ({
           timeMicroSeconds,
         );
         if (segment) {
+          // Hints within half a frame outside the file sit on its edge.
+          const markerTime = Math.min(
+            Math.max(timeMicroSeconds, segment.startTsMicro),
+            segment.endTsMicro,
+          );
           relativePosition = positionOf
-            ? positionOf(segmentIndex, timeMicroSeconds) * 100
+            ? positionOf(segmentIndex, markerTime) * 100
             : (segment.pctOffset +
-                (segment.pct * (timeMicroSeconds - segment.startTsMicro)) /
-                  (segment.endTsMicro - segment.startTsMicro)) *
+                (segment.pct * (markerTime - segment.startTsMicro)) /
+                  (segment.endTsMicro - segment.startTsMicro || 1)) *
               100;
           const fileStatus = fileStatusList?.[segmentIndex];
           if (fileStatus) {

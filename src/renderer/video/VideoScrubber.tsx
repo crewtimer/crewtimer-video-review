@@ -23,6 +23,8 @@ import {
   setVideoBowUuid,
 } from './VideoSettings';
 import { TimeObject, TimeSegment } from './VideoTypes';
+import { fileSegmentBounds, findTimeSegment } from './TimeSegmentUtils';
+import { useFileStatusList } from './VideoFileStatus';
 import { moveLeft, moveRight } from './VideoUtils';
 import { parseTimeToSeconds } from '../util/StringUtils';
 import { requestVideoFrame, seekToTimestampAndWait } from './RequestVideoFrame';
@@ -40,6 +42,7 @@ const VideoScrubber = () => {
   const [videoFrameNum, setVideoFrameNum] = useVideoFrameNum();
   const [videoFile] = useVideoFile();
   const [image] = useImage();
+  const [fileStatusList] = useFileStatusList();
   const lapdata = useClickerData() as TimeObject[];
   const [scoredWaypoint] = useWaypoint();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
@@ -88,7 +91,7 @@ const VideoScrubber = () => {
     requestVideoFrame({ videoFile, frameNum: newValue });
   };
 
-  const { startTime, endTime, segments } = useMemo(() => {
+  const { endTime, segments } = useMemo(() => {
     const start = convertTimestampToString(image.fileStartTime, image.tzOffset);
     const end = convertTimestampToString(image.fileEndTime, image.tzOffset);
     const segment: TimeSegment = {
@@ -100,41 +103,55 @@ const VideoScrubber = () => {
         image.fileEndTime * 1000,
         image.tzOffset,
       ),
+      fps: image.fps,
       startTime: start,
       endTime: end,
       pctOffset: 0,
       pct: 1,
       label: image.file.replace(/.*\//, ''),
     };
-    return { startTime: start, endTime: end, segments: [segment] };
-  }, [image.fileStartTime, image.tzOffset, image.fileEndTime, image.file]);
+    return { endTime: end, segments: [segment] };
+  }, [
+    image.fileStartTime,
+    image.tzOffset,
+    image.fileEndTime,
+    image.file,
+    image.fps,
+  ]);
 
   const [filteredTimes, filteredScoredTimes, relativePositions] =
     useMemo(() => {
-      const startSeconds = parseTimeToSeconds(startTime);
-      const endSeconds = parseTimeToSeconds(endTime);
+      const startSeconds = segments[0].startTsMicro / 1000000;
+      const endSeconds = segments[0].endTsMicro / 1000000;
       const totalDuration = endSeconds - startSeconds;
 
+      // Ownership is decided across all files so a hint between two files
+      // shows only on the file with the nearer frame.
+      const fileIndex = fileStatusList.findIndex(
+        (item) => item.filename === image.file,
+      );
+      const fileBounds = fileSegmentBounds(fileStatusList);
+      const ownsTime = (timeMicro: number) =>
+        fileIndex >= 0
+          ? findTimeSegment(fileBounds, timeMicro).segmentIndex === fileIndex
+          : Boolean(findTimeSegment(segments, timeMicro).segment);
+
       const relPositions: { pos: number; data: TimeObject }[] = [];
-      // Filter times to only include those within the start and end times.
-      const filtTimes = lapdata.filter((timeObj) => {
+      // Filter times to only include those owned by the video file.
+      const inFile = (timeObj: TimeObject) => {
         const timeSeconds = parseTimeToSeconds(timeObj.Time);
-        const valid = timeSeconds >= startSeconds && timeSeconds <= endSeconds;
+        const valid = ownsTime(timeSeconds * 1000000);
         if (valid) {
-          const relativePosition = (timeSeconds - startSeconds) / totalDuration;
+          const relativePosition = Math.max(
+            0,
+            Math.min(1, (timeSeconds - startSeconds) / (totalDuration || 1)),
+          );
           relPositions.push({ pos: relativePosition, data: timeObj });
         }
         return valid;
-      });
-      const filtScoredTimes = scoredLapdata.filter((timeObj) => {
-        const timeSeconds = parseTimeToSeconds(timeObj.Time);
-        const valid = timeSeconds >= startSeconds && timeSeconds <= endSeconds;
-        if (valid) {
-          const relativePosition = (timeSeconds - startSeconds) / totalDuration;
-          relPositions.push({ pos: relativePosition, data: timeObj });
-        }
-        return valid;
-      });
+      };
+      const filtTimes = lapdata.filter(inFile);
+      const filtScoredTimes = scoredLapdata.filter(inFile);
       relPositions.sort((a, b) => a.pos - b.pos);
 
       // Find the nearest click and jump there if found
@@ -159,7 +176,7 @@ const VideoScrubber = () => {
         typeof filtScoredTimes,
         typeof relPositions,
       ];
-    }, [lapdata, startTime, endTime, scoredLapdata]);
+    }, [lapdata, segments, scoredLapdata, fileStatusList, image.file]);
 
   /**
    * Given a mouse click, find the nearest click event.
@@ -293,7 +310,6 @@ const VideoScrubber = () => {
         <TimeRangeIcons
           segments={segments}
           times={filteredScoredTimes}
-          startTime={startTime}
           endTime={endTime}
           iconColor="#2e7d32"
           iconType="lower"
@@ -301,7 +317,6 @@ const VideoScrubber = () => {
         <TimeRangeIcons
           segments={segments}
           times={filteredTimes}
-          startTime={startTime}
           endTime={endTime}
           iconColor="#d2122e"
           iconType="upper"

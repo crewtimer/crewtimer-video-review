@@ -1,10 +1,6 @@
 import { AppImage, VideoFrameRequest } from 'renderer/shared/AppTypes';
 import { KeyMap } from 'crewtimer-common';
-import {
-  milliToString,
-  secondsSinceLocalMidnight,
-  timeToMilli,
-} from 'renderer/util/Util';
+import { milliToString, timeToMilli } from 'renderer/util/Util';
 import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { parseTimeToSeconds } from 'renderer/util/StringUtils';
 import { convertTimestampToLocalMicros } from 'renderer/shared/Util';
@@ -35,6 +31,7 @@ import { getClickerData } from './UseClickerData';
 import { saveVideoSidecar } from './Sidecar';
 // eslint-disable-next-line import/no-cycle
 import { getVisibleSourceRect } from './VideoUtils';
+import { fileSegmentBounds, findTimeSegment } from './TimeSegmentUtils';
 import type { InterpolationRecord } from './InterpolationStore';
 
 const { VideoUtils } = window;
@@ -451,57 +448,36 @@ export function requestVideoFrame(
  * selection state.
  */
 export const findSeekTarget = (time: string) => {
-  const jumpTime = parseTimeToSeconds(time);
+  const jumpMicro = parseTimeToSeconds(time) * 1000000;
   const fileStatusList = getFileStatusList();
-  const fileBounds = fileStatusList.map((item, index) => {
-    const start = secondsSinceLocalMidnight(
-      item.startTime / 1000000,
-      item.tzOffset,
-    );
-    const end = secondsSinceLocalMidnight(
-      item.endTime / 1000000,
-      item.tzOffset,
-    );
-    return { item, index, start, end };
-  });
-  let fileIndex = fileBounds.findIndex(
-    ({ start, end }) => jumpTime >= start && jumpTime <= end,
-  );
-  let resolvedTime = time;
-
-  if (fileIndex < 0 && fileBounds.length) {
-    const nearest = fileBounds
-      .flatMap(({ item, index, start, end }) => [
-        { item, index, boundary: start, edge: 'start' as const },
-        { item, index, boundary: end, edge: 'end' as const },
-      ])
-      .map((candidate) => ({
-        ...candidate,
-        distance: Math.abs(candidate.boundary - jumpTime),
-      }))
-      .sort((a, b) => a.distance - b.distance)[0];
-    const tolerance = 2 / Math.max(1, nearest.item.fps || 60);
-    if (nearest.distance <= tolerance) {
-      fileIndex = nearest.index;
-      resolvedTime = milliToString(Math.round(nearest.boundary * 1000));
-      console.log(
-        `Timestamp ${time} falls between video files; using nearest ${nearest.edge} boundary ${resolvedTime} ` +
-          `from ${nearest.item.filename} (${(nearest.distance * 1000).toFixed(1)}ms away, ` +
-          `tolerance=${(tolerance * 1000).toFixed(1)}ms)`,
-      );
-    } else {
-      console.warn(
-        `No video contains timestamp ${time}; nearest boundary is ${(nearest.distance * 1000).toFixed(1)}ms away ` +
-          `at ${milliToString(Math.round(nearest.boundary * 1000))} in ${nearest.item.filename}, ` +
-          `beyond the ${(tolerance * 1000).toFixed(1)}ms tolerance`,
-      );
-    }
-  }
-  if (fileIndex < 0) {
-    if (!fileBounds.length) {
-      console.warn(`No video files are available for timestamp ${time}`);
-    }
+  if (!fileStatusList.length) {
+    console.warn(`No video files are available for timestamp ${time}`);
     return undefined;
+  }
+  // Use the same file assignment as the scrubber hint markers.
+  const fileBounds = fileSegmentBounds(fileStatusList);
+  const { segment, segmentIndex: fileIndex } = findTimeSegment(
+    fileBounds,
+    jumpMicro,
+  );
+  if (!segment) {
+    console.warn(
+      `No video contains timestamp ${time} within one frame of its first or last frame`,
+    );
+    return undefined;
+  }
+
+  // A time just outside the file seeks to its nearest frame.
+  let resolvedTime = time;
+  if (jumpMicro < segment.startTsMicro) {
+    resolvedTime = milliToString(Math.ceil(segment.startTsMicro / 1000));
+  } else if (jumpMicro > segment.endTsMicro) {
+    resolvedTime = milliToString(Math.floor(segment.endTsMicro / 1000));
+  }
+  if (resolvedTime !== time) {
+    console.log(
+      `Timestamp ${time} falls between video files; using boundary ${resolvedTime} from ${fileStatusList[fileIndex].filename}`,
+    );
   }
 
   const videoFile = fileStatusList[fileIndex].filename;
