@@ -886,38 +886,57 @@ Napi::Value nativeVideoExecutor(const Napi::CallbackInfo &info)
             std::cerr << msg << std::endl;
             throw std::runtime_error(msg.c_str());
           }
-          // find frames on either side of requested time
-          float delta = fileInfo.lastFrameTimestampMilli - fileInfo.firstFrameTimestampMilli;
-          auto seekFrameFloat = delta <= 0 ? 1 : 1 + ((tsMilli - fileInfo.firstFrameTimestampMilli) / delta) * (fileInfo.numFrames - 1);
-          intPart = static_cast<int>(seekFrameFloat);
-          fractionalPart = seekFrameFloat - intPart; // Extract fractional part
-          fractionalFrame =
-              ((fractionalPart > kIntegerFrameEpsilon) &&
-               (fractionalPart < 1.0 - kIntegerFrameEpsilon));
-
-          auto [frameA, frameB] = findBoundingFrames(fileInfo.videoReader, file, tsMilli, intPart, fileInfo.numFrames);
-
-          if (frameA && frameB)
+          // A time at the first or last frame has no frame on its far side to
+          // interpolate with, so use that frame directly.
+          if (tsMilli >= int64_t(fileInfo.lastFrameTimestampMilli))
           {
-
-            if (debugLevel > 1)
-            {
-              std::cerr << "Found bounding frames at " << frameA->frameNum << ", " << frameB->frameNum << std::endl;
-            }
-            intPart = frameA->frameNum;
-            float delta = frameB->timestamp - frameA->timestamp;
-            if (delta <= 0)
-            {
-              std::string msg = "Malformed video frames detected at frame " + std::to_string(frameA->frameNum) + " and " + std::to_string(frameB->frameNum);
-              std::cerr << msg << std::endl;
-              throw std::runtime_error(msg.c_str());
-            }
-
-            fractionalPart = (tsMilli - frameA->timestamp) / delta;
-            seekFrameFloat = intPart + fractionalPart;
+            intPart = fileInfo.numFrames;
+            fractionalFrame = false;
+          }
+          else if (tsMilli <= int64_t(fileInfo.firstFrameTimestampMilli))
+          {
+            intPart = 1;
+            fractionalFrame = false;
+          }
+          else
+          {
+            // find frames on either side of requested time
+            float delta = fileInfo.lastFrameTimestampMilli - fileInfo.firstFrameTimestampMilli;
+            auto seekFrameFloat = delta <= 0 ? 1 : 1 + ((tsMilli - fileInfo.firstFrameTimestampMilli) / delta) * (fileInfo.numFrames - 1);
+            intPart = static_cast<int>(seekFrameFloat);
+            fractionalPart = seekFrameFloat - intPart; // Extract fractional part
             fractionalFrame =
                 ((fractionalPart > kIntegerFrameEpsilon) &&
                  (fractionalPart < 1.0 - kIntegerFrameEpsilon));
+
+            auto [frameA, frameB] = findBoundingFrames(fileInfo.videoReader, file, tsMilli, intPart, fileInfo.numFrames);
+
+            if (frameA && frameB)
+            {
+
+              if (debugLevel > 1)
+              {
+                std::cerr << "Found bounding frames at " << frameA->frameNum << ", " << frameB->frameNum << std::endl;
+              }
+              intPart = frameA->frameNum;
+              float delta = frameB->timestamp - frameA->timestamp;
+              if (delta <= 0)
+              {
+                std::string msg = "Malformed video frames detected at frame " + std::to_string(frameA->frameNum) + " and " + std::to_string(frameB->frameNum);
+                std::cerr << msg << std::endl;
+                throw std::runtime_error(msg.c_str());
+              }
+
+              fractionalPart = (tsMilli - frameA->timestamp) / delta;
+              seekFrameFloat = intPart + fractionalPart;
+              fractionalFrame =
+                  ((fractionalPart > kIntegerFrameEpsilon) &&
+                   (fractionalPart < 1.0 - kIntegerFrameEpsilon));
+              if (fractionalPart >= 1.0 - kIntegerFrameEpsilon)
+              {
+                intPart = frameB->frameNum; // the time is at frame B
+              }
+            }
           }
         }
 
@@ -1057,10 +1076,17 @@ Napi::Value nativeVideoExecutor(const Napi::CallbackInfo &info)
           {
             std::cerr << "Failed to grab frames " << file << ": " << intPart
                       << " and " << intPart + 1 << std::endl;
+            // Show whichever of the two frames could be read.
+            auto available = frameA ? frameA : frameB;
+            if (!available)
+            {
+              std::string msg = "Failed to grab frame " + std::to_string(frameNum);
+              throw std::runtime_error(msg.c_str());
+            }
             // Make a copy for cache purposes
-            frameInfo = std::make_shared<FrameInfo>(*frameInfo);
+            frameInfo = std::make_shared<FrameInfo>(*available);
             frameInfo->data =
-                std::make_shared<std::vector<uint8_t>>(*(frameA->data));
+                std::make_shared<std::vector<uint8_t>>(*(available->data));
           }
           frameInfo->key = key;
           frameInfoList.addFrame(frameInfo);

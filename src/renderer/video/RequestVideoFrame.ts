@@ -196,7 +196,7 @@ async function ensureFileOpen(
  * @param toTimestamp - (Optional) The timestamp string to seek to.
  * @returns An object containing the calculated seek position (seekPos) and UTC milliseconds (utcMilli).
  */
-function calculateSeekFrame(
+export function calculateSeekFrame(
   status: ReturnType<typeof getFileStatusByName>,
   frameNum?: number,
   seekPercent?: number,
@@ -214,21 +214,37 @@ function calculateSeekFrame(
     const delta = status.endTime - status.startTime;
     const tzOffsetMinutes = status.tzOffset;
     const fileStartUtcMilli = Math.round(status.startTime / 1000);
-    const utcMilli =
-      fileStartUtcMilli -
-      (fileStartUtcMilli % (24 * 60 * 60 * 1000)) +
-      ((tsMilli - tzOffsetMinutes * 60 * 1000) % (24 * 60 * 60 * 1000));
+    const fileEndUtcMilli = Math.round(status.endTime / 1000);
 
-    const startTime =
-      (status.startTime + tzOffsetMinutes * 60 * 1000000) %
-      (24 * 60 * 60 * 1000000);
+    // The timestamp is a local time of day. Convert it to a UTC time of day,
+    // then pick the UTC date that puts it nearest the file, which handles
+    // files and seeks on either side of local or UTC midnight.
+    const dayMilli = 24 * 60 * 60 * 1000;
+    const mod = (value: number) => ((value % dayMilli) + dayMilli) % dayMilli;
+    const utcTimeOfDay = mod(tsMilli - tzOffsetMinutes * 60 * 1000);
+    const fileDayStart = fileStartUtcMilli - mod(fileStartUtcMilli);
+    const distanceToFile = (milli: number) =>
+      Math.max(fileStartUtcMilli - milli, milli - fileEndUtcMilli, 0);
+    const requestedUtcMilli = [-dayMilli, 0, dayMilli]
+      .map((dayOffset) => fileDayStart + dayOffset + utcTimeOfDay)
+      .reduce((best, milli) =>
+        distanceToFile(milli) < distanceToFile(best) ? milli : best,
+      );
+
+    // Native code rejects times outside the first and last frame times, which
+    // it rounds to the millisecond the same way.
+    const utcMilli = Math.min(
+      fileEndUtcMilli,
+      Math.max(fileStartUtcMilli, requestedUtcMilli),
+    );
 
     let seekFrame =
       1 +
-      ((tsMilli * 1000 - startTime) / (delta || 1)) * (status.numFrames - 1);
+      ((requestedUtcMilli * 1000 - status.startTime) / (delta || 1)) *
+        (status.numFrames - 1);
 
     console.log(
-      `toTimestamp ${JSON.stringify({ toTimestamp, tsMilli, seekFrame, delta, tzOffsetMinutes, fileStartUtcMilli, utcMilli, fileOffsetMilli: utcMilli - fileStartUtcMilli, fpsCalcFrame: (utcMilli - fileStartUtcMilli) / 16.666 }, null, 2)}`,
+      `toTimestamp ${JSON.stringify({ toTimestamp, tsMilli, seekFrame, delta, tzOffsetMinutes, fileStartUtcMilli, requestedUtcMilli, utcMilli, fileOffsetMilli: utcMilli - fileStartUtcMilli }, null, 2)}`,
     );
     if (getHyperZoomFactor() === 0) {
       seekFrame = Math.round(seekFrame);
@@ -242,7 +258,8 @@ function calculateSeekFrame(
 }
 
 /**
- * Handles errors: logs, sets error state, and shows a test pattern.
+ * Handles errors: logs and sets error state. A frame from the same file stays
+ * displayed; otherwise a test pattern replaces the other file's frame.
  */
 function handleFrameError(
   videoFile: string,
@@ -254,7 +271,9 @@ function handleFrameError(
   if (!commit) {
     return;
   }
-  setImage(generateTestPattern());
+  if (getImage().file !== videoFile) {
+    setImage(generateTestPattern());
+  }
   setVideoError(error instanceof Error ? error.message : String(error));
 }
 
