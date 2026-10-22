@@ -14,12 +14,15 @@ import {
   setVideoFile,
 } from './VideoSettings';
 import { getFinishLine } from './VideoUtils';
-import { getMobileConfig, getWaypoint } from '../util/UseSettings';
+import {
+  getFinishPhotoMaxBoats,
+  getMobileConfig,
+  getWaypoint,
+} from '../util/UseSettings';
 import logoUrl from '../../assets/icons/crewtimer-review2.svg';
 import logoWhiteUrl from '../../assets/icons/crewtimer-review2-white.svg';
 
 const SLICE_FRACTION_OF_WIDTH = 0.8;
-const HEAD_RACE_MAX_FINISHERS = 10;
 const SLICE_GAP_FRACTION = 0.04;
 const SIDEBAR_PADDING = 20;
 const TOTAL_SLICES_MAX_WIDTH = 2560;
@@ -504,19 +507,17 @@ export const generateFinishPhoto = async (event: string): Promise<string> => {
   // Places and gaps count every finisher in the event, even when only some
   // are shown.
   const allStandings = finishStandings(allFinishers);
+  const maxBoats = getFinishPhotoMaxBoats();
   let first = 0;
   let count = allFinishers.length;
-  if (
-    matchingEvent?.RaceType === 'Head' &&
-    allFinishers.length > HEAD_RACE_MAX_FINISHERS
-  ) {
-    // Head races have too many finishers for one photo, so show the
-    // selected bow and the finishers after it.
+  if (maxBoats > 0 && allFinishers.length > maxBoats) {
+    // Too many finishers for one photo, so show the selected bow and the
+    // finishers after it.
     first = Math.max(
       0,
       allFinishers.findIndex((lap) => lap.Bow === getVideoBow()),
     );
-    count = HEAD_RACE_MAX_FINISHERS;
+    count = maxBoats;
   }
   const finishers = allFinishers.slice(first, first + count);
   const standings = allStandings.slice(first, first + count);

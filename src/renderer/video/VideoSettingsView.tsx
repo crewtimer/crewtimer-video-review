@@ -45,6 +45,7 @@ import {
   useZoomToTimingGuide,
   useBowCardLength,
   useBowOcrModel,
+  useFinishPhotoMaxBoats,
   useLabelBoats,
   useLabelNumbers,
   useLapImageStatus,
@@ -89,6 +90,8 @@ export const VideoSettingsDialog = () => {
   const [bowCardLength, setBowCardLength] = useBowCardLength();
   const [uploadLapImages, setUploadLapImages] = useUploadLapImages();
   const [lapImageStatus] = useLapImageStatus();
+  const [finishPhotoMaxBoats, setFinishPhotoMaxBoats] =
+    useFinishPhotoMaxBoats();
 
   // Handler to update the wheelFactor state
   // const handleSliderChange = (_event: Event, newValue: number | number[]) => {
@@ -326,6 +329,42 @@ export const VideoSettingsDialog = () => {
                   {lapImageStatus.error ? ` — ${lapImageStatus.error}` : ''}
                 </Typography>
               )}
+          </Box>
+          <Box className={classes.settings}>
+            <Tooltip
+              title="Most boats included in a generated finish photo.  When an event has more finishers, the photo starts at the selected bow."
+              placement="right"
+              disableFocusListener
+            >
+              <FormControl
+                sx={{
+                  marginTop: '0.5em',
+                  marginBottom: '0.5em',
+                  minWidth: 160,
+                }}
+                margin="dense"
+                size="small"
+              >
+                <InputLabel id="finish-photo-max-boats-label">
+                  Finish Photo Boats
+                </InputLabel>
+                <Select
+                  labelId="finish-photo-max-boats-label"
+                  value={finishPhotoMaxBoats}
+                  label="Finish Photo Boats"
+                  onChange={(event: SelectChangeEvent<number>) =>
+                    setFinishPhotoMaxBoats(Number(event.target.value))
+                  }
+                >
+                  {[1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20].map((n) => (
+                    <MenuItem key={n} value={n}>
+                      {n}
+                    </MenuItem>
+                  ))}
+                  <MenuItem value={0}>All</MenuItem>
+                </Select>
+              </FormControl>
+            </Tooltip>
           </Box>
         </Grid>
         <Grid size={12}>

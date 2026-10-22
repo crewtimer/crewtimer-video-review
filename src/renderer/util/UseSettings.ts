@@ -18,6 +18,7 @@ import {
   N_LABEL_CARDS_WITHOUT_BOAT,
   N_ZOOM_TO_TIMING_GUIDE,
   N_UPLOAD_LAP_IMAGES,
+  N_FINISH_PHOTO_MAX_BOATS,
   LapImageStatusKey,
   N_BOW_CARD_LENGTH,
   N_BOW_OCR_MODEL,
@@ -112,6 +113,12 @@ export const [
 /** When set, an image of each recorded lap is uploaded to CrewTimer. */
 export const [useUploadLapImages, setUploadLapImages, getUploadLapImages] =
   UseStoredDatum<boolean>(N_UPLOAD_LAP_IMAGES, false);
+/** Most boats shown in a finish photo; 0 shows every finisher. */
+export const [
+  useFinishPhotoMaxBoats,
+  setFinishPhotoMaxBoats,
+  getFinishPhotoMaxBoats,
+] = UseStoredDatum<number>(N_FINISH_PHOTO_MAX_BOATS, 10);
 export const [useLapImageStatus] = UseMemDatum<LapImageStatus>(
   LapImageStatusKey,
   { pending: 0 },

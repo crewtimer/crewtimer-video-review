@@ -18,6 +18,7 @@ export const N_ZOOM_TO_TIMING_GUIDE = 'zoomToTimingGuide';
 export const N_BOW_OCR_MODEL = 'bowOcrModel';
 export const N_BOW_CARD_LENGTH = 'bowCardLength';
 export const N_UPLOAD_LAP_IMAGES = 'uploadLapImages';
+export const N_FINISH_PHOTO_MAX_BOATS = 'finishPhotoMaxBoats';
 
 export const N_IMAGE = 'image';
 export const N_IMAGE_FRAMES = 'imageFrames';
