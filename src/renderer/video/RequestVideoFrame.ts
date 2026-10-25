@@ -31,7 +31,11 @@ import { getClickerData } from './UseClickerData';
 import { saveVideoSidecar } from './Sidecar';
 // eslint-disable-next-line import/no-cycle
 import { getVisibleSourceRect } from './VideoUtils';
-import { fileSegmentBounds, findTimeSegment } from './TimeSegmentUtils';
+import {
+  fileSegmentBounds,
+  findTimeSegment,
+  ownedRange,
+} from './TimeSegmentUtils';
 import type { InterpolationRecord } from './InterpolationStore';
 
 const { VideoUtils } = window;
@@ -709,19 +713,37 @@ export const seekToClickInFile = (videoFile: string, seekPercent: number) => {
   if (!info) {
     return requestVideoFrame({ videoFile, seekPercent });
   }
-  const start =
-    convertTimestampToLocalMicros(info.startTime, info.tzOffset) / 1000000;
-  const end =
-    convertTimestampToLocalMicros(info.endTime, info.tzOffset) / 1000000;
+  // Only hints this file owns, so a hint in an overlap with a neighbouring
+  // file doesn't seek back to that neighbour.
+  const fileStatusList = getFileStatusList();
+  const fileIndex = fileStatusList.findIndex(
+    (item) => item.filename === videoFile,
+  );
+  const fileBounds = fileSegmentBounds(fileStatusList);
+  const owned =
+    fileIndex >= 0
+      ? ownedRange(fileBounds, fileIndex)
+      : {
+          startTsMicro: convertTimestampToLocalMicros(
+            info.startTime,
+            info.tzOffset,
+          ),
+          endTsMicro: convertTimestampToLocalMicros(
+            info.endTime,
+            info.tzOffset,
+          ),
+        };
+  const start = owned.startTsMicro / 1000000;
+  const inFile = (item: { seconds: number }) =>
+    fileIndex >= 0
+      ? findTimeSegment(fileBounds, item.seconds * 1000000).segmentIndex ===
+        fileIndex
+      : item.seconds >= start && item.seconds <= owned.endTsMicro / 1000000;
 
   const scoringWaypoint = getWaypoint();
-  let click = getClickerData(scoringWaypoint).find(
-    (item) => item.seconds >= start && item.seconds <= end,
-  );
+  let click = getClickerData(scoringWaypoint).find(inFile);
   if (!click) {
-    click = getClickerData().find(
-      (item) => item.seconds >= start && item.seconds <= end,
-    );
+    click = getClickerData().find(inFile);
   }
   if (click && click.Time) {
     if (click.EventNum !== '?') {

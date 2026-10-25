@@ -23,7 +23,12 @@ import {
   setVideoBowUuid,
 } from './VideoSettings';
 import { TimeObject, TimeSegment } from './VideoTypes';
-import { fileSegmentBounds, findTimeSegment } from './TimeSegmentUtils';
+import {
+  fileSegmentBounds,
+  findTimeSegment,
+  ownedFrames,
+  ownedRange,
+} from './TimeSegmentUtils';
 import { useFileStatusList } from './VideoFileStatus';
 import { moveLeft, moveRight } from './VideoUtils';
 import { parseTimeToSeconds } from '../util/StringUtils';
@@ -91,18 +96,42 @@ const VideoScrubber = () => {
     requestVideoFrame({ videoFile, frameNum: newValue });
   };
 
-  const { endTime, segments } = useMemo(() => {
-    const start = convertTimestampToString(image.fileStartTime, image.tzOffset);
-    const end = convertTimestampToString(image.fileEndTime, image.tzOffset);
+  // The slider covers only the part of the file it owns. Where files overlap,
+  // the frames past the split belong to the neighbouring file.
+  const { endTime, segments, firstFrame, lastFrame } = useMemo(() => {
+    const fileIndex = fileStatusList.findIndex(
+      (item) => item.filename === image.file,
+    );
+    const fileStartMicro = convertTimestampToLocalMicros(
+      image.fileStartTime * 1000,
+      image.tzOffset,
+    );
+    const fileEndMicro = convertTimestampToLocalMicros(
+      image.fileEndTime * 1000,
+      image.tzOffset,
+    );
+    const ownedTimes =
+      fileIndex >= 0
+        ? ownedRange(fileSegmentBounds(fileStatusList), fileIndex)
+        : undefined;
+    const frames =
+      fileIndex >= 0 ? ownedFrames(fileStatusList, fileIndex) : undefined;
+    const startTsMicro = ownedTimes?.startTsMicro ?? fileStartMicro;
+    const endTsMicro = ownedTimes?.endTsMicro ?? fileEndMicro;
+    // Owned times are local; shift them back onto the file's UTC times.
+    const toUtcMilli = (localMicro: number) =>
+      image.fileStartTime + (localMicro - fileStartMicro) / 1000;
+    const start = convertTimestampToString(
+      toUtcMilli(startTsMicro),
+      image.tzOffset,
+    );
+    const end = convertTimestampToString(
+      toUtcMilli(endTsMicro),
+      image.tzOffset,
+    );
     const segment: TimeSegment = {
-      startTsMicro: convertTimestampToLocalMicros(
-        image.fileStartTime * 1000,
-        image.tzOffset,
-      ),
-      endTsMicro: convertTimestampToLocalMicros(
-        image.fileEndTime * 1000,
-        image.tzOffset,
-      ),
+      startTsMicro,
+      endTsMicro,
       fps: image.fps,
       startTime: start,
       endTime: end,
@@ -110,13 +139,20 @@ const VideoScrubber = () => {
       pct: 1,
       label: image.file.replace(/.*\//, ''),
     };
-    return { endTime: end, segments: [segment] };
+    return {
+      endTime: end,
+      segments: [segment],
+      firstFrame: frames?.first ?? 1,
+      lastFrame: frames?.last ?? numFrames,
+    };
   }, [
+    fileStatusList,
     image.fileStartTime,
     image.tzOffset,
     image.fileEndTime,
     image.file,
     image.fps,
+    numFrames,
   ]);
 
   const [filteredTimes, filteredScoredTimes, relativePositions] =
@@ -349,8 +385,8 @@ const VideoScrubber = () => {
             <Slider
               ref={sliderRef}
               value={sliderValue}
-              min={1}
-              max={numFrames}
+              min={firstFrame}
+              max={lastFrame}
               onClick={onSliderClick}
               onChange={handleSlider}
               onChangeCommitted={onSliderCommitted}

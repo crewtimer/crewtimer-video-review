@@ -20,6 +20,7 @@ import { TimeObject, TimeSegment } from './VideoTypes';
 import { useFileStatusList } from './VideoFileStatus';
 import { createFocusScale, focusWindow } from './FocusScale';
 import GoToTime from './GoToTime';
+import { fileSegmentBounds, ownedRange } from './TimeSegmentUtils';
 
 /** Time around the selected file shown at full scale, in microseconds. */
 const FOCUS_MICRO = 4 * 60 * 1000000;
@@ -37,19 +38,24 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   const [scoredWaypoint] = useWaypoint();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
 
-  // Calc the time segment list. Files are laid end to end (gaps removed) and
-  // drawn on a focus scale: FOCUS_MICRO around the selected file gets
-  // FOCUS_FRACTION of the width and other files are compressed around it.
-  const { segmentList, segmentStarts, scale } = useMemo(() => {
+  // Calc the time segment list. The time each file owns is laid end to end
+  // (gaps and overlaps removed) and drawn on a focus scale: FOCUS_MICRO
+  // around the selected file gets FOCUS_FRACTION of the width and other files
+  // are compressed around it.
+  const { segmentList, segmentStarts, ownedList, scale } = useMemo(() => {
+    const bounds = fileSegmentBounds(fileStatusList);
+    const owned = bounds.map((_, index) => ownedRange(bounds, index));
     const starts: number[] = [];
     let totalTime = 0;
-    fileStatusList.forEach((item) => {
+    owned.forEach((range) => {
       starts.push(totalTime);
-      totalTime += item.duration;
+      totalTime += range.endTsMicro - range.startTsMicro;
     });
-    const selected = fileStatusList[selectedIndex];
+    const selectedOwned = owned[selectedIndex];
     const selectedStart = starts[selectedIndex] ?? 0;
-    const selectedDuration = selected?.duration ?? 0;
+    const selectedDuration = selectedOwned
+      ? selectedOwned.endTsMicro - selectedOwned.startTsMicro
+      : 0;
     const window = focusWindow(
       totalTime,
       selectedStart + selectedDuration / 2,
@@ -71,8 +77,9 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
         item.tzOffset,
       );
 
+      const ownedDuration = owned[index].endTsMicro - owned[index].startTsMicro;
       const pctOffset = focusScale.toPct(starts[index]);
-      const pct = focusScale.toPct(starts[index] + item.duration) - pctOffset;
+      const pct = focusScale.toPct(starts[index] + ownedDuration) - pctOffset;
       const segment: TimeSegment = {
         startTsMicro: convertTimestampToLocalMicros(
           item.startTime,
@@ -88,16 +95,22 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
       };
       return segment;
     });
-    return { segmentList: segments, segmentStarts: starts, scale: focusScale };
+    return {
+      segmentList: segments,
+      segmentStarts: starts,
+      ownedList: owned,
+      scale: focusScale,
+    };
   }, [fileStatusList, selectedIndex]);
 
   /** Position (0..1) of a local timestamp within a file on the focus scale. */
   const positionOf = (segmentIndex: number, tsMicro: number) => {
-    const segment = segmentList[segmentIndex];
-    const duration = fileStatusList[segmentIndex]?.duration ?? 0;
-    const span = segment.endTsMicro - segment.startTsMicro || 1;
-    const fileFraction = (tsMicro - segment.startTsMicro) / span;
-    return scale.toPct(segmentStarts[segmentIndex] + fileFraction * duration);
+    const owned = ownedList[segmentIndex];
+    const offset = Math.min(
+      owned.endTsMicro - owned.startTsMicro,
+      Math.max(0, tsMicro - owned.startTsMicro),
+    );
+    return scale.toPct(segmentStarts[segmentIndex] + offset);
   };
 
   /** Converts a click position within a segment to a position within its file. */
@@ -107,11 +120,13 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
       // The 'No Data Available' placeholder shown when there are no files.
       return;
     }
-    const duration = fileStatusList[index]?.duration || 1;
+    const owned = ownedList[index];
+    const span = segment.endTsMicro - segment.startTsMicro || 1;
     const time = scale.fromPct(segment.pctOffset + clickPct * segment.pct);
+    const fileTime = owned.startTsMicro + (time - segmentStarts[index]);
     const filePct = Math.min(
       1,
-      Math.max(0, (time - segmentStarts[index]) / duration),
+      Math.max(0, (fileTime - segment.startTsMicro) / span),
     );
     moveToFileIndex(index, filePct);
   };

@@ -12,6 +12,7 @@ import {
   getImage,
   getSelectedIndex,
   getTravelRightToLeft,
+  getVideoFile,
   getVideoFrameNum,
   getVideoScaling,
   getVideoSettings,
@@ -24,6 +25,8 @@ import {
   VideoScaling,
   getDirList,
   setFileSplitPending,
+  setZoomPreservedFile,
+  cancelZoomPreservedFile,
 } from './VideoSettings';
 import { TimeObject } from './VideoTypes';
 import { parseTimeToSeconds } from '../util/StringUtils';
@@ -41,6 +44,8 @@ import {
   seekToTimestamp,
   seekToTimestampAndWait,
 } from './RequestVideoFrame';
+import { getFileStatusByName, getFileStatusList } from './VideoFileStatus';
+import { overlapHandover, ownedFrames } from './TimeSegmentUtils';
 
 // Define types for points and lines for better type checking and readability
 export type Point = { x: number; y: number };
@@ -348,6 +353,15 @@ export const moveToFileIndex = (index: number, seekPercent: number) => {
   setSelectedIndex(selIndex);
   setVideoFile(videoFile);
   if (seekPercent <= 0 || seekPercent >= 1) {
+    // Open at the edge of the frames this file owns. With overlapping files
+    // that skips the frames its neighbour owns.
+    const owned = ownedFrames(getFileStatusList(), selIndex);
+    if (owned) {
+      return requestVideoFrame({
+        videoFile,
+        frameNum: seekPercent <= 0 ? owned.first : owned.last,
+      });
+    }
     return requestVideoFrame({ videoFile, seekPercent });
   }
   return seekToClickInFile(videoFile, seekPercent);
@@ -433,6 +447,14 @@ export const getVisibleSourceRect = (): Rect => {
   };
 };
 
+/** File a zoomed handover marked to keep the zoom, until it is displayed. */
+let zoomHandoverFile = '';
+/** Latest frame step and the file it requested. */
+let latestStepId = 0;
+let latestStepFile = '';
+/** File a handover switched to, until its first frame is displayed. */
+let handoverFile = '';
+
 export const moveToFrame = (
   frameNum: number,
   offset?: number,
@@ -446,9 +468,25 @@ export const moveToFrame = (
   const hyperZoomFactor = getHyperZoomFactor();
   let videoFrameNum = frameNum;
 
+  // Until a handover's first frame is displayed, the frame number already
+  // belongs to the new file while the image is still from the old one, so a
+  // step taken meanwhile continues from the new file.
+  if (handoverFile === image.file || handoverFile !== getVideoFile()) {
+    handoverFile = '';
+  }
+  const pendingStatus = handoverFile
+    ? getFileStatusByName(handoverFile)
+    : undefined;
+  const baseFile = pendingStatus ? handoverFile : image.file;
+  const baseNumFrames = pendingStatus?.numFrames ?? image.numFrames;
+
   if (offset !== undefined) {
     if (zoomFactor < 3 || hyperZoomFactor === 0) {
       videoFrameNum = Math.trunc(frameNum) + offset; // Math.round(frameNum + offset);
+    } else if (pendingStatus) {
+      // No displayed frame from this file to snap the time against yet.
+      videoFrameNum =
+        frameNum + (offset * hyperZoomFactor * pendingStatus.fps) / 1000;
     } else if (offset !== 0) {
       // Hyperzoom scroll positions are timestamps, not arbitrary fractions of
       // a video frame. Snap the requested absolute time to the configured
@@ -467,16 +505,33 @@ export const moveToFrame = (
     }
   }
 
-  if (videoFrameNum < 1) {
+  // Where files overlap, pass to the neighbour at the same time once the
+  // frame is past the split between them.
+  let videoFile = baseFile;
+  const fileStatusList = getFileStatusList();
+  const fileIndex = fileStatusList.findIndex(
+    (item) => item.filename === baseFile,
+  );
+  const handover =
+    fileIndex >= 0
+      ? overlapHandover(fileStatusList, fileIndex, videoFrameNum)
+      : undefined;
+  if (handover) {
+    videoFile = fileStatusList[handover.fileIndex].filename;
+    videoFrameNum = handover.frameNum;
+    handoverFile = videoFile;
+    setSelectedIndex(handover.fileIndex);
+    setVideoFile(videoFile);
+    setVideoFrameNum(videoFrameNum);
+  } else if (videoFrameNum < 1) {
     prevFile();
     return Promise.resolve(undefined);
-  }
-  if (videoFrameNum > image.numFrames) {
+  } else if (videoFrameNum > baseNumFrames) {
     nextFile();
     return Promise.resolve(undefined);
+  } else {
+    setVideoFrameNum(Math.min(baseNumFrames, Math.max(1, videoFrameNum)));
   }
-
-  setVideoFrameNum(Math.min(image.numFrames, Math.max(1, videoFrameNum)));
   let zoom: Rect | undefined;
 
   if (videoScaling.zoomY !== 1) {
@@ -485,16 +540,58 @@ export const moveToFrame = (
     zoom = getTrackingRegion();
   }
 
+  // Keep the zoom when stepping hands over to the overlapping file. Handing
+  // back to the file still displayed needs no mark, so drop the pending one.
+  if (handover && zoom) {
+    if (videoFile !== image.file) {
+      zoomHandoverFile = videoFile;
+      setZoomPreservedFile(videoFile);
+    } else if (zoomHandoverFile) {
+      cancelZoomPreservedFile(zoomHandoverFile);
+      zoomHandoverFile = '';
+    }
+  }
+  latestStepId += 1;
+  const stepId = latestStepId;
+  latestStepFile = videoFile;
+  // When a step yields no frame, drop the mark unless a newer step still
+  // targets the marked file, so a later switch to it still clears the zoom.
+  const cancelPreserve = () => {
+    if (!zoomHandoverFile || getImage().file === zoomHandoverFile) {
+      zoomHandoverFile = '';
+      return;
+    }
+    if (stepId !== latestStepId && latestStepFile === zoomHandoverFile) {
+      return;
+    }
+    cancelZoomPreservedFile(zoomHandoverFile);
+    zoomHandoverFile = '';
+  };
+
   const interpMethod = getInterpolationTechnique();
   return requestVideoFrame({
-    videoFile: image.file,
+    videoFile,
     frameNum: videoFrameNum,
     zoom,
     blend: shouldBlend,
     interpMethod,
     crop: interpMethod === 'rife' ? getVisibleSourceRect() : undefined,
     commitGuard,
-  });
+  }).then(
+    (result) => {
+      if (!result) {
+        cancelPreserve();
+      }
+      return result;
+    },
+    (error) => {
+      cancelPreserve();
+      if (handoverFile === videoFile) {
+        handoverFile = '';
+      }
+      throw error;
+    },
+  );
 };
 
 export const moveRight = () => {
