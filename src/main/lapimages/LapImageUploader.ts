@@ -1,5 +1,7 @@
 /**
- * Uploads lap images to Cloud Storage at ctvideo/{regattaID}/{uuid}.jpg.
+ * Uploads lap images to Cloud Storage at ctvideo/{regattaID}/{uuid}.jpg, with
+ * a thumbnail at {uuid}-tn.jpg.  A thumbnail is spooled as its own op named
+ * {uuid}-tn so it is retried, superseded and deleted like any other image.
  *
  * Images and deletes are first written to a spool directory so they survive
  * restarts and offline periods, then transferred one at a time.  Writes are
@@ -45,6 +47,10 @@ const DELETE_EXT = '.del';
 const META_EXT = '.json';
 /** Suffix for an op claimed by an in-flight transfer. */
 const SENDING_EXT = '.sending';
+/** Thumbnail name suffix, as written by scripts/make_thumbnails.py. */
+const THUMB_SUFFIX = '-tn';
+/** Cache-Control make_thumbnails.py sets on thumbnails. */
+const THUMB_CACHE_CONTROL = 'public, max-age=86400';
 const SAFE_NAME = /^[A-Za-z0-9_-]{1,64}$/;
 
 let running = false;
@@ -229,6 +235,9 @@ const transfer = async (mobileID: string, regattaID: string, c: Claim) => {
     const customMetadata = c.meta ? await readMeta(c.meta) : undefined;
     await uploadBytes(objectRef, new Uint8Array(data), {
       contentType: 'image/jpeg',
+      cacheControl: c.uuid.endsWith(THUMB_SUFFIX)
+        ? THUMB_CACHE_CONTROL
+        : undefined,
       customMetadata: customMetadata ? { ...customMetadata } : undefined,
     });
   }
@@ -353,16 +362,24 @@ const spool = async (
   processQueue();
 };
 
-/** Queue a JPEG for upload as the image for lap `uuid`. */
-export const queueLapImage = (
+/** Queue a JPEG, and its thumbnail if given, for upload for lap `uuid`. */
+export const queueLapImage = async (
   uuid: string,
   jpeg: Uint8Array,
   meta: LapImageMeta,
-) => spool(uuid, IMAGE_EXT, jpeg, meta);
+  thumbnail?: Uint8Array,
+) => {
+  await spool(uuid, IMAGE_EXT, jpeg, meta);
+  if (thumbnail) {
+    await spool(`${uuid}${THUMB_SUFFIX}`, IMAGE_EXT, thumbnail);
+  }
+};
 
-/** Queue removal of the uploaded image for lap `uuid`. */
-export const queueLapImageDelete = (uuid: string) =>
-  spool(uuid, DELETE_EXT, new Uint8Array());
+/** Queue removal of the uploaded image and thumbnail for lap `uuid`. */
+export const queueLapImageDelete = async (uuid: string) => {
+  await spool(uuid, DELETE_EXT, new Uint8Array());
+  await spool(`${uuid}${THUMB_SUFFIX}`, DELETE_EXT, new Uint8Array());
+};
 
 /**
  * Resume any transfers left over from a previous session, and again whenever

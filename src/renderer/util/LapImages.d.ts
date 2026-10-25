@@ -7,6 +7,7 @@ declare global {
         uuid: string,
         jpeg: Uint8Array,
         meta: LapImageMeta,
+        thumbnail?: Uint8Array,
       ): Promise<void>;
       queueDelete(uuid: string): Promise<void>;
       start(): Promise<void>;

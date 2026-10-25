@@ -1,6 +1,7 @@
 /**
- * Renders an image of each lap published from this app and hands it to main
- * for upload to Cloud Storage (ctvideo/{regattaID}/{uuid}.jpg).
+ * Renders an image of each lap published from this app, plus a thumbnail, and
+ * hands them to main for upload to Cloud Storage
+ * (ctvideo/{regattaID}/{uuid}.jpg and {uuid}-tn.jpg).
  *
  * When a time is recorded from the video, the image is the exact frame that
  * produced that time: the displayed frame itself when not zoomed, or a
@@ -11,7 +12,7 @@
 import { Lap } from 'crewtimer-common';
 import type { AppImage } from 'renderer/shared/AppTypes';
 import { onLapPublished } from '../util/LapStorageDatum';
-import { getMobileConfig, getUploadLapImages } from '../util/UseSettings';
+import { getUploadLapImages } from '../util/UseSettings';
 import {
   findSeekTarget,
   requestBackgroundVideoFrame,
@@ -28,8 +29,6 @@ import {
 import { getFinishLine } from './VideoUtils';
 import { getFileStatusByName } from './VideoFileStatus';
 import { drawCornerBadge } from './FinishPhoto';
-import { eventLabel } from '../util/StringUtils';
-import { waypointFromGate } from '../util/Util';
 
 /** Wait for a lap to stop changing before rendering it. */
 const SETTLE_MS = 2000;
@@ -37,6 +36,10 @@ const MAX_WIDTH = 1920;
 const JPEG_QUALITY = [0.85, 0.7, 0.5];
 /** Must stay under the storage.rules ctvideo size limit. */
 const MAX_BYTES = 2 * 1024 * 1024;
+/** Longest thumbnail side, matching scripts/make_thumbnails.py --size 150. */
+const THUMB_SIZE = 150;
+/** The make_thumbnails.py default quality. */
+const THUMB_QUALITY = 0.85;
 
 /** Native code clamps this oversized crop to an exact full-frame RIFE request. */
 const FULL_FRAME_CROP = { x: 0, y: 0, width: 100000, height: 100000 };
@@ -185,11 +188,43 @@ const toJpeg = (canvas: HTMLCanvasElement, quality: number) =>
     canvas.toBlob(resolve, 'image/jpeg', quality);
   });
 
-/** Draw the lap frame with the finish line and an event/bow/time overlay. */
+/**
+ * Scale the image so its longer side is at most THUMB_SIZE, never upscaling.
+ * Halving in steps first keeps detail that a single large downscale skips.
+ */
+const renderThumbnail = async (
+  image: HTMLCanvasElement,
+): Promise<Uint8Array | undefined> => {
+  const scale = Math.min(1, THUMB_SIZE / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  let current = image;
+  while (current.width / 2 >= width && current.height / 2 >= height) {
+    const half = document.createElement('canvas');
+    half.width = Math.round(current.width / 2);
+    half.height = Math.round(current.height / 2);
+    const halfCtx = half.getContext('2d');
+    if (!halfCtx) return undefined;
+    halfCtx.imageSmoothingQuality = 'high';
+    halfCtx.drawImage(current, 0, 0, half.width, half.height);
+    current = half;
+  }
+  const thumb = document.createElement('canvas');
+  thumb.width = width;
+  thumb.height = height;
+  const ctx = thumb.getContext('2d');
+  if (!ctx) return undefined;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(current, 0, 0, width, height);
+  const blob = await toJpeg(thumb, THUMB_QUALITY);
+  return blob ? new Uint8Array(await blob.arrayBuffer()) : undefined;
+};
+
+/** Draw the lap frame with the finish line and the bow number. */
 const renderLapImage = async (
   lap: Lap,
   frame?: LapFrame,
-): Promise<Uint8Array | undefined> => {
+): Promise<{ jpeg: Uint8Array; thumbnail?: Uint8Array } | undefined> => {
   const { Time: time = '', Bow: bow = '' } = lap;
   const result = await getLapFrameImage(time, frame);
   if (!result) return undefined;
@@ -221,21 +256,7 @@ const renderLapImage = async (
   ctx.lineTo((image.width / 2 + finish.pt2) * scale, out.height);
   ctx.stroke();
 
-  const event = getMobileConfig()?.eventList?.find(
-    (ev) => ev.EventNum === lap.EventNum,
-  );
   const fontSize = Math.max(16, Math.round(out.height * 0.04));
-  const smallFont = Math.max(14, Math.round(fontSize * 0.6));
-  drawCornerBadge(
-    ctx,
-    [
-      eventLabel(lap.EventNum, event?.Event),
-      [waypointFromGate(lap.Gate), time].filter(Boolean).join(' · '),
-    ],
-    'left',
-    smallFont,
-    fontSize,
-  );
   drawCornerBadge(ctx, [bow], 'right', fontSize);
 
   for (const quality of JPEG_QUALITY) {
@@ -243,7 +264,10 @@ const renderLapImage = async (
     const blob = await toJpeg(out, quality);
     if (blob && blob.size < MAX_BYTES) {
       // eslint-disable-next-line no-await-in-loop
-      return new Uint8Array(await blob.arrayBuffer());
+      const jpeg = new Uint8Array(await blob.arrayBuffer());
+      // eslint-disable-next-line no-await-in-loop
+      const thumbnail = await renderThumbnail(out);
+      return { jpeg, thumbnail };
     }
   }
   return undefined;
@@ -257,18 +281,24 @@ const processLap = async (uuid: string) => {
   const { lap, frame } = pending;
   const generation = generations.get(uuid);
   try {
-    const jpeg = await renderLapImage(lap, frame);
+    const rendered = await renderLapImage(lap, frame);
     if (generations.get(uuid) !== generation || !getUploadLapImages()) {
       // Republished, deleted, or uploads turned off while rendering.
       return;
     }
-    if (jpeg) {
-      await window.LapImages.queueImage(uuid, jpeg, {
-        gate: lap.Gate || '',
-        eventNum: lap.EventNum || '',
-        bow: lap.Bow || '',
-        time: lap.Time || '',
-      });
+    if (rendered) {
+      await window.LapImages.queueImage(
+        uuid,
+        rendered.jpeg,
+        {
+          gate: lap.Gate || '',
+          eventNum: lap.EventNum || '',
+          bow: lap.Bow || '',
+          time: lap.Time || '',
+          overlay: 'bow',
+        },
+        rendered.thumbnail,
+      );
     } else {
       console.warn(`No video frame for lap image ${lap.Bow} @ ${lap.Time}`);
     }

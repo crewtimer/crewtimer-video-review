@@ -93,4 +93,9 @@ export interface LapImageMeta {
   eventNum: string;
   bow: string;
   time: string;
+  /**
+   * 'bow' when the only overlay is the bow badge.  scripts/adjust_images.py
+   * crops the older bottom badges from images without it.
+   */
+  overlay?: 'bow';
 }

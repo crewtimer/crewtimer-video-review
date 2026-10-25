@@ -16,7 +16,8 @@ ipcMain.handle(
     uuid: string,
     jpeg: Uint8Array,
     meta: LapImageMeta,
-  ) => queueLapImage(uuid, jpeg, meta),
+    thumbnail?: Uint8Array,
+  ) => queueLapImage(uuid, jpeg, meta, thumbnail),
 );
 ipcMain.handle(
   'lapimages:queueDelete',
