@@ -12,9 +12,12 @@ import { gateFromWaypoint } from 'renderer/util/Util';
 import { seekToTimePoint, triggerFileSplit } from './VideoUtils';
 import {
   getVideoTimestamp,
+  useAutoFileSplitEnable,
+  useJumpToNewHints,
   useLastScoredTimestamp,
   useVideoSettings,
 } from './VideoSettings';
+import { useRecorderSplitsOnHints } from './RecorderStatus';
 import { ExtendedLap } from './UseClickerData';
 import { autoZoomAfterSeekToHint } from './AutoZoomToHint';
 import { useFileStatusList } from './VideoFileStatus';
@@ -63,6 +66,10 @@ const isScored = (lap: ExtendedLap, scoredGate: string) =>
  * If futureSplits is >0 and openSplits is <=1, request one file split.
  * Do not request another automatic split until a new timing hint arrives.
  * Manual split requests do not alter the automatic request latch.
+ * Splits are only requested with the auto file split setting on and no
+ * CrewTimer Video Recorder at this hint waypoint reporting that it splits on
+ * the regatta's times itself (a third party recorder does not).  With the jump setting on, seeks to the next hint not yet scored once
+ * the video holds it.
  * This component renders nothing (returns null).
  */
 export const AutoFileSplit: FC = () => {
@@ -81,6 +88,10 @@ export const AutoFileSplit: FC = () => {
   const [{ openSplits, futureSplits }] = useAutoFileSplit();
   const [entryResultsChanged] = useEntryResultsChanged();
   const [autoSeekHoldoff] = useAutoSeekHoldoff();
+  const [autoFileSplit] = useAutoFileSplitEnable();
+  const [jumpToNewHints] = useJumpToNewHints();
+  const recorderSplits = useRecorderSplitsOnHints();
+  const requestSplits = autoFileSplit && !recorderSplits;
 
   const clearPendingTimer = useCallback(() => {
     if (timerRef.current !== undefined) {
@@ -286,8 +297,9 @@ export const AutoFileSplit: FC = () => {
       splitRequested: splitRequestedRef.current,
       timerPending: timerRef.current !== undefined,
       lastFileIdentity,
+      requestSplits,
     });
-    if (!countsReady) {
+    if (!countsReady || !requestSplits) {
       clearPendingTimer();
       return;
     }
@@ -303,13 +315,14 @@ export const AutoFileSplit: FC = () => {
     openSplits,
     futureSplits,
     countsReady,
+    requestSplits,
     lastFileIdentity,
     clearPendingTimer,
     scheduleSplitIfNeeded,
   ]);
 
   useEffect(() => {
-    if (openSplits >= 1 && !autoSeekHoldoff) {
+    if (jumpToNewHints && openSplits >= 1 && !autoSeekHoldoff) {
       const ts = getVideoTimestamp();
       const tsSecs = parseTimeToSeconds(ts);
       if (tsSecs >= lastScoredSeconds - 0.1) {
@@ -334,6 +347,7 @@ export const AutoFileSplit: FC = () => {
       }
     }
   }, [
+    jumpToNewHints,
     autoSeekHoldoff,
     openSplits,
     lastScoredSeconds,

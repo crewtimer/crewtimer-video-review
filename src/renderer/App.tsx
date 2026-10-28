@@ -15,6 +15,7 @@ import {
   getVideoBowUuid,
   getVideoTimestamp,
   useAutoFileSplitEnable,
+  useJumpToNewHints,
   validateVideoSettings,
 } from './video/VideoSettings';
 import { openNagScreen } from './NagScreen';
@@ -26,13 +27,16 @@ const { stopLapStorage } = window.LapStorage;
 export default function App() {
   const [, setInitProgress] = useInitProgress();
   const [autoFileSplit] = useAutoFileSplitEnable();
+  const [jumpToNewHints] = useJumpToNewHints();
+  const hintWatcher = autoFileSplit || jumpToNewHints;
 
   useEffect(() => {
     console.log('[AutoFileSplit] feature state', {
-      enabled: autoFileSplit,
-      componentMounted: autoFileSplit,
+      autoFileSplit,
+      jumpToNewHints,
+      componentMounted: hintWatcher,
     });
-  }, [autoFileSplit]);
+  }, [autoFileSplit, jumpToNewHints, hintWatcher]);
 
   useEffect(() => {
     setInitializing(true);
@@ -104,7 +108,7 @@ export default function App() {
 
       <FileMonitor />
       <VideoDataMonitor />
-      {autoFileSplit && <AutoFileSplit />}
+      {hintWatcher && <AutoFileSplit />}
     </Router>
   );
 }

@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import { UseDatum } from 'react-usedatum';
-import { useWaypoint } from '../util/UseSettings';
+import { useVideoSettings } from './VideoSettings';
 
 /** Status report multicast by CrewTimer Video Recorder every minute. */
 export interface RecorderStatus {
   cmd: 'recorder-status';
   /** Waypoint the recorder is bound to; empty means any waypoint. */
   wp: string;
+  /** Regatta whose times at wp split the recorder's files; empty when not set */
+  regattaId: string;
+  /** The regatta was found, so the recorder splits its files on its times */
+  regattaListening: boolean;
   host: string;
   version: string;
   tsMilli: number;
@@ -45,7 +49,18 @@ export interface RecorderExit {
   tsMilli: number;
 }
 
-export type RecorderMessage = RecorderStatus | RecorderExit;
+/** Sent by a recorder as each file is finished, so the file list need not wait to poll. */
+export interface RecorderFileClosed {
+  cmd: 'recorder-file-closed';
+  wp: string;
+  host: string;
+  /** Without the extension */
+  filename: string;
+  tsMilli: number;
+}
+
+export type RecorderMessage =
+  RecorderStatus | RecorderExit | RecorderFileClosed;
 
 interface ReceivedStatus {
   status: RecorderStatus;
@@ -62,6 +77,37 @@ const DISK_WARN_PERCENT = 85;
 /** Latest report from each recorder, keyed by host name. */
 const [useRecorderStatusMap, setRecorderStatusMap, getRecorderStatusMap] =
   UseDatum<Record<string, ReceivedStatus>>({});
+
+const forWaypoint = (
+  statusMap: Record<string, ReceivedStatus>,
+  waypoint: string,
+) =>
+  Object.values(statusMap).filter(
+    ({ status }) => !status.wp || status.wp === waypoint,
+  );
+
+const isReporting = ({ receivedAt, exited }: ReceivedStatus, now: number) =>
+  !exited && now - receivedAt <= STALE_MS;
+
+/**
+ * A CrewTimer Video Recorder bound to this app's timing hint waypoint is
+ * reporting that it splits its files on the regatta's times, so needs no
+ * split requests.
+ */
+export const useRecorderSplitsOnHints = () => {
+  const [statusMap] = useRecorderStatusMap();
+  const [videoSettings] = useVideoSettings();
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    // Re-check so a recorder that stops reporting no longer counts
+    const timer = setInterval(() => setNow(Date.now()), 15 * 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return forWaypoint(statusMap, videoSettings.timingHintSource || '').some(
+    (received) =>
+      received.status.regattaListening && isReporting(received, now),
+  );
+};
 
 const formatBytes = (bytes: number) =>
   bytes >= 1e12
@@ -96,6 +142,11 @@ const RecorderPill = ({
     <Stack spacing={0.25}>
       <Typography variant="caption">{`${status.host} · v${status.version}`}</Typography>
       <Typography variant="caption">{`Waypoint: ${status.wp || 'Any'}`}</Typography>
+      <Typography variant="caption">
+        {status.regattaListening
+          ? `Splits files on regatta ${status.regattaId} times`
+          : `Not splitting files on timing hints: ${status.regattaId ? `regatta ${status.regattaId} not yet found` : 'no Regatta ID set'}. Set it on the recorder's Source tab.`}
+      </Typography>
       <Typography variant="caption">{`Camera: ${status.camera} (${status.protocol})${status.connected ? '' : ', not connected'}`}</Typography>
       {status.recording && status.filename && (
         <Typography variant="caption">{`File: ${status.filename}`}</Typography>
@@ -148,6 +199,14 @@ const RecorderPill = ({
             >
               {fpsText}
             </Box>
+            {!status.regattaListening && (
+              <Box
+                component="span"
+                sx={{ color: 'warning.main', fontWeight: 700 }}
+              >
+                no hint splits
+              </Box>
+            )}
             <Box
               component="span"
               sx={{ color: status.gapCount ? 'warning.main' : undefined }}
@@ -173,17 +232,18 @@ const RecorderPill = ({
 };
 
 /**
- * Shows the recorders bound to this app's waypoint (or to any waypoint), from
- * the status reports they multicast.
+ * Shows the recorders bound to this app's timing hint waypoint (or to any
+ * waypoint), from the status reports they multicast.
  */
 export const RecorderStatusBar = () => {
   const [statusMap] = useRecorderStatusMap();
-  const [waypoint] = useWaypoint();
+  const [videoSettings] = useVideoSettings();
+  const waypoint = videoSettings.timingHintSource || '';
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     const unsubscribe = window.VideoUtils.onRecorderStatus((msg) => {
-      if (!msg?.host) return;
+      if (!msg?.host || msg.cmd === 'recorder-file-closed') return;
       const latest = getRecorderStatusMap();
       if (msg.cmd === 'recorder-exit') {
         // Keep the last status so the recorder still shows, marked as exited
@@ -209,9 +269,9 @@ export const RecorderStatusBar = () => {
     };
   }, []);
 
-  const recorders = Object.values(statusMap)
-    .filter(({ status }) => !status.wp || status.wp === waypoint)
-    .sort((a, b) => a.status.host.localeCompare(b.status.host));
+  const recorders = forWaypoint(statusMap, waypoint).sort((a, b) =>
+    a.status.host.localeCompare(b.status.host),
+  );
 
   if (recorders.length === 0) return null;
   return (

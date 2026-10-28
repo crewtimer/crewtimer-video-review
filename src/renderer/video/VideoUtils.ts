@@ -87,12 +87,15 @@ function pointPositionRelativeToLine(
   return 'on';
 }
 
+/** Recorders are bound to the timing hint waypoint, not the scored waypoint. */
+export const recorderWaypoint = () => getVideoSettings().timingHintSource || '';
+
 export const triggerFileSplit = (source: 'manual' | 'automatic' = 'manual') => {
   const msg = {
     cmd: 'split-video',
     src: 'crewtimer-video-review',
     ts: new Date().getTime(),
-    wp: getWaypoint(),
+    wp: recorderWaypoint(),
   };
   console.log('[FileSplit] sending recorder split request', { source, ...msg });
   window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);
@@ -104,7 +107,7 @@ export const sendInfoMessage = () => {
     cmd: 'info',
     src: 'crewtimer-video-review',
     ts: new Date().getTime(),
-    wp: getWaypoint(),
+    wp: recorderWaypoint(),
     wplist: getWaypointList(),
   };
   window.VideoUtils.sendMulticast(JSON.stringify(msg), '239.215.23.42', 52342);

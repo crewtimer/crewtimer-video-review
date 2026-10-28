@@ -267,8 +267,13 @@ export const [useAutoNextTimestamp, , getAutoNextTimestamp] = UseStoredDatum(
   'autoNextTimestamp',
   true,
 );
-export const [useAutoFileSplitEnable, , getAutoFileSplitEnable] =
-  UseStoredDatum('autoFileSplit', false);
+/// Ask the recorder for a file split when a timing hint is past the last file.
+export const [useAutoFileSplitEnable] = UseStoredDatum(
+  'autoRecorderSplit',
+  true,
+);
+/// Seek to a timing hint not yet scored once new video holds it.
+export const [useJumpToNewHints] = UseStoredDatum('jumpToNewHints', true);
 /// Color recorded times by how closely they match their timing hint.
 export const [useAnalyzeTimes, , getAnalyzeTimes] = UseStoredDatum(
   'analyzeTimes',

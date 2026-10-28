@@ -1,8 +1,8 @@
 /**
  * Listens for CrewTimer Video Recorder status reports on the multicast group
  * this app already uses to send split-video and info commands, and forwards
- * them, and the exit notice a recorder sends as it quits, to the renderer as
- * 'recorder-status' events.
+ * them, the exit notice a recorder sends as it quits, and the notice it sends
+ * as each file is finished, to the renderer as 'recorder-status' events.
  */
 import dgram from 'dgram';
 import { getMainWindow } from '../mainWindow';
@@ -42,7 +42,13 @@ export function startRecorderStatusListener() {
       return;
     }
     // The group also carries this app's own split-video and info commands
-    if (msg.cmd !== 'recorder-status' && msg.cmd !== 'recorder-exit') return;
+    if (
+      msg.cmd !== 'recorder-status' &&
+      msg.cmd !== 'recorder-exit' &&
+      msg.cmd !== 'recorder-file-closed'
+    ) {
+      return;
+    }
     getMainWindow()?.webContents.send('recorder-status', msg);
   });
 

@@ -307,6 +307,22 @@ const FileMonitor: React.FC = () => {
     return () => clearInterval(timer);
   }, [videoDir, initializing, fileSplitPending]);
 
+  // A recorder bound to this app's timing hint waypoint, or to any, announces
+  // each finished file; list it now rather than at the next poll.
+  useEffect(() => {
+    if (initializing || !videoDir) {
+      return undefined;
+    }
+    return window.VideoUtils.onRecorderStatus((msg) => {
+      if (
+        msg?.cmd === 'recorder-file-closed' &&
+        (!msg.wp || msg.wp === (getVideoSettings().timingHintSource || ''))
+      ) {
+        refreshDirList(videoDir);
+      }
+    });
+  }, [videoDir, initializing]);
+
   return <></>;
 };
 

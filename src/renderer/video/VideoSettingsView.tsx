@@ -31,6 +31,7 @@ import {
   getVideoFile,
   useAnalyzeTimes,
   useAutoFileSplitEnable,
+  useJumpToNewHints,
   useAutoNextTimestamp,
   useMouseWheelInverted,
   useTravelRightToLeft,
@@ -80,6 +81,7 @@ export const VideoSettingsDialog = () => {
   const [videoSettings, setVideoSettings] = useVideoSettings();
   const [wheelInverted, setWheelInverted] = useMouseWheelInverted();
   const [autoFileSplit, setAutoFileSplit] = useAutoFileSplitEnable();
+  const [jumpToNewHints, setJumpToNewHints] = useJumpToNewHints();
   const [rightToLeft, setRightToLeft] = useTravelRightToLeft();
   const [autoNextTimestamp, setAutoNextTimestamp] = useAutoNextTimestamp();
   const [analyzeTimes, setAnalyzeTimes] = useAnalyzeTimes();
@@ -271,7 +273,7 @@ export const VideoSettingsDialog = () => {
           </Box>
           <Box className={classes.settings}>
             <Tooltip
-              title="Issue File-Split commands to the recorder automatically"
+              title="Ask the recorder to split its file when a timing hint arrives after the last file. Skipped while a CrewTimer Video Recorder at this hint waypoint reports that it splits on the regatta's timing hints itself."
               placement="right"
             >
               <FormControlLabel
@@ -282,6 +284,24 @@ export const VideoSettingsDialog = () => {
                     size="small"
                     checked={autoFileSplit}
                     onChange={() => setAutoFileSplit(!autoFileSplit)}
+                  />
+                }
+              />
+            </Tooltip>
+          </Box>
+          <Box className={classes.settings}>
+            <Tooltip
+              title="When new video holds a timing hint not yet scored, jump to it"
+              placement="right"
+            >
+              <FormControlLabel
+                labelPlacement="end"
+                label="Jump to new timing hints"
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={jumpToNewHints}
+                    onChange={() => setJumpToNewHints(!jumpToNewHints)}
                   />
                 }
               />
