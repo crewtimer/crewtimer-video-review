@@ -6,6 +6,7 @@ import {
   convertTimestampToLocalMicros,
   convertTimestampToString,
 } from 'renderer/shared/Util';
+import { parseTimeToSeconds } from 'renderer/util/StringUtils';
 import {
   moveToFileIndex,
   nextFile,
@@ -20,12 +21,18 @@ import { TimeObject, TimeSegment } from './VideoTypes';
 import { useFileStatusList } from './VideoFileStatus';
 import { createFocusScale, focusWindow } from './FocusScale';
 import GoToTime from './GoToTime';
-import { fileSegmentBounds, ownedRange } from './TimeSegmentUtils';
+import {
+  fileSegmentBounds,
+  findTimeSegment,
+  ownedRange,
+} from './TimeSegmentUtils';
 
 /** Time around the selected file shown at full scale, in microseconds. */
 const FOCUS_MICRO = 4 * 60 * 1000000;
 /** Fraction of the scrubber width given to the focus time. */
 const FOCUS_FRACTION = 0.6;
+/** Longest time drawn for a file with no hints or scored times, in microseconds. */
+const MAX_EMPTY_MICRO = 5 * 1000000;
 
 interface SxPropsArgs {
   sx?: SxProps<Theme>;
@@ -41,21 +48,35 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
   // Calc the time segment list. The time each file owns is laid end to end
   // (gaps and overlaps removed) and drawn on a focus scale: FOCUS_MICRO
   // around the selected file gets FOCUS_FRACTION of the width and other files
-  // are compressed around it.
+  // are compressed around it. A file with no hints or scored times is drawn
+  // as at most MAX_EMPTY_MICRO.
   const { segmentList, segmentStarts, ownedList, scale } = useMemo(() => {
     const bounds = fileSegmentBounds(fileStatusList);
     const owned = bounds.map((_, index) => ownedRange(bounds, index));
+    const filesWithTimes = new Set<number>();
+    [...lapdata, ...scoredLapdata].forEach((timeObj) => {
+      if (timeObj.Time) {
+        const { segmentIndex } = findTimeSegment(
+          bounds,
+          parseTimeToSeconds(timeObj.Time) * 1000000,
+        );
+        filesWithTimes.add(segmentIndex);
+      }
+    });
+    const drawn = owned.map((range, index) => {
+      const duration = range.endTsMicro - range.startTsMicro;
+      return filesWithTimes.has(index)
+        ? duration
+        : Math.min(duration, MAX_EMPTY_MICRO);
+    });
     const starts: number[] = [];
     let totalTime = 0;
-    owned.forEach((range) => {
+    drawn.forEach((duration) => {
       starts.push(totalTime);
-      totalTime += range.endTsMicro - range.startTsMicro;
+      totalTime += duration;
     });
-    const selectedOwned = owned[selectedIndex];
     const selectedStart = starts[selectedIndex] ?? 0;
-    const selectedDuration = selectedOwned
-      ? selectedOwned.endTsMicro - selectedOwned.startTsMicro
-      : 0;
+    const selectedDuration = drawn[selectedIndex] ?? 0;
     const window = focusWindow(
       totalTime,
       selectedStart + selectedDuration / 2,
@@ -77,9 +98,8 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
         item.tzOffset,
       );
 
-      const ownedDuration = owned[index].endTsMicro - owned[index].startTsMicro;
       const pctOffset = focusScale.toPct(starts[index]);
-      const pct = focusScale.toPct(starts[index] + ownedDuration) - pctOffset;
+      const pct = focusScale.toPct(starts[index] + drawn[index]) - pctOffset;
       const segment: TimeSegment = {
         startTsMicro: convertTimestampToLocalMicros(
           item.startTime,
@@ -98,10 +118,15 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
     return {
       segmentList: segments,
       segmentStarts: starts,
-      ownedList: owned,
+      // drawnRatio is the drawn time per microsecond of owned time.
+      ownedList: owned.map((range, index) => ({
+        ...range,
+        drawnRatio:
+          drawn[index] / (range.endTsMicro - range.startTsMicro || 1) || 1,
+      })),
       scale: focusScale,
     };
-  }, [fileStatusList, selectedIndex]);
+  }, [fileStatusList, selectedIndex, lapdata, scoredLapdata]);
 
   /** Position (0..1) of a local timestamp within a file on the focus scale. */
   const positionOf = (segmentIndex: number, tsMicro: number) => {
@@ -110,7 +135,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
       owned.endTsMicro - owned.startTsMicro,
       Math.max(0, tsMicro - owned.startTsMicro),
     );
-    return scale.toPct(segmentStarts[segmentIndex] + offset);
+    return scale.toPct(segmentStarts[segmentIndex] + offset * owned.drawnRatio);
   };
 
   /** Converts a click position within a segment to a position within its file. */
@@ -123,7 +148,8 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
     const owned = ownedList[index];
     const span = segment.endTsMicro - segment.startTsMicro || 1;
     const time = scale.fromPct(segment.pctOffset + clickPct * segment.pct);
-    const fileTime = owned.startTsMicro + (time - segmentStarts[index]);
+    const fileTime =
+      owned.startTsMicro + (time - segmentStarts[index]) / owned.drawnRatio;
     const filePct = Math.min(
       1,
       Math.max(0, (fileTime - segment.startTsMicro) / span),
