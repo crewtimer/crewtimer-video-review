@@ -11,6 +11,7 @@ import {
 import { gateFromWaypoint } from 'renderer/util/Util';
 import { seekToTimePoint, triggerFileSplit } from './VideoUtils';
 import {
+  getVideoFile,
   getVideoTimestamp,
   useAutoFileSplitEnable,
   useJumpToNewHints,
@@ -21,6 +22,7 @@ import { useRecorderSplitsOnHints } from './RecorderStatus';
 import { ExtendedLap } from './UseClickerData';
 import { autoZoomAfterSeekToHint } from './AutoZoomToHint';
 import { useFileStatusList } from './VideoFileStatus';
+import { findSeekTarget } from './RequestVideoFrame';
 
 export interface SplitStatus {
   openSplits: number;
@@ -78,6 +80,10 @@ export const AutoFileSplit: FC = () => {
   const splitRequestedRef = useRef(false);
   const observedHintIdsRef = useRef<Set<string>>(new Set());
   const hintsInitializedRef = useRef(false);
+  /** The hint the last auto seek went to and the file that held it then. */
+  const autoSeekRef = useRef<
+    { hint: ExtendedLap; videoFile: string } | undefined
+  >(undefined);
   const [countsReady, setCountsReady] = useState(false);
   const [lastScoredTimestamp] = useLastScoredTimestamp();
   const [scoredWaypoint] = useWaypoint();
@@ -340,8 +346,14 @@ export const AutoFileSplit: FC = () => {
           })
           .sort((a, b) => a.seconds - b.seconds)[0];
 
-        if (nextHint && seekToTimePoint(nextHint, autoZoomAfterSeekToHint)) {
+        const target = nextHint && findSeekTarget(nextHint.Time || '');
+        if (
+          nextHint &&
+          target &&
+          seekToTimePoint(nextHint, autoZoomAfterSeekToHint)
+        ) {
           // Do not seek again until this click has been scored.
+          autoSeekRef.current = { hint: nextHint, videoFile: target.videoFile };
           setAutoSeekHoldoff(true);
         }
       }
@@ -357,6 +369,37 @@ export const AutoFileSplit: FC = () => {
     hintWaypoint,
     entryResultsChanged,
   ]);
+
+  // A file listed after the auto seek may own the hint instead, e.g. a long
+  // file closes first and the file it overlaps, which owns the hint, closes
+  // just after.  Follow the hint unless the user has left the file it opened.
+  useEffect(() => {
+    const autoSeek = autoSeekRef.current;
+    // The datum, not the rendered value: the seek effect above may have set
+    // the holdoff in this same commit.
+    if (!getAutoSeekHoldoff() || !autoSeek) {
+      autoSeekRef.current = undefined;
+      return;
+    }
+    if (getVideoFile() !== autoSeek.videoFile) {
+      return;
+    }
+    if (isScored(autoSeek.hint, gateFromWaypoint(scoredWaypoint))) {
+      return;
+    }
+    const target = findSeekTarget(autoSeek.hint.Time || '');
+    if (!target || target.videoFile === autoSeek.videoFile) {
+      return;
+    }
+    console.log('[AutoFileSplit] hint moved to a newly listed file', {
+      from: autoSeek.videoFile,
+      to: target.videoFile,
+      time: autoSeek.hint.Time,
+    });
+    if (seekToTimePoint(autoSeek.hint, autoZoomAfterSeekToHint)) {
+      autoSeekRef.current = { ...autoSeek, videoFile: target.videoFile };
+    }
+  }, [fileStatusList, autoSeekHoldoff, scoredWaypoint]);
 
   // Ensure any pending timer is cleared on unmount
   useEffect(() => {
