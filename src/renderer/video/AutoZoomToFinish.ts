@@ -917,8 +917,17 @@ const runAutoZoomToFinish = async (
 ): Promise<AutoZoomFinishResult | undefined | null> => {
   const operation = autoZoomOperation + 1;
   autoZoomOperation = operation;
-  const operationIsCurrent = () => operation === autoZoomOperation;
   const videoFile = initialImage?.file ?? getVideoFile();
+  // A seek to another file supersedes the search and closes this file.
+  const operationIsCurrent = () =>
+    operation === autoZoomOperation && getVideoFile() === videoFile;
+  const detect = (frameNum: number) =>
+    detectFrame(videoFile, frameNum).catch((error) => {
+      if (!operationIsCurrent()) {
+        return undefined;
+      }
+      throw error;
+    });
   interpolatedBoatOverlay = undefined;
   const image = initialImage ?? getImage();
   const initialFrame = Math.round(initialImage?.frameNum ?? getVideoFrameNum());
@@ -926,8 +935,8 @@ const runAutoZoomToFinish = async (
   const finishX = image.width / 2 + (finish.pt1 + finish.pt2) / 2;
   let rightToLeft = getTravelRightToLeft();
   let reversedTravelDirection = false;
-  const initialResult = await detectFrame(videoFile, initialFrame);
-  if (!operationIsCurrent()) {
+  const initialResult = await detect(initialFrame);
+  if (!initialResult || !operationIsCurrent()) {
     return null;
   }
   const selected = selectInitialBoat(initialResult.detections, finishX);
@@ -954,8 +963,8 @@ const runAutoZoomToFinish = async (
     }
     // Sequential observations are required to estimate and refine velocity.
     // eslint-disable-next-line no-await-in-loop
-    let result = await detectFrame(videoFile, nextFrame);
-    if (!operationIsCurrent()) {
+    let result = await detect(nextFrame);
+    if (!result || !operationIsCurrent()) {
       return null;
     }
     const expectedEdgeAtFrame = (detectedFrame: number) =>
@@ -983,8 +992,8 @@ const runAutoZoomToFinish = async (
       // Probe nearby frames on both sides, then backtrack toward the last
       // observation when an estimated jump lands on a bad detection.
       // eslint-disable-next-line no-await-in-loop
-      result = await detectFrame(videoFile, recoveryFrame);
-      if (!operationIsCurrent()) {
+      result = await detect(recoveryFrame);
+      if (!result || !operationIsCurrent()) {
         return null;
       }
       matched = matchBoat(

@@ -1,6 +1,7 @@
-import type { BowDetection } from '../shared/AppTypes';
+import type { AppImage, BowDetection } from '../shared/AppTypes';
 import {
   areAdjacentBoatBoxesComparable,
+  autoZoomToFinishNearFinish,
   buildBoatMatchRecoveryFrames,
   chooseBracketRefinementFrame,
   ceilFrameToHyperZoomGrid,
@@ -22,8 +23,15 @@ jest.mock('../util/ImageScaling', () => ({ updateVideoScaling: jest.fn() }));
 jest.mock('../util/UseSettings', () => ({
   getBowDetectionOptions: () => ({ numericOnly: true, cardLength: 'auto' }),
 }));
-jest.mock('./VideoSettings', () => ({}));
-jest.mock('./VideoUtils', () => ({}));
+let mockVideoFile = '';
+jest.mock('./VideoSettings', () => ({
+  getVideoFile: () => mockVideoFile,
+  getTravelRightToLeft: () => false,
+  getHyperZoomFactor: () => 0,
+}));
+jest.mock('./VideoUtils', () => ({
+  getFinishLine: () => ({ pt1: 0, pt2: 0 }),
+}));
 
 const detection = (x: number, y = 100): BowDetection => ({
   text: '17',
@@ -364,5 +372,26 @@ describe('Auto Zoom to Finish geometry', () => {
         1458,
       ),
     ).toBeUndefined();
+  });
+
+  test('abandons the search when a seek to another file closes its file', async () => {
+    mockVideoFile = 'next.mp4';
+    const detectBow = jest
+      .fn()
+      .mockRejectedValue(new Error('Video file is not open'));
+    Object.assign(window, { VideoUtils: { detectBow } });
+    const image = {
+      file: 'closed.mp4',
+      frameNum: 602,
+      width: 1080,
+      numFrames: 612,
+    } as AppImage;
+
+    await expect(
+      autoZoomToFinishNearFinish('17', Number.POSITIVE_INFINITY, image),
+    ).resolves.toBeNull();
+    expect(detectBow).toHaveBeenCalledWith(
+      expect.objectContaining({ videoFile: 'closed.mp4', frameNum: 602 }),
+    );
   });
 });
