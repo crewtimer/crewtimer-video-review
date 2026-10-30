@@ -47,6 +47,9 @@ const [useArchivePrefix] = UseStoredDatum('ArchivePrefix', 'CT');
 const [useArchiveTimeOffset] = UseStoredDatum('ArchiveTimeOffset', 0);
 const [useArchiveRace, setArchiveRace] = UseDatum('');
 const [useArchiveYoloLabels, setArchiveYoloLabels] = UseDatum(true);
+type DetectionFilter = 'all' | 'good' | 'missed';
+const [useArchiveDetectionFilter, setArchiveDetectionFilter] =
+  UseDatum<DetectionFilter>('all');
 type PruneSide = 'none' | 'top' | 'bottom';
 const [useArchivePruneSide, setArchivePruneSide] = UseDatum<PruneSide>('none');
 const [useArchivePrunePercentage, setArchivePrunePercentage] = UseDatum(0);
@@ -76,6 +79,7 @@ type ArchiveCardLabel = {
 };
 
 type ArchiveDetectionResult = {
+  kept: boolean;
   boatIdentified: boolean;
   bowMatched: boolean;
   bowMismatch: boolean;
@@ -83,6 +87,7 @@ type ArchiveDetectionResult = {
 
 type ArchiveSummary = {
   exported: number;
+  detected: number;
   bowMismatch: number;
   boatsIdentified: number;
   bowsMatched: number;
@@ -98,6 +103,7 @@ const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
   const [timeOffset, setTimeOffset] = useArchiveTimeOffset();
   const [selectedRace, setSelectedRace] = useArchiveRace();
   const [augmentYoloLabels, setAugmentYoloLabels] = useArchiveYoloLabels();
+  const [detectionFilter, setDetectionFilter] = useArchiveDetectionFilter();
   const [pruneSide, setPruneSide] = useArchivePruneSide();
   const [prunePercentage, setPrunePercentage] = useArchivePrunePercentage();
   const [scoredWaypoint] = useWaypoint();
@@ -199,6 +205,24 @@ const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
       />
 
       {augmentYoloLabels && (
+        <FormControl fullWidth>
+          <InputLabel id="archive-detection-filter-label">Export</InputLabel>
+          <Select
+            labelId="archive-detection-filter-label"
+            label="Export"
+            value={detectionFilter}
+            onChange={(event) =>
+              setDetectionFilter(event.target.value as DetectionFilter)
+            }
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="good">Good detection</MenuItem>
+            <MenuItem value="missed">Missed detection</MenuItem>
+          </Select>
+        </FormControl>
+      )}
+
+      {augmentYoloLabels && (
         <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
           <FormControl sx={{ flex: 1 }}>
             <InputLabel id="archive-prune-select-label">Prune</InputLabel>
@@ -258,6 +282,7 @@ export const ImageArchive = () => {
   const [timeOffset] = useArchiveTimeOffset();
   const [selectedRace] = useArchiveRace();
   const [augmentYoloLabels] = useArchiveYoloLabels();
+  const [detectionFilter] = useArchiveDetectionFilter();
   const [pruneSide] = useArchivePruneSide();
   const [prunePercentage] = useArchivePrunePercentage();
   const prune = useMemo(
@@ -353,11 +378,27 @@ export const ImageArchive = () => {
       const selectedBoatIndex = selected ? detectedBoats.indexOf(selected) : -1;
       const detectedBow = selected?.text || '';
       const bowMismatch = detectedBow !== expectedBow;
+      const boatIdentified = detectedBoats.length > 0;
+      const bowMatched = Boolean(detectedBow) && !bowMismatch;
+      // Good detection reads the recorded bow; missed detection does not.
+      if (
+        (detectionFilter === 'good' && bowMismatch) ||
+        (detectionFilter === 'missed' && !bowMismatch)
+      ) {
+        return {
+          kept: false,
+          boatIdentified,
+          bowMatched,
+          bowMismatch,
+        } satisfies ArchiveDetectionResult;
+      }
       const cards: ArchiveCardLabel[] = [];
       const finish = getFinishLine();
       const finishX = width / 2 + (finish.pt1 + finish.pt2) / 2;
       const exportedBoats = detectedBoats.map((detection, boatIndex) => {
-        if (boatIndex !== selectedBoatIndex) {
+        // With a time offset the boat is not at the finish, so keep its
+        // detected edge.
+        if (boatIndex !== selectedBoatIndex || timeOffset !== 0) {
           return detection;
         }
         const right = detection.boatBox.x + detection.boatBox.width;
@@ -440,18 +481,27 @@ export const ImageArchive = () => {
         throw new Error(sidecarResult.error || sidecarResult.status);
       }
       return {
-        boatIdentified: detectedBoats.length > 0,
-        bowMatched: Boolean(detectedBow) && !bowMismatch,
+        kept: true,
+        boatIdentified,
+        bowMatched,
         bowMismatch,
       } satisfies ArchiveDetectionResult;
     },
-    [joinPath, makeBoxMetadata, prune, selectFinishLineBoat],
+    [
+      joinPath,
+      makeBoxMetadata,
+      detectionFilter,
+      prune,
+      selectFinishLineBoat,
+      timeOffset,
+    ],
   );
 
   const saveImageArchive = useCallback(async () => {
     setArchiveCancel(false);
     const summary: ArchiveSummary = {
       exported: 0,
+      detected: 0,
       bowMismatch: 0,
       boatsIdentified: 0,
       bowsMatched: 0,
@@ -547,9 +597,7 @@ export const ImageArchive = () => {
             `Error saving: ${reason instanceof Error ? reason.message : String(reason)}`,
           ),
         );
-        if (savedFrame) {
-          summary.exported += 1;
-        }
+        let kept = !!savedFrame;
         if (augmentYoloLabels && savedFrame) {
           // eslint-disable-next-line no-await-in-loop
           const detection = await saveTrainingLabels({
@@ -568,10 +616,20 @@ export const ImageArchive = () => {
             return undefined;
           });
           if (detection) {
+            summary.detected += 1;
             summary.boatsIdentified += detection.boatIdentified ? 1 : 0;
             summary.bowsMatched += detection.bowMatched ? 1 : 0;
             summary.bowMismatch += detection.bowMismatch ? 1 : 0;
+            if (!detection.kept) {
+              // Filtered out by the detection filter; remove its image.
+              kept = false;
+              // eslint-disable-next-line no-await-in-loop
+              await window.Util.deleteFile(saveAs);
+            }
           }
+        }
+        if (kept) {
+          summary.exported += 1;
         }
         setProgressBar(
           ((i + j / filteredScoredTimes.length) / dirList.length) * 100,
@@ -599,17 +657,20 @@ export const ImageArchive = () => {
           <Typography>Total exported: {summary.exported}</Typography>
           {augmentYoloLabels && (
             <>
-              <Typography>Bow mismatches: {summary.bowMismatch}</Typography>
+              <Typography>
+                Bow mismatches:{' '}
+                {formatDetectionCount(summary.bowMismatch, summary.detected)}
+              </Typography>
               <Typography>
                 Boats identified:{' '}
                 {formatDetectionCount(
                   summary.boatsIdentified,
-                  summary.exported,
+                  summary.detected,
                 )}
               </Typography>
               <Typography>
                 Bows detected and matched:{' '}
-                {formatDetectionCount(summary.bowsMatched, summary.exported)}
+                {formatDetectionCount(summary.bowsMatched, summary.detected)}
               </Typography>
             </>
           )}
@@ -646,6 +707,7 @@ export const ImageArchive = () => {
 export const initiateImageArchive = () => {
   setArchiveRace('');
   setArchiveYoloLabels(true);
+  setArchiveDetectionFilter('all');
   setArchivePruneSide('none');
   setArchivePrunePercentage(0);
   const onClose = () => {
