@@ -1,6 +1,13 @@
 
 | Version | What's New |
 | --- | --- |
+| 2.0.7 | Overlapping video files and recorder splits on regatta times |
+| | Support for the overlapping files CrewTimer Video Recorder 2.0.1 makes; each file shows the time it owns, and stepping past the end continues in the next file |
+| | CrewTimer Video Recorder now splits its files on the regatta's timing hints itself; Automatic Recorder File Splitting, now on by default, is skipped while it does and is kept for other recorders |
+| | Jump to new timing hints is now a setting of its own, on by default |
+| | The toolbar marks a recorder that is not splitting on timing hints |
+| | New recorder files appear as soon as they are finished |
+| | Setting for the number of boats in a finish photo, for every race type |
 | 2.0.6 | Smarter auto zoom, result photo uploads, recorder status, a more responsive app, and bug fixes. |
 | | File Scrubber zooms to 4 minutes around the current video time. |
 | | Go to Time button jumps the video to a typed time such as 14:23:22.123 or 142322.123. |
