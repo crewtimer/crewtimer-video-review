@@ -125,6 +125,28 @@ class YoloBoxDetector:
         return non_maximum_suppression(detections, iou_threshold)
 
 
+MAX_BOW_DIGITS = 3
+
+
+def limit_bow_digits(
+    characters: list[str], probabilities: list[float]
+) -> tuple[list[str], list[float]]:
+    """Keep a letter prefix and the last three digits, as BowNumberReader.cpp
+    does. Bow numbers never exceed three digits."""
+    prefix_length = next(
+        (index for index, character in enumerate(characters) if character.isdigit()),
+        len(characters),
+    )
+    digits = characters[prefix_length:]
+    if len(digits) <= MAX_BOW_DIGITS or not all(c.isdigit() for c in digits):
+        return characters, probabilities
+    excess = len(digits) - MAX_BOW_DIGITS
+    return (
+        characters[:prefix_length] + characters[prefix_length + excess:],
+        probabilities[:prefix_length] + probabilities[prefix_length + excess:],
+    )
+
+
 class BowNumberReader:
     """CTC bow-number reader equivalent to BowNumberReader.cpp."""
 
@@ -160,6 +182,7 @@ class BowNumberReader:
                 probabilities.append(float(1.0 / np.exp(shifted).sum()))
                 characters.append(vocabulary[best - 1])
             previous = best
+        characters, probabilities = limit_bow_digits(characters, probabilities)
         confidence = float(np.mean(probabilities)) if probabilities else 0.0
         return NumberPrediction("".join(characters), confidence)
 

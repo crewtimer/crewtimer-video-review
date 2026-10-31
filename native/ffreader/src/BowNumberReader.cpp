@@ -10,6 +10,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <string_view>
+#include <vector>
 
 namespace {
 // Must match the vocabularies in bowdetect/scripts/bow_ocr_labels.py. Model class 0 is blank.
@@ -17,6 +18,9 @@ constexpr std::string_view DIGITS = "0123456789";
 constexpr std::string_view ALPHANUMERIC =
     "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 constexpr int BLANK_IDX = 0;
+// Bow numbers never exceed three digits. Longer reads usually repeat a digit
+// or pick up a mark at the card's left edge, so keep the trailing digits.
+constexpr size_t MAX_BOW_DIGITS = 3;
 constexpr int OUTPUT_HEIGHT = 48;
 constexpr int OUTPUT_WIDTH = 60;
 
@@ -90,8 +94,7 @@ BowNumberPrediction ctcGreedyDecode(const float *logits, int64_t seqLen,
                                     std::string_view vocabulary) {
   BowNumberPrediction result;
   int previous = -1;
-  double confidenceSum = 0.0;
-  int emitted = 0;
+  std::vector<double> probabilities;
 
   std::vector<float> probs(static_cast<size_t>(numClasses));
   for (int64_t t = 0; t < seqLen; ++t) {
@@ -108,14 +111,30 @@ BowNumberPrediction ctcGreedyDecode(const float *logits, int64_t seqLen,
       const double probability = 1.0 / denominator;
 
       result.text.push_back(vocabulary[best - 1]);
-      confidenceSum += probability;
-      ++emitted;
+      probabilities.push_back(probability);
     }
     previous = best;
   }
 
+  const size_t prefixLength = std::min(
+      result.text.find_first_of(DIGITS), result.text.size());
+  const size_t digitCount = result.text.size() - prefixLength;
+  if (digitCount > MAX_BOW_DIGITS &&
+      result.text.find_first_not_of(DIGITS, prefixLength) == std::string::npos) {
+    const size_t excess = digitCount - MAX_BOW_DIGITS;
+    result.text.erase(prefixLength, excess);
+    probabilities.erase(probabilities.begin() + prefixLength,
+                        probabilities.begin() + prefixLength + excess);
+  }
+
+  double confidenceSum = 0.0;
+  for (const double probability : probabilities) {
+    confidenceSum += probability;
+  }
   result.confidence =
-      emitted > 0 ? static_cast<float>(confidenceSum / emitted) : 0.0f;
+      probabilities.empty()
+          ? 0.0f
+          : static_cast<float>(confidenceSum / probabilities.size());
   return result;
 }
 } // namespace

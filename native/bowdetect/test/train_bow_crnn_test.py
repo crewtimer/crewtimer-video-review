@@ -4,11 +4,18 @@ from unittest.mock import patch
 import numpy as np
 from bow_ocr_labels import CHARACTERS, NUM_CLASSES
 from train_bow_crnn import (
+    CRNN_H,
+    CRNN_W,
+    LIBERATION_SANS_REGULAR_PATH,
     ROBOTO_CONDENSED_BOLD_PATH,
+    BowCardDataset,
     ctc_greedy_decode,
     configure_vocabulary,
+    is_three_digit_label,
     make_alpha_validation_samples,
+    make_pipeline_sample,
     random_bow_label,
+    render_text_mask,
     synthetic_text_layout,
     training_label,
 )
@@ -60,6 +67,59 @@ class BowCrnnCharsetTest(unittest.TestCase):
         self.assertEqual(layout["font"].getname(), ("Roboto Condensed", "Bold"))
         self.assertGreater(layout["width"], 0)
         self.assertGreater(layout["height"], 0)
+
+    def test_synthetic_layout_squeezes_liberation_sans_horizontally(self):
+        self.assertTrue(LIBERATION_SANS_REGULAR_PATH.is_file())
+        full = synthetic_text_layout("129", 28, LIBERATION_SANS_REGULAR_PATH)
+        squeezed = synthetic_text_layout(
+            "129", 28, LIBERATION_SANS_REGULAR_PATH, 0.85
+        )
+        self.assertEqual(full["font"].getname(), ("Liberation Sans", "Regular"))
+        self.assertEqual(squeezed["width"], round(full["width"] * 0.85))
+        self.assertEqual(squeezed["height"], full["height"])
+        mask = render_text_mask("129", squeezed)
+        self.assertEqual(mask.shape, (squeezed["height"], squeezed["width"]))
+        self.assertGreater(mask.max(), 0.9)
+
+    def test_pipeline_samples_match_model_input_in_every_variant(self):
+        import train_bow_crnn
+
+        for context, sticker, low_res in [
+            (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1.0, 0.0, 1.0), (0.0, 1.0, 0.0)
+        ]:
+            with (
+                patch.object(train_bow_crnn, "CARD_CONTEXT_FRACTION", context),
+                patch.object(train_bow_crnn, "STICKER_FRACTION", sticker),
+                patch.object(train_bow_crnn, "LOW_RESOLUTION_FRACTION", low_res),
+            ):
+                for label in ("7", "42", "129", "E128"):
+                    for light_card in (True, False):
+                        image = make_pipeline_sample(label, light_card=light_card)
+                        self.assertEqual(image.shape, (CRNN_H, CRNN_W))
+                        self.assertEqual(image.dtype, np.uint8)
+
+    def test_three_digit_label_ignores_alpha_prefix(self):
+        self.assertTrue(is_three_digit_label("129"))
+        self.assertTrue(is_three_digit_label("E128"))
+        self.assertFalse(is_three_digit_label("E43"))
+        self.assertFalse(is_three_digit_label("7"))
+
+    def test_real_pool_oversamples_three_digit_crops(self):
+        dataset = BowCardDataset(
+            n_synthetic=1, real_alpha_fraction=0.1, real_three_digit_fraction=0.2
+        )
+        image = np.zeros((CRNN_H, CRNN_W), dtype=np.uint8)
+        dataset.real_samples = [(image, "4"), (image, "E1"), (image, "129")]
+        dataset.real_alpha_samples = [(image, "E1")]
+        dataset.real_three_digit_samples = [(image, "129")]
+        cases = (
+            (0.05, dataset.real_alpha_samples),
+            (0.15, dataset.real_three_digit_samples),
+            (0.35, dataset.real_samples),
+        )
+        for value, expected in cases:
+            with patch("train_bow_crnn.random.random", return_value=value):
+                self.assertIs(dataset._choose_real_pool(), expected)
 
 
 if __name__ == "__main__":

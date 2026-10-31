@@ -216,8 +216,9 @@ samples use variable light, gray, and dark card backgrounds and run through
 the same pipeline:
 
 ```
-Roboto Condensed Bold via Pillow → illumination gradient and noise → upscale 10×
-→ CLAHE → mild sharpen → polarity-normalise → resize to 60×48
+Font pool via Pillow → card inset in hull/water texture, optional sticker
+→ illumination gradient and noise → optional reduction to real crop size + JPEG
+→ upscale 10× → CLAHE → mild sharpen → polarity-normalise → resize to 60×48
 ```
 
 This closes the domain gap: the model trains on images that look exactly like
@@ -225,9 +226,30 @@ what it will see at inference time.
 
 ### Font choice
 
-Training uses the vendored `RobotoCondensed-Bold.ttf` for every synthetic
-label. Pillow renders the TrueType outlines before the normal image degradation
-and production preprocessing are applied.
+Synthetic labels are rendered with equal probability in the vendored
+`RobotoCondensed-Bold.ttf` and in `LiberationSans-Regular.ttf` (an Arial
+metric-compatible face) squeezed horizontally to 85–90%. The second font covers
+the thin, regular-weight digits printed on many head-race cards. Pillow renders
+the TrueType outlines before the normal image degradation and production
+preprocessing are applied.
+
+### Card context and resolution
+
+Real crops come from a detector box padded by 15% and are often only 25–65 px
+wide. To match, 60% of synthetic cards are inset in a horizontally streaked
+hull/water background (sometimes with a bright hull band below), half carry a
+dark sticker bar below the digits, and 60% are reduced to a real crop size
+(24–48 px wide, half JPEG-compressed) before the production 10× upscale.
+
+### Three-digit labels
+
+Real crops contain few three-digit bow numbers, so synthetic labels use a
+35/50/15 one/two/three-digit mix (three-digit numbers are 70% 100–199) and
+`--real-three-digit-fraction` (default `0.08`, `OCR_REAL_THREE_DIGIT_FRACTION`
+in the Makefile and Colab notebook) draws that share of real samples from
+three-digit crops, in addition to `--real-alpha-fraction`. Heavier weighting
+(25% synthetic, 0.15 real) fixed three-digit cards but made the model add a
+leading 1 to two-digit cards such as 62 → 162.
 
 If your venue uses an unusual font, add real labelled crops with `--real-data`
 (see below).
@@ -365,10 +387,11 @@ Decode: greedy CTC over digits 0–9, optionally letters A–Z, plus the blank c
 Class 0 is the required CTC blank; hyphen and space are not model characters.
 ```
 
-Synthetic labels are rendered with the vendored Roboto Condensed Bold TrueType
-font through Pillow. Font size, position, contrast, lighting, blur, morphology,
-and compression artifacts vary between samples. The combined Colab archive
-includes the same font and its Apache 2.0 license.
+Synthetic labels are rendered with the vendored Roboto Condensed Bold and
+squeezed Liberation Sans Regular TrueType fonts through Pillow. Font size,
+position, card context, sticker, contrast, lighting, resolution, and
+compression artifacts vary between samples. The combined Colab archive includes
+both fonts and their licenses.
 
 Parameters: ~4.0M. Model file size: ~16 MB.
 Inference time on CPU: ~2 ms median / ~3 ms p95 (single character crop).

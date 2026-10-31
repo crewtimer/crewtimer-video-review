@@ -97,20 +97,43 @@ def training_label(value: str) -> str:
 # Model input dimensions — must match Params in BowNumberReader
 CRNN_H = 48
 CRNN_W = 60
-ROBOTO_CONDENSED_BOLD_PATH = (
-    Path(__file__).resolve().parent.parent / "fonts" / "RobotoCondensed-Bold.ttf"
+FONTS_DIR = Path(__file__).resolve().parent.parent / "fonts"
+ROBOTO_CONDENSED_BOLD_PATH = FONTS_DIR / "RobotoCondensed-Bold.ttf"
+# Metric-compatible with Arial; squeezed horizontally to match the regular
+# weight, narrow grotesque digits printed on many head-race bow cards.
+LIBERATION_SANS_REGULAR_PATH = FONTS_DIR / "LiberationSans-Regular.ttf"
+
+# (font path, horizontal scale range, selection weight)
+SYNTHETIC_FONTS = (
+    (ROBOTO_CONDENSED_BOLD_PATH, (1.0, 1.0), 0.5),
+    (LIBERATION_SANS_REGULAR_PATH, (0.85, 0.90), 0.5),
 )
+
+# Real card crops show the card edge, the surrounding hull and water, and
+# often a dark sponsor sticker below the digits. They are also only ~25-65 px
+# wide before the 10x production upscale.
+CARD_CONTEXT_FRACTION = 0.6
+STICKER_FRACTION = 0.5
+LOW_RESOLUTION_FRACTION = 0.6
 
 # ─── Pipeline-matched synthetic sample generator ──────────────────────────────
 
 def random_numeric_string() -> str:
-    """Draw 1-199 with the digit-length mix observed in real race data."""
-    length = random.choices((1, 2, 3), weights=(0.40, 0.50, 0.10))[0]
+    """Draw 1-999 with a modest three-digit share. Heavier three-digit
+    weighting taught the model to add a leading 1 to two-digit cards."""
+    length = random.choices((1, 2, 3), weights=(0.35, 0.50, 0.15))[0]
     if length == 1:
         return str(random.randint(1, 9))
     if length == 2:
         return str(random.randint(10, 99))
-    return str(random.randint(100, 199))
+    if random.random() < 0.7:
+        return str(random.randint(100, 199))
+    return str(random.randint(200, 999))
+
+
+def is_three_digit_label(label: str) -> bool:
+    """True when the numeric part of a bow label has three digits."""
+    return len(label.lstrip(ALPHA_PREFIXES)) == 3
 
 
 def random_bow_label(alpha_prefix_fraction: float = 0.5) -> str:
@@ -130,20 +153,64 @@ def normalize_polarity(img: np.ndarray) -> np.ndarray:
     return img if card_center.mean() > 128 else cv2.bitwise_not(img)
 
 
-def synthetic_text_layout(text: str, font_size: int) -> dict[str, object]:
-    """Load Roboto Condensed Bold and measure one complete bow label."""
-    if not ROBOTO_CONDENSED_BOLD_PATH.is_file():
-        raise FileNotFoundError(
-            f"Missing synthetic training font: {ROBOTO_CONDENSED_BOLD_PATH}"
-        )
-    font = ImageFont.truetype(str(ROBOTO_CONDENSED_BOLD_PATH), font_size)
+def synthetic_text_layout(
+    text: str,
+    font_size: int,
+    font_path: Path = ROBOTO_CONDENSED_BOLD_PATH,
+    x_scale: float = 1.0,
+) -> dict[str, object]:
+    """Load a training font and measure one horizontally scaled bow label."""
+    if not font_path.is_file():
+        raise FileNotFoundError(f"Missing synthetic training font: {font_path}")
+    font = ImageFont.truetype(str(font_path), font_size)
     left, top, right, bottom = font.getbbox(text)
     return {
         "font": font,
         "bbox": (left, top, right, bottom),
-        "width": right - left,
+        "x_scale": x_scale,
+        "width": max(1, round((right - left) * x_scale)),
         "height": bottom - top,
     }
+
+
+def render_text_mask(text: str, layout: dict[str, object]) -> np.ndarray:
+    """Render a label as float coverage in [0, 1], squeezed horizontally."""
+    left, top, right, bottom = layout["bbox"]
+    mask = Image.new("L", (right - left, bottom - top), 0)
+    ImageDraw.Draw(mask).text((-left, -top), text, font=layout["font"], fill=255)
+    if layout["x_scale"] != 1.0:
+        mask = mask.resize((int(layout["width"]), mask.height), Image.LANCZOS)
+    return np.asarray(mask, dtype=np.float32) / 255.0
+
+
+def random_synthetic_font() -> tuple[Path, float]:
+    """Choose a training font and its horizontal scale."""
+    path, (min_scale, max_scale), _ = random.choices(
+        SYNTHETIC_FONTS, weights=[weight for _, _, weight in SYNTHETIC_FONTS]
+    )[0]
+    return path, random.uniform(min_scale, max_scale)
+
+
+def fit_text_layout(text: str, font_size: int, max_w: int, max_h: int,
+                    font_path: Path, x_scale: float) -> dict[str, object]:
+    """Shrink the font until the label fits the available card area."""
+    layout = synthetic_text_layout(text, font_size, font_path, x_scale)
+    while font_size > 6 and (
+        int(layout["width"]) > max_w or int(layout["height"]) > max_h
+    ):
+        font_size -= 1
+        layout = synthetic_text_layout(text, font_size, font_path, x_scale)
+    return layout
+
+
+def make_card_surround(render_h: int, render_w: int) -> np.ndarray:
+    """Hull and water texture: horizontal streaks around the card."""
+    base = random.uniform(40, 220)
+    rows = np.random.normal(0, random.uniform(5, 30), (render_h, 1))
+    pixels = np.random.normal(0, random.uniform(2, 10), (render_h, render_w))
+    surround = np.full((render_h, render_w), base, dtype=np.float32)
+    surround += rows + pixels
+    return cv2.GaussianBlur(surround, (5, 1), 0)
 
 
 def make_pipeline_sample(text: str, out_h: int = CRNN_H,
@@ -160,15 +227,34 @@ def make_pipeline_sample(text: str, out_h: int = CRNN_H,
     light_card: if True, render dark text on a light background (inverted card)
 
     Pipeline:
-        render text on a variable gray card → noise and illumination gradient
-        → CLAHE → mild sharpen → polarity normalize → fixed-size resize
+        render text on a variable gray card, optionally inset in hull/water
+        context with a sticker below the digits → noise → optional reduction
+        to real crop resolution → CLAHE → mild sharpen → polarity normalize
+        → fixed-size resize
     """
     render_h = 40
     # Bow cards have a fixed physical size. Do not make card width a shortcut
     # for predicting how many characters it contains.
     render_w = 50
 
-    # 1. Render variable-contrast cards, including the gray backgrounds that
+    # 1. Place the card. Detector boxes are padded by 15%, so real crops show
+    # the card edge and some hull or water around it.
+    if random.random() < CARD_CONTEXT_FRACTION:
+        card_w = round(render_w * random.uniform(0.70, 0.88))
+        card_h = round(render_h * random.uniform(0.70, 0.88))
+        card_x = random.randint(0, render_w - card_w)
+        card_y = random.randint(0, render_h - card_h)
+        img = make_card_surround(render_h, render_w)
+        if random.random() < 0.5:
+            # Bright hull below the card.
+            img[min(render_h, card_y + card_h + random.randint(0, 3)):] = (
+                random.uniform(190, 245)
+            )
+    else:
+        card_w, card_h, card_x, card_y = render_w, render_h, 0, 0
+        img = np.zeros((render_h, render_w), dtype=np.float32)
+
+    # 2. Render variable-contrast cards, including the gray backgrounds that
     # previously lost their digit strokes during binary thresholding.
     if light_card:
         background = random.randint(125, 245)
@@ -176,51 +262,60 @@ def make_pipeline_sample(text: str, out_h: int = CRNN_H,
     else:
         background = random.randint(10, 115)
         text_value = min(255, background + random.randint(65, 180))
-    img = np.full((render_h, render_w), background, dtype=np.float32)
+    card = np.full((card_h, card_w), background, dtype=np.float32)
     horizontal = np.linspace(
-        random.uniform(-30, 30), random.uniform(-30, 30), render_w
+        random.uniform(-30, 30), random.uniform(-30, 30), card_w
     )
     vertical = np.linspace(
-        random.uniform(-20, 20), random.uniform(-20, 20), render_h
+        random.uniform(-20, 20), random.uniform(-20, 20), card_h
     )
-    img += horizontal[np.newaxis, :] + vertical[:, np.newaxis]
-    img = np.clip(img, 0, 255).astype(np.uint8)
-    # Render the physical card face in Roboto Condensed Bold. Font size and
-    # placement still vary, while later augmentation varies stroke weight.
-    font_size = random.randint(24, 34)
-    layout = synthetic_text_layout(text, font_size)
-    while font_size > 10:
-        layout = synthetic_text_layout(text, font_size)
-        if int(layout["width"]) <= render_w - 6:
-            break
-        font_size -= 1
-    tw = int(layout["width"])
-    th = int(layout["height"])
-    left = max(
-        2,
-        min(render_w - tw - 2,
-            (render_w - tw) // 2 + random.randint(-4, 4)),
+    card += horizontal[np.newaxis, :] + vertical[:, np.newaxis]
+
+    # 3. Draw the label. A sticker below the digits pushes them upward.
+    sticker = random.random() < STICKER_FRACTION
+    text_area_h = round(card_h * 0.68) if sticker else card_h
+    font_path, x_scale = random_synthetic_font()
+    font_size = round(card_h * random.uniform(0.60, 0.85))
+    layout = fit_text_layout(
+        text, font_size, card_w - 6, text_area_h - 4, font_path, x_scale
     )
+    mask = render_text_mask(text, layout)
+    th, tw = mask.shape
+    left = max(0, min(card_w - tw, (card_w - tw) // 2 + random.randint(-3, 3)))
     top = max(
-        2,
-        min(render_h - th - 2,
-            (render_h - th) // 2 + random.randint(-4, 4)),
+        0,
+        min(text_area_h - th, (text_area_h - th) // 2 + random.randint(-3, 3)),
     )
-    bbox_left, bbox_top, _, _ = layout["bbox"]
-    pil_image = Image.fromarray(img)
-    ImageDraw.Draw(pil_image).text(
-        (left - int(bbox_left), top - int(bbox_top)),
-        text,
-        font=layout["font"],
-        fill=text_value,
-    )
-    img = np.asarray(pil_image)
+    mask = mask[:card_h - top, :card_w - left]
+    region = card[top:top + mask.shape[0], left:left + mask.shape[1]]
+    region[:] = region * (1.0 - mask) + text_value * mask
+    if sticker:
+        sticker_w = round(card_w * random.uniform(0.30, 0.50))
+        sticker_h = max(2, round(card_h * random.uniform(0.07, 0.12)))
+        sticker_x = (card_w - sticker_w) // 2 + random.randint(-2, 2)
+        sticker_gap = max(2, round(card_h * random.uniform(0.09, 0.14)))
+        sticker_y = min(card_h - sticker_h, top + th + sticker_gap)
+        card[sticker_y:sticker_y + sticker_h,
+             sticker_x:sticker_x + sticker_w] = random.uniform(0, 60)
+    img[card_y:card_y + card_h, card_x:card_x + card_w] = card
 
-    # 2. Gaussian noise
-    noise = np.random.normal(0, random.uniform(3, 15), img.shape)
-    img   = np.clip(img.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+    # 4. Gaussian noise
+    img += np.random.normal(0, random.uniform(3, 15), img.shape)
+    img = np.clip(img, 0, 255).astype(np.uint8)
 
-    # 3. Apply the same grayscale-preserving production preprocessing.
+    # 5. Reduce to the size of a real detector crop. Production upscales these
+    # small crops 10x, so thin strokes keep their real blur and aliasing.
+    if random.random() < LOW_RESOLUTION_FRACTION:
+        crop_w = random.randint(24, 48)
+        crop_h = max(16, round(crop_w * render_h / render_w))
+        img = cv2.resize(img, (crop_w, crop_h), interpolation=cv2.INTER_AREA)
+        if random.random() < 0.5:
+            quality = random.randint(45, 90)
+            encoded = cv2.imencode(".jpg", img,
+                                   [cv2.IMWRITE_JPEG_QUALITY, quality])[1]
+            img = cv2.imdecode(encoded, cv2.IMREAD_GRAYSCALE)
+
+    # 6. Apply the same grayscale-preserving production preprocessing.
     return normalize_grayscale_card(img, CRNN_W, out_h)
 
 
@@ -285,15 +380,18 @@ class BowCardDataset(Dataset):
                  real_data_dir: str = "",
                  real_fraction: float = 0.30,
                  real_alpha_fraction: float = 0.10,
+                 real_three_digit_fraction: float = 0.08,
                  alpha_prefix_fraction: float = 0.5,
                  out_h: int = CRNN_H):
         self.n_syn  = n_synthetic
         self.out_h  = out_h
         self.real_fraction = real_fraction
         self.real_alpha_fraction = real_alpha_fraction
+        self.real_three_digit_fraction = real_three_digit_fraction
         self.alpha_prefix_fraction = alpha_prefix_fraction
         self.real_samples: list[tuple[np.ndarray, str]] = []
         self.real_alpha_samples: list[tuple[np.ndarray, str]] = []
+        self.real_three_digit_samples: list[tuple[np.ndarray, str]] = []
 
         if real_data_dir and os.path.isdir(real_data_dir):
             self._load_real(real_data_dir)
@@ -319,24 +417,32 @@ class BowCardDataset(Dataset):
                     self.real_samples.append((img, label))
                     if label[0] in ALPHA_PREFIXES:
                         self.real_alpha_samples.append((img, label))
+                    if is_three_digit_label(label):
+                        self.real_three_digit_samples.append((img, label))
                     loaded += 1
         print(
             f"Loaded {loaded} real crops from {data_dir} "
-            f"({len(self.real_alpha_samples)} alpha-prefixed)"
+            f"({len(self.real_alpha_samples)} alpha-prefixed, "
+            f"{len(self.real_three_digit_samples)} three-digit)"
         )
+
+    def _choose_real_pool(self) -> list[tuple[np.ndarray, str]]:
+        """Oversample rare alpha-prefixed and three-digit real crops."""
+        value = random.random()
+        if self.real_alpha_samples and value < self.real_alpha_fraction:
+            return self.real_alpha_samples
+        value -= self.real_alpha_fraction
+        if (self.real_three_digit_samples
+                and 0 <= value < self.real_three_digit_fraction):
+            return self.real_three_digit_samples
+        return self.real_samples
 
     def __len__(self) -> int:
         return self.n_syn
 
     def __getitem__(self, idx: int):
         if self.real_samples and random.random() < self.real_fraction:
-            samples = (
-                self.real_alpha_samples
-                if self.real_alpha_samples
-                and random.random() < self.real_alpha_fraction
-                else self.real_samples
-            )
-            img, label = random.choice(samples)
+            img, label = random.choice(self._choose_real_pool())
             img = augment_real_crop(img)
         else:
             label = random_bow_label(
@@ -484,6 +590,7 @@ def train(args: argparse.Namespace) -> None:
         real_data_dir = args.real_data or "",
         real_fraction = args.real_fraction,
         real_alpha_fraction = args.real_alpha_fraction,
+        real_three_digit_fraction = args.real_three_digit_fraction,
         alpha_prefix_fraction = args.alpha_prefix_fraction,
     )
     loader = DataLoader(dataset, batch_size=args.batch_size,
@@ -778,6 +885,12 @@ def main() -> None:
         help="Fraction of real samples drawn from alpha-prefixed crops",
     )
     p.add_argument(
+        "--real-three-digit-fraction",
+        type=float,
+        default=0.08,
+        help="Fraction of real samples drawn from three-digit crops",
+    )
+    p.add_argument(
         "--alpha-prefix-fraction",
         type=float,
         default=0.5,
@@ -816,6 +929,11 @@ def main() -> None:
         p.error("--alpha-prefix-fraction must be between 0 and 1")
     if not 0.0 <= args.real_alpha_fraction <= 1.0:
         p.error("--real-alpha-fraction must be between 0 and 1")
+    if not 0.0 <= args.real_three_digit_fraction <= 1.0:
+        p.error("--real-three-digit-fraction must be between 0 and 1")
+    if args.real_alpha_fraction + args.real_three_digit_fraction > 1.0:
+        p.error("--real-alpha-fraction plus --real-three-digit-fraction "
+                "must not exceed 1")
     if not 0.0 <= args.min_alpha_accuracy <= 1.0:
         p.error("--min-alpha-accuracy must be between 0 and 1")
 

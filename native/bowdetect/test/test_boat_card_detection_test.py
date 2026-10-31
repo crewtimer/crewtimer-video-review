@@ -16,6 +16,30 @@ PROGRAM = PROJECT_DIR / "scripts" / "test_boat_card_detection.py"
 NUMBER_PATTERN = re.compile(r"Recognized bow number '([^']+)'")
 
 
+class LimitBowDigitsTests(unittest.TestCase):
+    def test_drops_leading_digits_beyond_three(self):
+        from test_boat_card_detection import limit_bow_digits
+
+        self.assertEqual(
+            limit_bow_digits(list("3357"), [0.1, 0.9, 0.8, 0.7]),
+            (list("357"), [0.9, 0.8, 0.7]),
+        )
+        self.assertEqual(
+            limit_bow_digits(list("E1229"), [0.9, 0.2, 0.8, 0.7, 0.6]),
+            (list("E229"), [0.9, 0.8, 0.7, 0.6]),
+        )
+
+    def test_keeps_labels_of_three_or_fewer_digits(self):
+        from test_boat_card_detection import limit_bow_digits
+
+        for label in ("7", "42", "129", "E128", ""):
+            probabilities = [0.5] * len(label)
+            self.assertEqual(
+                limit_bow_digits(list(label), probabilities),
+                (list(label), probabilities),
+            )
+
+
 class BowDetectionTests(unittest.TestCase):
     def analyze(self, image_name: str, *extra_args: str) -> str:
         with tempfile.TemporaryDirectory() as output_dir:

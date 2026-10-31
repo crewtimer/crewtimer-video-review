@@ -40,6 +40,7 @@ OCR_PATIENCE ?= 15
 OCR_SAMPLES ?= 5000
 OCR_REAL_FRACTION ?= 0.60
 OCR_REAL_ALPHA_FRACTION ?= 0.10
+OCR_REAL_THREE_DIGIT_FRACTION ?= 0.08
 OCR_ALPHA_PREFIX_FRACTION ?= 0.80
 
 LABEL_FILES := $(wildcard $(RAW_DATA_ROOT)/*/card-labels/*.json)
@@ -104,6 +105,7 @@ ocr: ocr-data
 		--samples "$(OCR_SAMPLES)" \
 		--real-fraction "$(OCR_REAL_FRACTION)" \
 		--real-alpha-fraction "$(OCR_REAL_ALPHA_FRACTION)" \
+		--real-three-digit-fraction "$(OCR_REAL_THREE_DIGIT_FRACTION)" \
 		--alpha-prefix-fraction "$(OCR_ALPHA_PREFIX_FRACTION)" \
 		--real-data "$(OCR_DATA_DIR)/train" \
 		--validation-data "$(OCR_DATA_DIR)/validation" \
@@ -113,6 +115,7 @@ ocr: ocr-data
 		--epochs "$(OCR_EPOCHS)" --patience "$(OCR_PATIENCE)" \
 		--samples "$(OCR_SAMPLES)" \
 		--real-fraction "$(OCR_REAL_FRACTION)" \
+		--real-three-digit-fraction "$(OCR_REAL_THREE_DIGIT_FRACTION)" \
 		--real-data "$(OCR_DATA_DIR)/train" \
 		--validation-data "$(OCR_DATA_DIR)/validation" \
 		--output bow_crnn_numeric.onnx

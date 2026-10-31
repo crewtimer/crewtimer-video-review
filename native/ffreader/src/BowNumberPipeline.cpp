@@ -11,6 +11,10 @@ constexpr float FALLBACK_CARD_CONFIDENCE_THRESHOLD = 0.02f;
 constexpr double BOAT_PAD_FRACTION = 0.15;
 constexpr double CARD_PAD_FRACTION = 0.15;
 constexpr float FALLBACK_OCR_CONFIDENCE_THRESHOLD = 0.8f;
+// Real bow cards reach about 0.6 of their boat's height when the camera is
+// close (HOCR26); a taller "card" is background, such as a post inside a fence
+// detected as a boat.
+constexpr double MAX_CARD_TO_BOAT_HEIGHT = 0.75;
 constexpr int MIN_PAD_PX = 4;
 
 double distanceToBox(const cv::Point &point, const cv::Rect &box)
@@ -119,15 +123,26 @@ std::vector<BowNumberDetection> BowNumberPipeline::detectAll(
 
     // Stage 2: card detector within the boat crop; take the most confident
     // card (a boat crop should contain at most one bow card).
-    auto cards =
-        cardDetector_->detect(boatCrop, CARD_CONFIDENCE_THRESHOLD);
+    const auto detectCards = [&](float threshold)
+    {
+      auto found = cardDetector_->detect(boatCrop, threshold);
+      found.erase(std::remove_if(found.begin(), found.end(),
+                                 [&boat](const DetectedBox &card)
+                                 {
+                                   return card.box.height >
+                                          MAX_CARD_TO_BOAT_HEIGHT *
+                                              boat.box.height;
+                                 }),
+                  found.end());
+      return found;
+    };
+    auto cards = detectCards(CARD_CONFIDENCE_THRESHOLD);
     const bool usingFallbackCard = cards.empty();
     if (cards.empty())
     {
       // Retry at a low card confidence and let the OCR confidence gate decide
       // whether the strongest candidate is credible.
-      cards = cardDetector_->detect(boatCrop,
-                                    FALLBACK_CARD_CONFIDENCE_THRESHOLD);
+      cards = detectCards(FALLBACK_CARD_CONFIDENCE_THRESHOLD);
     }
     if (cards.empty())
     {

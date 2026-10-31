@@ -57,14 +57,23 @@ def create_archive(
     labels_script = training_script.with_name("bow_ocr_labels.py")
     if not labels_script.is_file():
         raise ValueError(f"Missing OCR label definitions: {labels_script}")
-    fonts_dir = training_script.with_name("fonts")
-    font_file = fonts_dir / "RobotoCondensed-Bold.ttf"
-    font_license = fonts_dir / "LICENSE.txt"
-    font_readme = fonts_dir / "README.md"
-    if (not font_file.is_file() or not font_license.is_file()
-            or not font_readme.is_file()):
+    # train_bow_crnn.py loads fonts from ../fonts relative to its own folder.
+    fonts_dir = training_script.resolve().parent.parent / "fonts"
+    font_files = [
+        fonts_dir / name
+        for name in (
+            "RobotoCondensed-Bold.ttf",
+            "LiberationSans-Regular.ttf",
+            "LICENSE.txt",
+            "LICENSE-LiberationSans.txt",
+            "README.md",
+        )
+    ]
+    missing_fonts = [path.name for path in font_files if not path.is_file()]
+    if missing_fonts:
         raise ValueError(
-            f"Missing Roboto Condensed Bold font or license in {fonts_dir}"
+            f"Missing training fonts or licenses in {fonts_dir}: "
+            + ", ".join(missing_fonts)
         )
 
     counts = {"card_detector": card_counts, "ocr": ocr_counts}
@@ -112,15 +121,8 @@ def create_archive(
                 root / "tools" / preprocessing_script.name,
             )
             archive.write(labels_script, root / "tools" / labels_script.name)
-            archive.write(font_file, root / "tools" / "fonts" / font_file.name)
-            archive.write(
-                font_license,
-                root / "tools" / "fonts" / font_license.name,
-            )
-            archive.write(
-                font_readme,
-                root / "tools" / "fonts" / font_readme.name,
-            )
+            for font_file in font_files:
+                archive.write(font_file, root / "fonts" / font_file.name)
     return counts
 
 
