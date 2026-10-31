@@ -127,7 +127,28 @@ struct RifeInterpolator::Impl
         std::filesystem::u8path(modelPath);
     std::cerr << "RifeInterpolator: creating " << epName
               << " session for " << modelPath << std::endl;
-    session = Ort::Session(env, nativeModelPath.c_str(), options);
+    if (epRequested)
+    {
+      // A registered provider can still fail while compiling the graph, e.g.
+      // DirectML on a virtual GPU such as Parallels on Apple silicon.
+      try
+      {
+        session = Ort::Session(env, nativeModelPath.c_str(), options);
+      }
+      catch (const Ort::Exception &e)
+      {
+        std::cerr << "RifeInterpolator: " << epName << " session failed ("
+                  << e.what() << "), using CPU" << std::endl;
+        epRequested = false;
+      }
+    }
+    if (!epRequested)
+    {
+      Ort::SessionOptions cpuOptions;
+      cpuOptions.SetGraphOptimizationLevel(
+          GraphOptimizationLevel::ORT_ENABLE_ALL);
+      session = Ort::Session(env, nativeModelPath.c_str(), cpuOptions);
+    }
 
     Ort::AllocatorWithDefaultOptions allocator;
     auto inName = session.GetInputNameAllocated(0, allocator);

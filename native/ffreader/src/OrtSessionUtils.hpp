@@ -6,7 +6,8 @@
 
 /**
  * Creates an ONNX Runtime session for modelPath, preferring the CoreML
- * (macOS) / DirectML (Windows) execution provider with a CPU fallback.
+ * (macOS) / DirectML (Windows) execution provider. Falls back to CPU when the
+ * provider cannot be registered or the session fails to initialize with it.
  * Mirrors the execution-provider selection in RifeInterpolator.cpp so every
  * ONNX model in this addon (RIFE interpolation, boat/card YOLO detection,
  * bow-number CTC reading) picks EPs the same way.

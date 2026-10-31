@@ -18,11 +18,20 @@ extern "C"
 }
 #endif
 
-Ort::Session createOrtSession(Ort::Env &env, const std::string &modelPath,
-                              const char *logTag)
+namespace
+{
+Ort::SessionOptions makeSessionOptions()
 {
   Ort::SessionOptions options;
   options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+  return options;
+}
+} // namespace
+
+Ort::Session createOrtSession(Ort::Env &env, const std::string &modelPath,
+                              const char *logTag)
+{
+  Ort::SessionOptions options = makeSessionOptions();
 
   bool epRequested = false;
   const char *epName =
@@ -49,6 +58,10 @@ Ort::Session createOrtSession(Ort::Env &env, const std::string &modelPath,
 #elif defined(_WIN32)
   try
   {
+    // DirectML does not support memory-pattern optimization or parallel
+    // session execution. Both must be configured before registering the EP.
+    options.DisableMemPattern();
+    options.SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
     Ort::ThrowOnError(
         OrtSessionOptionsAppendExecutionProvider_DML(options, 0));
     epRequested = true;
@@ -64,9 +77,26 @@ Ort::Session createOrtSession(Ort::Env &env, const std::string &modelPath,
   // the UTF-8 path to the platform-native filesystem representation.
   const std::filesystem::path nativeModelPath =
       std::filesystem::u8path(modelPath);
-  Ort::Session session(env, nativeModelPath.c_str(), options);
-  std::cerr << logTag << ": session ready for " << modelPath << " ("
-            << epName << " " << (epRequested ? "requested" : "unavailable")
-            << ")" << std::endl;
+  if (epRequested)
+  {
+    // A registered provider can still fail while compiling the graph, e.g.
+    // DirectML on a virtual GPU such as Parallels on Apple silicon.
+    try
+    {
+      Ort::Session session(env, nativeModelPath.c_str(), options);
+      std::cerr << logTag << ": session ready for " << modelPath << " ("
+                << epName << " requested)" << std::endl;
+      return session;
+    }
+    catch (const Ort::Exception &e)
+    {
+      std::cerr << logTag << ": " << epName << " session failed ("
+                << e.what() << "), using CPU" << std::endl;
+    }
+  }
+  Ort::SessionOptions cpuOptions = makeSessionOptions();
+  Ort::Session session(env, nativeModelPath.c_str(), cpuOptions);
+  std::cerr << logTag << ": session ready for " << modelPath << " (CPU)"
+            << std::endl;
   return session;
 }
