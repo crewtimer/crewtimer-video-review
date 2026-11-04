@@ -9,6 +9,8 @@ HOLDOUT_DATASET ?= $(HOME)/training/datasets/dataset-holdout
 HOLDOUT_OUTPUT ?= $(BUILD_DIR)/holdout-validation
 HOLDOUT_IOU ?= 0.5
 HOLDOUT_LAST_DIGIT_ONLY ?= 0
+AUDIT_OUTPUT ?= $(BUILD_DIR)/label-audit
+AUDIT_ARGS ?=
 HOLDOUT_LAST_DIGIT_ARG := $(if $(filter 1 true yes,$(HOLDOUT_LAST_DIGIT_ONLY)),--last-digit-only,)
 
 # Reuse the review app's native libraries and pipeline. Override these flags
@@ -47,7 +49,7 @@ LABEL_FILES := $(wildcard $(RAW_DATA_ROOT)/*/card-labels/*.json)
 LABEL_DIRS := $(sort $(dir $(LABEL_FILES)))
 DATASETS := $(filter-out $(RAW_DATA_ROOT)/holdout $(RAW_DATA_ROOT)/dataset-holdout $(HOLDOUT_DATASET),$(patsubst %/card-labels/,%,$(LABEL_DIRS)))
 
-.PHONY: help all data card-data ocr-data card ocr colab-all-zip upload-all-zip verify test clean validate-holdout
+.PHONY: help all data card-data ocr-data card ocr colab-all-zip upload-all-zip verify test clean validate-holdout audit-labels
 
 help:
 	@echo "Bow detection model training"
@@ -61,6 +63,7 @@ help:
 	@echo "  make upload-all-zip Copy Colab zip to Google Drive"
 	@echo "  make verify    Validate ONNX files and run end-to-end tests"
 	@echo "  make validate-holdout Validate holdout images with the review app pipeline; write Markdown/JSON reports"
+	@echo "  make audit-labels Flag likely mislabelled training images; write an HTML review report"
 	@echo "  make clean     Remove generated datasets and training runs"
 	@echo
 	@echo "Common overrides:"
@@ -157,6 +160,11 @@ validate-holdout: $(BUILD_DIR)/holdout-pipeline
 	$(PYTHON) $(SCRIPTS_DIR)/validate_holdout.py --dataset "$(HOLDOUT_DATASET)" \
 		--output-dir "$(HOLDOUT_OUTPUT)" --iou "$(HOLDOUT_IOU)" \
 		--runner "$(BUILD_DIR)/holdout-pipeline" $(HOLDOUT_LAST_DIGIT_ARG)
+
+# Flags suspect labels in every training dataset; AUDIT_ARGS=--rules-only skips the models.
+audit-labels: $(BUILD_DIR)/holdout-pipeline
+	$(PYTHON) $(SCRIPTS_DIR)/audit_labels.py $(DATASETS) --holdout "$(HOLDOUT_DATASET)" \
+		--output-dir "$(AUDIT_OUTPUT)" --runner "$(BUILD_DIR)/holdout-pipeline" $(AUDIT_ARGS)
 
 $(BUILD_DIR)/holdout-pipeline: $(HOLDOUT_SOURCES) $(HOLDOUT_HEADERS) Makefile
 	mkdir -p "$(BUILD_DIR)"

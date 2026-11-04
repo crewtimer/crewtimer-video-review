@@ -568,6 +568,40 @@ Both `holdout` and `dataset-holdout` (and `HOLDOUT_DATASET`) are excluded from t
 Makefile's training dataset list. This does not establish whether existing model
 weights were previously trained on these images.
 
+## Audit training labels
+
+Run from `native/bowdetect` before adding a new export to the training datasets,
+and after any large labelling pass:
+
+```sh
+make audit-labels
+# Label checks only, without running the models:
+make audit-labels AUDIT_ARGS=--rules-only
+# One dataset:
+python3 scripts/audit_labels.py ~/training/datasets/dataset-new --output-dir build/audit-new
+```
+
+`scripts/audit_labels.py` lists suspect labels in every Makefile training
+dataset; it changes nothing. Rule checks need no model and flag images that are
+also in the holdout or another dataset, cards taller than 0.75 of their boat or
+outside every labelled boat, legible cards shorter than 12 px, invalid bow
+labels, and labelled boats with no card label. The model checks run the review
+app pipeline (the same adapter as `validate-holdout`) with the numeric OCR model
+and flag labelled boats and cards it does not find, boats and cards it finds
+that have no label, and cards it reads as a different number with at least 0.9
+confidence. A reading that ends with the label, such as `165` for `65`, is not
+flagged, because the app trims extra leading digits.
+
+A label the wrong boat received usually appears as a labelled card the model
+does not find next to an unlabelled card it does find. The current models were
+trained on these labels, so they partly learn bad ones and miss some; the
+report holds suspects to review, not confirmed errors.
+
+Outputs are `build/label-audit/index.html`, grouped by reason with severity 1
+(most likely wrong) first, and `findings.csv`, one row per suspect with its
+dataset, image and card index. Tiles show labels in green, detections in red and
+the suspect in yellow; each links to its full frame.
+
 ## Annotate a single image
 
 From the repository root, detect boats, bow cards, and bow numbers, save a new
