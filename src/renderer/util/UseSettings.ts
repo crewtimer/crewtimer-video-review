@@ -130,16 +130,20 @@ export const [useBowOcrModel, setBowOcrModel, getBowOcrModel] =
 export const [useBowCardLength, setBowCardLength, getBowCardLength] =
   UseStoredDatum<BowCardLength>(N_BOW_CARD_LENGTH, 'auto');
 
-const getCurrentEvent = () => {
-  const eventNum = getVideoEvent();
+const getCurrentEvent = (eventNum = getVideoEvent()) => {
   return getMobileConfig()?.eventList?.find(
     (candidate) => candidate.EventNum === eventNum,
   );
 };
 
-export const getBowDetectionOptions = () => ({
+/**
+ * Bow detection options for an event, defaulting to the event being viewed.
+ * Auto card length depends on the event, so pass eventNum when detecting a
+ * boat from another event.
+ */
+export const getBowDetectionOptions = (eventNum?: string) => ({
   numericOnly: getBowOcrModel() === 'numeric',
-  cardLength: cardLengthForEvent(getBowCardLength(), getCurrentEvent()),
+  cardLength: cardLengthForEvent(getBowCardLength(), getCurrentEvent(eventNum)),
 });
 
 export const normalizeBowForCurrentEvent = (bow: string) => {

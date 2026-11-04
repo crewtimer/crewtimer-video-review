@@ -352,6 +352,7 @@ export const ImageArchive = () => {
       videoFile,
       frameNum,
       expectedBow,
+      eventNum,
       width,
       height,
     }: {
@@ -361,6 +362,7 @@ export const ImageArchive = () => {
       videoFile: string;
       frameNum: number;
       expectedBow: string;
+      eventNum: string;
       width: number;
       height: number;
     }) => {
@@ -369,7 +371,7 @@ export const ImageArchive = () => {
         videoFile,
         frameNum,
         prune,
-        ...getBowDetectionOptions(),
+        ...getBowDetectionOptions(eventNum),
       });
       const detectedBoats = detectionResult.detections.filter(
         ({ boatBox }) => boatBox.width > 0 && boatBox.height > 0,
@@ -609,6 +611,7 @@ export const ImageArchive = () => {
             videoFile: image.filename,
             frameNum: savedFrame.frameNum,
             expectedBow: timeObj.Bow,
+            eventNum: timeObj.EventNum,
             width: savedFrame.width,
             height: savedFrame.height,
           }).catch((reason) => {
