@@ -66,7 +66,7 @@ export const clearAutoZoomInterpolation = () => {
 
 const bowDetectionOptionsKey = () => {
   const options = getBowDetectionOptions();
-  return `${options.numericOnly ? 'numeric' : 'alphanumeric'}:${options.cardLength}`;
+  return `${options.numericOnly ? 'numeric' : 'alphanumeric'}:${options.cardLength}:${options.scheduledBows.join(',')}`;
 };
 
 export const hasAutoZoomInterpolation = (videoFile: string) =>

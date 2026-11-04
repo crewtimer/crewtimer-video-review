@@ -20,6 +20,32 @@ export const cardLengthForEvent = (
   return maxLength === 1 || maxLength === 2 ? maxLength : 'auto';
 };
 
+/** Numeric endings of an event's scheduled bows, such as 12 for A12. */
+export const scheduledBowEndings = (event: BowEvent | undefined) =>
+  (event?.eventItems || [])
+    .map((entry) => /\d+$/.exec(entry.Bow?.trim() || '')?.[0])
+    .filter((ending): ending is string => ending !== undefined);
+
+/**
+ * Keep at most cardLength trailing digits of a numeric reading, dropping a
+ * spurious leading digit such as 165 for 65. With a schedule, trim only when
+ * the full reading is not a scheduled bow and the trimmed one is, so a boat
+ * from another event, such as 18 in an event of bows 1-3, keeps its number.
+ */
+export const trimToCardLength = (
+  text: string,
+  cardLength: BowCardLength | undefined,
+  scheduledBows?: string[],
+) => {
+  if (cardLength === undefined || cardLength === 'auto') return text;
+  if (text.length <= cardLength) return text;
+  const trimmed = text.slice(-cardLength);
+  if (!scheduledBows?.length) return trimmed;
+  return !scheduledBows.includes(text) && scheduledBows.includes(trimmed)
+    ? trimmed
+    : text;
+};
+
 /** Add an event's unambiguous single-letter prefix to a digits-only bow. */
 export const normalizeBowForEvent = (
   bow: string,

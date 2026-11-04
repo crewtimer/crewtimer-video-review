@@ -37,6 +37,8 @@ export interface BowDetectionRequest {
   numericOnly?: boolean;
   /** For numeric OCR, retain at most this many trailing digits. */
   cardLength?: 'auto' | 1 | 2 | 3;
+  /** Numeric endings of the event's scheduled bows; see trimToCardLength. */
+  scheduledBows?: string[];
 }
 
 export interface BowDetection {

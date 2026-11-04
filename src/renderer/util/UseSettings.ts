@@ -8,6 +8,7 @@ import {
 } from 'renderer/video/VideoSettings';
 import {
   cardLengthForEvent,
+  scheduledBowEndings,
   findHeadEventForBow,
   normalizeBowForEvent,
 } from 'renderer/video/BowNumber';
@@ -146,10 +147,14 @@ const getCurrentEvent = (eventNum = getVideoEvent()) => {
  * Auto card length depends on the event, so pass eventNum when detecting a
  * boat from another event.
  */
-export const getBowDetectionOptions = (eventNum?: string) => ({
-  numericOnly: getBowOcrModel() === 'numeric',
-  cardLength: cardLengthForEvent(getBowCardLength(), getCurrentEvent(eventNum)),
-});
+export const getBowDetectionOptions = (eventNum?: string) => {
+  const event = getCurrentEvent(eventNum);
+  return {
+    numericOnly: getBowOcrModel() === 'numeric',
+    cardLength: cardLengthForEvent(getBowCardLength(), event),
+    scheduledBows: scheduledBowEndings(event),
+  };
+};
 
 export const normalizeBowForCurrentEvent = (bow: string) => {
   return normalizeBowForEvent(bow, getCurrentEvent());

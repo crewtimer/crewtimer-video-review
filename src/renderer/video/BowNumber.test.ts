@@ -2,6 +2,8 @@ import {
   cardLengthForEvent,
   findHeadEventForBow,
   normalizeBowForEvent,
+  scheduledBowEndings,
+  trimToCardLength,
 } from './BowNumber';
 
 describe('cardLengthForEvent', () => {
@@ -85,5 +87,36 @@ describe('findHeadEventForBow', () => {
     const events = [head('1', ['1', '2']), head('2', ['2', '3'])];
     expect(findHeadEventForBow('2', events)).toBeUndefined();
     expect(findHeadEventForBow('9', events)).toBeUndefined();
+  });
+});
+
+describe('trimToCardLength', () => {
+  test('keeps a two-digit reading that trims to an unscheduled bow', () => {
+    expect(trimToCardLength('18', 1, ['1', '2', '3'])).toBe('18');
+  });
+
+  test('trims a spurious leading digit to a scheduled bow', () => {
+    expect(trimToCardLength('165', 2, ['12', '65'])).toBe('65');
+  });
+
+  test('keeps a full reading that is itself scheduled', () => {
+    expect(trimToCardLength('18', 1, ['8', '18'])).toBe('18');
+  });
+
+  test('trims without a schedule', () => {
+    expect(trimToCardLength('18', 1, [])).toBe('8');
+    expect(trimToCardLength('18', 1)).toBe('8');
+  });
+
+  test('leaves auto and short readings alone', () => {
+    expect(trimToCardLength('165', 'auto', ['65'])).toBe('165');
+    expect(trimToCardLength('8', 2, ['8'])).toBe('8');
+  });
+});
+
+describe('scheduledBowEndings', () => {
+  test('returns numeric endings of scheduled bows', () => {
+    const event = { eventItems: [{ Bow: 'A12' }, { Bow: '7' }, { Bow: 'X' }] };
+    expect(scheduledBowEndings(event)).toEqual(['12', '7']);
   });
 });

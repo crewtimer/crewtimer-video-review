@@ -10,6 +10,7 @@ import {
   BowDetectionRequest,
   VideoFrameRequest,
 } from 'renderer/shared/AppTypes';
+import { trimToCardLength } from 'renderer/video/BowNumber';
 
 export function stopVideoServices(_name: string) {}
 
@@ -110,11 +111,14 @@ ipcMain.handle(
           ),
         },
       } as unknown as DetectBowMessage);
-      const { cardLength } = request;
-      if (numericOnly && cardLength !== undefined && cardLength !== 'auto') {
+      if (numericOnly) {
         result.detections = result.detections.map((detection) => ({
           ...detection,
-          text: detection.text.slice(-cardLength),
+          text: trimToCardLength(
+            detection.text,
+            request.cardLength,
+            request.scheduledBows,
+          ),
         }));
       }
       return result;

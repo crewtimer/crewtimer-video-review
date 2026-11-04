@@ -21,7 +21,11 @@ import {
 
 jest.mock('../util/ImageScaling', () => ({ updateVideoScaling: jest.fn() }));
 jest.mock('../util/UseSettings', () => ({
-  getBowDetectionOptions: () => ({ numericOnly: true, cardLength: 'auto' }),
+  getBowDetectionOptions: () => ({
+    numericOnly: true,
+    cardLength: 'auto',
+    scheduledBows: [],
+  }),
 }));
 let mockVideoFile = '';
 jest.mock('./VideoSettings', () => ({
