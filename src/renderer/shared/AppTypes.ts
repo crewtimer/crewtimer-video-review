@@ -69,6 +69,7 @@ export type VideoFrameRequest = {
   blend?: boolean; // Whether to blend the frame with the previous frame (optional).
   saveAs?: string; // Optional filename in which to save a PNG image of the frame.
   closeTo?: boolean; // Optional: true to only get 'close' to the requested frame.
+  nearestFrame?: boolean; // Optional: true to return the native frame nearest the time instead of interpolating.
   interpMethod?: 'blend' | 'rife'; // Fractional-frame interpolation technique (optional, defaults to 'blend').
   crop?: Rect; // Region to interpolate when interpMethod is 'rife' (optional, falls back to zoom).
   prune?: { side: 'top' | 'bottom'; percentage: number }; // Crop before returning/saving.

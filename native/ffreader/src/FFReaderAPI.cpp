@@ -811,6 +811,10 @@ Napi::Value nativeVideoExecutor(const Napi::CallbackInfo &info)
         request.Has("blend") && request.Get("blend").As<Napi::Boolean>().Value();
     auto closeTo =
         request.Has("closeTo") && request.Get("closeTo").As<Napi::Boolean>().Value();
+    // Return the native frame nearest the requested time instead of
+    // interpolating between frames.
+    auto nearestFrame =
+        request.Has("nearestFrame") && request.Get("nearestFrame").As<Napi::Boolean>().Value();
 
     std::string interpMethod = "blend";
     if (request.Has("interpMethod"))
@@ -856,6 +860,11 @@ Napi::Value nativeVideoExecutor(const Napi::CallbackInfo &info)
         key += "-rife-" + std::to_string(rifeCrop.x) + "-" +
                std::to_string(rifeCrop.y) + "-" + std::to_string(rifeCrop.width) +
                "-" + std::to_string(rifeCrop.height);
+      }
+      if (nearestFrame)
+      {
+        // Keep apart from an interpolated frame cached for the same frameNum.
+        key += "-nearest";
       }
       auto frameInfo = frameInfoList.getFrame(key);
       if (!frameInfo)
@@ -938,6 +947,15 @@ Napi::Value nativeVideoExecutor(const Napi::CallbackInfo &info)
               }
             }
           }
+        }
+
+        if (nearestFrame && fractionalFrame)
+        {
+          if (fractionalPart >= 0.5)
+          {
+            intPart += 1;
+          }
+          fractionalFrame = false;
         }
 
         if (fractionalFrame)

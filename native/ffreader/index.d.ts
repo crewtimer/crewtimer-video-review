@@ -18,6 +18,8 @@ declare module 'crewtimer_video_reader' {
     file: string;
     zoom?: { x: number; y: number; width: number; height: number };
     blend?: boolean;
+    /** Return the native frame nearest the requested time instead of interpolating. */
+    nearestFrame?: boolean;
     saveAs?: string; // optional filename in which to save a png image of the frame
     /** Interpolation technique for fractional frameNum requests. Defaults to 'blend'. */
     interpMethod?: 'blend' | 'rife';

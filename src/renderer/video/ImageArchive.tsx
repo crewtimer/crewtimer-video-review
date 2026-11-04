@@ -590,6 +590,8 @@ export const ImageArchive = () => {
           frameNum: 1,
           toTimestamp,
           blend: false,
+          // Training images need real frames; interpolation can smear the boat.
+          nearestFrame: augmentYoloLabels,
           saveAs,
           prune,
         }).catch((reason) =>
