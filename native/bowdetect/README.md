@@ -333,8 +333,10 @@ and downloads `bow-model-training-results.zip` with the ONNX files, PyTorch
 checkpoints, metrics, and card-detector training log. It also copies those
 artifacts to a Pacific-time-stamped Drive folder such as
 `MyDrive/yolo_training/bowtrain-2026-0814_1701`. Its `ocr-failures/index.html`
-report shows every failed held-out crop enlarged with the expected number,
-prediction, confidence, source filename, and original crop.
+(alphanumeric model) and `ocr-failures-numeric/index.html` (numeric model)
+reports show every failed held-out crop enlarged with the expected number,
+prediction, confidence, source filename, and original crop. Captions use a
+monospaced font so look-alike characters such as `I` and `1` stay distinct.
 
 Card-detector dataset generation also includes labeled boat crops that have no
 associated card annotation as hard negatives. These retain real hull, glare,
