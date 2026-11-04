@@ -20,7 +20,6 @@ import {
   timeToMilli,
 } from 'renderer/util/Util';
 import { UseDatum } from 'react-usedatum';
-import { convertTimestampToString } from '../shared/Util';
 import { setDialogConfig } from '../util/ConfirmDialog';
 import { ProgressBarComponent } from '../util/ProgressBarComponent';
 import {
@@ -36,7 +35,7 @@ import { getFinishLine, moveToFileIndex } from './VideoUtils';
 import { UseStoredDatum } from '../store/UseElectronDatum';
 import { TimeObject } from './VideoTypes';
 import { useFileStatusList } from './VideoFileStatus';
-import { getTravelRightToLeft } from './VideoSettings';
+import { fileSegmentBounds, findTimeSegment } from './TimeSegmentUtils';
 import { parseTimeToSeconds } from '../util/StringUtils';
 import type { BowDetection, Rect } from '../shared/AppTypes';
 
@@ -53,6 +52,7 @@ const [useArchiveDetectionFilter, setArchiveDetectionFilter] =
 type PruneSide = 'none' | 'top' | 'bottom';
 const [useArchivePruneSide, setArchivePruneSide] = UseDatum<PruneSide>('none');
 const [useArchivePrunePercentage, setArchivePrunePercentage] = UseDatum(0);
+const [useArchiveAlignBox, setArchiveAlignBox] = UseDatum(true);
 const [, setArchiveCancel, getArchiveCancel] = UseDatum(false);
 
 type ArchiveCardLabel = {
@@ -83,18 +83,128 @@ type ArchiveDetectionResult = {
   boatIdentified: boolean;
   bowMatched: boolean;
   bowMismatch: boolean;
+  aligned?: boolean;
 };
 
 type ArchiveSummary = {
+  /** Scored times handled so far, kept or not. */
+  processed: number;
+  /** Scored times owned by a video file, so due to be exported. */
+  total: number;
   exported: number;
   detected: number;
   bowMismatch: number;
   boatsIdentified: number;
   bowsMatched: number;
+  aligned: number;
+};
+
+/** A bow edge this close to the finish line snaps to it. */
+const ALIGN_SNAP_PIXELS = 2;
+
+type Prune = { side: 'top' | 'bottom'; percentage: number };
+
+/** Frame height before prune removed rows, using native prunePixels rounding.
+ * Rounding can make a few heights prune to the same size, so this can be a
+ * few rows short, which moves the line by a negligible amount. */
+const unprunedHeight = (height: number, prune: Prune | undefined) => {
+  if (!prune) {
+    return height;
+  }
+  for (let full = height; full <= height * 20 + 8; full += 1) {
+    const pixels = Math.max(
+      0,
+      Math.min(Math.round((full * prune.percentage) / 100 / 4) * 4, full - 4),
+    );
+    if (full - pixels === height) {
+      return full;
+    }
+  }
+  return height;
+};
+
+/** X of the finish line at row y of a saved frame. The line runs from pt1 at
+ * the top of the full frame to pt2 at the bottom, so it can lean. */
+const finishLineXAt = (
+  y: number,
+  width: number,
+  height: number,
+  prune: Prune | undefined,
+) => {
+  const finish = getFinishLine();
+  const fullHeight = unprunedHeight(height, prune);
+  const fullY = y + (prune?.side === 'top' ? fullHeight - height : 0);
+  return (
+    width / 2 +
+    finish.pt1 +
+    ((finish.pt2 - finish.pt1) * fullY) / Math.max(1, fullHeight - 1)
+  );
+};
+
+/** Snap the bow edge to the finish line pixel when the detector put it within
+ * ALIGN_SNAP_PIXELS of the line: the scored time puts the bow on the line, and
+ * the line is likely more accurate than the detected edge. The edge nearer
+ * the line is the bow, whichever way the boat travels. */
+const alignBoxWithScore = (
+  boatBox: Rect,
+  width: number,
+  height: number,
+  prune: Prune | undefined,
+): Rect | undefined => {
+  const lineX = Math.round(
+    finishLineXAt(boatBox.y + boatBox.height / 2, width, height, prune),
+  );
+  const right = boatBox.x + boatBox.width;
+  const leftDistance = Math.abs(boatBox.x - lineX);
+  const rightDistance = Math.abs(right - lineX);
+  if (Math.min(leftDistance, rightDistance) > ALIGN_SNAP_PIXELS) {
+    return undefined;
+  }
+  const aligned =
+    leftDistance < rightDistance
+      ? { ...boatBox, x: lineX, width: right - lineX }
+      : { ...boatBox, width: lineX - boatBox.x };
+  return aligned.width > 0 ? aligned : undefined;
 };
 
 const formatDetectionCount = (count: number, total: number) =>
   `${count}/${total} (${total ? ((count / total) * 100).toFixed(2) : '0.00'}%)`;
+
+const [useArchiveStats, setArchiveStats] = UseDatum<ArchiveSummary | undefined>(
+  undefined,
+);
+
+const ArchiveSummaryView: React.FC<{
+  summary: ArchiveSummary;
+  yoloLabels: boolean;
+  showAligned: boolean;
+}> = ({ summary, yoloLabels, showAligned }) => (
+  <Stack spacing={1}>
+    <Typography>Total exported: {summary.exported}</Typography>
+    {yoloLabels && (
+      <>
+        <Typography>
+          Bow mismatches:{' '}
+          {formatDetectionCount(summary.bowMismatch, summary.detected)}
+        </Typography>
+        <Typography>
+          Boats identified:{' '}
+          {formatDetectionCount(summary.boatsIdentified, summary.detected)}
+        </Typography>
+        <Typography>
+          Bows detected and matched:{' '}
+          {formatDetectionCount(summary.bowsMatched, summary.detected)}
+        </Typography>
+        {showAligned && (
+          <Typography>
+            Boxes snapped to score:{' '}
+            {formatDetectionCount(summary.aligned, summary.detected)}
+          </Typography>
+        )}
+      </>
+    )}
+  </Stack>
+);
 
 interface FolderInputProps {}
 const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
@@ -106,6 +216,7 @@ const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
   const [detectionFilter, setDetectionFilter] = useArchiveDetectionFilter();
   const [pruneSide, setPruneSide] = useArchivePruneSide();
   const [prunePercentage, setPrunePercentage] = useArchivePrunePercentage();
+  const [alignBox, setAlignBox] = useArchiveAlignBox();
   const [scoredWaypoint] = useWaypoint();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
   const races = useMemo(
@@ -205,6 +316,19 @@ const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
       />
 
       {augmentYoloLabels && (
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={alignBox}
+              disabled={timeOffset !== 0}
+              onChange={(event) => setAlignBox(event.target.checked)}
+            />
+          }
+          label="Align box with score"
+        />
+      )}
+
+      {augmentYoloLabels && (
         <FormControl fullWidth>
           <InputLabel id="archive-detection-filter-label">Export</InputLabel>
           <Select
@@ -285,6 +409,8 @@ export const ImageArchive = () => {
   const [detectionFilter] = useArchiveDetectionFilter();
   const [pruneSide] = useArchivePruneSide();
   const [prunePercentage] = useArchivePrunePercentage();
+  const [alignBox] = useArchiveAlignBox();
+  const [stats] = useArchiveStats();
   const prune = useMemo(
     () =>
       augmentYoloLabels &&
@@ -395,23 +521,18 @@ export const ImageArchive = () => {
         } satisfies ArchiveDetectionResult;
       }
       const cards: ArchiveCardLabel[] = [];
-      const finish = getFinishLine();
-      const finishX = width / 2 + (finish.pt1 + finish.pt2) / 2;
-      const exportedBoats = detectedBoats.map((detection, boatIndex) => {
-        // With a time offset the boat is not at the finish, so keep its
-        // detected edge.
-        if (boatIndex !== selectedBoatIndex || timeOffset !== 0) {
-          return detection;
-        }
-        const right = detection.boatBox.x + detection.boatBox.width;
-        const boatBox = getTravelRightToLeft()
-          ? { ...detection.boatBox, x: finishX, width: right - finishX }
-          : {
-              ...detection.boatBox,
-              width: finishX - detection.boatBox.x,
-            };
-        return boatBox.width > 0 ? { ...detection, boatBox } : detection;
-      });
+      // With a time offset the boat is not at the finish, so nothing aligns.
+      const alignedBox =
+        alignBox && timeOffset === 0 && selected
+          ? alignBoxWithScore(selected.boatBox, width, height, prune)
+          : undefined;
+      const exportedBoats = alignedBox
+        ? detectedBoats.map((detection, boatIndex) =>
+            boatIndex === selectedBoatIndex
+              ? { ...detection, boatBox: alignedBox }
+              : detection,
+          )
+        : detectedBoats;
       const yoloLabel = exportedBoats
         .map(({ boatBox }) => {
           const normalizedBoat = [
@@ -487,6 +608,7 @@ export const ImageArchive = () => {
         boatIdentified,
         bowMatched,
         bowMismatch,
+        aligned: Boolean(alignedBox),
       } satisfies ArchiveDetectionResult;
     },
     [
@@ -495,6 +617,7 @@ export const ImageArchive = () => {
       detectionFilter,
       prune,
       selectFinishLineBoat,
+      alignBox,
       timeOffset,
     ],
   );
@@ -502,12 +625,16 @@ export const ImageArchive = () => {
   const saveImageArchive = useCallback(async () => {
     setArchiveCancel(false);
     const summary: ArchiveSummary = {
+      processed: 0,
+      total: 0,
       exported: 0,
       detected: 0,
       bowMismatch: 0,
       boatsIdentified: 0,
       bowsMatched: 0,
+      aligned: 0,
     };
+    setArchiveStats(undefined);
     let exportFolder = folderPath;
     let zipPath = '';
     let archiveName = '';
@@ -538,28 +665,27 @@ export const ImageArchive = () => {
         }
       }
     }
+    // Export each time once, from the file that owns it, as seeking does.
+    // Overlapping files would otherwise each export the same time.
+    const fileBounds = fileSegmentBounds(dirList);
+    const ownerIndex = selectedRaceTimes.map(
+      (timeObj) =>
+        findTimeSegment(
+          fileBounds,
+          (parseTimeToSeconds(timeObj.Time) + timeOffset) * 1000000,
+        ).segmentIndex,
+    );
+    summary.total = ownerIndex.filter((index) => index >= 0).length;
+    setArchiveStats({ ...summary });
     for (let i = 0; i < dirList.length; i += 1) {
       if (getArchiveCancel()) {
         break;
       }
       setProgressBar((i / dirList.length) * 100);
       const image = dirList[i];
-      const startTime = convertTimestampToString(
-        image.startTime / 1000,
-        image.tzOffset,
+      const filteredScoredTimes = selectedRaceTimes.filter(
+        (_timeObj, index) => ownerIndex[index] === i,
       );
-      const endTime = convertTimestampToString(
-        image.endTime / 1000,
-        image.tzOffset,
-      );
-      const startSeconds = parseTimeToSeconds(startTime);
-      const endSeconds = parseTimeToSeconds(endTime);
-
-      const filteredScoredTimes = selectedRaceTimes.filter((timeObj) => {
-        const timeSeconds = parseTimeToSeconds(timeObj.Time) + timeOffset;
-        const valid = timeSeconds >= startSeconds && timeSeconds <= endSeconds;
-        return valid;
-      });
       if (filteredScoredTimes.length === 0) {
         // Avoid opening video files that contain no selected timestamps.
         // eslint-disable-next-line no-continue
@@ -625,6 +751,7 @@ export const ImageArchive = () => {
             summary.boatsIdentified += detection.boatIdentified ? 1 : 0;
             summary.bowsMatched += detection.bowMatched ? 1 : 0;
             summary.bowMismatch += detection.bowMismatch ? 1 : 0;
+            summary.aligned += detection.aligned ? 1 : 0;
             if (!detection.kept) {
               // Filtered out by the detection filter; remove its image.
               kept = false;
@@ -636,6 +763,8 @@ export const ImageArchive = () => {
         if (kept) {
           summary.exported += 1;
         }
+        summary.processed += 1;
+        setArchiveStats({ ...summary });
         setProgressBar(
           ((i + j / filteredScoredTimes.length) / dirList.length) * 100,
         );
@@ -658,33 +787,17 @@ export const ImageArchive = () => {
         ? 'Image Archive Export Cancelled'
         : 'Image Archive Complete',
       body: (
-        <Stack spacing={1}>
-          <Typography>Total exported: {summary.exported}</Typography>
-          {augmentYoloLabels && (
-            <>
-              <Typography>
-                Bow mismatches:{' '}
-                {formatDetectionCount(summary.bowMismatch, summary.detected)}
-              </Typography>
-              <Typography>
-                Boats identified:{' '}
-                {formatDetectionCount(
-                  summary.boatsIdentified,
-                  summary.detected,
-                )}
-              </Typography>
-              <Typography>
-                Bows detected and matched:{' '}
-                {formatDetectionCount(summary.bowsMatched, summary.detected)}
-              </Typography>
-            </>
-          )}
-        </Stack>
+        <ArchiveSummaryView
+          summary={summary}
+          yoloLabels={augmentYoloLabels}
+          showAligned={alignBox && timeOffset === 0}
+        />
       ),
       button: 'OK',
       showCancel: false,
     });
   }, [
+    alignBox,
     day,
     dayPrefix,
     augmentYoloLabels,
@@ -703,8 +816,20 @@ export const ImageArchive = () => {
     saveImageArchive();
   }, [saveImageArchive]);
   return (
-    <Stack>
+    <Stack spacing={2}>
       <ProgressBarComponent />
+      {stats && (
+        <>
+          <Typography>
+            Processed: {stats.processed}/{stats.total}
+          </Typography>
+          <ArchiveSummaryView
+            summary={stats}
+            yoloLabels={augmentYoloLabels}
+            showAligned={alignBox && timeOffset === 0}
+          />
+        </>
+      )}
     </Stack>
   );
 };
@@ -715,6 +840,7 @@ export const initiateImageArchive = () => {
   setArchiveDetectionFilter('all');
   setArchivePruneSide('none');
   setArchivePrunePercentage(0);
+  setArchiveAlignBox(false);
   const onClose = () => {
     setArchiveCancel(true);
   };
