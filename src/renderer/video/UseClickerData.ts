@@ -120,6 +120,20 @@ const onDataRxTransformer = (
       if (getEntryResult(key)?.uuid === uuid) {
         keysToDelete.add(key);
       }
+      if (uuid === videoUuid) {
+        // The tablet improved the selected hint.  Take its event and bow even
+        // when auto zoom already filled in a bow, which the '?' check above
+        // would skip, leaving a stale event selected (#116).
+        const improved = [...keyedLaps.values()].find(
+          (lap) => lap.uuid === uuid,
+        );
+        if (improved?.EventNum && improved.EventNum !== '?') {
+          setVideoEvent(improved.EventNum);
+        }
+        if (improved?.Bow && improved.Bow !== '?' && improved.Bow !== '*') {
+          setVideoBow(improved.Bow, uuid);
+        }
+      }
     });
 
     // Apply deletes last to ensure they trigger any needed updates

@@ -1,9 +1,14 @@
 import { UseDatum } from 'react-usedatum';
 import { MobileSettings } from 'crewtimer-common';
 import { LapImageStatus } from 'renderer/shared/AppTypes';
-import { getVideoEvent, useVideoSettings } from 'renderer/video/VideoSettings';
+import {
+  getVideoEvent,
+  setVideoEvent,
+  useVideoSettings,
+} from 'renderer/video/VideoSettings';
 import {
   cardLengthForEvent,
+  findHeadEventForBow,
   normalizeBowForEvent,
 } from 'renderer/video/BowNumber';
 import { UseMemDatum, UseStoredDatum } from '../store/UseElectronDatum';
@@ -148,6 +153,30 @@ export const getBowDetectionOptions = (eventNum?: string) => ({
 
 export const normalizeBowForCurrentEvent = (bow: string) => {
   return normalizeBowForEvent(bow, getCurrentEvent());
+};
+
+/**
+ * Normalizes bow for the event being viewed, first selecting the head race
+ * that schedules it when the viewed event does not.  A '?' hint leaves the
+ * last scored event selected, so a bow read from the image would otherwise be
+ * recorded against that event (#116).
+ */
+export const selectEventForBow = (bow: string) => {
+  const current = getCurrentEvent();
+  const normalized = normalizeBowForEvent(bow, current);
+  if (current?.eventItems?.some((entry) => entry.Bow === normalized)) {
+    return normalized;
+  }
+  const match = findHeadEventForBow(
+    bow,
+    getMobileConfig()?.eventList || [],
+    getDay(),
+  );
+  if (!match) {
+    return normalized;
+  }
+  setVideoEvent(match.event.EventNum);
+  return match.bow;
 };
 
 // Tab position of the CenteredTabs component

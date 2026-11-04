@@ -6,6 +6,7 @@ import {
   getLabelNumbers,
   normalizeBowForCurrentEvent,
   getWaypoint,
+  selectEventForBow,
 } from 'renderer/util/UseSettings';
 import { getVideoEvent, setVideoBow } from './VideoSettings';
 import { autoZoomToFinishNearFinish } from './AutoZoomToFinish';
@@ -43,7 +44,7 @@ export const autoZoomAfterSeekToHint = async (
       detectedBow &&
       detectedBow !== '?'
     ) {
-      setVideoBow(normalizeBowForCurrentEvent(detectedBow), next.uuid);
+      setVideoBow(selectEventForBow(detectedBow), next.uuid);
     }
   }
 };

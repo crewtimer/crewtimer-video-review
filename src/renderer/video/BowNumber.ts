@@ -44,3 +44,31 @@ export const normalizeBowForEvent = (
   );
   return prefixes.size === 1 ? `${[...prefixes][0]}${value}` : value;
 };
+
+export type ScheduledEvent = BowEvent & {
+  EventNum: string;
+  Day?: string;
+  RaceType?: string;
+};
+
+/**
+ * The only head race on day that schedules bow, with bow as that event
+ * schedules it.  Head race bows are unique across events, so a bow alone
+ * identifies its event.  Sprint lane numbers repeat and never do.
+ */
+export const findHeadEventForBow = <T extends ScheduledEvent>(
+  bow: string,
+  events: T[],
+  day?: string,
+): { event: T; bow: string } | undefined => {
+  const matches = events.flatMap((event) => {
+    if (event.RaceType !== 'Head' || (day && event.Day !== day)) {
+      return [];
+    }
+    const scheduled = normalizeBowForEvent(bow, event).trim();
+    return event.eventItems?.some((entry) => entry.Bow?.trim() === scheduled)
+      ? [{ event, bow: scheduled }]
+      : [];
+  });
+  return matches.length === 1 ? matches[0] : undefined;
+};

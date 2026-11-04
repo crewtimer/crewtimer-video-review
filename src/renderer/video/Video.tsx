@@ -68,6 +68,7 @@ import {
   getBowDetectionOptions,
   getLabelNumbers,
   normalizeBowForCurrentEvent,
+  selectEventForBow,
   getWaypoint,
   useLabelBoats,
   useLabelCardsWithoutBoat,
@@ -1075,10 +1076,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
               bowNumber <= 999 &&
               supportingFrames >= 2
             ) {
-              setVideoBow(
-                normalizeBowForCurrentEvent(detectedBow),
-                getVideoBowUuid(),
-              );
+              setVideoBow(selectEventForBow(detectedBow), getVideoBowUuid());
             }
             return undefined;
           })

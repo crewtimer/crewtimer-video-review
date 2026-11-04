@@ -9,8 +9,8 @@ import uuidgen from 'short-uuid';
 import { setToast } from 'renderer/Toast';
 import {
   getMobileConfig,
-  normalizeBowForCurrentEvent,
   getWaypoint,
+  selectEventForBow,
 } from 'renderer/util/UseSettings';
 import {
   getAutoNextTimestamp,
@@ -78,7 +78,8 @@ const persistLap = (key: string, lap: Lap, hintUuid: string) => {
  * far from its timing hint.
  */
 const addSplitForBow = (enteredBow: string, hintMismatchConfirmed = false) => {
-  const videoBow = normalizeBowForCurrentEvent(enteredBow);
+  // Selects the bow's head race when the viewed event is stale.
+  const videoBow = selectEventForBow(enteredBow);
   // A split must be associated with a known bow.
   if (videoBow === '?' || !videoBow) {
     setToast({

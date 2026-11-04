@@ -1,4 +1,8 @@
-import { cardLengthForEvent, normalizeBowForEvent } from './BowNumber';
+import {
+  cardLengthForEvent,
+  findHeadEventForBow,
+  normalizeBowForEvent,
+} from './BowNumber';
 
 describe('cardLengthForEvent', () => {
   test('uses one digit when all numeric endings are one digit', () => {
@@ -43,5 +47,43 @@ describe('normalizeBowForEvent', () => {
   test('leaves a numeric bow unchanged when prefixes are ambiguous', () => {
     const event = { eventItems: [{ Bow: 'A1' }, { Bow: 'B2' }] };
     expect(normalizeBowForEvent('2', event)).toBe('2');
+  });
+});
+
+describe('findHeadEventForBow', () => {
+  const head = (EventNum: string, bows: string[], Day = 'Sat') => ({
+    EventNum,
+    Day,
+    RaceType: 'Head',
+    eventItems: bows.map((Bow) => ({ Bow })),
+  });
+
+  test('finds the only head race scheduling the bow', () => {
+    const events = [head('1', ['1', '2']), head('2', ['3', '4'])];
+    expect(findHeadEventForBow('4', events, 'Sat')).toEqual({
+      event: events[1],
+      bow: '4',
+    });
+  });
+
+  test('returns the bow as the matching event schedules it', () => {
+    const events = [head('1', ['1', '2']), head('2', ['A3', 'A4'])];
+    expect(findHeadEventForBow('3', events)?.bow).toBe('A3');
+  });
+
+  test('ignores sprint races, whose lane numbers repeat', () => {
+    const sprint = { ...head('1', ['1', '2', '7']), RaceType: 'Sprint' };
+    expect(findHeadEventForBow('7', [sprint])).toBeUndefined();
+  });
+
+  test('ignores events on other days', () => {
+    const events = [head('1', ['1']), head('2', ['1'], 'Sun')];
+    expect(findHeadEventForBow('1', events, 'Sat')?.event.EventNum).toBe('1');
+  });
+
+  test('returns nothing when the bow is ambiguous or unscheduled', () => {
+    const events = [head('1', ['1', '2']), head('2', ['2', '3'])];
+    expect(findHeadEventForBow('2', events)).toBeUndefined();
+    expect(findHeadEventForBow('9', events)).toBeUndefined();
   });
 });
