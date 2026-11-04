@@ -20,6 +20,12 @@ const MAX_CLICK_DISTANCE = 50;
 const MAX_SEARCH_ITERATIONS = 12;
 const MAX_FRAME_JUMP = 120;
 const MIN_VELOCITY = 0.05;
+/** Below this speed a one-step measurement says nothing about direction. */
+const MIN_REVERSE_VELOCITY = 2;
+const STALLED_STEP_FRAMES = 3;
+const MAX_STALLED_STEPS = 2;
+/** One reversal, plus one return when the reversal proves wrong. */
+const MAX_DIRECTION_CHANGES = 2;
 const MAX_ADJACENT_BOAT_AREA_RATIO = 2.5;
 const MAX_EXTENDED_VELOCITY_RATIO = 4;
 const MATCH_RECOVERY_RADIUS = 3;
@@ -934,7 +940,8 @@ const runAutoZoomToFinish = async (
   const finish = getFinishLine();
   const finishX = image.width / 2 + (finish.pt1 + finish.pt2) / 2;
   let rightToLeft = getTravelRightToLeft();
-  let reversedTravelDirection = false;
+  let directionChanges = 0;
+  let stalledSteps = 0;
   const initialResult = await detect(initialFrame);
   if (!initialResult || !operationIsCurrent()) {
     return null;
@@ -955,6 +962,18 @@ const runAutoZoomToFinish = async (
   );
   let timeDirection = initialDistance < 0 ? 1 : -1;
   let nextFrame = initialFrame + timeDirection;
+  // The configured direction's observations, kept when the search reverses.
+  let configuredSearch: BoatObservation[] = [];
+  let configuredTimeDirection = timeDirection;
+  // Frame estimated to put the boat edge on the finish at this velocity.
+  const stepToward = (from: BoatObservation, velocity: number) => {
+    const estimated = from.frameNum + (finishX - from.edgeX) / velocity;
+    const delta = Math.max(
+      -MAX_FRAME_JUMP,
+      Math.min(MAX_FRAME_JUMP, Math.round(estimated) - from.frameNum),
+    );
+    return from.frameNum + (delta || timeDirection);
+  };
 
   for (let iteration = 0; iteration < MAX_SEARCH_ITERATIONS; iteration += 1) {
     const prior = observations[observations.length - 1];
@@ -1091,42 +1110,102 @@ const runAutoZoomToFinish = async (
     const velocity =
       (current.edgeX - previous.edgeX) / (current.frameNum - previous.frameNum);
     const expectedDirection = rightToLeft ? -1 : 1;
+    const clearlyReversed =
+      Math.sign(velocity) === -expectedDirection &&
+      Math.abs(velocity) >= MIN_REVERSE_VELOCITY;
     if (
       Math.abs(velocity) < MIN_VELOCITY ||
-      Math.sign(velocity) !== expectedDirection
+      (Math.sign(velocity) !== expectedDirection && !clearlyReversed)
     ) {
-      if (!reversedTravelDirection) {
-        rightToLeft = !rightToLeft;
-        reversedTravelDirection = true;
-        observations.splice(1);
-        initialDistance = signedFinishDistance(
-          observations[0],
-          finishX,
-          rightToLeft,
+      // A near-zero speed is an unreliable measurement, usually one jittered
+      // detector box, not evidence of the opposite direction. Measure again
+      // over a longer span before drawing any conclusion.
+      stalledSteps += 1;
+      if (stalledSteps > MAX_STALLED_STEPS) {
+        console.log(
+          `Auto Zoom to Finish: boat is not moving (${velocity.toFixed(2)}px/frame)`,
         );
-        timeDirection = initialDistance < 0 ? 1 : -1;
-        nextFrame = initialFrame + timeDirection;
+        return undefined;
+      }
+      console.log(
+        `Auto Zoom to Finish: unreliable velocity ${velocity.toFixed(2)}px/frame; measuring over ${STALLED_STEP_FRAMES} frames`,
+      );
+      nextFrame = current.frameNum + timeDirection * STALLED_STEP_FRAMES;
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    stalledSteps = 0;
+    if (clearlyReversed) {
+      if (directionChanges >= MAX_DIRECTION_CHANGES) {
+        console.log(
+          `Auto Zoom to Finish: invalid velocity ${velocity.toFixed(2)}px/frame after reversing travel direction`,
+        );
+        return undefined;
+      }
+      directionChanges += 1;
+      rightToLeft = !rightToLeft;
+      if (directionChanges === MAX_DIRECTION_CHANGES) {
+        // Both directions measured motion away from the starting box, so that
+        // shared box is the bad one. Drop it and continue the configured
+        // direction from what both searches saw, rather than repeating the
+        // first step from the same box.
+        const order = configuredTimeDirection;
+        const evidence = [...configuredSearch, ...observations.slice(1)]
+          .filter(
+            (value, index, all) =>
+              all.findIndex((other) => other.frameNum === value.frameNum) ===
+              index,
+          )
+          .sort((a, b) => order * (a.frameNum - b.frameNum));
+        const last = evidence[evidence.length - 1];
+        const beforeLast = evidence[evidence.length - 2];
+        const spanVelocity =
+          last && beforeLast
+            ? (last.edgeX - beforeLast.edgeX) /
+              (last.frameNum - beforeLast.frameNum)
+            : 0;
+        if (
+          Math.abs(spanVelocity) < MIN_VELOCITY ||
+          Math.sign(spanVelocity) !== (rightToLeft ? -1 : 1)
+        ) {
+          console.log(
+            `Auto Zoom to Finish: conflicting velocities ${velocity.toFixed(2)}px/frame and ${spanVelocity.toFixed(2)}px/frame in both travel directions`,
+          );
+          return undefined;
+        }
+        observations.splice(0, observations.length, ...evidence);
+        timeDirection = order;
+        nextFrame = stepToward(last, spanVelocity);
         iteration = -1;
         console.log(
-          `Auto Zoom to Finish: invalid velocity ${velocity.toFixed(2)}px/frame; retrying with ${
+          `Auto Zoom to Finish: starting box at frame ${initialFrame} disagrees with both directions; continuing ${
             rightToLeft ? 'right-to-left' : 'left-to-right'
-          } travel`,
+          } at ${spanVelocity.toFixed(2)}px/frame`,
         );
-        // Restart with a full search budget in the opposite direction.
         // eslint-disable-next-line no-continue
         continue;
       }
-      console.log(
-        `Auto Zoom to Finish: invalid velocity ${velocity.toFixed(2)}px/frame after reversing travel direction`,
+      configuredSearch = observations.slice(1);
+      configuredTimeDirection = timeDirection;
+      observations.splice(1);
+      initialDistance = signedFinishDistance(
+        observations[0],
+        finishX,
+        rightToLeft,
       );
-      return undefined;
+      timeDirection = initialDistance < 0 ? 1 : -1;
+      nextFrame = initialFrame + timeDirection;
+      iteration = -1;
+      console.log(
+        `Auto Zoom to Finish: invalid velocity ${velocity.toFixed(2)}px/frame; retrying with ${
+          rightToLeft ? 'right-to-left' : 'left-to-right'
+        } travel`,
+      );
+      // Restart with a full search budget in the opposite direction.
+      // eslint-disable-next-line no-continue
+      continue;
     }
-    const estimated = current.frameNum + (finishX - current.edgeX) / velocity;
-    const delta = Math.max(
-      -MAX_FRAME_JUMP,
-      Math.min(MAX_FRAME_JUMP, Math.round(estimated) - current.frameNum),
-    );
-    nextFrame = current.frameNum + (delta || timeDirection);
+    nextFrame = stepToward(current, velocity);
   }
   console.log('Auto Zoom to Finish: finish line was not bracketed');
   return undefined;

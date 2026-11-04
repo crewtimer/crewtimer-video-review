@@ -1,6 +1,9 @@
 
 | Version | What's New |
 | --- | --- |
+| 2.0.8 | Better bow number reading and bow event selection |
+| | Updated AI models for boat detection and bow card reading |
+| | Bug fixes related to handling of ? bow numbers|
 | 2.0.7 | Overlapping video files and recorder splits on regatta times |
 | | Support for the overlapping files CrewTimer Video Recorder 2.0.1 makes; each file shows the time it owns, and stepping past the end continues in the next file |
 | | CrewTimer Video Recorder now splits its files on the regatta's timing hints itself; Automatic Recorder File Splitting, now on by default, is skipped while it does and is kept for other recorders |

@@ -35,6 +35,7 @@ jest.mock('./VideoSettings', () => ({
 }));
 jest.mock('./VideoUtils', () => ({
   getFinishLine: () => ({ pt1: 0, pt2: 0 }),
+  moveToFrame: jest.fn().mockResolvedValue(undefined),
 }));
 
 const detection = (x: number, y = 100): BowDetection => ({
@@ -397,5 +398,62 @@ describe('Auto Zoom to Finish geometry', () => {
     expect(detectBow).toHaveBeenCalledWith(
       expect.objectContaining({ videoFile: 'closed.mp4', frameNum: 602 }),
     );
+  });
+
+  // Left-to-right at 9 px/frame toward a finish at x = 540, starting at
+  // frame 1000 whose box edge is `jitter` pixels off.
+  const searchWithJitteredStart = async (
+    file: string,
+    edgeAt1000: number,
+    jitter: number,
+  ) => {
+    mockVideoFile = file;
+    const trueEdge = (frameNum: number) => edgeAt1000 + 9 * (frameNum - 1000);
+    const detectBow = jest.fn(async ({ frameNum }: { frameNum: number }) => {
+      const edge = trueEdge(frameNum) + (frameNum === 1000 ? jitter : 0);
+      return {
+        status: 'OK',
+        frameNum,
+        timestamp: 0,
+        detections: [detection(edge - 200)],
+      };
+    });
+    Object.assign(window, { VideoUtils: { detectBow } });
+    const image = {
+      file,
+      frameNum: 1000,
+      width: 1080,
+      numFrames: 2000,
+      fps: 60,
+      tsMicro: 0,
+    } as AppImage;
+    const result = await autoZoomToFinishNearFinish(
+      '17',
+      Number.POSITIVE_INFINITY,
+      image,
+    );
+    return { result, detectBow };
+  };
+
+  test('measures again instead of reversing after one jittered box', async () => {
+    // The box at frame 1000 is a frame ahead, so the first step measures 0.
+    const { result, detectBow } = await searchWithJitteredStart(
+      'jitter.mp4',
+      400,
+      9,
+    );
+
+    // Crossed between frames 1015 (535) and 1016 (544).
+    expect(result?.frameNum).toBeCloseTo(1015 + 5 / 9, 5);
+    expect(detectBow).not.toHaveBeenCalledWith(
+      expect.objectContaining({ frameNum: 999 }),
+    );
+  });
+
+  test('keeps both directions of evidence when the starting box is far off', async () => {
+    // A 27 px jitter measures -18 forward and +36 backward.
+    const { result } = await searchWithJitteredStart('far-jitter.mp4', 400, 27);
+
+    expect(result?.frameNum).toBeCloseTo(1015 + 5 / 9, 5);
   });
 });
