@@ -15,6 +15,8 @@ import {
 } from './VideoSettings';
 import { getFinishLine, moveToFrame } from './VideoUtils';
 import { getBowDetectionOptions } from '../util/UseSettings';
+import { getFileStatusList } from './VideoFileStatus';
+import { overlapHandover } from './TimeSegmentUtils';
 
 const MAX_CLICK_DISTANCE = 50;
 const MAX_SEARCH_ITERATIONS = 12;
@@ -912,6 +914,16 @@ export const ceilFrameToHyperZoomGrid = (
   );
 };
 
+/** The file that displays a frame of videoFile: where files overlap, a frame
+ * past the split is shown by the neighbour that owns it. */
+const fileShowingFrame = (videoFile: string, frameNum: number) => {
+  const files = getFileStatusList();
+  const index = files.findIndex((item) => item.filename === videoFile);
+  const handover =
+    index >= 0 ? overlapHandover(files, index, frameNum) : undefined;
+  return handover ? files[handover.fileIndex].filename : videoFile;
+};
+
 const runAutoZoomToFinish = async (
   selectInitialBoat: (
     detections: BowDetection[],
@@ -927,6 +939,10 @@ const runAutoZoomToFinish = async (
   // A seek to another file supersedes the search and closes this file.
   const operationIsCurrent = () =>
     operation === autoZoomOperation && getVideoFile() === videoFile;
+  // The final seek may hand over to the overlapping file that shows it.
+  const seekGuard = (seekFile: string) => () =>
+    operation === autoZoomOperation &&
+    (getVideoFile() === videoFile || getVideoFile() === seekFile);
   const detect = (frameNum: number) =>
     detectFrame(videoFile, frameNum).catch((error) => {
       if (!operationIsCurrent()) {
@@ -1098,9 +1114,12 @@ const runAutoZoomToFinish = async (
         srcClickPoint: zoomClickPoint ?? targetEdgePoint,
         autoZoomed: true,
       });
+      // A crossing past the split with an overlapping file is shown by that
+      // file, so the seek's own file switch must not cancel it.
+      const seekIsCurrent = seekGuard(fileShowingFrame(videoFile, seekFrame));
       // eslint-disable-next-line no-await-in-loop
-      await moveToFrame(seekFrame, undefined, true, operationIsCurrent);
-      if (!operationIsCurrent()) {
+      await moveToFrame(seekFrame, undefined, true, seekIsCurrent);
+      if (!seekIsCurrent()) {
         return null;
       }
       return { frameNum: seekFrame, bow, observations };

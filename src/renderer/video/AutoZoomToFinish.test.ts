@@ -1,4 +1,5 @@
 import type { AppImage, BowDetection } from '../shared/AppTypes';
+import { moveToFrame } from './VideoUtils';
 import {
   areAdjacentBoatBoxesComparable,
   autoZoomToFinishNearFinish,
@@ -36,6 +37,10 @@ jest.mock('./VideoSettings', () => ({
 jest.mock('./VideoUtils', () => ({
   getFinishLine: () => ({ pt1: 0, pt2: 0 }),
   moveToFrame: jest.fn().mockResolvedValue(undefined),
+}));
+let mockFileStatusList: unknown[] = [];
+jest.mock('./VideoFileStatus', () => ({
+  getFileStatusList: () => mockFileStatusList,
 }));
 
 const detection = (x: number, y = 100): BowDetection => ({
@@ -434,6 +439,60 @@ describe('Auto Zoom to Finish geometry', () => {
     );
     return { result, detectBow };
   };
+
+  test('keeps a crossing that the overlapping next file displays', async () => {
+    // Each file has 240 frames over 4 s; the second starts 2 s into the
+    // first, so ownership passes to it at 3 s, frame 181 of the first file.
+    const frames = (start: number) => ({
+      startTime: start,
+      endTime: start + (239 * 1000000) / 60,
+      numFrames: 240,
+      fps: 60,
+    });
+    mockFileStatusList = [
+      { filename: 'early.mp4', ...frames(0) },
+      { filename: 'late.mp4', ...frames(2000000) },
+    ];
+    // The seek hands over to the next file before its frame is fetched.
+    const move = jest.mocked(moveToFrame);
+    let guardDuringSeek: boolean | undefined;
+    move.mockImplementationOnce(async (_frame, _offset, _blend, guard) => {
+      mockVideoFile = 'late.mp4';
+      guardDuringSeek = guard?.();
+      return undefined;
+    });
+    try {
+      // The hint is at frame 178; the boat crosses just after frame 190.
+      mockVideoFile = 'early.mp4';
+      const edge = (frameNum: number) => 540 + 9 * (frameNum - 190) - 4;
+      const detectBow = jest.fn(async ({ frameNum }: { frameNum: number }) => ({
+        status: 'OK',
+        frameNum,
+        timestamp: 0,
+        detections: [detection(edge(frameNum) - 200)],
+      }));
+      Object.assign(window, { VideoUtils: { detectBow } });
+      const image = {
+        file: 'early.mp4',
+        frameNum: 178,
+        width: 1080,
+        numFrames: 240,
+        fps: 60,
+        tsMicro: 0,
+      } as AppImage;
+
+      const result = await autoZoomToFinishNearFinish(
+        '17',
+        Number.POSITIVE_INFINITY,
+        image,
+      );
+
+      expect(guardDuringSeek).toBe(true);
+      expect(result?.frameNum).toBeCloseTo(190 + 4 / 9, 5);
+    } finally {
+      mockFileStatusList = [];
+    }
+  });
 
   test('measures again instead of reversing after one jittered box', async () => {
     // The box at frame 1000 is a frame ahead, so the first step measures 0.
