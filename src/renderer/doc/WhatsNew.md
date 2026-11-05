@@ -1,6 +1,8 @@
 
 | Version | What's New |
 | --- | --- |
+| 2.0.9 | Fix for a crash after long scoring sessions |
+| | Fixed a memory leak while scoring with frame interpolation that could crash the app after several hours |
 | 2.0.8 | Better bow number reading and bow event selection |
 | | Updated AI models for boat detection and bow card reading |
 | | Bug fixes related to handling of ? bow numbers|

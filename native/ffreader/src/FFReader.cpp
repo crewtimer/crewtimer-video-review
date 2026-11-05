@@ -740,8 +740,15 @@ AVFrame *FFVideoReader::seekToFrame(int64_t frameNumber, bool closeTo)
     {
       if (it->first == frameNumber)
       {
-        // Found it in buffer – set currentFrameNumber & copy the frame
-        av_frame_ref(frame, it->second);
+        // Found it in buffer – set currentFrameNumber & copy the frame.
+        // av_frame_ref requires an empty destination; without the unref the
+        // previously decoded frame's buffers are overwritten and leaked.
+        av_frame_unref(frame);
+        if (av_frame_ref(frame, it->second) < 0)
+        {
+          currentFrameNumber = -1;
+          return nullptr;
+        }
         currentFrameNumber = frameNumber;
         return frame;
       }
