@@ -378,6 +378,24 @@ export const selectBoatEdgeNearFinish = (
   const normalize = (bow: string) =>
     bowFilter ? bowFilter.normalizeBow(bow.trim()) : bow.trim();
   const normalizedBow = normalize(knownBow);
+  // The known bow's number, such as 4 for C4.
+  const knownDigits = /\d+$/.exec(knownBow.trim())?.[0] ?? '';
+  // 0: the known bow. 1: a reading with a spurious leading digit, such as 24
+  // for 4, so a misread card at the hint frame still identifies the crew
+  // rather than handing the search to whichever boat is nearest the finish.
+  // 2: any other boat.
+  const bowMatchRank = (text: string) => {
+    if (normalize(text) === normalizedBow) {
+      return 0;
+    }
+    const digits = text.trim();
+    return knownDigits &&
+      /^\d+$/.test(digits) &&
+      digits.length > knownDigits.length &&
+      digits.endsWith(knownDigits)
+      ? 1
+      : 2;
+  };
   const candidateEdges = leadingEdge
     ? ([leadingEdge] as const)
     : (['left', 'right'] as const);
@@ -401,10 +419,10 @@ export const selectBoatEdgeNearFinish = (
     .filter(({ distance }) => distance <= maxDistance)
     .sort((a, b) => {
       if (normalizedBow && normalizedBow !== '?') {
-        const aMatches = normalize(a.detection.text) === normalizedBow;
-        const bMatches = normalize(b.detection.text) === normalizedBow;
-        if (aMatches !== bMatches) {
-          return aMatches ? -1 : 1;
+        const aRank = bowMatchRank(a.detection.text);
+        const bRank = bowMatchRank(b.detection.text);
+        if (aRank !== bRank) {
+          return aRank - bRank;
         }
       }
       return a.distance - b.distance;

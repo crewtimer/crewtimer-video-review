@@ -138,6 +138,40 @@ describe('Auto Zoom to Finish geometry', () => {
     expect(selected?.detection).toBe(target);
   });
 
+  test('prefers a reading with a spurious leading digit to a nearer boat', () => {
+    // Frame 91 of CT_20260329_144417: bow 4 reads as 24 while bow 3, a
+    // different crew, is nearer the finish.
+    const nearer = detection(280);
+    nearer.text = '3';
+    const misread = detection(150);
+    misread.text = '24';
+    const other = detection(100);
+    other.text = '5';
+    const selected = selectBoatEdgeNearFinish(
+      [nearer, misread, other],
+      500,
+      'C4',
+      Number.POSITIVE_INFINITY,
+      undefined,
+      { normalizeBow: prefixC, isScoredBow: () => false },
+    );
+    expect(selected?.detection).toBe(misread);
+  });
+
+  test('prefers the exact bow to a reading that only ends with it', () => {
+    const misread = detection(280);
+    misread.text = '24';
+    const target = detection(150);
+    target.text = '4';
+    const selected = selectBoatEdgeNearFinish(
+      [misread, target],
+      500,
+      '4',
+      Number.POSITIVE_INFINITY,
+    );
+    expect(selected?.detection).toBe(target);
+  });
+
   test('skips a scored crew nearer the finish', () => {
     const scored = detection(280);
     scored.text = '3';
