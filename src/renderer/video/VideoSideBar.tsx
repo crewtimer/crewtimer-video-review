@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import makeStyles from '@mui/styles/makeStyles';
+import { useTheme } from '@mui/material/styles';
 import {
   getEntryResult,
   useEntryResultsChanged,
@@ -65,8 +66,9 @@ const UnknownHintButton: React.FC<UnknownHintButtonProps> = ({
     whiteSpace: 'nowrap',
     padding: 0,
   };
+  const theme = useTheme();
   const activeColor = '#0e0';
-  const inactiveColor = '#ddd';
+  const inactiveColor = theme.palette.app.inactiveBg;
 
   if (selected) {
     sx.color = 'primary.contrastText';
@@ -78,17 +80,18 @@ const UnknownHintButton: React.FC<UnknownHintButtonProps> = ({
       color: 'white',
     };
   } else if (active) {
-    sx.backgroundColor = '#ffffff';
+    sx.backgroundColor = 'background.paper';
   } else {
-    sx.backgroundColor = '#ddd';
-    sx.color = '#666';
+    const { inactiveBg, inactiveText, inputBorder } = theme.palette.app;
+    sx.backgroundColor = inactiveBg;
+    sx.color = inactiveText;
     sx.opacity = 1;
     sx['&.Mui-disabled'] = {
-      backgroundColor: '#ddd',
-      color: '#666',
-      WebkitTextFillColor: '#666',
+      backgroundColor: inactiveBg,
+      color: inactiveText,
+      WebkitTextFillColor: inactiveText,
       opacity: 1,
-      borderColor: 'rgba(0, 0, 0, 0.23)',
+      borderColor: inputBorder,
     };
   }
 

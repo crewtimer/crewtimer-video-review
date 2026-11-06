@@ -12,6 +12,7 @@ import {
   findHeadEventForBow,
   normalizeBowForEvent,
 } from 'renderer/video/BowNumber';
+import type { ThemeMode } from 'renderer/theme';
 import { UseMemDatum, UseStoredDatum } from '../store/UseElectronDatum';
 import {
   FirebaseConnectedKey,
@@ -87,6 +88,9 @@ export const [useAuthStatus, setAuthStatus, getAuthStatus] =
 
 export const [useSingleEvent, setSingleEvent, getSingleEvent] =
   UseStoredDatum<boolean>('singleEvent', false);
+
+/** Applied by the main process through nativeTheme. */
+export const [useThemeMode] = UseStoredDatum<ThemeMode>('themeMode', 'system');
 
 export const useAuthOK = () => {
   const [authStatus] = useAuthStatus();

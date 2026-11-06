@@ -70,9 +70,9 @@ export default function CenteredTabs() {
             width: '100%',
             position: 'fixed',
             zIndex: 1000,
-            backgroundColor: '#fff',
             marginBottom: '1em',
           }}
+          sx={{ bgcolor: 'background.default' }}
         >
           <Tab
             icon={

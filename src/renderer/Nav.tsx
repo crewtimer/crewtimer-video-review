@@ -19,6 +19,9 @@ import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import InfoIcon from '@mui/icons-material/Info';
 import ArticleIcon from '@mui/icons-material/Article';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightness';
 import {
   Box,
   Button,
@@ -37,6 +40,7 @@ import {
   useDebugLevel,
   useLabelBoats,
   useLabelCardsWithoutBoat,
+  useThemeMode,
 } from './util/UseSettings';
 import icon from '../assets/icons/crewtimer-review2-white.svg';
 import { setDialogConfig } from './util/ConfirmDialog';
@@ -49,6 +53,7 @@ import { openNagScreen } from './NagScreen';
 import { compareVersions } from './util/Version';
 import InterpolationTechniqueSelector from './util/InterpolationTechniqueSelector';
 import { RecorderStatusBar } from './video/RecorderStatus';
+import type { ThemeMode } from './theme';
 
 const RELEASES_URL =
   'https://github.com/crewtimer/crewtimer-video-review/releases/latest';
@@ -105,6 +110,17 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
+const nextThemeMode: Record<ThemeMode, ThemeMode> = {
+  system: 'light',
+  light: 'dark',
+  dark: 'system',
+};
+const themeModeIcon: Record<ThemeMode, React.ReactNode> = {
+  system: <SettingsBrightnessIcon />,
+  light: <LightModeIcon />,
+  dark: <DarkModeIcon />,
+};
+
 export default function Nav() {
   const classes = useStyles();
   const [debugLevel] = useDebugLevel();
@@ -114,6 +130,7 @@ export default function Nav() {
   const [firebaseConnected] = useFirebaseConnected();
   const [shiftMenu, setShiftMenu] = useState(false);
   const [fileStatusList] = useFileStatusList();
+  const [themeMode, setThemeMode] = useThemeMode();
 
   useEffect(() => {
     window.VideoUtils.setDebugLevel(debugLevel).catch((err) => {
@@ -384,6 +401,17 @@ export default function Nav() {
                     <InfoIcon />
                   </ListItemIcon>
                   <ListItemText primary="What's New" />
+                </MenuItem>
+              )}
+              {!shiftMenu && (
+                // Stays open so the user can cycle through modes and see each one
+                <MenuItem
+                  onClick={() => setThemeMode(nextThemeMode[themeMode])}
+                >
+                  <ListItemIcon>{themeModeIcon[themeMode]}</ListItemIcon>
+                  <ListItemText
+                    primary={`Theme: ${themeMode[0].toUpperCase()}${themeMode.slice(1)}`}
+                  />
                 </MenuItem>
               )}
               {!shiftMenu && (

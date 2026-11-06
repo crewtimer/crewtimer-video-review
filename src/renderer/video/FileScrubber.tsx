@@ -1,4 +1,12 @@
-import { Box, Button, Stack, SxProps, Theme, Tooltip } from '@mui/material';
+import {
+  Box,
+  Button,
+  Stack,
+  SxProps,
+  Theme,
+  Tooltip,
+  useTheme,
+} from '@mui/material';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import React, { useMemo } from 'react';
 import { useWaypoint } from 'renderer/util/UseSettings';
@@ -26,6 +34,7 @@ import {
   findTimeSegment,
   ownedRange,
 } from './TimeSegmentUtils';
+import { navButtonSx } from '../theme';
 
 /** Time around the selected file shown at full scale, in microseconds. */
 const FOCUS_MICRO = 4 * 60 * 1000000;
@@ -39,6 +48,7 @@ interface SxPropsArgs {
 }
 
 const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
+  const theme = useTheme();
   const [selectedIndex] = useSelectedIndex();
   const [fileStatusList] = useFileStatusList();
   const lapdata = useClickerData() as TimeObject[];
@@ -181,7 +191,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
             height: 24,
             m: 0,
             minWidth: 24,
-            background: '#19857b',
+            ...navButtonSx,
           }}
         >
           &lt;
@@ -201,7 +211,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           segments={segmentList}
           times={scoredLapdata}
           endTime={endTime}
-          iconColor="#2e7d32"
+          iconColor={theme.palette.success.main}
           iconType="lower"
           fileStatusList={fileStatusList}
           positionOf={positionOf}
@@ -212,7 +222,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
           times={lapdata}
           endTime={endTime}
           showBeyondRange
-          iconColor="#d2122e"
+          iconColor={theme.palette.error.main}
           iconType="upper"
           fileStatusList={fileStatusList}
           positionOf={positionOf}
@@ -249,7 +259,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
             height: 24,
             m: 0,
             minWidth: 24,
-            background: '#19857b',
+            ...navButtonSx,
           }}
         >
           &gt;
@@ -264,7 +274,7 @@ const FileScrubber: React.FC<SxPropsArgs> = ({ sx }) => {
             height: 24,
             m: 0,
             minWidth: 24,
-            background: '#19857b',
+            ...navButtonSx,
             marginLeft: '0.5em',
           }}
         >

@@ -77,10 +77,11 @@ import {
 import { sanitizeFirebaseKey } from '../util/StringUtils';
 import { deleteInterpolationRecordForLap } from './InterpolationStore';
 import { useTimeAnalysisColor } from './UseTimeAnalysisColor';
+import { TIME_ANALYSIS_TEXT_COLOR } from './TimeAnalysis';
 
-const useStyles = makeStyles((/* _theme */) => ({
+const useStyles = makeStyles((theme) => ({
   row: {
-    background: '#556cd6',
+    background: theme.palette.app.eventRowBg,
   },
 }));
 const [useRenderRequired, setRenderRequired, getRenderRequired] = UseDatum(0);
@@ -113,6 +114,11 @@ const TimestampCell = ({ row }: { row: ResultRowType }) => {
           fontSize: timingFontSize,
           lineHeight: '24px',
           backgroundColor: analysisColor,
+          // Light mode keeps the grid's own text color
+          color: (theme) =>
+            analysisColor && theme.palette.mode === 'dark'
+              ? TIME_ANALYSIS_TEXT_COLOR
+              : undefined,
         }}
       >
         {time}
@@ -225,7 +231,7 @@ const columns = (width: number): readonly Column<ResultRowType>[] => {
           paddingLeft: '0.5em',
           fontSize: timingFontSize,
           lineHeight: '24px',
-          backgroundColor: exception ? '#fdd' : undefined,
+          backgroundColor: exception ? 'app.exceptionBg' : undefined,
         }}
       >
         {exception
@@ -795,7 +801,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
               slotProps: {
                 paper: {
                   sx: {
-                    backgroundColor: '#fff',
+                    backgroundColor: 'background.paper',
                   },
                 },
                 list: {
@@ -847,7 +853,14 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
                     selectedEvent === event.EventNum
                       ? 'rgba(25, 118, 210, 0.15)'
                       : 'inherit',
-                  color: selectedEvent === event.EventNum ? '#000' : 'inherit',
+                  color: (theme) => {
+                    if (selectedEvent !== event.EventNum) {
+                      return 'inherit';
+                    }
+                    return theme.palette.mode === 'dark'
+                      ? theme.palette.text.primary
+                      : '#000';
+                  },
                   '&.Mui-selected': {
                     backgroundColor: 'rgba(25, 118, 210, 0.25) !important',
                   },
@@ -886,7 +899,8 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
           <Box
             sx={{
               height: height - 138,
-              border: '1px solid var(--rdg-border-color, #ddd)',
+              border: 1,
+              borderColor: 'app.gridBorder',
               boxSizing: 'border-box',
               padding: '0.5em',
             }}

@@ -9,18 +9,27 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, nativeTheme, shell } from 'electron';
 import electronDebug from 'electron-debug';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import './lapstorage/lapstorage-ipc-handler';
-import './store/store';
+import { getStoredValue } from './store/store';
 import './util/fileops-handler';
 import './firebase/firebase-ipc-handler';
 import './lapimages/lapimages-ipc-handler';
 import { startVideoServices } from './video/video-main';
 import { startRecorderStatusListener } from './video/recorder-status-main';
 import { getMainWindow, setMainWindow } from './mainWindow';
+import { onPropertyChange } from '../renderer/util/Util';
+import type { ThemeMode } from '../renderer/theme';
+
+// Drives prefers-color-scheme, so MUI, the markdown CSS and scrollbars all follow the in-app choice
+const applyThemeMode = () => {
+  nativeTheme.themeSource = getStoredValue<ThemeMode>('themeMode', 'system');
+};
+onPropertyChange('themeMode', applyThemeMode);
+applyThemeMode();
 
 // import { autoUpdater } from 'electron-updater';
 // import log from 'electron-log';

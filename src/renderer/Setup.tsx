@@ -4,15 +4,12 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import makeStyles from '@mui/styles/makeStyles';
 import Container from '@mui/material/Container';
-import Card from '@mui/material/Card';
 import CheckIcon from '@mui/icons-material/Check';
 import Box from '@mui/material/Box';
-import Toolbar from '@mui/material/Toolbar';
 import FormControl from '@mui/material/FormControl';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-import clsx from 'clsx';
-import { CircularProgress, InputLabel } from '@mui/material';
+import { CircularProgress, InputLabel, Stack } from '@mui/material';
 import Tooltip from '@mui/material/Tooltip';
 import {
   getWaypointList,
@@ -28,6 +25,7 @@ import {
 import { clearCredentials, validateCredentials } from './util/UseAuthState';
 import { useUserMessages } from './util/UserMessage';
 import { useVideoSettings } from './video/VideoSettings';
+import SettingsCard from './util/SettingsCard';
 
 const useStyles = makeStyles((theme) => ({
   paper: {
@@ -53,40 +51,21 @@ const useStyles = makeStyles((theme) => ({
   textfield: {
     margin: theme.spacing(2, 0, 0),
   },
-  card: {
-    width: '100%',
-  },
   cardcontent: {
     margin: 0,
   },
   check: {
-    color: 'white',
+    color: theme.palette.success.contrastText,
     marginLeft: theme.spacing(1),
-    backgroundColor: 'green',
+    backgroundColor: theme.palette.success.main,
   },
   checkerr: {
-    color: 'white',
+    color: theme.palette.error.contrastText,
     marginLeft: theme.spacing(1),
-    backgroundColor: 'red',
-  },
-  header: {
-    height: '40px',
-    minHeight: '40px',
-    color: '#000000',
-    backgroundColor: '#e8e8e8',
-    paddingLeft: theme.spacing(2),
-  },
-  smaller: {
-    transform: 'scale(0.8)',
-    transformOrigin: 'left',
-  },
-  space: {
-    marginLeft: theme.spacing(2),
+    backgroundColor: theme.palette.error.main,
   },
   settings: {
-    marginLeft: theme.spacing(2),
     marginBottom: theme.spacing(1),
-    marginRight: theme.spacing(2),
   },
   indentSettings: {
     marginLeft: theme.spacing(8),
@@ -203,108 +182,102 @@ export default function Setup() {
   return (
     <Container maxWidth="sm">
       <div className={classes.paper}>
-        <Card className={classes.card} variant="outlined">
-          <Toolbar className={classes.header}>
-            <Typography
-              variant="h6"
-              sx={{ display: 'inline' }}
-              className={classes.smaller}
-            >{`CrewTimer Race Credentials `}</Typography>
-            {authError && (
-              <Typography
-                sx={{ display: 'inline' }}
-                color="error"
-                className={clsx(classes.space, classes.smaller)}
-              >{`[${authStatus}]`}</Typography>
-            )}
-            {mobileIDStored && <CheckOK />}
-          </Toolbar>
-          <Box className={classes.settings}>
-            {mobileIDStored && (
-              <Typography
-                className={classes.vertSpace}
-              >{`Title: ${title} (${mobileID})`}</Typography>
-            )}
-            {mobileIDStored && (
-              <Button
-                size="small"
-                variant="contained"
-                color="primary"
-                className={classes.submit}
-                onClick={clearCredentials}
-              >
-                Log Out
-              </Button>
-            )}
-            {!mobileIDStored && (
+        <Stack sx={{ width: '100%', gap: 2 }}>
+          <SettingsCard
+            title="CrewTimer Race Credentials"
+            aside={
               <>
-                <TextField
-                  className={classes.textfield}
-                  variant="outlined"
-                  margin="dense"
-                  required
-                  fullWidth
-                  id="mobileId"
-                  label="Mobile ID"
-                  name="mobileId"
-                  autoComplete="mobileId"
-                  value={mobileID}
-                  onChange={(event) => {
-                    setMobileID(event.target.value);
-                  }}
-                  autoFocus
-                />
-                <TextField
-                  variant="outlined"
-                  margin="dense"
-                  required
-                  fullWidth
-                  name="mobilePin"
-                  label="Mobile Pin"
-                  type="password"
-                  id="mobilePin"
-                  value={mobilePin}
-                  onChange={(event) => {
-                    setMobilePin(event.target.value);
-                  }}
-                  autoComplete="current-mobilePin"
-                />
-                {validating ? (
-                  <CircularProgress />
-                ) : (
-                  <Button
-                    size="small"
-                    fullWidth
-                    variant="contained"
-                    color="primary"
-                    className={classes.submit}
-                    onClick={onLoginClicked}
-                  >
-                    Sign In
-                  </Button>
+                {authError && (
+                  <Typography color="error" sx={{ fontSize: 13 }}>
+                    {`[${authStatus}]`}
+                  </Typography>
                 )}
+                {mobileIDStored && <CheckOK />}
               </>
-            )}
-          </Box>
-          {!mc && mobileIDStored && (
+            }
+          >
             <Box className={classes.settings}>
-              <Typography>Loading Configuration</Typography>
-              <CircularProgress />
-            </Box>
-          )}
-          {mc && mobileIDStored && (
-            <>
-              <Toolbar className={classes.header}>
+              {mobileIDStored && (
                 <Typography
-                  variant="h6"
-                  sx={{ display: 'inline' }}
-                  className={classes.smaller}
+                  className={classes.vertSpace}
+                >{`Title: ${title} (${mobileID})`}</Typography>
+              )}
+              {mobileIDStored && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="primary"
+                  className={classes.submit}
+                  onClick={clearCredentials}
                 >
-                  {dayList.length
-                    ? 'Timing Waypoint and Day Selection'
-                    : 'Timing Waypoint Selection'}
-                </Typography>
-              </Toolbar>
+                  Log Out
+                </Button>
+              )}
+              {!mobileIDStored && (
+                <>
+                  <TextField
+                    className={classes.textfield}
+                    variant="outlined"
+                    margin="dense"
+                    required
+                    fullWidth
+                    id="mobileId"
+                    label="Mobile ID"
+                    name="mobileId"
+                    autoComplete="mobileId"
+                    value={mobileID}
+                    onChange={(event) => {
+                      setMobileID(event.target.value);
+                    }}
+                    autoFocus
+                  />
+                  <TextField
+                    variant="outlined"
+                    margin="dense"
+                    required
+                    fullWidth
+                    name="mobilePin"
+                    label="Mobile Pin"
+                    type="password"
+                    id="mobilePin"
+                    value={mobilePin}
+                    onChange={(event) => {
+                      setMobilePin(event.target.value);
+                    }}
+                    autoComplete="current-mobilePin"
+                  />
+                  {validating ? (
+                    <CircularProgress />
+                  ) : (
+                    <Button
+                      size="small"
+                      fullWidth
+                      variant="contained"
+                      color="primary"
+                      className={classes.submit}
+                      onClick={onLoginClicked}
+                    >
+                      Sign In
+                    </Button>
+                  )}
+                </>
+              )}
+            </Box>
+            {!mc && mobileIDStored && (
+              <Box className={classes.settings}>
+                <Typography>Loading Configuration</Typography>
+                <CircularProgress />
+              </Box>
+            )}
+          </SettingsCard>
+          {mc && mobileIDStored && (
+            <SettingsCard
+              title={
+                dayList.length
+                  ? 'Timing Waypoint and Day Selection'
+                  : 'Timing Waypoint Selection'
+              }
+            >
               {/* Combine Waypoint and Timing Hint Source selection in a flex row */}
               <Box
                 className={classes.settings}
@@ -439,9 +412,9 @@ export default function Setup() {
                   </FormControl>
                 </Tooltip>
               </Box>
-            </>
+            </SettingsCard>
           )}
-        </Card>
+        </Stack>
         {debugLevel > 0 && (
           <Typography>${JSON.stringify(userMessages)}</Typography>
         )}

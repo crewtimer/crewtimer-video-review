@@ -7,6 +7,11 @@ export const TIME_ANALYSIS_COLORS = {
   bad: '#ffab91',
 } as const;
 
+/** Text color that stays readable on the analysis colors in either theme. */
+export const TIME_ANALYSIS_TEXT_COLOR = 'rgba(0, 0, 0, 0.87)';
+/** Dark-theme text for the selected bow, a deep blue for contrast. */
+export const ANALYSIS_SELECTED_TEXT_COLOR = '#174a87';
+
 /**
  * Color for how closely a scored time matches a hint time.
  * Green below 700ms, yellow below 1200ms, red otherwise.

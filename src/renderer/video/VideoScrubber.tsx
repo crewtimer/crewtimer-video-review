@@ -1,5 +1,6 @@
 import { Stack, Button, Box, Slider, Tooltip } from '@mui/material';
 import React, { useRef, useEffect, useMemo, useState } from 'react';
+import { alpha, useTheme } from '@mui/material/styles';
 import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import {
   convertTimestampToLocalMicros,
@@ -33,6 +34,7 @@ import { useFileStatusList } from './VideoFileStatus';
 import { moveLeft, moveRight } from './VideoUtils';
 import { parseTimeToSeconds } from '../util/StringUtils';
 import { requestVideoFrame, seekToTimestampAndWait } from './RequestVideoFrame';
+import { navButtonSx } from '../theme';
 
 /** True for mouse, pointer and touch input; false for keyboard steps. */
 const isPointerEvent = (event: Event | React.SyntheticEvent) => {
@@ -44,6 +46,7 @@ const isPointerEvent = (event: Event | React.SyntheticEvent) => {
 };
 
 const VideoScrubber = () => {
+  const theme = useTheme();
   const [videoFrameNum, setVideoFrameNum] = useVideoFrameNum();
   const [videoFile] = useVideoFile();
   const [image] = useImage();
@@ -329,7 +332,7 @@ const VideoScrubber = () => {
           height: 24,
           m: 0,
           minWidth: 24,
-          background: '#19857b',
+          ...navButtonSx,
         }}
       >
         &lt;
@@ -347,14 +350,14 @@ const VideoScrubber = () => {
           segments={segments}
           times={filteredScoredTimes}
           endTime={endTime}
-          iconColor="#2e7d32"
+          iconColor={theme.palette.success.main}
           iconType="lower"
         />
         <TimeRangeIcons
           segments={segments}
           times={filteredTimes}
           endTime={endTime}
-          iconColor="#d2122e"
+          iconColor={theme.palette.error.main}
           iconType="upper"
         />
 
@@ -368,7 +371,7 @@ const VideoScrubber = () => {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            backgroundColor: 'rgba(255, 255, 255, 0.5)',
+            backgroundColor: alpha(theme.palette.background.default, 0.5),
           }}
         >
           <Tooltip
@@ -430,7 +433,7 @@ const VideoScrubber = () => {
           height: 24,
           m: 0,
           minWidth: 24,
-          background: '#19857b',
+          ...navButtonSx,
         }}
       >
         &gt;

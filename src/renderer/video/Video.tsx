@@ -1,4 +1,4 @@
-import { Box, Typography, Stack, Tooltip, Button } from '@mui/material';
+import { Box, Typography, Stack, Tooltip, Button, Paper } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import React, {
   FC,
@@ -1463,12 +1463,41 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
 
 const [useWindowSize] = UseDatum({ winWidth: 0, winHeight: 0 });
 
+/** Space around each sidebar card, in px. */
+const CARD_GAP = 4;
+/** Border width of an outlined Paper, in px. */
+const CARD_BORDER = 1;
+/** What a card adds to its content in each dimension. */
+const CARD_INSET = 2 * (CARD_GAP + CARD_BORDER);
+/** Padding above the timing sidebar's first row inside its card. */
+const TIMING_CARD_TOP = 8;
+
+/** Card around a sidebar column, matching the recorder's Panel (theme radius). */
+const SidebarCard = ({ children }: { children: React.ReactNode }) => (
+  <Paper
+    variant="outlined"
+    sx={{
+      m: `${CARD_GAP}px`,
+      overflow: 'hidden',
+      display: 'flex',
+      flexShrink: 0,
+    }}
+  >
+    {children}
+  </Paper>
+);
+
 const Video = () => {
   const [top, setTop] = useState(180);
   const resizeFrameRef = useRef<number | undefined>(undefined);
   const videoSidebarWidth = 150; // enough for '20240308_123248.mp4'
   const timingSidebarwidth = 300;
-  const sidebarWidth = Math.max(60, videoSidebarWidth + timingSidebarwidth);
+  // The cards add their gap and border outside the content widths so the
+  // file names still fit.
+  const sidebarWidth = Math.max(
+    60,
+    videoSidebarWidth + timingSidebarwidth + 2 * CARD_INSET,
+  );
   const [{ winWidth, winHeight }, setWindowSize] = useWindowSize();
 
   const onResize = useCallback(() => {
@@ -1494,6 +1523,7 @@ const Video = () => {
   }, [onResize]);
   const width = winWidth;
   const height = Math.max(winHeight - top, 1);
+  const cardHeight = Math.max(height - CARD_INSET, 1);
 
   const handleResize = useCallback((contentRect: ContentRect) => {
     if (!contentRect.bounds) {
@@ -1546,20 +1576,25 @@ const Video = () => {
               />
               <Stack direction="column" sx={{ width: sidebarWidth }}>
                 <Stack direction="row" sx={{ flexGrow: 1 }}>
-                  <TimingSidebar
-                    height={height}
-                    width={timingSidebarwidth}
-                    sx={{
-                      width: timingSidebarwidth,
-                      height,
-                    }}
-                  />
-                  <VideoSideBar
-                    height={height}
-                    sx={{
-                      width: videoSidebarWidth,
-                    }}
-                  />
+                  <SidebarCard>
+                    <TimingSidebar
+                      height={cardHeight - TIMING_CARD_TOP}
+                      width={timingSidebarwidth}
+                      sx={{
+                        width: timingSidebarwidth,
+                        height: cardHeight,
+                        pt: `${TIMING_CARD_TOP}px`,
+                      }}
+                    />
+                  </SidebarCard>
+                  <SidebarCard>
+                    <VideoSideBar
+                      height={cardHeight}
+                      sx={{
+                        width: videoSidebarWidth,
+                      }}
+                    />
+                  </SidebarCard>
                 </Stack>
               </Stack>
             </Stack>

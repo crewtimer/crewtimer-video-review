@@ -21,6 +21,7 @@ import { setDialogConfig } from './util/ConfirmDialog';
 import { showErrorDialog } from './util/ErrorDialog';
 import { replaceFileSuffix } from './util/Util';
 import { moveToFileIndex } from './video/VideoUtils';
+import { navAccentSx } from './theme';
 
 interface FileListProps {
   height: number;
@@ -168,8 +169,7 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
               rowIdx === selectedIndex
                 ? {
                     fontSize: 10,
-                    background: '#19857b',
-                    color: 'white',
+                    ...navAccentSx,
                     paddingLeft: '0.25em',
                   }
                 : {
@@ -207,6 +207,16 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
     [],
   );
 
+  // The grid makes a cell active (focus outline) on mousedown, and that outline
+  // stayed behind when the scrubber changed files. The selected row highlight
+  // already tracks the current file, so keep the grid from activating cells.
+  const handleMouseDown = React.useCallback(
+    (_args: CellMouseArgs<FileInfo, unknown>, event: CellMouseEvent) => {
+      event.preventGridDefault();
+    },
+    [],
+  );
+
   const handleContextMenu = React.useCallback(
     (args: CellMouseArgs<FileInfo, unknown>, event: CellMouseEvent) => {
       console.log('context');
@@ -230,6 +240,7 @@ const FileList: React.FC<FileListProps> = ({ files, height }) => {
           columns={columns}
           rows={dispItems}
           rowKeyGetter={rowKeyGetter}
+          onCellMouseDown={handleMouseDown}
           onCellClick={handleClick}
           onCellDoubleClick={handleClick}
           onCellContextMenu={handleContextMenu}

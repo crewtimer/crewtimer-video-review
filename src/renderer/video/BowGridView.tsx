@@ -6,6 +6,7 @@ import React, {
   useState,
 } from 'react';
 import { Tooltip, Button, Box, Typography, Stack } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { GroupedVirtuoso } from 'react-virtuoso';
 
 import { Event } from 'crewtimer-common';
@@ -37,6 +38,10 @@ import {
   setContextMenuAnchor,
 } from './TimingSidebarUtil';
 import { useTimeAnalysisColor } from './UseTimeAnalysisColor';
+import {
+  ANALYSIS_SELECTED_TEXT_COLOR,
+  TIME_ANALYSIS_TEXT_COLOR,
+} from './TimeAnalysis';
 
 // Compute rows (arrays of bow strings) for an event, honoring orderByTime and gate.
 export function eventToRows(ev: Event, orderByTime: boolean, gate: string) {
@@ -86,6 +91,7 @@ const BowButton: React.FC<{
   const [scoredValue] = useEntryResult(entryKey);
   const [hintValue] = useEntryResult(`${hintGate}_${eventNum}_${bow}`);
   const analysisColor = useTimeAnalysisColor(eventNum, bow);
+  const theme = useTheme();
   // compute derived properties here
   const hasTime = !!(
     scoredValue &&
@@ -128,7 +134,7 @@ const BowButton: React.FC<{
 
   // Compute top bar background: left half green if hint exists, right half green if scored exists
   const activeColor = '#0e0'; // '#4caf50';
-  const inactiveColor = '#ddd';
+  const inactiveColor = theme.palette.app.inactiveBg;
   const topBarBackground =
     hintValue !== undefined && scoredValue !== undefined
       ? activeColor
@@ -137,28 +143,36 @@ const BowButton: React.FC<{
         : scoredValue !== undefined
           ? `linear-gradient(to right, ${inactiveColor} 0%, ${inactiveColor} 50%, ${activeColor} 50%, ${activeColor} 100%)`
           : inactiveColor;
-  const recordedBackgroundColor = analysisColor || '#ddd';
+  const recordedBackgroundColor = analysisColor || 'app.inactiveBg';
+  // The analysis colors are light pastels in both themes, so text on them
+  // needs a dark blue rather than the dark theme's light primary.
+  const recordedSelectedText = analysisColor
+    ? ANALYSIS_SELECTED_TEXT_COLOR
+    : 'primary.main';
 
   if (isSelected) {
-    sx.color = hasTime ? 'primary.main' : 'primary.contrastText';
+    sx.color = hasTime ? recordedSelectedText : 'primary.contrastText';
     sx.fontWeight = 'bold';
     sx.backgroundColor = hasTime ? recordedBackgroundColor : 'primary.main';
     sx.border = '2px solid #d2122e';
     sx.boxShadow = undefined;
     sx['&:hover'] = {
       backgroundColor: hasTime ? recordedBackgroundColor : 'primary.dark',
-      color: hasTime ? 'primary.main' : 'white',
+      color: hasTime ? recordedSelectedText : 'white',
       borderColor: '#d2122e',
     };
   } else if (hasTime) {
     sx.backgroundColor = recordedBackgroundColor;
-    sx.color = 'text.secondary';
+    sx.color =
+      analysisColor && theme.palette.mode === 'dark'
+        ? TIME_ANALYSIS_TEXT_COLOR
+        : 'text.secondary';
     sx.opacity = 0.8;
   } else {
-    sx.backgroundColor = '#ffffff';
+    sx.backgroundColor = 'background.paper';
     // if there's an exception, give a light pink background
     if (exception) {
-      sx.backgroundColor = '#fdd8';
+      sx.backgroundColor = 'app.exceptionSubtleBg';
     }
   }
 
@@ -226,20 +240,31 @@ const BowButton: React.FC<{
   );
 };
 
+/** Width of the red outline around the current event, in px. */
+const CURRENT_EVENT_BORDER_WIDTH = 2;
+const CURRENT_EVENT_BORDER = `${CURRENT_EVENT_BORDER_WIDTH}px solid #d2122e`;
+/**
+ * Left padding inside the outline. With the border it adds up to the 8px
+ * padding other events use, so content lines up and full rows don't wrap.
+ */
+const CURRENT_EVENT_INSET = `${8 - CURRENT_EVENT_BORDER_WIDTH}px`;
+
 // Top-level renderer for group headers (memoized)
 const GroupHeader = React.memo(
   ({ ev, isCurrent }: { ev: Event; isCurrent: boolean }) => (
     <Box
       sx={{
-        // align left padding with row padding so the border is continuous
-        pl: isCurrent ? '0.5rem' : 1,
+        // border + padding equals the 8px padding of other events, so the
+        // outlined event's content lines up with the rest
+        pl: isCurrent ? CURRENT_EVENT_INSET : 1,
         pr: 0.5,
         py: 0.5,
         // use a solid background so items scrolled beneath are not visible through
-        backgroundColor: isCurrent ? '#f6fafb' : 'background.paper',
-        // add a distinctive left border when this is the current event
-        borderLeft: isCurrent ? '4px solid #d2122e' : undefined,
-        borderTop: isCurrent ? '4px solid #d2122e' : undefined,
+        backgroundColor: isCurrent ? 'app.currentEventBg' : 'background.paper',
+        // outline the current event on all sides (rows continue it below)
+        borderLeft: isCurrent ? CURRENT_EVENT_BORDER : undefined,
+        borderRight: isCurrent ? CURRENT_EVENT_BORDER : undefined,
+        borderTop: isCurrent ? CURRENT_EVENT_BORDER : undefined,
         zIndex: 1,
       }}
       onClick={() => {
@@ -257,7 +282,7 @@ const GroupHeader = React.memo(
           ...(isCurrent
             ? {}
             : {
-                backgroundColor: '#f0f0f0',
+                backgroundColor: 'app.subtleBg',
                 py: '1px',
                 borderRadius: 0.5,
               }),
@@ -292,11 +317,13 @@ const BowRowComponent: React.FC<{
         flexWrap: 'wrap',
         pt: 0.5,
         pl: 1,
-        // highlight current event rows with a left border to match the header
-        borderLeft: isCurrent ? '4px solid #d2122e' : undefined,
-        borderBottom: isCurrent && isLastRow ? '4px solid #d2122e' : undefined,
-        // slightly offset the content so the border doesn't overlap
-        paddingLeft: isCurrent ? '0.5rem' : undefined,
+        // continue the current event's outline down both sides
+        borderLeft: isCurrent ? CURRENT_EVENT_BORDER : undefined,
+        borderRight: isCurrent ? CURRENT_EVENT_BORDER : undefined,
+        borderBottom: isCurrent && isLastRow ? CURRENT_EVENT_BORDER : undefined,
+        // border + padding equals the 8px padding of other rows, so adding the
+        // right border doesn't make full rows wrap
+        paddingLeft: isCurrent ? CURRENT_EVENT_INSET : undefined,
       }}
     >
       {row.map((bow: string) => (
@@ -515,7 +542,7 @@ export const BowGridView: React.FC<{
 
   // Render using GroupVirtuoso: groups -> event headers, items -> rows of bow buttons
   return (
-    <Box sx={{ border: '1px solid rgba(0,0,0,0.2)', height: '100%' }}>
+    <Box sx={{ border: 1, borderColor: 'app.panelBorder', height: '100%' }}>
       <GroupedVirtuoso
         ref={virtuosoRef}
         style={{ height: '100%' }}

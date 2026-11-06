@@ -13,6 +13,7 @@ import { parseTypedTime } from 'renderer/util/StringUtils';
 import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { findSeekTarget, seekToTimestamp } from './RequestVideoFrame';
 import { resetVideoZoom } from './VideoSettings';
+import { navButtonSx } from '../theme';
 
 /** A button that opens a dialog to jump the video to a typed time of day. */
 const GoToTime: React.FC = () => {
@@ -54,7 +55,7 @@ const GoToTime: React.FC = () => {
             height: 24,
             m: 0,
             minWidth: 24,
-            background: '#19857b',
+            ...navButtonSx,
             marginLeft: '0.5em',
           }}
         >

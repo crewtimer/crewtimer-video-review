@@ -22,7 +22,7 @@ export const colors = {
   txfail: '#cc0000',
   unassignedBorder: '#ff0',
 };
-const useStyles = makeStyles({
+const useStyles = makeStyles((theme) => ({
   root: {
     flex: 1,
     display: 'flex',
@@ -31,7 +31,7 @@ const useStyles = makeStyles({
   },
   list: {},
   even: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: theme.palette.app.subtleBg,
   },
   odd: {},
   common: {},
@@ -39,7 +39,7 @@ const useStyles = makeStyles({
     flexDirection: 'row',
     display: 'flex',
     alignItems: 'stretch',
-    borderBottom: '1px solid #e0e0e0',
+    borderBottom: `1px solid ${theme.palette.app.listDivider}`,
     paddingLeft: 8,
   },
   index: { flexGrow: 5, flexBasis: 0 },
@@ -53,15 +53,15 @@ const useStyles = makeStyles({
     marginLeft: 8,
     paddingRight: 8,
   },
-  trash: { flexGrow: 4, flexBasis: 0, color: '#666' },
+  trash: { flexGrow: 4, flexBasis: 0, color: theme.palette.app.inactiveText },
   bold: { fontWeight: 'bold' },
 
   strike: { textDecorationLine: 'line-through', color: '#888' },
   OK: {},
-  TxPend: { color: colors.txpend },
-  TxActive: { color: colors.txpend },
-  Fail: { color: colors.txfail },
-});
+  TxPend: { color: theme.palette.warning.main },
+  TxActive: { color: theme.palette.warning.main },
+  Fail: { color: theme.palette.error.main },
+}));
 
 interface Dataset {
   laps: Lap[];

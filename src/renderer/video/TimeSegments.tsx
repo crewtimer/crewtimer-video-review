@@ -1,6 +1,7 @@
 import React from 'react';
 import Box from '@mui/material/Box';
 import Tooltip from '@mui/material/Tooltip';
+import { Theme } from '@mui/material/styles';
 import { FileStatus, TimeSegment } from './VideoTypes';
 
 /**
@@ -73,7 +74,8 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
         width: '100%',
         position: 'relative',
         height: '20px',
-        outline: '1px solid #bbbbbb',
+        outline: '1px solid',
+        outlineColor: 'app.outline',
       }}
     >
       {displaySegments.map((segment, index) => {
@@ -85,12 +87,15 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
         const style =
           numClicks === 0
             ? {
-                backgroundImage: `
-          linear-gradient(45deg, #ccc 25%, transparent 25%),
-          linear-gradient(-45deg, #ccc 25%, transparent 25%),
-          linear-gradient(45deg, transparent 75%, #ccc 75%),
-          linear-gradient(-45deg, transparent 75%, #ccc 75%)
-        `,
+                backgroundImage: (theme: Theme) => {
+                  const { hatch } = theme.palette.app;
+                  return `
+          linear-gradient(45deg, ${hatch} 25%, transparent 25%),
+          linear-gradient(-45deg, ${hatch} 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, ${hatch} 75%),
+          linear-gradient(-45deg, transparent 75%, ${hatch} 75%)
+        `;
+                },
                 backgroundSize: '4px 4px',
               }
             : {};
@@ -104,7 +109,8 @@ const TimeSegments: React.FC<TimeSegmentsProps> = ({
                 bottom: 0,
                 left: `${leftPercent}%`,
                 width: `${widthPercent}%`,
-                backgroundColor: index === activeIndex ? '#00ffff' : '#f0f0f0',
+                backgroundColor:
+                  index === activeIndex ? 'app.activeSegment' : 'app.subtleBg',
                 borderRight: '1px solid #888',
                 borderLeft: '1px solid #888',
                 minWidth: '2px',
