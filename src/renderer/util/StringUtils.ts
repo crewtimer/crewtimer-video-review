@@ -1,8 +1,19 @@
+/** A recorder file name's collision suffix, as in CT_20261105_162436_2.mp4.
+ * The time before it must be HHMMSS or use ':' or '-' between its fields, so
+ * the seconds of a name like CT_20261105_16_24_36 are not read as a suffix. */
+const COLLISION_SUFFIX = /(^|\D)(\d{6}|\d{2}([:-])\d{2}\3\d{2})_(\d{1,3})$/;
+
+/** A file name without its path or extension. */
+const baseName = (fileName: string) =>
+  fileName.replace(/.*[\\/]/, '').replace(/\.[^.]*$/, '');
+
 /**
  * Extracts a time string in HH:MM:SS format from a given file name.
  *
- * Strips path and special characters, searches for a 6-digit sequence at the end of the file name,
- * and formats it as a time string. Returns '00:00:00' if no valid time is found.
+ * Strips the path, extension and any collision suffix (the _2 in
+ * CT_20261105_162436_2.mp4), then reads the 6 digits at the end of the name
+ * as HHMMSS, allowing ':', '-' or '_' between them. Returns '00:00:00' if no
+ * valid time is found.
  *
  * @param fileName - The name of the file to extract the time from.
  * @returns The extracted time in HH:MM:SS format, or '00:00:00' if not found.
@@ -11,26 +22,25 @@ export function extractTime(fileName: string) {
   if (!fileName) {
     return '00:00:00';
   }
-  let name = fileName.replace(/[:\-_]/g, '').replace(/.*\//, ''); // strip path
-  const lastIndex = name.lastIndexOf('.');
-
-  // If a period is found, return the substring after it
-  if (lastIndex > -1) {
-    name = name.substring(0, lastIndex);
-  }
-
-  // Last 6 chars should be HHMMSS
-  const match = name.match(/(\d{6})$/);
+  const name = baseName(fileName)
+    .replace(COLLISION_SUFFIX, '$1$2')
+    .replace(/[:\-_]/g, '');
+  const match = name.match(/(\d{2})(\d{2})(\d{2})$/);
   if (match) {
-    // Extract the last 6 characters from the string
-    const timeStr = name.slice(-6);
-    // Insert colons to format as HH:MM:SS
-    return `${timeStr.slice(0, 2)}:${timeStr.slice(2, 4)}:${timeStr.slice(
-      4,
-      6,
-    )}`;
+    return `${match[1]}:${match[2]}:${match[3]}`;
   }
   return '00:00:00';
+}
+
+/**
+ * The recorder adds _2, _3, ... to a file name when a file with that name
+ * already exists, which happens when it splits more than once in the same
+ * second. Returns that number, or 1 for a name without one, so files with the
+ * same time sort in recording order.
+ */
+export function extractCollisionIndex(fileName: string) {
+  const match = baseName(fileName || '').match(COLLISION_SUFFIX);
+  return match ? Number(match[4]) : 1;
 }
 
 /**

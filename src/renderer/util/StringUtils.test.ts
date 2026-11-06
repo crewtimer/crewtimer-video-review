@@ -1,4 +1,10 @@
-import { eventLabel, parseTypedTime, sanitizeFirebaseKey } from './StringUtils';
+import {
+  eventLabel,
+  extractCollisionIndex,
+  extractTime,
+  parseTypedTime,
+  sanitizeFirebaseKey,
+} from './StringUtils';
 import { waypointFromGate } from './Util';
 
 describe('sanitizeFirebaseKey', () => {
@@ -73,5 +79,39 @@ describe('parseTypedTime', () => {
     expect(parseTypedTime('1423')).toBeUndefined();
     expect(parseTypedTime('14:23:22.')).toBeUndefined();
     expect(parseTypedTime('abc')).toBeUndefined();
+  });
+});
+
+describe('extractTime', () => {
+  it('reads the time at the end of a recorder file name', () => {
+    expect(extractTime('/v/CT_20261105_162436.mp4')).toBe('16:24:36');
+    expect(extractTime('C:\\v\\CT_20261105_162436.mp4')).toBe('16:24:36');
+    expect(extractTime('clip-16-24-36.mov')).toBe('16:24:36');
+    expect(extractTime('clip_16:24:36.mp4')).toBe('16:24:36');
+  });
+
+  it('ignores a collision suffix', () => {
+    expect(extractTime('/v/SDFC_20261105_162436_2.mp4')).toBe('16:24:36');
+    expect(extractTime('SDFC_20261105_162421_12.mp4')).toBe('16:24:21');
+    expect(extractTime('clip-16-24-36_2.mov')).toBe('16:24:36');
+  });
+
+  it('reads a time with underscores between its fields', () => {
+    expect(extractTime('CT_20261105_16_24_36.mp4')).toBe('16:24:36');
+  });
+
+  it('returns midnight without a time', () => {
+    expect(extractTime('')).toBe('00:00:00');
+    expect(extractTime('race.mp4')).toBe('00:00:00');
+  });
+});
+
+describe('extractCollisionIndex', () => {
+  it('reads the recorder suffix, or 1 without one', () => {
+    expect(extractCollisionIndex('/v/CT_20261105_162436.mp4')).toBe(1);
+    expect(extractCollisionIndex('/v/CT_20261105_162436_2.mp4')).toBe(2);
+    expect(extractCollisionIndex('CT_20261105_162436_12.mp4')).toBe(12);
+    expect(extractCollisionIndex('CT_20261105_16_24_36.mp4')).toBe(1);
+    expect(extractCollisionIndex('CT_20261105_162436_1000.mp4')).toBe(1);
   });
 });

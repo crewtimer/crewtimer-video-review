@@ -6,7 +6,7 @@ import { showErrorDialog } from 'renderer/util/ErrorDialog';
 import { useInitializing } from 'renderer/util/UseSettings';
 import { replaceFileSuffix } from 'renderer/util/Util';
 import deepequal from 'fast-deep-equal/es6/react';
-import { extractTime } from '../util/StringUtils';
+import { extractCollisionIndex, extractTime } from '../util/StringUtils';
 import {
   Dir,
   getImage,
@@ -216,20 +216,23 @@ export const refreshDirList = async (videoDir: string) => {
 
     const files = result.files
       .filter((file) => videoFileRegex.test(file))
-      .filter((file) => !file.includes('tmp') && !file.startsWith('._'));
+      // Skip hidden files: macOS ._ metadata and partial files still being written
+      .filter((file) => !file.includes('tmp') && !file.startsWith('.'));
 
-    // Sort files by the embedded time in the filename
+    // Sort files by the embedded time in the filename, then by the recorder's
+    // _2, _3 suffix for files that started in the same second
     const fileInfo = files.map((file) => ({
       name: file,
       time: extractTime(file),
+      index: extractCollisionIndex(file),
     }));
-    fileInfo.sort((a, b) => {
-      // Use localeCompare for natural alphanumeric sorting
-      return a.time.localeCompare(b.time, undefined, {
-        numeric: true,
-        sensitivity: 'base',
-      });
-    });
+    fileInfo.sort(
+      (a, b) =>
+        a.time.localeCompare(b.time, undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        }) || a.index - b.index,
+    );
     const dirList = fileInfo.map(
       (file) => `${videoDir}${window.platform.pathSeparator}${file.name}`,
     );
