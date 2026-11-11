@@ -761,6 +761,32 @@ def adjust_labels_interactively(
         if event == cv2.EVENT_LBUTTONDOWN:
             keypoint_click[0] = (x, y)
             keypoint_click[1] = shift_pressed[0]
+    def verify_active_boat(boat_index):
+        """Mark the boat's card verified and clear its mismatch metadata."""
+        existing = next(
+            (card for card in cards if card.get("boatIndex") == boat_index),
+            None,
+        )
+        clear_reviewed_mismatch(card_annotations, boat_index)
+        if existing is None:
+            print(
+                f"Verified boat {boat_index + 1} with no saved card "
+                "annotation; cleared bowMismatch"
+            )
+            return
+        existing["verified"] = True
+        print(f"Verified bow card for boat {boat_index + 1}")
+
+    def discard_pending_input():
+        """Drop input left over from a C/# value dialog. The global key
+        listener also sees keys typed there (digits, Enter), and a trailing
+        Enter would otherwise be read as "accept" and advance to the next boat."""
+        cv2.waitKey(1)
+        keypress[0] = 0
+        right_click[0] = False
+        keypoint_click[0] = None
+        scroll_delta[0] = 0
+
     cv2.namedWindow(WindowName, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
     cv2.setMouseCallback(WindowName, mouse_callback_rt_click)
     while idx < len(label_lines) or len(label_lines) == 0:
@@ -1099,10 +1125,10 @@ def adjust_labels_interactively(
                                 )
                             else:
                                 print("Cleared bowMismatch for unreadable card")
-                        navigation = "next"
+                    # Stay on the same boat/side so it can be reviewed after
+                    # labeling; use N, V or right click to advance.
                     cv2.setMouseCallback(WindowName, mouse_callback_rt_click)
-                    if navigation:
-                        break
+                    discard_pending_input()
                     continue
                 if (key < 1 and keypress[0] != 0):
                     key = keypress[0]
@@ -1111,26 +1137,7 @@ def adjust_labels_interactively(
                 if key in [ord('v'), ord('V'), 'v', 'V'] or (
                     getattr(key, "char", "").lower() == 'v'
                 ):
-                    existing = next(
-                        (
-                            card
-                            for card in cards
-                            if card.get("boatIndex") == idx
-                        ),
-                        None,
-                    )
-                    if existing is None:
-                        clear_reviewed_mismatch(card_annotations, idx)
-                        print(
-                            f"Verified boat {idx + 1} with no saved card "
-                            "annotation; cleared bowMismatch"
-                        )
-                        navigation = "next"
-                        break
-
-                    existing["verified"] = True
-                    clear_reviewed_mismatch(card_annotations, idx)
-                    print(f"Verified bow card for boat {idx + 1}")
+                    verify_active_boat(idx)
                     navigation = "next"
                     break
 
@@ -1157,6 +1164,7 @@ def adjust_labels_interactively(
                         cv2.setMouseCallback(
                             WindowName, mouse_callback_rt_click
                         )
+                        discard_pending_input()
                         continue
 
                     existing_box = existing["box"]
@@ -1202,9 +1210,11 @@ def adjust_labels_interactively(
                             )
                         else:
                             print("Cleared bowMismatch for unreadable card")
+                    # Stay on the same boat/side, like C; use N, V or right
+                    # click to advance.
                     cv2.setMouseCallback(WindowName, mouse_callback_rt_click)
-                    navigation = "next"
-                    break
+                    discard_pending_input()
+                    continue
 
                 # Handle keypoint click
                 if keypoint_click[0] is not None:
@@ -1294,6 +1304,11 @@ def adjust_labels_interactively(
                             continue
 
                 if right_click[0]:
+                    # Accepting the last edge advances to the next boat, so
+                    # treat it like V and verify the card first.
+                    if current_side == sides_to_review[-1]:
+                        verify_active_boat(idx)
+                        navigation = "next"
                     break
 
                 # Mouse wheel: move left/right if scrolledn
@@ -1470,6 +1485,71 @@ def find_image(image_dir, name):
             return candidate
     return None
 
+def read_image_list(list_path, image_dir, datasets_root, reasons=None):
+    """Resolve the images named in an --image-list file, in order, without
+    duplicates. Unresolvable entries are reported and skipped."""
+    import csv
+
+    wanted_reasons = (
+        {r.strip() for r in reasons.split(',') if r.strip()} if reasons else None
+    )
+    entries = []  # (image name or path, folder to look in)
+    # utf-8-sig drops a spreadsheet's byte-order mark; splitlines handles CRLF.
+    text = list_path.read_text(encoding='utf-8-sig')
+    rows = [
+        [cell.strip() for cell in row]
+        for row in csv.reader(text.splitlines())
+        if row and any(cell.strip() for cell in row)
+        and not row[0].strip().startswith('#')
+    ]
+    if list_path.suffix.lower() == '.csv' or any(len(row) > 1 for row in rows):
+        header = [cell.lower() for cell in rows[0]] if rows else []
+        if 'image' in header:
+            columns, rows = header, rows[1:]
+        else:
+            # No header (e.g. rows copied out of findings.csv): assume the
+            # findings.csv column order.
+            columns = ['severity', 'reason', 'dataset', 'image']
+        for row in rows:
+            fields = dict(zip(columns, row))
+            name = fields.get('image', '')
+            if not name.lower().endswith(tuple(IMAGE_SUFFIXES)):
+                # Fall back to whichever cell looks like an image file.
+                name = next(
+                    (c for c in row if c.lower().endswith(tuple(IMAGE_SUFFIXES))),
+                    '',
+                )
+            if not name:
+                print(f"No image name in --image-list row: {','.join(row)}")
+                continue
+            if wanted_reasons and fields.get('reason') not in wanted_reasons:
+                continue
+            dataset = fields.get('dataset', '')
+            folder = datasets_root / dataset / 'images' if dataset else image_dir
+            entries.append((name, folder))
+    else:
+        if wanted_reasons:
+            print("--reasons only applies to a CSV --image-list; ignoring it")
+        for line in text.splitlines():
+            line = line.strip()
+            if line and not line.startswith('#'):
+                entries.append((line, image_dir))
+
+    images, seen = [], set()
+    for name, folder in entries:
+        name = os.path.expanduser(name)
+        path = find_image(folder, name)
+        if path is None and folder != image_dir:
+            path = find_image(image_dir, name)
+        if path is None:
+            print(f"Image not found: {name} (looked in {folder})")
+            continue
+        key = path.resolve()
+        if key not in seen:
+            seen.add(key)
+            images.append(path)
+    return images
+
 def main():
     parser = argparse.ArgumentParser(
         description="Create and adjust YOLO labels using model detections and interactive review.",
@@ -1488,7 +1568,7 @@ BBox Keyboard Actions:
 
 Keypoint Labeling:
   Left Click: Assign Bow keypoint location.  Shift to remove (may require restart with --skip)
-  Right Click: Move to the next bbox
+  Right Click: Accept the current edge; on the last edge, verify like V and move to the next bbox
   C : Draw or replace the active boat's bow-card bbox and enter its value
       Enter ? as the value when the physical card is present but unreadable
   # : Change the active boat's bow value without changing its card bbox
@@ -1509,11 +1589,15 @@ Exit:
     )
     parser.add_argument('--images', default='images', help='Folder containing images. Default: images')
     parser.add_argument('--model', default='https://storage.googleapis.com/training.crewtimer.com/models/crewtimer-boat-train.onnx', help='Path to YOLO model file (.pt/.onnx). Default: download')
-    parser.add_argument('--labels', default='labels', help='Folder to save output YOLO label files.  Default: labels')
+    parser.add_argument(
+        '--labels',
+        default=None,
+        help='Folder to save output YOLO label files. Default: labels next to the images folder',
+    )
     parser.add_argument(
         '--card-labels',
-        default='card-labels',
-        help='Folder for bow-card JSON sidecars. Default: card-labels',
+        default=None,
+        help='Folder for bow-card JSON sidecars. Default: card-labels next to the images folder',
     )
     parser.add_argument(
         '--skip-card-labeled',
@@ -1537,12 +1621,78 @@ Exit:
         '--image',
         help='Review only this image (a path, or a file name or stem in --images), even if already labeled',
     )
+    parser.add_argument(
+        '--image-list',
+        type=Path,
+        help='Review only the images in this file, even if already labeled. '
+             'Either one image per line (a path, or a file name or stem in '
+             '--images; blank lines and # comments ignored), or a CSV with an '
+             '"image" column such as label-audit/findings.csv, where a '
+             '"dataset" column is resolved under --datasets-root',
+    )
+    parser.add_argument(
+        '--datasets-root',
+        type=Path,
+        default=Path.home() / 'training' / 'datasets',
+        help='Folder holding the datasets named in an --image-list CSV. '
+             'Default: ~/training/datasets',
+    )
+    parser.add_argument(
+        '--reasons',
+        help='With an --image-list CSV that has a "reason" column, only keep '
+             'these comma-separated reasons (e.g. ocr_disagrees,small_legible_card)',
+    )
     parser.add_argument('--zip', action='store_true', help='Zip all files in the labels folder into dirname.zip and exit')
     args = parser.parse_args()
+    if args.image and args.image_list:
+        parser.error('Use --image or --image-list, not both')
+
+    # Explicit images to review (--image or --image-list). These are reviewed
+    # even when already labeled, and the --only-*/--skip filters do not apply.
+    listed_images = None
+    if args.image:
+        single_image = find_image(Path(args.images), args.image)
+        if single_image is None:
+            print(f"Image not found: {args.image}")
+            return
+        listed_images = [single_image]
+    elif args.image_list:
+        if not args.image_list.is_file():
+            parser.error(f'--image-list file not found: {args.image_list}')
+        listed_images = read_image_list(
+            args.image_list, Path(args.images),
+            args.datasets_root.expanduser(), args.reasons,
+        )
+        if not listed_images:
+            print(f"No images found from {args.image_list}")
+            return
+        print(f"Reviewing {len(listed_images)} image(s) from {args.image_list}")
+    if listed_images and len({p.parent for p in listed_images}) == 1:
+        # All images share a folder: treat it as the images folder.
+        args.images = str(listed_images[0].parent)
+
+    explicit_labels = args.labels
+    explicit_card_labels = args.card_labels
+
+    def label_dirs_for(images_folder):
+        """Label folders for an images folder: explicit ones, else siblings
+        (e.g. data/work/images -> data/work/labels, data/work/card-labels)."""
+        parent = os.path.dirname(os.path.abspath(images_folder))
+        return (
+            explicit_labels or os.path.join(parent, 'labels'),
+            explicit_card_labels or os.path.join(parent, 'card-labels'),
+        )
+
+    args.labels, args.card_labels = label_dirs_for(args.images)
+    if listed_images and len({p.parent for p in listed_images}) > 1:
+        print("Images: several folders; labels and card-labels are next to each")
+    else:
+        print(f"Images: {listed_images[0] if listed_images and len(listed_images) == 1 else args.images}")
+        print(f"Labels: {args.labels}")
+        print(f"Card labels: {args.card_labels}")
 
     if getattr(args, 'zip', False):
         import zipfile
-        import os
         label_dir = args.labels
         abs_label_dir = os.path.abspath(label_dir)
         parent_dir = os.path.basename(os.path.dirname(abs_label_dir))
@@ -1557,9 +1707,10 @@ Exit:
         print(f"Zipped all files in '{label_dir}' to '{zip_name}'")
         return
 
-    import os, urllib.request
-    os.makedirs(args.labels, exist_ok=True)
-    os.makedirs(args.card_labels, exist_ok=True)
+    import urllib.request
+    if listed_images is None:
+        os.makedirs(args.labels, exist_ok=True)
+        os.makedirs(args.card_labels, exist_ok=True)
     model_path = args.model
     if model_path.startswith('http'):
         filename = os.path.basename(model_path)
@@ -1578,15 +1729,11 @@ Exit:
             model_path = parent_model_path
     model = load_model(model_path)
     image_dir = Path(args.images)
-    if args.image:
-        image_path = find_image(image_dir, args.image)
-        if image_path is None:
-            print(f"Image not found: {args.image}")
-            return
-        image_files = [image_path]
+    if listed_images is not None:
+        image_files = listed_images
     else:
         image_files = sorted([f for f in image_dir.iterdir() if f.suffix.lower() in IMAGE_SUFFIXES])
-    if args.only_mismatch and not args.image:
+    if args.only_mismatch and listed_images is None:
         image_files = [
             image_path
             for image_path in image_files
@@ -1595,7 +1742,7 @@ Exit:
             )
         ]
         print(f"Found {len(image_files)} image(s) flagged with bowMismatch=true")
-    if args.only_multiple_boats and not args.image:
+    if args.only_multiple_boats and listed_images is None:
         image_files = [
             image_path
             for image_path in image_files
@@ -1639,17 +1786,20 @@ Exit:
     mouse_listener = mouse.Listener(on_scroll=on_scroll)
     mouse_listener.start()
 
-    idx = 0 if args.image else args.skip
+    idx = 0 if listed_images is not None else args.skip
     total_files = len(image_files)
     review_mode = ["Both"]
     while idx < total_files:
         img_path = image_files[idx]
         label_filename = img_path.stem + ".txt"
-        out_path = os.path.join(args.labels, label_filename)
-        card_path = os.path.join(args.card_labels, img_path.stem + ".json")
+        labels_dir, card_labels_dir = label_dirs_for(img_path.parent)
+        os.makedirs(labels_dir, exist_ok=True)
+        os.makedirs(card_labels_dir, exist_ok=True)
+        out_path = os.path.join(labels_dir, label_filename)
+        card_path = os.path.join(card_labels_dir, img_path.stem + ".json")
         if (
             args.skip_card_labeled
-            and not args.image
+            and listed_images is None
             and has_card_annotations(card_path)
         ):
             print(f"Skipping card-labeled image: {img_path.name}")
@@ -1657,7 +1807,7 @@ Exit:
             continue
         if (
             not args.all
-            and not args.image
+            and listed_images is None
             and not args.only_mismatch
             and not args.only_multiple_boats
             and os.path.exists(out_path)

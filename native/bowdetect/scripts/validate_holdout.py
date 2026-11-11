@@ -327,8 +327,17 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     (args.output_dir / 'report.md').write_text('\n'.join(lines) + '\n')
+    # Images with any bow-number error, for create-and-adjust-labels.py
+    # --image-list to step through and fix (e.g. unreadable cards -> '?').
+    failure_images = [
+        str(path) for path, row in zip(images, report['images'])
+        if any(row['runs'][name].get('number_errors') for name in number_models)
+    ]
+    failures_path = args.output_dir / 'number-failures.txt'
+    failures_path.write_text(''.join(f'{p}\n' for p in failure_images))
     print('\n'.join(lines[:17]))
     print(f'Reports: {args.output_dir / "report.md"} and report.json')
+    print(f'{len(failure_images)} image(s) with bow-number errors: {failures_path}')
     return 0
 
 

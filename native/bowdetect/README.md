@@ -527,6 +527,17 @@ make validate-holdout HOLDOUT_DATASET=/path/to/dataset HOLDOUT_OUTPUT=build/my-r
 make validate-holdout HOLDOUT_LAST_DIGIT_ONLY=1
 ```
 
+Images with any bow-number error are listed in
+`build/holdout-validation/number-failures.txt`. To step through them and fix
+their labels (for example, enter `?` for a card that is unreadable):
+
+```sh
+python3 scripts/create-and-adjust-labels.py --image-list build/holdout-validation/number-failures.txt
+# Or review label-audit suspects, optionally limited to some reasons:
+python3 scripts/create-and-adjust-labels.py --image-list build/label-audit/findings.csv \
+  --reasons ocr_disagrees,small_legible_card
+```
+
 The default dataset is `~/training/datasets/dataset-holdout`. This target evaluates
 all images without training or changing models, using the current
 `crewtimer-boat-train.onnx`, `bow_card_detect.onnx`, `bow_crnn.onnx`, and
