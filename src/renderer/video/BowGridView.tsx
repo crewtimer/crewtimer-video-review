@@ -38,6 +38,7 @@ import {
   setContextMenuAnchor,
 } from './TimingSidebarUtil';
 import { useTimeAnalysisColor } from './UseTimeAnalysisColor';
+import { setPenaltyMenuAnchor } from './PenaltyMenu';
 import {
   ANALYSIS_SELECTED_TEXT_COLOR,
   TIME_ANALYSIS_TEXT_COLOR,
@@ -183,7 +184,18 @@ const BowButton: React.FC<{
         variant={isSelected && hasTime ? 'contained' : 'outlined'}
         sx={sx}
         onDoubleClick={onDoubleClick}
-        onClick={onSingleClick}
+        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+          if (e.shiftKey && bow) {
+            // Shift-click sets a penalty such as DNS or DNF.
+            setPenaltyMenuAnchor({
+              element: e.currentTarget,
+              eventNum,
+              bow,
+            });
+            return;
+          }
+          onSingleClick(e);
+        }}
         onContextMenu={(e: React.MouseEvent<HTMLButtonElement>) => {
           e.preventDefault();
           if (findSeekLap({ EventNum: eventNum, Bow: bow })) {

@@ -78,6 +78,7 @@ import { sanitizeFirebaseKey } from '../util/StringUtils';
 import { deleteInterpolationRecordForLap } from './InterpolationStore';
 import { useTimeAnalysisColor } from './UseTimeAnalysisColor';
 import { TIME_ANALYSIS_TEXT_COLOR } from './TimeAnalysis';
+import PenaltyMenu, { setPenaltyMenuAnchor } from './PenaltyMenu';
 
 const useStyles = makeStyles((theme) => ({
   row: {
@@ -894,6 +895,7 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
         </Button>
       </Stack>
       <ContextMenu />
+      <PenaltyMenu />
       <div style={{ flexGrow: 'auto' }}>
         {activeEventRows.length === 0 ? (
           <Box
@@ -925,6 +927,16 @@ const TimingSidebar: React.FC<MyComponentProps> = ({ sx, height, width }) => {
             columns={columnConfig}
             rows={activeEventRows}
             onCellClick={(args, e) => {
+              if (e.shiftKey && !args.row.eventName && args.row.Bow) {
+                // Shift-click sets a penalty such as DNS or DNF.
+                e.preventGridDefault();
+                setPenaltyMenuAnchor({
+                  element: e.currentTarget,
+                  eventNum: args.row.eventNum,
+                  bow: args.row.Bow,
+                });
+                return;
+              }
               clickArgsRef.current = args;
               onSingleClick(e);
             }}

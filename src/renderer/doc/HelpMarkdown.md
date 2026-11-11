@@ -28,4 +28,5 @@
 | --- | --- |
 | Click on Bow| Set the **Add Split** button Bow and Event properties. |
 | Right click on Bow | Open menu to delete timestamp if a timestamp has been recorded. |
+| Shift click on Bow | Open menu to set DNS, DNF, DQ or Scratch for the crew, or clear a penalty already set. |
 | Double click on Bow| Seek to associated timestamp.  If no timestamp recorded yet, a seek using the timing hint waypoint, zooming to the crossing when Zoom to Timing Guide on Single Click is enabled. |

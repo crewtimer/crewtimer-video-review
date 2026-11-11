@@ -308,7 +308,9 @@ const processLap = async (uuid: string) => {
 };
 
 const onLap = (lap: Lap) => {
-  if (!lap.uuid) return;
+  // A penalty such as DNS is timed when it was set, not at a crossing, so
+  // it has no video frame to upload.
+  if (!lap.uuid || lap.Gate === 'Pen') return;
   const { uuid } = lap;
   const captured = capturedFrames.get(uuid);
   capturedFrames.delete(uuid);
