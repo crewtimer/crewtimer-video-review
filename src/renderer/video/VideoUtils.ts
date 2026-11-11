@@ -271,7 +271,7 @@ export function findClosestLineAndPosition(
 //     console.log('No line found matching the criteria.');
 // }
 
-function combineCanvasLayers(
+export function combineCanvasLayers(
   layers: (HTMLCanvasElement | null | undefined)[],
   xOffset: number,
   yOffset: number,
@@ -308,42 +308,6 @@ function combineCanvasLayers(
 
   return combinedCanvas;
 }
-
-export function downloadCanvasImage(
-  combinedCanvas: HTMLCanvasElement,
-  filename: string = 'screenshot.png',
-): void {
-  // Create an 'a' element for the download
-  const link = document.createElement('a');
-  link.download = filename;
-
-  // Convert the canvas to a data URL and set it as the link's href
-  link.href = combinedCanvas.toDataURL('image/png');
-
-  // Trigger the download
-  document.body.appendChild(link); // Append link to body temporarily to make it work on Firefox
-  link.click();
-  document.body.removeChild(link); // Remove the link when done
-}
-
-export const downloadImageFromCanvasLayers = (
-  filename: string,
-  layers: (HTMLCanvasElement | null | undefined)[],
-  xOffset: number,
-  yOffset: number,
-  width: number,
-  height: number,
-) => {
-  // Combine the layers and initiate the download
-  const combinedCanvas = combineCanvasLayers(
-    layers,
-    xOffset,
-    yOffset,
-    width,
-    height,
-  );
-  downloadCanvasImage(combinedCanvas, filename);
-};
 
 export const moveToFileIndex = (index: number, seekPercent: number) => {
   const dirList = getDirList();

@@ -46,12 +46,33 @@ export interface GuideLine {
 }
 
 /**
+ * Band of the frame where boats on the course appear. Boats detected outside
+ * it, such as crews on the far side of the water, are ignored when
+ * selecting a boat.
+ */
+export interface CourseArea {
+  enabled: boolean;
+  top: number; /// Fraction of video height from the top, 0-1
+  bottom: number; /// Fraction of video height from the top, 0-1
+}
+
+export const DEFAULT_COURSE_AREA: CourseArea = {
+  enabled: false,
+  top: 0.25,
+  bottom: 0.95,
+};
+
+/** Dashed so it reads apart from the solid lane guides. */
+export const COURSE_AREA_COLOR = '#00e5ff';
+
+/**
  * Video props stored with each video file as a .json file
  */
 export interface VideoGuides {
   guides: GuideLine[];
   laneBelowGuide: boolean;
   enableLaneGuides: boolean;
+  courseArea?: CourseArea;
 }
 
 export const DEFAULT_GUIDE_COLOR = '#ffffffa0';
@@ -289,6 +310,7 @@ export const VideoGuidesKeys: (keyof VideoGuides)[] = [
   'guides',
   'laneBelowGuide',
   'enableLaneGuides',
+  'courseArea',
 ];
 
 /**
@@ -308,6 +330,7 @@ export const [useVideoSettings, setVideoSettings, getVideoSettings] =
     guideColor: DEFAULT_GUIDE_COLOR,
     laneBelowGuide: false,
     enableLaneGuides: true,
+    courseArea: DEFAULT_COURSE_AREA,
     guides: [
       { dir: Dir.Vert, pt1: 0, pt2: 0, label: 'Finish', enabled: true },
       { dir: Dir.Horiz, pt1: 0.08, pt2: 0.08, label: 'Lane 0', enabled: false },
@@ -382,4 +405,19 @@ export const validateVideoSettings = () => {
   if (guidesModified) {
     setVideoSettings(videoSettings, true);
   }
+};
+
+/** The course area with its edges clamped and ordered top to bottom. */
+export const getCourseArea = (
+  courseArea = getVideoSettings().courseArea,
+): CourseArea => {
+  const area = courseArea ?? DEFAULT_COURSE_AREA;
+  const clamp = (value: number) => Math.max(0, Math.min(1, Number(value) || 0));
+  const first = clamp(area.top);
+  const second = clamp(area.bottom);
+  return {
+    enabled: !!area.enabled,
+    top: Math.min(first, second),
+    bottom: Math.max(first, second),
+  };
 };

@@ -15,6 +15,8 @@
 | Single Click | When Zoom to Timing Guide on Single Click is enabled, an unzoomed click locates the nearby boat's crossing of the timing guide and zooms to it. A click while zoomed exits zoom. |
 | Escape, `z`, `Z`, or `/` | Exit video zoom. |
 | `p` | Start or stop video playback. |
+| Drag a lane guide | Click anywhere on a lane guide and drag to move it up or down. Grab near its right end to tilt it. |
+| Drag a course guide | With Limit Boat Search to Course enabled in settings, click anywhere on the dashed top or bottom course guide and drag it up or down. Boats outside the guides are ignored by auto zoom and bow number reading. The guides are hidden while zoomed. |
 | Shift-drag a lane or timing guide handle | Restore the guide to vertical or horizontal orientation while dragging. See also the reset option in settings. |
 
 | Recorder Gestures | Action |

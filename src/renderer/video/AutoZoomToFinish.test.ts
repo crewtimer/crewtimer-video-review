@@ -33,6 +33,8 @@ jest.mock('./VideoSettings', () => ({
   getVideoFile: () => mockVideoFile,
   getTravelRightToLeft: () => false,
   getHyperZoomFactor: () => 0,
+  getCourseArea: () => ({ enabled: false, top: 0, bottom: 1 }),
+  getVideoScaling: () => ({ srcHeight: 1080 }),
 }));
 jest.mock('./VideoUtils', () => ({
   getFinishLine: () => ({ pt1: 0, pt2: 0 }),

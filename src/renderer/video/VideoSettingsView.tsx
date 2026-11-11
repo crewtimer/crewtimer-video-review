@@ -14,11 +14,10 @@ import {
   SelectChangeEvent,
   Stack,
   SxProps,
+  TextField,
   Theme,
   Tooltip,
   Typography,
-  ToggleButton,
-  ToggleButtonGroup,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Settings';
 import makeStyles from '@mui/styles/makeStyles';
@@ -27,6 +26,8 @@ import { setDialogConfig } from '../util/ConfirmDialog';
 import {
   DEFAULT_GUIDE_COLOR,
   GUIDE_COLOR_OPTIONS,
+  CourseArea,
+  getCourseArea,
   getVideoFile,
   useAnalyzeTimes,
   useAutoFileSplitEnable,
@@ -42,7 +43,6 @@ import { saveVideoSidecar } from './Sidecar';
 import { getFileStatusList } from './VideoFileStatus';
 import {
   BowCardLength,
-  BowOcrModel,
   useZoomToTimingGuide,
   useBowCardLength,
   useBowOcrModel,
@@ -74,7 +74,7 @@ export const VideoSettingsDialog = () => {
   const [labelBoats, setLabelBoats] = useLabelBoats();
   const [labelNumbers, setLabelNumbers] = useLabelNumbers();
   const [zoomToTimingGuide, setZoomToTimingGuide] = useZoomToTimingGuide();
-  const [bowOcrModel, setBowOcrModel] = useBowOcrModel();
+  const [bowOcrModel] = useBowOcrModel();
   const [bowCardLength, setBowCardLength] = useBowCardLength();
   const [uploadLapImages, setUploadLapImages] = useUploadLapImages();
   const [lapImageStatus] = useLapImageStatus();
@@ -85,6 +85,29 @@ export const VideoSettingsDialog = () => {
   // const handleSliderChange = (_event: Event, newValue: number | number[]) => {
   //   setWheelFactor(newValue as number);
   // };
+
+  // Shown as entered so typing one edge past the other does not swap them;
+  // getCourseArea orders the edges wherever they are used.
+  const courseArea: CourseArea = {
+    ...getCourseArea(),
+    ...videoSettings.courseArea,
+  };
+  const updateCourseArea = (change: Partial<CourseArea>) => {
+    const clamp = (value: number) => Math.max(0, Math.min(1, value || 0));
+    const next = { ...courseArea, ...change };
+    setVideoSettings(
+      {
+        ...videoSettings,
+        courseArea: {
+          enabled: next.enabled,
+          top: clamp(next.top),
+          bottom: clamp(next.bottom),
+        },
+      },
+      true,
+    );
+    saveVideoSidecar().catch(() => {});
+  };
 
   const resetFinishGuide = () => {
     const newSetting = { ...videoSettings };
@@ -368,32 +391,6 @@ export const VideoSettingsDialog = () => {
             </Box>
             <Box className={classes.settings}>
               <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-                <Typography
-                  sx={{
-                    alignSelf: 'stretch',
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                >
-                  Card Type
-                </Typography>
-                <ToggleButtonGroup
-                  exclusive
-                  size="small"
-                  value={bowOcrModel}
-                  sx={{
-                    '& .MuiToggleButton-root': {
-                      alignItems: 'center',
-                      display: 'flex',
-                    },
-                  }}
-                  onChange={(_event, value: BowOcrModel | null) => {
-                    if (value) setBowOcrModel(value);
-                  }}
-                >
-                  <ToggleButton value="numeric">Numeric</ToggleButton>
-                  <ToggleButton value="alphanumeric">Alphanumeric</ToggleButton>
-                </ToggleButtonGroup>
                 <FormControl size="small" sx={{ minWidth: 120 }}>
                   <InputLabel id="bow-card-length-label">
                     Card Digits
@@ -468,6 +465,64 @@ export const VideoSettingsDialog = () => {
                     />
                   }
                 />
+              </Tooltip>
+            </Box>
+            <Box className={classes.settings}>
+              <Tooltip
+                title="Ignore boats outside the dashed course guides, such as crews at the top of the frame on the far side of the water, when finding a boat to zoom to or read a bow number from. Drag the dashed guides on the video to adjust."
+                placement="top"
+              >
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{
+                    marginTop: '0.25em',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    rowGap: 1,
+                  }}
+                >
+                  <FormControlLabel
+                    labelPlacement="end"
+                    label="Limit Boat Search to Course"
+                    control={
+                      <Checkbox
+                        checked={courseArea.enabled}
+                        onChange={() =>
+                          updateCourseArea({ enabled: !courseArea.enabled })
+                        }
+                      />
+                    }
+                  />
+                  <TextField
+                    label="Top %"
+                    type="number"
+                    size="small"
+                    disabled={!courseArea.enabled}
+                    value={Math.round(courseArea.top * 100)}
+                    onChange={(event) =>
+                      updateCourseArea({
+                        top: Number(event.target.value) / 100,
+                      })
+                    }
+                    slotProps={{ htmlInput: { min: 0, max: 100, step: 1 } }}
+                    sx={{ width: '6em' }}
+                  />
+                  <TextField
+                    label="Bottom %"
+                    type="number"
+                    size="small"
+                    disabled={!courseArea.enabled}
+                    value={Math.round(courseArea.bottom * 100)}
+                    onChange={(event) =>
+                      updateCourseArea({
+                        bottom: Number(event.target.value) / 100,
+                      })
+                    }
+                    slotProps={{ htmlInput: { min: 0, max: 100, step: 1 } }}
+                    sx={{ width: '6em' }}
+                  />
+                </Stack>
               </Tooltip>
             </Box>
           </SettingsCard>

@@ -493,6 +493,8 @@ export const ImageArchive = () => {
       height: number;
     }) => {
       const stem = filename.replace(/\.png$/i, '');
+      // Training labels need every boat in the frame, so this calls the
+      // detector directly and is not limited to the course area guides.
       const detectionResult = await window.VideoUtils.detectBow({
         videoFile,
         frameNum,

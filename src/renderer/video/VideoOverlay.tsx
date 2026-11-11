@@ -10,8 +10,11 @@ import { UseDatum } from 'react-usedatum';
 import { showErrorDialog } from '../util/ErrorDialog';
 import { saveVideoSidecar } from './Sidecar';
 import {
+  COURSE_AREA_COLOR,
+  CourseArea,
   DEFAULT_GUIDE_COLOR,
   Dir,
+  getCourseArea,
   getHyperZoomFactor,
   getImage,
   getVideoFile,
@@ -38,6 +41,15 @@ export const [useOverlayActive, setOverlayActive] = UseDatum(false);
 export const [useAdjustingOverlay, , getAdjustingOverlay] = UseDatum(false);
 export const [useNearEdge, setNearEdge, getNearEdge] = UseDatum(false);
 
+/** Canvas pixels from a course area or lane line that still grab it. */
+const LINE_GRAB = 6;
+/** Canvas pixels from a lane line's right end that tilt it, like its handle. */
+const LINE_END_GRAB = 20;
+
+type LineHit =
+  | { course: 'top' | 'bottom' }
+  | { pos: 'pt1' | 'pt2' | 'line'; guide: GuideLine };
+
 export interface VideoOverlayProps {
   width: number; /// Canas width
   height: number; /// Canvas height
@@ -63,10 +75,17 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
     }));
 
     const [dragging, setDragging] = useState(false);
-    const [dragHandle, setDragHandle] = useState<{
-      pos: 'pt1' | 'pt2';
-      guide: GuideLine;
-    } | null>(null);
+    const [overLine, setOverLine] = useState(false);
+    const [dragHandle, setDragHandle] = useState<
+      | {
+          pos: 'pt1' | 'pt2' | 'line';
+          guide: GuideLine;
+          /** For 'line': grab point's height above pt1, as a fraction. */
+          grabOffset?: number;
+        }
+      | { course: 'top' | 'bottom' }
+      | null
+    >(null);
     const [adjustingOverlay, setAdjustingOverlay] = useAdjustingOverlay();
     const [nearEdge] = useNearEdge();
     const [courseConfig, setCourseConfig] = useState(getVideoSettings());
@@ -272,6 +291,84 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           );
         }
 
+        const courseArea = getCourseArea(courseConfig.courseArea);
+        if (courseArea.enabled && !isZooming()) {
+          const left = translateSrcCanvas2DestCanvas(
+            { x: 0, y: 0 },
+            videoScaling,
+          ).x;
+          const right = translateSrcCanvas2DestCanvas(
+            { x: videoScaling.srcWidth - 1, y: 0 },
+            videoScaling,
+          ).x;
+          const imageTop = translateSrcCanvas2DestCanvas(
+            { x: 0, y: 0 },
+            videoScaling,
+          ).y;
+          const imageBottom = translateSrcCanvas2DestCanvas(
+            { x: 0, y: videoScaling.srcHeight },
+            videoScaling,
+          ).y;
+          const lineY = (fraction: number) =>
+            translateSrcCanvas2DestCanvas(
+              { x: 0, y: fraction * videoScaling.srcHeight },
+              videoScaling,
+            ).y;
+          const topY = lineY(courseArea.top);
+          const bottomY = lineY(courseArea.bottom);
+
+          // Dim where boats are ignored.
+          context.fillStyle = '#00000040';
+          context.fillRect(left, imageTop, right - left, topY - imageTop);
+          context.fillRect(left, bottomY, right - left, imageBottom - bottomY);
+
+          context.save();
+          context.lineWidth = 2;
+          context.setLineDash([10, 6]);
+          context.beginPath();
+          context.strokeStyle = COURSE_AREA_COLOR;
+          context.moveTo(left, topY);
+          context.lineTo(right, topY);
+          context.moveTo(left, bottomY);
+          context.lineTo(right, bottomY);
+          context.stroke();
+          context.restore();
+
+          if (adjustingOverlay || nearEdge) {
+            drawBox(context, { x: left, y: topY }, Dir.Horiz, true);
+            drawBox(context, { x: right, y: topY }, Dir.Horiz, false);
+            drawBox(context, { x: left, y: bottomY }, Dir.Horiz, true);
+            drawBox(context, { x: right, y: bottomY }, Dir.Horiz, false);
+          }
+          const centerX =
+            (Math.max(0, left) + Math.min(videoScaling.destWidth, right)) / 2;
+          // Labels sit outside the band, in the ignored area, when the
+          // visible image has room for them; otherwise inside the band.
+          const labelSpace = 32;
+          const visibleTop = Math.max(0, imageTop);
+          const visibleBottom = Math.min(videoScaling.destHeight, imageBottom);
+          drawText(
+            context,
+            'Course Top',
+            12,
+            centerX,
+            topY,
+            topY - visibleTop >= labelSpace ? 'above' : 'below',
+            'center',
+            `${COURSE_AREA_COLOR}80`,
+          );
+          drawText(
+            context,
+            'Course Bottom',
+            12,
+            centerX,
+            bottomY,
+            visibleBottom - bottomY >= labelSpace ? 'below' : 'above',
+            'center',
+            `${COURSE_AREA_COLOR}80`,
+          );
+        }
+
         courseConfig.guides.forEach((guide) => {
           if (
             !guide.enabled ||
@@ -365,6 +462,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
     }, [
       videoSettings,
       courseConfig,
+      isZooming,
       adjustingOverlay,
       nearEdge,
       width,
@@ -373,8 +471,63 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       videoScaling.zoomX,
       interpolationTechnique,
       drawLine,
+      drawBox,
       suspendDraw,
     ]);
+
+    /**
+     * The course area or lane line within grab distance of a canvas point,
+     * if any. Lines are only grabbed unzoomed, where the course area is
+     * shown. A lane line grabbed near its right end tilts, like its handle.
+     */
+    const lineAt = (x: number, y: number): LineHit | undefined => {
+      if (isZooming()) {
+        return undefined;
+      }
+      const scaling = getVideoScaling();
+      let best: { hit: LineHit; dist: number } | undefined;
+      const consider = (hit: LineHit, dist: number) => {
+        if (dist <= LINE_GRAB && (!best || dist < best.dist)) {
+          best = { hit, dist };
+        }
+      };
+
+      const courseArea = getCourseArea(courseConfig.courseArea);
+      if (courseArea.enabled) {
+        (['top', 'bottom'] as const).forEach((edge) => {
+          const lineY = translateSrcCanvas2DestCanvas({
+            x: 0,
+            y: courseArea[edge] * scaling.srcHeight,
+          }).y;
+          consider({ course: edge }, Math.abs(lineY - y));
+        });
+      }
+
+      if (courseConfig.enableLaneGuides) {
+        courseConfig.guides.forEach((guide) => {
+          if (!guide.enabled || guide.dir !== Dir.Horiz) {
+            return;
+          }
+          const from = translateSrcCanvas2DestCanvas({
+            x: 0,
+            y: guide.pt1 * scaling.srcHeight,
+          });
+          const to = translateSrcCanvas2DestCanvas({
+            x: scaling.srcWidth,
+            y: guide.pt2 * scaling.srcHeight,
+          });
+          const span = to.x - from.x;
+          if (span <= 0) {
+            return;
+          }
+          const t = Math.max(0, Math.min(1, (x - from.x) / span));
+          const lineY = from.y + (to.y - from.y) * t;
+          const pos = to.x - x <= LINE_END_GRAB ? 'pt2' : 'line';
+          consider({ pos, guide }, Math.abs(lineY - y));
+        });
+      }
+      return best?.hit;
+    };
 
     const handleMouseDown = (event: React.MouseEvent) => {
       const rect = canvasRef.current?.getBoundingClientRect();
@@ -388,6 +541,25 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       const image = getImage();
       const scaling = getVideoScaling();
       const margin = 20; // (20 * (scaling.scaleX + scaling.scaleY)) / 2;
+
+      const line = lineAt(x, y);
+      if (line) {
+        setDragging(true);
+        setAdjustingOverlay(true);
+        setOverlayActive(true);
+        event.preventDefault();
+        event.stopPropagation();
+        if ('course' in line) {
+          courseConfig.courseArea = getCourseArea(courseConfig.courseArea);
+          setDragHandle(line);
+        } else {
+          setDragHandle({
+            ...line,
+            grabOffset: dy / scaling.destImageHeight - line.guide.pt1,
+          });
+        }
+        return;
+      }
 
       // if (rect) {
       //   const x = event.clientX - (rect?.left ?? 0);
@@ -463,10 +635,21 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
 
     const handleMouseMove = (event: React.MouseEvent) => {
       const rect = canvasRef.current?.getBoundingClientRect();
-      const { dx, dy, pt, withinBounds, overButtons } =
+      const { dx, dy, x, y, pt, withinBounds, overButtons } =
         translateMouseEventCoords(event, rect);
 
-      if (dragging && dragHandle) {
+      if (dragging && dragHandle && 'course' in dragHandle) {
+        const ypos = Math.max(
+          0,
+          Math.min(1, dy / videoScaling.destImageHeight),
+        );
+        // Raw values while dragging; edges are ordered on release.
+        const area: CourseArea = {
+          ...(courseConfig.courseArea ?? getCourseArea()),
+          [dragHandle.course]: ypos,
+        };
+        setCourseConfig({ ...courseConfig, courseArea: area });
+      } else if (dragging && dragHandle && 'guide' in dragHandle) {
         const shift = event.shiftKey;
 
         if (dragHandle.guide.dir === Dir.Vert) {
@@ -486,6 +669,12 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           if (shift) {
             dragHandle.guide.pt1 = ypos;
             dragHandle.guide.pt2 = dragHandle.guide.pt1;
+          } else if (dragHandle.pos === 'line') {
+            // Move the whole line from where it was grabbed, keeping its angle.
+            const delta = dragHandle.guide.pt2 - dragHandle.guide.pt1;
+            const pt1 = ypos - (dragHandle.grabOffset ?? 0);
+            dragHandle.guide.pt1 = Math.max(0, Math.min(1, pt1));
+            dragHandle.guide.pt2 = Math.max(0, Math.min(1, pt1 + delta));
           } else if (dragHandle.pos === 'pt1') {
             // dragging pt1, keep angle between pt1 and pt2
             const delta = dragHandle.guide.pt2 - dragHandle.guide.pt1;
@@ -511,6 +700,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
           withinBounds &&
           (nearVerticalEdge || nearHorizontalEdge);
         setNearEdge(isNearEdge);
+        setOverLine(withinBounds && !!lineAt(x, y));
 
         setOverlayActive(overButtons || isNearEdge || adjustingOverlay);
       }
@@ -519,6 +709,9 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
     const handleMouseUp = () => {
       if (dragging) {
         courseConfig.sidecarSource = getVideoFile();
+        if (courseConfig.courseArea) {
+          courseConfig.courseArea = getCourseArea(courseConfig.courseArea);
+        }
         setVideoSettings(courseConfig, true);
         saveVideoSidecar().catch(showErrorDialog);
       }
@@ -532,6 +725,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         handleMouseUp();
       }
       setNearEdge(false);
+      setOverLine(false);
     };
 
     // TODO: Support touchscreens
@@ -549,6 +743,13 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         style={{
           width: `${videoScaling.destWidth}px`,
           height: `${videoScaling.destHeight}px`,
+          cursor:
+            overLine ||
+            (dragging &&
+              dragHandle &&
+              ('course' in dragHandle || dragHandle.guide.dir === Dir.Horiz))
+              ? 'ns-resize'
+              : undefined,
           zIndex: dragging ? 300 : 100, // adjustingOverlay ? 100 : undefined,
           position: 'absolute', // keeps the size from influencing the parent size
         }}

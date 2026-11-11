@@ -56,7 +56,7 @@ const updateVideoSidecar = (
  * @returns A Promise that resolves when the sidecar JSON file is successfully saved, or rejects with an error.
  */
 export const saveVideoSidecar = (videoFilename?: string) => {
-  const { guides, laneBelowGuide } = getVideoSettings();
+  const { guides, laneBelowGuide, courseArea } = getVideoSettings();
   const videoFile = videoFilename || getVideoFile();
   if (!videoFile) {
     return Promise.reject(new Error('No video file'));
@@ -65,6 +65,7 @@ export const saveVideoSidecar = (videoFilename?: string) => {
     ...content,
     guides,
     laneBelowGuide,
+    courseArea,
   }));
 };
 

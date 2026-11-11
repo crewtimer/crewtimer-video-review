@@ -6,13 +6,16 @@ import type {
 } from '../shared/AppTypes';
 import { updateVideoScaling } from '../util/ImageScaling';
 import {
+  getCourseArea,
   getImage,
   getTravelRightToLeft,
   getHyperZoomFactor,
   getVideoFile,
   getVideoFrameNum,
+  getVideoScaling,
   Point,
 } from './VideoSettings';
+import { filterToCourseArea } from './BowDetectionSelection';
 import { getFinishLine, moveToFrame } from './VideoUtils';
 import { getBowDetectionOptions } from '../util/UseSettings';
 import { getFileStatusList } from './VideoFileStatus';
@@ -74,7 +77,9 @@ export const clearAutoZoomInterpolation = () => {
 
 const bowDetectionOptionsKey = () => {
   const options = getBowDetectionOptions();
-  return `${options.numericOnly ? 'numeric' : 'alphanumeric'}:${options.cardLength}:${options.scheduledBows.join(',')}`;
+  const course = getCourseArea();
+  const courseKey = course.enabled ? `${course.top}-${course.bottom}` : 'all';
+  return `${options.numericOnly ? 'numeric' : 'alphanumeric'}:${options.cardLength}:${options.scheduledBows.join(',')}:${courseKey}`;
 };
 
 export const hasAutoZoomInterpolation = (videoFile: string) =>
@@ -439,6 +444,9 @@ const detectFrame = (videoFile: string, frameNum: number) => {
   const key = `${videoFile}:${integerFrame}:${bowDetectionOptionsKey()}`;
   let pending = detectionCache.get(key);
   if (!pending) {
+    // Filter with the bounds the key names, not ones changed during detection.
+    const courseArea = getCourseArea();
+    const frameHeight = getVideoScaling().srcHeight;
     pending = window.VideoUtils.detectBow({
       videoFile,
       frameNum: integerFrame,
@@ -446,7 +454,9 @@ const detectFrame = (videoFile: string, frameNum: number) => {
       ...options,
     }).then((result) => ({
       ...result,
-      detections: omitOverlappingBoatDetections(result.detections),
+      detections: omitOverlappingBoatDetections(
+        filterToCourseArea(result.detections, courseArea, frameHeight),
+      ),
     }));
     detectionCache.set(key, pending);
     pending.catch(() => {

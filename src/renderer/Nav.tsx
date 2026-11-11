@@ -29,6 +29,8 @@ import {
   FormControlLabel,
   Stack,
   Link,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import { useFirebaseDatum } from './util/UseFirebase';
 import { setToast } from './Toast';
@@ -41,6 +43,8 @@ import {
   useLabelBoats,
   useLabelCardsWithoutBoat,
   useThemeMode,
+  useBowOcrModel,
+  BowOcrModel,
 } from './util/UseSettings';
 import icon from '../assets/icons/crewtimer-review2-white.svg';
 import { setDialogConfig } from './util/ConfirmDialog';
@@ -65,6 +69,7 @@ const DebugDialogBody = () => {
   const [labelBoats] = useLabelBoats();
   const [labelCardsWithoutBoat, setLabelCardsWithoutBoat] =
     useLabelCardsWithoutBoat();
+  const [bowOcrModel, setBowOcrModel] = useBowOcrModel();
 
   const toggleDebug = () => {
     let newDebugLevel = debugLevel + 1;
@@ -94,6 +99,20 @@ const DebugDialogBody = () => {
         }
         label="Detect cards without a boat"
       />
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+        <Typography>Card Type</Typography>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={bowOcrModel}
+          onChange={(_event, value: BowOcrModel | null) => {
+            if (value) setBowOcrModel(value);
+          }}
+        >
+          <ToggleButton value="numeric">Numeric</ToggleButton>
+          <ToggleButton value="alphanumeric">Alphanumeric</ToggleButton>
+        </ToggleButtonGroup>
+      </Stack>
       <InterpolationTechniqueSelector />
     </Stack>
   );

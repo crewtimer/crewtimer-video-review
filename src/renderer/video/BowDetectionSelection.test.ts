@@ -1,5 +1,8 @@
 import type { BowDetection } from '../shared/AppTypes';
-import { selectBowCardNearestPoint } from './BowDetectionSelection';
+import {
+  filterToCourseArea,
+  selectBowCardNearestPoint,
+} from './BowDetectionSelection';
 
 const detection = (
   x: number,
@@ -40,5 +43,43 @@ describe('selectBowCardNearestPoint', () => {
         y: 100,
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('filterToCourseArea', () => {
+  const area = { enabled: true, top: 0.25, bottom: 0.9 };
+
+  test('drops boats whose center is outside the course area', () => {
+    // Boat boxes are 30 high, so centers are y + 15 in a 1000 high frame.
+    const farShore = detection(10, 100);
+    const onCourse = detection(10, 500);
+    const nearEdge = detection(10, 950);
+
+    expect(
+      filterToCourseArea([farShore, onCourse, nearEdge], area, 1000),
+    ).toEqual([onCourse]);
+  });
+
+  test('keeps a boat straddling a guide when its center is inside', () => {
+    const straddling = detection(10, 240);
+
+    expect(filterToCourseArea([straddling], area, 1000)).toEqual([straddling]);
+  });
+
+  test('uses the card box for a card found without a boat', () => {
+    const cardOnly: BowDetection = {
+      ...detection(10, 100),
+      boatBox: { x: 0, y: 0, width: 0, height: 0 },
+    };
+
+    expect(filterToCourseArea([cardOnly], area, 1000)).toEqual([]);
+  });
+
+  test('returns all detections when the course area is off', () => {
+    const detections = [detection(10, 100), detection(10, 500)];
+
+    expect(
+      filterToCourseArea(detections, { ...area, enabled: false }, 1000),
+    ).toBe(detections);
   });
 });

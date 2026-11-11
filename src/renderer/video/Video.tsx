@@ -38,6 +38,8 @@ import {
   completeVideoZoomReset,
   useBowSeekPending,
   getVideoEvent,
+  getCourseArea,
+  useVideoSettings,
 } from './VideoSettings';
 import VideoOverlay, {
   getNearEdge,
@@ -46,8 +48,7 @@ import VideoOverlay, {
 } from './VideoOverlay';
 import TimingSidebar from './TimingSidebar';
 import {
-  downloadCanvasImage,
-  downloadImageFromCanvasLayers,
+  combineCanvasLayers,
   getFinishLine,
   moveLeft,
   moveRight,
@@ -97,7 +98,10 @@ import {
 } from './RollingShutter';
 import type { VideoSidecar } from './VideoSettings';
 import { setDisplayedTimestampImage } from './LapImage';
-import { selectBowCardNearestPoint } from './BowDetectionSelection';
+import {
+  filterToCourseArea,
+  selectBowCardNearestPoint,
+} from './BowDetectionSelection';
 
 // Avoid 'not a JSX component' warning
 const Measure = _Measure as unknown as FC<MeasureProps>;
@@ -581,6 +585,12 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [videoBow] = useVideoBow();
   const [bowSeekPending] = useBowSeekPending();
   const [bowDetections, setBowDetections] = useState<BowDetection[]>([]);
+  const [videoSettings] = useVideoSettings();
+  // Detection reruns when the course area guides move or are toggled.
+  const courseArea = getCourseArea(videoSettings.courseArea);
+  const courseAreaKey = courseArea.enabled
+    ? `${courseArea.top}-${courseArea.bottom}`
+    : '';
   destSize.current = { width, height };
 
   const mouseTracking = useRef<MouseState>({
@@ -760,6 +770,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const labelBoatsDebounced = useDebouncedCallback(
     async (videoFileName: string, frameNum: number, requestId: number) => {
       const detectionStarted = performance.now();
+      // Bounds when the request starts; a change reruns detection.
+      const requestCourseArea = getCourseArea();
+      const frameHeight = getVideoScaling().srcHeight;
       try {
         const requestIsCurrent =
           getImage().file === videoFileName &&
@@ -791,13 +804,18 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             videoFileName,
             frameNum,
           )?.catch(() => undefined);
+          const courseDetections = filterToCourseArea(
+            result.detections,
+            requestCourseArea,
+            frameHeight,
+          );
           detections = omitOverlappingBoatDetections(
             cachedResult
               ? restoreMissingCardDetections(
-                  result.detections,
+                  courseDetections,
                   cachedResult.detections,
                 )
-              : result.detections,
+              : courseDetections,
           );
         }
         const detectionMs = performance.now() - detectionStarted;
@@ -884,6 +902,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     labelBoats,
     labelCardsWithoutBoat,
     labelBoatsDebounced,
+    courseAreaKey,
   ]);
 
   useEffect(() => {
@@ -942,23 +961,23 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     // May not be needed now that videoScaling is a global
     setGenerateImageSnapshotCallback((rawFrame) => {
       if (rawFrame) {
-        downloadCanvasImage(
-          offscreenCanvas.current,
-          `Image_${videoTimestamp}_raw.png`,
-        );
-        return;
+        return {
+          canvas: offscreenCanvas.current,
+          filename: `Image_${videoTimestamp}_raw.png`,
+        };
       }
       const vScaling = getVideoScaling();
       const dpr = window.devicePixelRatio;
-      downloadImageFromCanvasLayers(
-        // 'video-snapshot.png',
-        `Image_${videoTimestamp}.png`,
-        [canvasRef.current, videoOverlayRef.current?.getCanvas()],
-        ((width - vScaling.destWidth) / 2) * dpr,
-        0,
-        Math.round(vScaling.destWidth * dpr),
-        Math.round(vScaling.destHeight * dpr),
-      );
+      return {
+        canvas: combineCanvasLayers(
+          [canvasRef.current, videoOverlayRef.current?.getCanvas()],
+          ((width - vScaling.destWidth) / 2) * dpr,
+          0,
+          Math.round(vScaling.destWidth * dpr),
+          Math.round(vScaling.destHeight * dpr),
+        ),
+        filename: `Image_${videoTimestamp}.png`,
+      };
     });
     return () => setGenerateImageSnapshotCallback(undefined);
   }, [videoTimestamp, width]);
