@@ -78,8 +78,6 @@ import { videoRequestQueueRunning } from './RequestVideoFrame';
 import { useSingleAndDoubleClick } from '../util/UseSingleAndDoubleClick';
 import type { AppImage, BowDetection, Rect } from '../shared/AppTypes';
 import {
-  getAutoTweakAfterZoom,
-  useAutoTweakAfterZoom,
   getZoomToTimingGuide,
   getBowDetectionOptions,
   getLabelNumbers,
@@ -603,7 +601,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const displayKey = useRef('');
   const [zoomTransform] = useZoomTransform();
   const [guideHighlight] = useGuideHighlight();
-  const [autoTweakAfterZoom] = useAutoTweakAfterZoom();
   // Timing guide rows unlike the water, cached by frame, view and guide.
   const guideSpans = useRef<{ key: string; spans: RowSpan[] }>({
     key: '',
@@ -700,7 +697,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     const vScaling = getVideoScaling();
     const frame = displayImage.current;
     if (
-      !(getGuideHighlight() || getAutoTweakAfterZoom()) ||
+      !getGuideHighlight() ||
       vScaling.zoomY < ZOOM_TRANSFORM_MIN_ZOOM ||
       !frame?.width
     ) {
@@ -1049,7 +1046,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     drawContentDebounced,
     zoomTransform,
     guideHighlight,
-    autoTweakAfterZoom,
     timestampFinish.pt1,
     timestampFinish.pt2,
     image,

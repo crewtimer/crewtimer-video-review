@@ -36,6 +36,7 @@ import {
   useMouseWheelInverted,
   useTravelRightToLeft,
   useVideoSettings,
+  useGuideHighlight,
 } from './VideoSettings';
 import HyperZoomSelector from '../util/HyperZoomSelector';
 import SettingsCard from '../util/SettingsCard';
@@ -44,7 +45,6 @@ import { getFileStatusList } from './VideoFileStatus';
 import {
   BowCardLength,
   useZoomToTimingGuide,
-  useAutoTweakAfterZoom,
   useBowCardLength,
   useBowOcrModel,
   useFinishPhotoMaxBoats,
@@ -74,7 +74,7 @@ export const VideoSettingsDialog = () => {
   const [labelBoats, setLabelBoats] = useLabelBoats();
   const [labelNumbers, setLabelNumbers] = useLabelNumbers();
   const [zoomToTimingGuide, setZoomToTimingGuide] = useZoomToTimingGuide();
-  const [autoTweakAfterZoom, setAutoTweakAfterZoom] = useAutoTweakAfterZoom();
+  const [guideHighlight, setGuideHighlight] = useGuideHighlight();
   const [bowOcrModel] = useBowOcrModel();
   const [bowCardLength, setBowCardLength] = useBowCardLength();
   const [uploadLapImages, setUploadLapImages] = useUploadLapImages();
@@ -475,18 +475,18 @@ export const VideoSettingsDialog = () => {
             </Box>
             <Box className={classes.settings}>
               <Tooltip
-                title="After an auto zoom, step frame by frame to the first frame where the bow touches the timing guide, using the timing guide highlight near where the bow was clicked. Returns to the auto zoom frame when no contact is found within 10 steps either way. Turns on the highlight so you can see it."
+                title="When zoomed in 2x or more, mark in magenta where the timing guide crosses something unlike the water, such as the bow. Wave glints can also be marked, so judge the shape."
                 placement="right"
               >
                 <FormControlLabel
                   labelPlacement="end"
-                  label="Auto-tweak after Zoom"
+                  label="Highlight guide crossing while zooming"
                   control={
                     <Checkbox
                       size="small"
-                      checked={autoTweakAfterZoom}
+                      checked={guideHighlight}
                       onChange={(event) =>
-                        setAutoTweakAfterZoom(event.target.checked)
+                        setGuideHighlight(event.target.checked)
                       }
                     />
                   }

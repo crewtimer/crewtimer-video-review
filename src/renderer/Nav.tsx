@@ -42,6 +42,7 @@ import {
   useDebugLevel,
   useLabelBoats,
   useLabelCardsWithoutBoat,
+  useAutoTweakAfterZoom,
   useThemeMode,
   useBowOcrModel,
   BowOcrModel,
@@ -70,6 +71,7 @@ const DebugDialogBody = () => {
   const [labelCardsWithoutBoat, setLabelCardsWithoutBoat] =
     useLabelCardsWithoutBoat();
   const [bowOcrModel, setBowOcrModel] = useBowOcrModel();
+  const [autoTweakAfterZoom, setAutoTweakAfterZoom] = useAutoTweakAfterZoom();
 
   const toggleDebug = () => {
     let newDebugLevel = debugLevel + 1;
@@ -99,6 +101,20 @@ const DebugDialogBody = () => {
         }
         label="Detect cards without a boat"
       />
+      <Tooltip
+        title="After an auto zoom, step to the first frame where the bow touches the timing guide below its bow card. Returns to the auto zoom frame when nothing is found within 10 steps."
+        placement="right"
+      >
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={autoTweakAfterZoom}
+              onChange={(event) => setAutoTweakAfterZoom(event.target.checked)}
+            />
+          }
+          label="Auto-tweak after zoom"
+        />
+      </Tooltip>
       <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
         <Typography>Card Type</Typography>
         <ToggleButtonGroup

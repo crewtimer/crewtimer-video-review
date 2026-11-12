@@ -246,7 +246,7 @@ export const [useZoomTransform, setZoomTransform, getZoomTransform] =
   UseStoredDatum<ZoomTransformMode>('zoomTransform', 'off');
 /// Highlights where the timing guide crosses something unlike the water.
 export const [useGuideHighlight, setGuideHighlight, getGuideHighlight] =
-  UseStoredDatum<boolean>('zoomGuideHighlight', false);
+  UseStoredDatum<boolean>('zoomGuideHighlight', true);
 /// Least zoom at which the zoom transform is shown.
 export const ZOOM_TRANSFORM_MIN_ZOOM = 2;
 export const [useResetZoomCounter, setResetZoomCounter, getResetZoomCounter] =

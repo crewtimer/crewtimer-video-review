@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Box,
   Button,
-  Divider,
   ListItemIcon,
   Menu,
   MenuItem,
@@ -10,11 +9,7 @@ import {
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import ContrastIcon from '@mui/icons-material/Contrast';
-import {
-  useGuideHighlight,
-  useZoomTransform,
-  ZOOM_TRANSFORM_MIN_ZOOM,
-} from './VideoSettings';
+import { useZoomTransform, ZOOM_TRANSFORM_MIN_ZOOM } from './VideoSettings';
 import { ZOOM_TRANSFORM_LABELS, ZoomTransformMode } from './ZoomTransform';
 
 /**
@@ -50,8 +45,6 @@ const TOOLTIP = (
         taken from the edges instead.
       </li>
     </ul>
-    Highlight non-water on timing guide marks, behind the timing guide, where it
-    crosses something unlike the water, such as the bow.
   </Box>
 );
 
@@ -60,9 +53,8 @@ const ZoomTransformButton: React.FC<{ className?: string }> = ({
   className,
 }) => {
   const [mode, setMode] = useZoomTransform();
-  const [guideHighlight, setGuideHighlight] = useGuideHighlight();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const active = mode !== 'off' || guideHighlight;
+  const active = mode !== 'off';
 
   return (
     // Wraps the menu too: React bubbles portal events through this element.
@@ -111,18 +103,6 @@ const ZoomTransformButton: React.FC<{ className?: string }> = ({
             {ZOOM_TRANSFORM_LABELS[option]}
           </MenuItem>
         ))}
-        <Divider />
-        <MenuItem
-          onClick={() => {
-            setGuideHighlight(!guideHighlight);
-            setAnchor(null);
-          }}
-        >
-          <ListItemIcon>
-            {guideHighlight && <CheckIcon fontSize="small" />}
-          </ListItemIcon>
-          Highlight non-water on timing guide
-        </MenuItem>
       </Menu>
     </Box>
   );

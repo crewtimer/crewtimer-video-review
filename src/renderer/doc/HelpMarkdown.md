@@ -28,7 +28,7 @@
 | --- | --- |
 | Click on Bow| Set the **Add Split** button Bow and Event properties. |
 | Right click on Bow | Open menu to delete timestamp if a timestamp has been recorded. |
-| Contrast button | Below the zoom factor button. Choose Auto-levels to stretch the brightness of the zoomed view, or Water contrast to show water dark and the hull, bow ball and card bright. Highlight non-water on timing guide marks in magenta where the timing guide crosses something unlike the water, such as a bow. Applies at 2x zoom or more and only changes the screen, not bow reading or saved images. |
-| Auto-tweak after Zoom | AI Assist setting. After an auto zoom, steps frame by frame (as the arrow keys do) to the first frame where the bow touches the timing guide, using the timing guide highlight near where the bow was clicked. Returns to the auto zoom frame when it finds no contact within 10 steps either way. |
+| Contrast button | Below the zoom factor button. Choose Auto-levels to stretch the brightness of the zoomed view, or Water contrast to show water dark and the hull, bow ball and card bright. Applies at 2x zoom or more and only changes the screen, not bow reading or saved images. |
+| Highlight guide crossing while zooming | AI Assist setting. When zoomed in 2x or more, marks in magenta where the timing guide crosses something unlike the water, such as a bow. |
 | Shift click on Bow | Open menu to set DNS, DNF, DQ or Scratch for the crew, or clear a penalty already set. |
 | Double click on Bow| Seek to associated timestamp.  If no timestamp recorded yet, a seek using the timing hint waypoint, zooming to the crossing when Zoom to Timing Guide on Single Click is enabled. |
