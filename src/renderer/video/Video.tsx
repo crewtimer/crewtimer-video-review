@@ -128,7 +128,6 @@ type BowLabelHitRegion = {
 
 const drawBowDetections = (
   ctx: CanvasRenderingContext2D,
-  sourceCanvas: HTMLCanvasElement,
   detections: BowDetection[],
   currentBow: string,
   travelRightToLeft: boolean,
@@ -144,7 +143,6 @@ const drawBowDetections = (
     top: -scaling.destY / screenScaleY,
     bottom: (ctx.canvas.clientHeight - scaling.destY) / screenScaleY,
   };
-  const displayedCardBoxes = new Map<BowDetection, Rect>();
   detections.forEach((detection) => {
     const { boatBox, box } = detection;
     if (!zoomedIn && boatBox.width > 0 && boatBox.height > 0) {
@@ -166,55 +164,18 @@ const drawBowDetections = (
       ctx.stroke();
     }
     if (box.width > 0 && box.height > 0) {
-      let displayedBox = box;
-      const cardIsFullyVisible =
-        box.x >= visibleBounds.left &&
-        box.x + box.width <= visibleBounds.right &&
-        box.y >= visibleBounds.top &&
-        box.y + box.height <= visibleBounds.bottom;
-      if (zoomedIn && !cardIsFullyVisible) {
-        const insetX = 3 / screenScaleX;
-        const insetY = 3 / screenScaleY;
-        displayedBox = {
-          x: Math.max(
-            visibleBounds.left + insetX,
-            Math.min(visibleBounds.right - box.width - insetX, box.x),
-          ),
-          y: Math.max(
-            visibleBounds.top + insetY,
-            Math.min(visibleBounds.bottom - box.height - insetY, box.y),
-          ),
-          width: box.width,
-          height: box.height,
-        };
-        ctx.drawImage(
-          sourceCanvas,
-          box.x,
-          box.y,
-          box.width,
-          box.height,
-          displayedBox.x,
-          displayedBox.y,
-          displayedBox.width,
-          displayedBox.height,
-        );
-      }
-      displayedCardBoxes.set(detection, displayedBox);
+      // Always on the card itself, even when it scrolls out of view; only the
+      // number panel below keeps itself on screen.
       ctx.strokeStyle = '#ff00ff';
       ctx.lineWidth = 2;
-      ctx.strokeRect(
-        displayedBox.x - 2,
-        displayedBox.y - 2,
-        displayedBox.width + 4,
-        displayedBox.height + 4,
-      );
+      ctx.strokeRect(box.x - 2, box.y - 2, box.width + 4, box.height + 4);
     }
   });
 
   // Draw labels after every bounding box so overlapping boat/card outlines
   // cannot cover the annotation panel.
   detections.forEach((detection) => {
-    const detectedCardBox = displayedCardBoxes.get(detection) ?? detection.box;
+    const detectedCardBox = detection.box;
     const hasCardBox = detectedCardBox.width > 0 && detectedCardBox.height > 0;
     const fallbackWidth = Math.max(1, Math.ceil(detection.boatBox.width / 3));
     const fallbackDisplayWidth = zoomedIn
@@ -894,7 +855,6 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
               }));
           bowLabelHitRegions.current = drawBowDetections(
             ctx,
-            sourceCanvas,
             visibleBowDetections,
             videoBow,
             travelRightToLeft,
