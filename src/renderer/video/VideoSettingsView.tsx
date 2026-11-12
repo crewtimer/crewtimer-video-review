@@ -57,10 +57,9 @@ import {
 declare module '@mui/styles/defaultTheme' {
   interface DefaultTheme extends Theme {}
 }
-const useStyles = makeStyles((theme) => ({
-  settings: {
-    marginBottom: theme.spacing(1),
-  },
+const useStyles = makeStyles(() => ({
+  // The card already spaces its items; no extra margin here.
+  settings: {},
 }));
 
 export const VideoSettingsDialog = () => {
@@ -148,6 +147,8 @@ export const VideoSettingsDialog = () => {
   return (
     <Container
       maxWidth="xl"
+      // Tighter checkbox rows than MUI's 9px padding.
+      sx={{ '& .MuiCheckbox-root': { py: '5px' } }}
       style={{
         flexGrow: 1,
         display: 'flex',
@@ -424,6 +425,7 @@ export const VideoSettingsDialog = () => {
                   label="Annotate Number Detections"
                   control={
                     <Checkbox
+                      size="small"
                       checked={labelNumbers}
                       onChange={(event) =>
                         setLabelNumbers(event.target.checked)
@@ -443,6 +445,7 @@ export const VideoSettingsDialog = () => {
                   label="Annotate Boat Detections"
                   control={
                     <Checkbox
+                      size="small"
                       checked={labelBoats}
                       onChange={(event) => setLabelBoats(event.target.checked)}
                     />
@@ -460,6 +463,7 @@ export const VideoSettingsDialog = () => {
                   label="Zoom to Timing Guide on Single Click"
                   control={
                     <Checkbox
+                      size="small"
                       checked={zoomToTimingGuide}
                       onChange={(event) =>
                         setZoomToTimingGuide(event.target.checked)
@@ -479,6 +483,7 @@ export const VideoSettingsDialog = () => {
                   label="Auto-tweak after Zoom"
                   control={
                     <Checkbox
+                      size="small"
                       checked={autoTweakAfterZoom}
                       onChange={(event) =>
                         setAutoTweakAfterZoom(event.target.checked)
@@ -509,6 +514,7 @@ export const VideoSettingsDialog = () => {
                     label="Limit Boat Search to Course"
                     control={
                       <Checkbox
+                        size="small"
                         checked={courseArea.enabled}
                         onChange={() =>
                           updateCourseArea({ enabled: !courseArea.enabled })
@@ -581,12 +587,18 @@ export const VideoSettingsDialog = () => {
                   </Select>
                 </FormControl>
               </Box>
-              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+              <Stack
+                direction="row"
+                spacing={1}
+                useFlexGap
+                sx={{ flexWrap: 'wrap' }}
+              >
                 <FormControlLabel
                   labelPlacement="end"
                   label="Timing Guide"
                   control={
                     <Checkbox
+                      size="small"
                       checked={videoSettings.guides[0].enabled}
                       onChange={() => {
                         const guides = [...videoSettings.guides];
@@ -614,6 +626,7 @@ export const VideoSettingsDialog = () => {
               <Stack
                 direction="row"
                 spacing={1}
+                useFlexGap
                 sx={{
                   marginTop: '0.5em',
                   flexWrap: 'wrap',
@@ -625,6 +638,7 @@ export const VideoSettingsDialog = () => {
                   label="Enable Lane Guides"
                   control={
                     <Checkbox
+                      size="small"
                       checked={videoSettings.enableLaneGuides}
                       onChange={() => {
                         setVideoSettings(
@@ -639,7 +653,7 @@ export const VideoSettingsDialog = () => {
                   }
                 />
               </Stack>
-              <Box sx={{ marginLeft: '11px' }}>
+              <Box>
                 {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(
                   (lane) =>
                     videoSettings.guides[lane + 1] && (
@@ -649,6 +663,7 @@ export const VideoSettingsDialog = () => {
                         label={`Lane ${lane}`}
                         control={
                           <Checkbox
+                            size="small"
                             checked={videoSettings.guides[lane + 1].enabled}
                             disabled={!videoSettings.enableLaneGuides}
                             onChange={() => {
