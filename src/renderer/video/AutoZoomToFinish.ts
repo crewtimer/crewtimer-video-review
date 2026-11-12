@@ -17,6 +17,7 @@ import {
 } from './VideoSettings';
 import { filterToCourseArea } from './BowDetectionSelection';
 import { getFinishLine, moveToFrame } from './VideoUtils';
+import { autoTweakAfterZoom } from './AutoTweak';
 import { getBowDetectionOptions } from '../util/UseSettings';
 import { getFileStatusList } from './VideoFileStatus';
 import { overlapHandover } from './TimeSegmentUtils';
@@ -1150,7 +1151,19 @@ const runAutoZoomToFinish = async (
       if (!seekIsCurrent()) {
         return null;
       }
-      return { frameNum: seekFrame, bow, observations };
+      // The latest bow card seen on this boat, if any.
+      const card = [...observations]
+        .reverse()
+        .find(({ detection }) => detection.box.height > 0)?.detection.box;
+      // eslint-disable-next-line no-await-in-loop
+      const tweakedFrame = await autoTweakAfterZoom(
+        { clickY: (zoomClickPoint ?? targetEdgePoint).y, card },
+        seekIsCurrent,
+      );
+      if (!seekIsCurrent()) {
+        return null;
+      }
+      return { frameNum: tweakedFrame ?? seekFrame, bow, observations };
     }
 
     const previous = observations[observations.length - 2];

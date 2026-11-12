@@ -3,6 +3,7 @@ import { AppImage } from 'renderer/shared/AppTypes';
 import { N_IMAGE, N_VIDEO_FILE, N_VIDEO_DIR } from 'renderer/shared/Constants';
 import { UseMemDatum, UseStoredDatum } from 'renderer/store/UseElectronDatum';
 import { Entry, Event } from 'crewtimer-common';
+import type { ZoomTransformMode } from './ZoomTransform';
 import { generateTestPattern } from '../util/ImageUtils';
 import type { TimestampContext } from './TimestampContext';
 
@@ -240,6 +241,14 @@ export const [useHyperZoomFactor, , getHyperZoomFactor] = UseStoredDatum(
 /// video frames (hyperzoom scrubbing, finish photo, etc).
 export const [useInterpolationTechnique, , getInterpolationTechnique] =
   UseStoredDatum<'blend' | 'rife'>('interpolationTechnique', 'rife');
+/// Display-only contrast aid for the zoomed view (see ZoomTransform.ts).
+export const [useZoomTransform, setZoomTransform, getZoomTransform] =
+  UseStoredDatum<ZoomTransformMode>('zoomTransform', 'off');
+/// Highlights where the timing guide crosses something unlike the water.
+export const [useGuideHighlight, setGuideHighlight, getGuideHighlight] =
+  UseStoredDatum<boolean>('zoomGuideHighlight', false);
+/// Least zoom at which the zoom transform is shown.
+export const ZOOM_TRANSFORM_MIN_ZOOM = 2;
 export const [useResetZoomCounter, setResetZoomCounter, getResetZoomCounter] =
   UseDatum(0);
 let activeZoomReset:

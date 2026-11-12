@@ -21,6 +21,9 @@ import {
 } from './AutoZoomToFinish';
 
 jest.mock('../util/ImageScaling', () => ({ updateVideoScaling: jest.fn() }));
+jest.mock('./AutoTweak', () => ({
+  autoTweakAfterZoom: jest.fn(async () => undefined),
+}));
 jest.mock('../util/UseSettings', () => ({
   getBowDetectionOptions: () => ({
     numericOnly: true,

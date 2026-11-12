@@ -15,8 +15,8 @@
 | Single Click | When Zoom to Timing Guide on Single Click is enabled, an unzoomed click locates the nearby boat's crossing of the timing guide and zooms to it. A click while zoomed exits zoom. |
 | Escape, `z`, `Z`, or `/` | Exit video zoom. |
 | `p` | Start or stop video playback. |
-| Drag a lane guide | Click anywhere on a lane guide and drag to move it up or down. Grab near its right end to tilt it. |
-| Drag a course guide | With Limit Boat Search to Course enabled in settings, click anywhere on the dashed top or bottom course guide and drag it up or down. Boats outside the guides are ignored by auto zoom and bow number reading. The guides are hidden while zoomed. |
+| Drag a lane guide | Press anywhere on a lane guide and drag to move it up or down. Grab near its right end to tilt it. A click without dragging goes to the video, so clicking a bow on a lane guide still zooms to it. |
+| Drag a course guide | With Limit Boat Search to Course enabled in settings, press anywhere on the dashed top or bottom course guide and drag it up or down; a click without dragging goes to the video. Boats outside the guides are ignored by auto zoom and bow number reading. The guides are hidden while zoomed. |
 | Shift-drag a lane or timing guide handle | Restore the guide to vertical or horizontal orientation while dragging. See also the reset option in settings. |
 
 | Recorder Gestures | Action |
@@ -28,5 +28,7 @@
 | --- | --- |
 | Click on Bow| Set the **Add Split** button Bow and Event properties. |
 | Right click on Bow | Open menu to delete timestamp if a timestamp has been recorded. |
+| Contrast button | Below the zoom factor button. Choose Auto-levels to stretch the brightness of the zoomed view, or Water contrast to show water dark and the hull, bow ball and card bright. Highlight non-water on timing guide marks in magenta where the timing guide crosses something unlike the water, such as a bow. Applies at 2x zoom or more and only changes the screen, not bow reading or saved images. |
+| Auto-tweak after Zoom | AI Assist setting. After an auto zoom, steps frame by frame (as the arrow keys do) to the first frame where the bow touches the timing guide, using the timing guide highlight near where the bow was clicked. Returns to the auto zoom frame when it finds no contact within 10 steps either way. |
 | Shift click on Bow | Open menu to set DNS, DNF, DQ or Scratch for the crew, or clear a penalty already set. |
 | Double click on Bow| Seek to associated timestamp.  If no timestamp recorded yet, a seek using the timing hint waypoint, zooming to the crossing when Zoom to Timing Guide on Single Click is enabled. |

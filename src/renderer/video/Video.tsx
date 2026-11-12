@@ -28,6 +28,7 @@ import {
   consumeZoomPreservedFile,
   getVideoScaling,
   Point,
+  VideoScaling,
   useVideoScaling,
   getImage,
   getVideoBow,
@@ -40,7 +41,19 @@ import {
   getVideoEvent,
   getCourseArea,
   useVideoSettings,
+  getZoomTransform,
+  useZoomTransform,
+  getGuideHighlight,
+  useGuideHighlight,
+  ZOOM_TRANSFORM_MIN_ZOOM,
 } from './VideoSettings';
+import {
+  applyZoomTransform,
+  clampRect,
+  guideNonWaterSpans,
+  RowSpan,
+} from './ZoomTransform';
+import ZoomTransformButton from './ZoomTransformButton';
 import VideoOverlay, {
   getNearEdge,
   useOverlayActive,
@@ -65,6 +78,8 @@ import { videoRequestQueueRunning } from './RequestVideoFrame';
 import { useSingleAndDoubleClick } from '../util/UseSingleAndDoubleClick';
 import type { AppImage, BowDetection, Rect } from '../shared/AppTypes';
 import {
+  getAutoTweakAfterZoom,
+  useAutoTweakAfterZoom,
   getZoomToTimingGuide,
   getBowDetectionOptions,
   getLabelNumbers,
@@ -374,6 +389,22 @@ const useStyles = makeStyles({
 
 const [useShowBlowup, setShowBlowup] = UseDatum(false);
 
+/** Guide highlight band: screen pixels wide, drawn behind the guide line. */
+const GUIDE_HIGHLIGHT_WIDTH = 7;
+const GUIDE_HIGHLIGHT_COLOR = '#ff00ffb0';
+
+/** Source rectangle visible in a view of width x height screen pixels. */
+const visibleSourceRect = (
+  vScaling: VideoScaling,
+  viewWidth: number,
+  viewHeight: number,
+) => ({
+  x: Math.floor(-vScaling.destX / vScaling.scaleX),
+  y: Math.floor(-vScaling.destY / vScaling.scaleY),
+  width: Math.ceil(viewWidth / vScaling.scaleX) + 1,
+  height: Math.ceil(viewHeight / vScaling.scaleY) + 1,
+});
+
 const applyZoom = ({
   srcPoint,
   zoom,
@@ -604,6 +635,19 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoOverlayRef = useRef<VideoOverlayHandles>(null);
   const offscreenCanvas = useRef(document.createElement('canvas'));
+  // Display-only copy of the frame with the zoom transform applied to the
+  // visible area. offscreenCanvas stays raw for detection and snapshots.
+  const displayCanvas = useRef(document.createElement('canvas'));
+  const displayImage = useRef<AppImage | undefined>(undefined);
+  const displayKey = useRef('');
+  const [zoomTransform] = useZoomTransform();
+  const [guideHighlight] = useGuideHighlight();
+  const [autoTweakAfterZoom] = useAutoTweakAfterZoom();
+  // Timing guide rows unlike the water, cached by frame, view and guide.
+  const guideSpans = useRef<{ key: string; spans: RowSpan[] }>({
+    key: '',
+    spans: [],
+  });
   const bowDetectionRequestId = useRef(0);
   const bowDetectionVideoFile = useRef('');
   const bowDetectionsFrame = useRef(Number.NaN);
@@ -657,6 +701,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   }, [image.file, image.frameNum, liveRollingShutterOffset]);
 
   const copyImageToOffscreenCanvas = useCallback((nextImage: AppImage) => {
+    displayImage.current = nextImage;
+    displayKey.current = '';
+    guideSpans.current.key = '';
     offscreenCanvas.current.width = nextImage.width;
     offscreenCanvas.current.height = nextImage.height;
     const ctx = offscreenCanvas.current.getContext('2d');
@@ -684,6 +731,106 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     copyImageToOffscreenCanvas(image);
   }, [copyImageToOffscreenCanvas, image, videoTimestamp]);
 
+  /**
+   * Bands behind the timing guide, in source pixels on the scaled context,
+   * where the guide crosses something unlike the water. Zoomed in only.
+   */
+  const drawGuideHighlight = (ctx: CanvasRenderingContext2D) => {
+    const vScaling = getVideoScaling();
+    const frame = displayImage.current;
+    if (
+      !(getGuideHighlight() || getAutoTweakAfterZoom()) ||
+      vScaling.zoomY < ZOOM_TRANSFORM_MIN_ZOOM ||
+      !frame?.width
+    ) {
+      return;
+    }
+    const finish = getFinishLine();
+    const xTop = frame.width / 2 + finish.pt1;
+    const xBottom = frame.width / 2 + finish.pt2;
+    const rect = visibleSourceRect(vScaling, width, height);
+    const key = `${rect.x},${rect.y},${rect.width},${rect.height}:${xTop},${xBottom}:${getTravelRightToLeft()}`;
+    if (guideSpans.current.key !== key) {
+      const { data } = frame;
+      guideSpans.current = {
+        key,
+        spans: guideNonWaterSpans(
+          new Uint8ClampedArray(data.buffer, data.byteOffset, data.length),
+          frame.width,
+          frame.height,
+          rect,
+          xTop,
+          xBottom,
+          getTravelRightToLeft() ? -1 : 1,
+        ),
+      };
+    }
+    const xAt = (y: number) => xTop + ((xBottom - xTop) * y) / frame.height;
+    ctx.save();
+    ctx.strokeStyle = GUIDE_HIGHLIGHT_COLOR;
+    ctx.lineWidth = GUIDE_HIGHLIGHT_WIDTH / Math.abs(vScaling.scaleX);
+    ctx.lineCap = 'butt';
+    guideSpans.current.spans.forEach(({ y0, y1 }) => {
+      ctx.beginPath();
+      ctx.moveTo(xAt(y0), y0);
+      ctx.lineTo(xAt(y1), y1);
+      ctx.stroke();
+    });
+    ctx.restore();
+  };
+
+  /** Canvas to show: transformed when zoomed in with a transform chosen. */
+  const getDisplayCanvas = () => {
+    const mode = getZoomTransform();
+    const vScaling = getVideoScaling();
+    const frame = displayImage.current;
+    if (
+      mode === 'off' ||
+      vScaling.zoomY < ZOOM_TRANSFORM_MIN_ZOOM ||
+      !frame?.width
+    ) {
+      return offscreenCanvas.current;
+    }
+    const rect = visibleSourceRect(vScaling, width, height);
+    const key = `${mode}:${rect.x},${rect.y},${rect.width},${rect.height}`;
+    if (key !== displayKey.current) {
+      const canvas = displayCanvas.current;
+      canvas.width = frame.width;
+      canvas.height = frame.height;
+      const ctx = canvas.getContext('2d');
+      const visible = clampRect(rect, frame.width, frame.height);
+      if (ctx) {
+        // Raw frame everywhere, then the transformed visible area on top.
+        ctx.drawImage(offscreenCanvas.current, 0, 0);
+        if (visible.width && visible.height) {
+          const rowBytes = visible.width * 4;
+          const crop = new Uint8ClampedArray(rowBytes * visible.height);
+          for (let row = 0; row < visible.height; row += 1) {
+            const from = ((visible.y + row) * frame.width + visible.x) * 4;
+            crop.set(
+              frame.data.subarray(from, from + rowBytes),
+              row * rowBytes,
+            );
+          }
+          const pixels = applyZoomTransform(
+            crop,
+            visible.width,
+            visible.height,
+            { x: 0, y: 0, width: visible.width, height: visible.height },
+            mode,
+          );
+          ctx.putImageData(
+            new ImageData(pixels, visible.width, visible.height),
+            visible.x,
+            visible.y,
+          );
+        }
+      }
+      displayKey.current = key;
+    }
+    return displayCanvas.current;
+  };
+
   const drawContentDebounced = useDebouncedCallback(() => {
     if (holdCanvasDuringZoomReset.current) {
       return;
@@ -707,7 +854,9 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           // Show magnified source pixels as-is so judges see the real edge,
           // but keep smoothing when downscaling to avoid aliasing.
           ctx.imageSmoothingEnabled = vScaling.scaleY < 1;
-          ctx.drawImage(offscreenCanvas.current, 0, 0);
+          const sourceCanvas = getDisplayCanvas();
+          ctx.drawImage(sourceCanvas, 0, 0);
+          drawGuideHighlight(ctx);
           const useTrackedInterpolation =
             hasAutoZoomInterpolation(image.file) &&
             (isZooming() ||
@@ -745,7 +894,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
               }));
           bowLabelHitRegions.current = drawBowDetections(
             ctx,
-            offscreenCanvas.current,
+            sourceCanvas,
             visibleBowDetections,
             videoBow,
             travelRightToLeft,
@@ -938,6 +1087,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     drawContentDebounced();
   }, [
     drawContentDebounced,
+    zoomTransform,
+    guideHighlight,
+    autoTweakAfterZoom,
+    timestampFinish.pt1,
+    timestampFinish.pt2,
     image,
     videoScaling.destX,
     videoScaling.destY,
@@ -1243,6 +1397,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         setShowFloatingBow(true);
       }
 
+      // A press taken over by a guide drag never sees its mouseup here.
+      if (event.buttons % 2 === 0) {
+        mouseTracking.current.mouseDown = false;
+      }
+
       // dont trigger mouse down move actions until we have moved slightly. This avoids
       // accidental zooming on just a click
       const downMoveY = Math.abs(mouseTracking.current.mouseDownClientY - y);
@@ -1425,6 +1584,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
                   {scaleText}
                 </Button>
               </Tooltip>
+              <ZoomTransformButton className={classes.zoom} />
               <VideoBow />
             </Stack>
             <div />
@@ -1468,7 +1628,12 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
         )}
         {showBlowup && (
           <Blowup
-            canvas={offscreenCanvas.current}
+            canvas={
+              zoomTransform !== 'off' &&
+              videoScaling.zoomY >= ZOOM_TRANSFORM_MIN_ZOOM
+                ? displayCanvas.current
+                : offscreenCanvas.current
+            }
             mousePos={mousePos}
             srcPos={srcPos}
             size={150} // size of the blowup circle

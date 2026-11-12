@@ -1,9 +1,12 @@
 
 | Version | What's New |
 | --- | --- |
-| 2.0.9 | Light and dark themes, course guides for boat search, and bug fixes |
+| 2.0.9 | Light and dark themes, course guides for boat search, zoom contrast aids, and bug fixes |
 | | Theme item in the menu chooses System, Light or Dark; System follows the computer's setting |
 | | Optional dashed course guides limit boat search to the course, so boats at the top of the frame are not picked for auto zoom or bow numbers |
+| | Contrast button beside the zoom factor: Auto-levels or Water contrast makes the bow easier to see at 2x zoom or more, on screen only; the timing guide can highlight where it crosses something unlike the water |
+| | Auto-tweak after Zoom (AI Assist) steps an auto zoom to the first frame where the bow touches the timing guide |
+| | AI Assist settings, except Limit Boat Search to Course, are now on by default for new installs |
 | | Auto zoom finds the right boat when a bow card is partly misread, and when the crossing is in the next overlapping file |
 | | Fixes: a memory leak while scoring with frame interpolation that could crash the app after several hours |
 | 2.0.8 | Better bow number reading and bow event selection |

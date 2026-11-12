@@ -100,7 +100,7 @@ export const useAuthOK = () => {
 export const [useDebugLevel, setDebugLevel, getDebugLevel] =
   UseMemDatum<number>(N_DEBUG_LEVEL, 0);
 export const [useLabelBoats, setLabelBoats, getLabelBoats] =
-  UseStoredDatum<boolean>(N_LABEL_BOATS, false);
+  UseStoredDatum<boolean>(N_LABEL_BOATS, true);
 /// When false, detected bow card numbers are neither shown nor used to fill
 /// in the bow number.
 export const [useLabelNumbers, setLabelNumbers, getLabelNumbers] =
@@ -118,7 +118,16 @@ export const [
   useZoomToTimingGuide,
   setZoomToTimingGuide,
   getZoomToTimingGuide,
-] = UseStoredDatum<boolean>(N_ZOOM_TO_TIMING_GUIDE, false);
+] = UseStoredDatum<boolean>(N_ZOOM_TO_TIMING_GUIDE, true);
+/**
+ * When set, an auto zoom then steps to the first frame where the bow touches
+ * the timing guide, using the guide highlight's check.
+ */
+export const [
+  useAutoTweakAfterZoom,
+  setAutoTweakAfterZoom,
+  getAutoTweakAfterZoom,
+] = UseStoredDatum<boolean>('autoTweakAfterZoom', true);
 
 /** When set, an image of each recorded lap is uploaded to CrewTimer. */
 export const [useUploadLapImages, setUploadLapImages, getUploadLapImages] =

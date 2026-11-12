@@ -44,6 +44,7 @@ import { getFileStatusList } from './VideoFileStatus';
 import {
   BowCardLength,
   useZoomToTimingGuide,
+  useAutoTweakAfterZoom,
   useBowCardLength,
   useBowOcrModel,
   useFinishPhotoMaxBoats,
@@ -74,6 +75,7 @@ export const VideoSettingsDialog = () => {
   const [labelBoats, setLabelBoats] = useLabelBoats();
   const [labelNumbers, setLabelNumbers] = useLabelNumbers();
   const [zoomToTimingGuide, setZoomToTimingGuide] = useZoomToTimingGuide();
+  const [autoTweakAfterZoom, setAutoTweakAfterZoom] = useAutoTweakAfterZoom();
   const [bowOcrModel] = useBowOcrModel();
   const [bowCardLength, setBowCardLength] = useBowCardLength();
   const [uploadLapImages, setUploadLapImages] = useUploadLapImages();
@@ -461,6 +463,25 @@ export const VideoSettingsDialog = () => {
                       checked={zoomToTimingGuide}
                       onChange={(event) =>
                         setZoomToTimingGuide(event.target.checked)
+                      }
+                    />
+                  }
+                />
+              </Tooltip>
+            </Box>
+            <Box className={classes.settings}>
+              <Tooltip
+                title="After an auto zoom, step frame by frame to the first frame where the bow touches the timing guide, using the timing guide highlight near where the bow was clicked. Returns to the auto zoom frame when no contact is found within 10 steps either way. Turns on the highlight so you can see it."
+                placement="right"
+              >
+                <FormControlLabel
+                  labelPlacement="end"
+                  label="Auto-tweak after Zoom"
+                  control={
+                    <Checkbox
+                      checked={autoTweakAfterZoom}
+                      onChange={(event) =>
+                        setAutoTweakAfterZoom(event.target.checked)
                       }
                     />
                   }

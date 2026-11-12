@@ -45,6 +45,8 @@ export const [useNearEdge, setNearEdge, getNearEdge] = UseDatum(false);
 const LINE_GRAB = 6;
 /** Canvas pixels from a lane line's right end that tilt it, like its handle. */
 const LINE_END_GRAB = 20;
+/** Mouse movement, in px, that turns a press on a line into a drag. */
+const LINE_DRAG_START = 4;
 
 type LineHit =
   | { course: 'top' | 'bottom' }
@@ -75,6 +77,13 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
     }));
 
     const [dragging, setDragging] = useState(false);
+    /** A press on a line that becomes a drag once the mouse moves. */
+    const pendingLineGrab = useRef<{
+      line: LineHit;
+      grabOffset: number;
+      clientX: number;
+      clientY: number;
+    } | null>(null);
     const [overLine, setOverLine] = useState(false);
     const [dragHandle, setDragHandle] = useState<
       | {
@@ -529,7 +538,21 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       return best?.hit;
     };
 
+    /** Grabs a line for dragging and keeps the press from the video. */
+    const startLineDrag = (line: LineHit, grabOffset: number) => {
+      setDragging(true);
+      setAdjustingOverlay(true);
+      setOverlayActive(true);
+      if ('course' in line) {
+        courseConfig.courseArea = getCourseArea(courseConfig.courseArea);
+        setDragHandle(line);
+      } else {
+        setDragHandle({ ...line, grabOffset });
+      }
+    };
+
     const handleMouseDown = (event: React.MouseEvent) => {
+      pendingLineGrab.current = null;
       const rect = canvasRef.current?.getBoundingClientRect();
       const { dx, dy, x, y, withinBounds } = translateMouseEventCoords(
         event,
@@ -544,19 +567,23 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
 
       const line = lineAt(x, y);
       if (line) {
-        setDragging(true);
-        setAdjustingOverlay(true);
-        setOverlayActive(true);
-        event.preventDefault();
-        event.stopPropagation();
-        if ('course' in line) {
-          courseConfig.courseArea = getCourseArea(courseConfig.courseArea);
-          setDragHandle(line);
+        const grabOffset =
+          'course' in line ? 0 : dy / scaling.destImageHeight - line.guide.pt1;
+        if (event.shiftKey) {
+          // Shift levels the line, so grab it now; shift-drag on the video
+          // would otherwise zoom.
+          event.preventDefault();
+          event.stopPropagation();
+          startLineDrag(line, grabOffset);
         } else {
-          setDragHandle({
-            ...line,
-            grabOffset: dy / scaling.destImageHeight - line.guide.pt1,
-          });
+          // A click on a line still reaches the video (auto zoom on a bow);
+          // only moving the mouse starts the drag.
+          pendingLineGrab.current = {
+            line,
+            grabOffset,
+            clientX: event.clientX,
+            clientY: event.clientY,
+          };
         }
         return;
       }
@@ -634,6 +661,19 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
     };
 
     const handleMouseMove = (event: React.MouseEvent) => {
+      const pending = pendingLineGrab.current;
+      if (pending && !dragging) {
+        if (event.buttons % 2 === 0) {
+          pendingLineGrab.current = null;
+        } else if (
+          Math.abs(event.clientX - pending.clientX) > LINE_DRAG_START ||
+          Math.abs(event.clientY - pending.clientY) > LINE_DRAG_START
+        ) {
+          pendingLineGrab.current = null;
+          startLineDrag(pending.line, pending.grabOffset);
+          return;
+        }
+      }
       const rect = canvasRef.current?.getBoundingClientRect();
       const { dx, dy, x, y, pt, withinBounds, overButtons } =
         translateMouseEventCoords(event, rect);
@@ -707,6 +747,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
     };
 
     const handleMouseUp = () => {
+      pendingLineGrab.current = null;
       if (dragging) {
         courseConfig.sidecarSource = getVideoFile();
         if (courseConfig.courseArea) {
@@ -721,6 +762,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       setOverlayActive(false);
     };
     const handleMouseLeave = () => {
+      pendingLineGrab.current = null;
       if (dragging) {
         handleMouseUp();
       }
@@ -736,7 +778,13 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
         onWheel={adjustingOverlay ? undefined : onWheelMove}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
-        onMouseUp={dragging ? handleMouseUp : undefined}
+        onMouseUp={
+          dragging
+            ? handleMouseUp
+            : () => {
+                pendingLineGrab.current = null;
+              }
+        }
         onMouseLeave={handleMouseLeave}
         width={Math.round(videoScaling.destWidth * window.devicePixelRatio)}
         height={Math.round(videoScaling.destHeight * window.devicePixelRatio)}
