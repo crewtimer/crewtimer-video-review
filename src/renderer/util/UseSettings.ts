@@ -164,6 +164,11 @@ export const normalizeBowForCurrentEvent = (bow: string) => {
   return normalizeBowForEvent(bow, getCurrentEvent());
 };
 
+/** Adds the event's letter prefix to a digits-only bow, such as 1 for C1. */
+export const normalizeBowForEventNum = (bow: string, eventNum: string) => {
+  return normalizeBowForEvent(bow, getCurrentEvent(eventNum));
+};
+
 /**
  * Normalizes bow for the event being viewed, first selecting the head race
  * that schedules it when the viewed event does not.  A '?' hint leaves the

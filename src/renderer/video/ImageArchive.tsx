@@ -25,6 +25,7 @@ import { ProgressBarComponent } from '../util/ProgressBarComponent';
 import {
   setProgressBar,
   getBowDetectionOptions,
+  normalizeBowForEventNum,
   useDay,
   useMobileID,
   useWaypoint,
@@ -52,7 +53,18 @@ const [useArchiveDetectionFilter, setArchiveDetectionFilter] =
 type PruneSide = 'none' | 'top' | 'bottom';
 const [useArchivePruneSide, setArchivePruneSide] = UseDatum<PruneSide>('none');
 const [useArchivePrunePercentage, setArchivePrunePercentage] = UseDatum(0);
-const [useArchiveAlignBox, setArchiveAlignBox] = UseDatum(true);
+const [useArchiveAlignBox] = UseStoredDatum('ArchiveAlignBox', true);
+const [useArchiveStripBowLetters] = UseStoredDatum(
+  'ArchiveStripBowLetters',
+  true,
+);
+
+/** Splits a bow such as C12 into its letter prefix C and number 12. */
+const splitBow = (bow: string) => {
+  const [, prefix = '', digits = ''] =
+    /^([A-Za-z]*)(.*)$/.exec(bow.trim()) || [];
+  return { prefix, digits };
+};
 const [, setArchiveCancel, getArchiveCancel] = UseDatum(false);
 
 type ArchiveCardLabel = {
@@ -217,6 +229,7 @@ const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
   const [pruneSide, setPruneSide] = useArchivePruneSide();
   const [prunePercentage, setPrunePercentage] = useArchivePrunePercentage();
   const [alignBox, setAlignBox] = useArchiveAlignBox();
+  const [stripBowLetters, setStripBowLetters] = useArchiveStripBowLetters();
   const [scoredWaypoint] = useWaypoint();
   const scoredLapdata = useClickerData(scoredWaypoint) as TimeObject[];
   const races = useMemo(
@@ -305,28 +318,48 @@ const ImageArchiveConfig: React.FC<FolderInputProps> = () => {
         </Select>
       </FormControl>
 
-      <FormControlLabel
-        control={
-          <Checkbox
-            checked={augmentYoloLabels}
-            onChange={(event) => setAugmentYoloLabels(event.target.checked)}
-          />
-        }
-        label="Augment with yolo labels"
-      />
-
-      {augmentYoloLabels && (
+      <Box
+        sx={{
+          alignSelf: 'stretch',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         <FormControlLabel
           control={
             <Checkbox
-              checked={alignBox}
-              disabled={timeOffset !== 0}
-              onChange={(event) => setAlignBox(event.target.checked)}
+              checked={augmentYoloLabels}
+              onChange={(event) => setAugmentYoloLabels(event.target.checked)}
             />
           }
-          label="Align box with score"
+          label="Augment with yolo labels"
         />
-      )}
+
+        {augmentYoloLabels && (
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={alignBox}
+                disabled={timeOffset !== 0}
+                onChange={(event) => setAlignBox(event.target.checked)}
+              />
+            }
+            label="Align box with score"
+          />
+        )}
+
+        {augmentYoloLabels && (
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={stripBowLetters}
+                onChange={(event) => setStripBowLetters(event.target.checked)}
+              />
+            }
+            label="Strip bow letters (C12 becomes 12)"
+          />
+        )}
+      </Box>
 
       {augmentYoloLabels && (
         <FormControl fullWidth>
@@ -410,6 +443,7 @@ export const ImageArchive = () => {
   const [pruneSide] = useArchivePruneSide();
   const [prunePercentage] = useArchivePrunePercentage();
   const [alignBox] = useArchiveAlignBox();
+  const [stripBowLetters] = useArchiveStripBowLetters();
   const [stats] = useArchiveStats();
   const prune = useMemo(
     () =>
@@ -449,14 +483,19 @@ export const ImageArchive = () => {
   );
 
   const selectFinishLineBoat = useCallback(
-    (detections: BowDetection[], imageWidth: number, expectedBow: string) => {
+    (
+      detections: BowDetection[],
+      imageWidth: number,
+      expectedBow: string,
+      bowOf: (detection: BowDetection) => string,
+    ) => {
       const finish = getFinishLine();
       const finishX = imageWidth / 2 + (finish.pt1 + finish.pt2) / 2;
       const eligible = detections.filter(
         ({ boatBox }) => boatBox.width > 0 && boatBox.height > 0,
       );
       const matching = eligible.filter(
-        ({ text }) => text.trim() === expectedBow.trim(),
+        (detection) => bowOf(detection) === expectedBow.trim(),
       );
       return (matching.length ? matching : eligible).sort((a, b) => {
         const distance = ({ boatBox }: BowDetection) =>
@@ -477,7 +516,7 @@ export const ImageArchive = () => {
       filename,
       videoFile,
       frameNum,
-      expectedBow,
+      expectedBow: recordedBow,
       eventNum,
       width,
       height,
@@ -504,9 +543,26 @@ export const ImageArchive = () => {
       const detectedBoats = detectionResult.detections.filter(
         ({ boatBox }) => boatBox.width > 0 && boatBox.height > 0,
       );
-      const selected = selectFinishLineBoat(detectedBoats, width, expectedBow);
+      // A numeric card reads 1 for bow C1. Compare numbers alone when bow
+      // letters are stripped; otherwise add the event's letter prefix as
+      // single-frame bow reading does.
+      const expected = splitBow(recordedBow);
+      const bowOf = ({ text }: BowDetection) => {
+        const reading = text.trim();
+        if (!reading || stripBowLetters) return reading;
+        return normalizeBowForEventNum(reading, eventNum);
+      };
+      const expectedBow = stripBowLetters
+        ? expected.digits
+        : recordedBow.trim();
+      const selected = selectFinishLineBoat(
+        detectedBoats,
+        width,
+        expectedBow,
+        bowOf,
+      );
       const selectedBoatIndex = selected ? detectedBoats.indexOf(selected) : -1;
-      const detectedBow = selected?.text || '';
+      const detectedBow = selected ? bowOf(selected) : '';
       const bowMismatch = detectedBow !== expectedBow;
       const boatIdentified = detectedBoats.length > 0;
       const bowMatched = Boolean(detectedBow) && !bowMismatch;
@@ -564,12 +620,12 @@ export const ImageArchive = () => {
             height: box.height / height,
           },
           value: verified ? expectedBow : '',
-          digits: verified ? expectedBow : '',
+          digits: verified ? expected.digits : '',
           detectedDigits: detection.text || '',
           verified,
           ...(verified ? { bowMismatch } : {}),
           confidence: detection.confidence,
-          prefix: '',
+          prefix: verified && !stripBowLetters ? expected.prefix : '',
           visibility: 'clear',
           partial: false,
           polarity: 'unknown',
@@ -621,6 +677,7 @@ export const ImageArchive = () => {
       selectFinishLineBoat,
       alignBox,
       timeOffset,
+      stripBowLetters,
     ],
   );
 
@@ -701,8 +758,10 @@ export const ImageArchive = () => {
           break;
         }
         const timeObj = filteredScoredTimes[j];
+        const bowInName = (bow: string) =>
+          augmentYoloLabels && stripBowLetters ? splitBow(bow).digits : bow;
         const filename =
-          `${normalizedPrefix}-${dayPrefix}T${timeObj.Time}-B${timeObj.Bow}-E${timeObj.EventNum.replaceAll(' ', '_')}.png`.replaceAll(
+          `${normalizedPrefix}-${dayPrefix}T${timeObj.Time}-B${bowInName(timeObj.Bow)}-E${timeObj.EventNum.replaceAll(' ', '_')}.png`.replaceAll(
             ':',
             '',
           );
@@ -812,6 +871,7 @@ export const ImageArchive = () => {
     joinPath,
     saveTrainingLabels,
     prune,
+    stripBowLetters,
   ]);
 
   useEffect(() => {
@@ -842,7 +902,6 @@ export const initiateImageArchive = () => {
   setArchiveDetectionFilter('all');
   setArchivePruneSide('none');
   setArchivePrunePercentage(0);
-  setArchiveAlignBox(false);
   const onClose = () => {
     setArchiveCancel(true);
   };

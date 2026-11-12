@@ -85,7 +85,7 @@ const DebugDialogBody = () => {
   };
 
   return (
-    <Stack spacing={2} sx={{ pt: 1, minWidth: 240 }}>
+    <Stack spacing={2} useFlexGap sx={{ pt: 1, minWidth: 240 }}>
       <Button variant="outlined" onClick={toggleDebug}>
         Toggle Debug (Level {debugLevel})
       </Button>

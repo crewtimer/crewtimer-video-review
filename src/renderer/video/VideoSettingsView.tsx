@@ -475,6 +475,7 @@ export const VideoSettingsDialog = () => {
                 <Stack
                   direction="row"
                   spacing={1}
+                  useFlexGap
                   sx={{
                     marginTop: '0.25em',
                     flexWrap: 'wrap',
