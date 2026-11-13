@@ -1,4 +1,8 @@
-import { applyZoomTransform, guideNonWaterSpans } from './ZoomTransform';
+import {
+  applyZoomTransform,
+  guideContactRows,
+  guideNonWaterSpans,
+} from './ZoomTransform';
 
 const W = 20;
 const H = 20;
@@ -124,15 +128,14 @@ describe('guideNonWaterSpans', () => {
     expect(spans(30.99)).toEqual([]);
   });
 
-  it('counts the next pixel in the direction of travel', () => {
-    const pixels = frame((x, y) => (boat(x, y) ? hull : water));
-    // Line in pixel 30; the tip in pixel 31 is ahead only for left to right.
-    expect(guideNonWaterSpans(pixels, GW, GH, view, 30.5, 30.5, 1)).toEqual([
-      { y0: 24, y1: 25 },
-    ]);
-    expect(guideNonWaterSpans(pixels, GW, GH, view, 30.5, 30.5, -1)).toEqual(
-      [],
-    );
+  it('marks a tip on the line for left-to-right travel', () => {
+    // The same boat pointing right, so its tip's front pixel is x = 48.
+    const pixels = frame((x, y) => (boat(GW - 1 - x, y) ? hull : water));
+    const spans = (x: number, step: 1 | -1) =>
+      guideNonWaterSpans(pixels, GW, GH, view, x, x, step);
+    expect(spans(48.5, 1)).toEqual([{ y0: 24, y1: 25 }]);
+    // Line in pixel 49, just ahead of the tip: not yet touching.
+    expect(spans(49.5, 1)).toEqual([]);
   });
 
   it('marks a bow cut off from its hull by a dark seam', () => {
@@ -221,5 +224,142 @@ describe('guideNonWaterSpans on choppy water', () => {
     expect(guideNonWaterSpans(pixels, W2, H2, view, 45, 45, -1)).toEqual([
       { y0: 20, y1: 30 },
     ]);
+  });
+});
+
+describe('guideNonWaterSpans with dark reflections in view', () => {
+  // Light water with dark ripple bands, a large dark reflection filling the
+  // bottom third of the view, and a small dark bow ball on light water.
+  const W4 = 120;
+  const H4 = 90;
+  const view = { x: 0, y: 0, width: W4, height: H4 };
+  const pixels = new Uint8ClampedArray(W4 * H4 * 4);
+  for (let y = 0; y < H4; y += 1) {
+    for (let x = 0; x < W4; x += 1) {
+      let v = y % 6 < 2 ? 70 : 120;
+      if (y >= 63) v = 20 + (y % 3) * 5;
+      if (y >= 20 && y < 28 && x >= 60 && x < 68) v = 15;
+      if (y >= 22 && y < 26 && x >= 68) v = 230;
+      pixels.set([v, v, v, 255], (y * W4 + x) * 4);
+    }
+  }
+
+  it('marks a dark bow ball against the light water beside it', () => {
+    const spans = guideNonWaterSpans(pixels, W4, H4, view, 62.5, 62.5, -1);
+    expect(spans.some(({ y0, y1 }) => y0 <= 21 && y1 >= 27)).toBe(true);
+  });
+
+  it('does not mark the water just ahead of the ball', () => {
+    const spans = guideNonWaterSpans(pixels, W4, H4, view, 50.5, 50.5, -1);
+    expect(spans.filter(({ y0 }) => y0 < 63)).toEqual([]);
+  });
+});
+
+describe('guideContactRows with a fixed stats area', () => {
+  // Choppy water in rows 0..44, calm water below, and a faint hull from
+  // x = 60 in rows 40..49 on the boundary. Against calm water the hull
+  // stands out; against choppy water it does not. A view framed over the
+  // calm water would otherwise see contact that one framed over the choppy
+  // water does not.
+  const W7 = 120;
+  const H7 = 90;
+  const pixels = new Uint8ClampedArray(W7 * H7 * 4);
+  for (let y = 0; y < H7; y += 1) {
+    for (let x = 0; x < W7; x += 1) {
+      let v = y < 45 ? [100, 120, 140][(x + y) % 3] : 120;
+      if (y >= 40 && y < 50 && x >= 60) v = 165;
+      pixels.set([v, v, v, 255], (y * W7 + x) * 4);
+    }
+  }
+  const choppyView = { y: 0, height: 55 };
+  const calmView = { y: 35, height: 55 };
+  /** Contact in rows 40..49, by either check. */
+  const contact = (
+    view: { y: number; height: number },
+    stats: { x: number; y: number; width: number; height: number } | undefined,
+  ) => {
+    const { y, patch, edge } = guideContactRows(
+      pixels,
+      W7,
+      H7,
+      { x: 0, width: W7, ...view },
+      62.5,
+      62.5,
+      -1,
+      stats,
+    );
+    return Array.from(patch.slice(40 - y, 50 - y)).map(
+      (mark, i) => mark || edge[40 - y + i],
+    );
+  };
+
+  it('depends on the framing without one', () => {
+    expect(contact(calmView, undefined)).not.toEqual(
+      contact(choppyView, undefined),
+    );
+  });
+
+  it('gives the same answer however the view is framed', () => {
+    const calmStats = { x: 30, y: 45, width: 60, height: 40 };
+    expect(contact(choppyView, calmStats)).toEqual(
+      contact(calmView, calmStats),
+    );
+    expect(contact(calmView, calmStats).some(Boolean)).toBe(true);
+    const choppyStats = { x: 30, y: 0, width: 60, height: 40 };
+    expect(contact(calmView, choppyStats)).toEqual(
+      contact(choppyView, choppyStats),
+    );
+  });
+});
+
+describe('guideNonWaterSpans at a small bow tip', () => {
+  // Calm water and a dark bow tip only 4 rows tall and 8 pixels long, too
+  // small for the patch check and too short for the local water check.
+  const W5 = 120;
+  const H5 = 60;
+  const view = { x: 0, y: 0, width: W5, height: H5 };
+  const pixels = new Uint8ClampedArray(W5 * H5 * 4);
+  for (let y = 0; y < H5; y += 1) {
+    for (let x = 0; x < W5; x += 1) {
+      const v = y >= 20 && y < 24 && x >= 50 && x < 58 ? 40 : 115;
+      pixels.set([v, v, v, 255], (y * W5 + x) * 4);
+    }
+  }
+  const spans = (x: number) =>
+    guideNonWaterSpans(pixels, W5, H5, view, x, x, -1);
+
+  it('counts the front edge reaching the line', () => {
+    expect(spans(50.5)).toEqual([{ y0: 20, y1: 24 }]);
+  });
+
+  it('not while the edge is still ahead of the line', () => {
+    expect(spans(48.5)).toEqual([]);
+  });
+});
+
+describe('guideNonWaterSpans with a ripple joined to the hull', () => {
+  // Calm water, a white hull from x = 50, and a light ripple two rows tall
+  // running from the hull's side to x = 40, as beside a bow ball.
+  const W6 = 120;
+  const H6 = 60;
+  const view = { x: 0, y: 0, width: W6, height: H6 };
+  const pixels = new Uint8ClampedArray(W6 * H6 * 4);
+  for (let y = 0; y < H6; y += 1) {
+    for (let x = 0; x < W6; x += 1) {
+      let v = 115;
+      if (y >= 20 && y < 30 && x >= 50) v = 230;
+      else if ((y === 25 || y === 26) && x >= 40) v = 175;
+      pixels.set([v, v, v, 255], (y * W6 + x) * 4);
+    }
+  }
+  const spans = (x: number) =>
+    guideNonWaterSpans(pixels, W6, H6, view, x, x, -1);
+
+  it('does not count the ripple as the bow reaching the line', () => {
+    expect(spans(45.5)).toEqual([]);
+  });
+
+  it('counts the hull itself', () => {
+    expect(spans(52.5)).toEqual([{ y0: 20, y1: 30 }]);
   });
 });

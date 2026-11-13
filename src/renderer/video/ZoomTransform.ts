@@ -212,29 +212,38 @@ const distancesFrom = (
 };
 
 /**
- * Lab distance from the water colour of each pixel in rect, row by row. Water
- * is the median of rect, or of its border when rect is mostly boat.
+ * The water colour of rect and each pixel's Lab distance from it, row by
+ * row. Water is the median of rect, or of its border when rect is mostly
+ * boat.
  */
-const waterDistances = (
+const waterOf = (
   pixels: Uint8ClampedArray,
   imageWidth: number,
   rect: PixelRect,
 ) => {
-  const fromMedian = distancesFrom(
-    pixels,
-    imageWidth,
-    rect,
-    medianLab(pixels, (visit) => forEachSample(imageWidth, rect, visit)),
+  const median = medianLab(pixels, (visit) =>
+    forEachSample(imageWidth, rect, visit),
   );
-  if (fromMedian.farShare <= FAR_SHARE_LIMIT) return fromMedian.distances;
+  const fromMedian = distancesFrom(pixels, imageWidth, rect, median);
+  if (fromMedian.farShare <= FAR_SHARE_LIMIT) {
+    return { water: median, distances: fromMedian.distances };
+  }
   // Mostly boat: the median is the hull, so take water from the edges.
-  return distancesFrom(
-    pixels,
-    imageWidth,
-    rect,
-    medianLab(pixels, (visit) => forEachBorderPixel(imageWidth, rect, visit)),
-  ).distances;
+  const border = medianLab(pixels, (visit) =>
+    forEachBorderPixel(imageWidth, rect, visit),
+  );
+  return {
+    water: border,
+    distances: distancesFrom(pixels, imageWidth, rect, border).distances,
+  };
 };
+
+/** Lab distance from the water colour of each pixel in rect, row by row. */
+const waterDistances = (
+  pixels: Uint8ClampedArray,
+  imageWidth: number,
+  rect: PixelRect,
+) => waterOf(pixels, imageWidth, rect).distances;
 
 const waterContrast = (
   out: Uint8ClampedArray,
@@ -390,16 +399,152 @@ const boatLikePixels = (far: Uint8Array, width: number, height: number) => {
   return result;
 };
 
+const medianOf = (values: number[]) => {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] ?? 0;
+};
+
+/** Fewest consecutive rows for a whole-view contact to count. */
+const PATCH_MIN_ROWS = 3;
+
+/** Edge check: search from this far ahead of the guide to this far behind. */
+const EDGE_AHEAD = 2;
+const EDGE_BEHIND = 30;
 /**
- * Rows of rect where the guide line touches something unlike the water. The
- * guide runs from x = xTop at y = 0 to x = xBottom at the image bottom. A row
- * counts when the pixel the line passes through (0), or the next pixel in
- * the direction of travel (+1), clearly differs from the water and is part of
- * a non-water patch several rows tall or longer than a glint. A bow tip on the line counts, but not one with
- * water between it and the line on the approach side. travelStep is -1 for
- * boats moving right to left.
+ * A front edge needs a left-to-right lightness change this many times the
+ * view's typical one (ripples and glints run horizontally, so theirs is
+ * small), and at least EDGE_MIN.
  */
-export const guideNonWaterSpans = (
+const EDGE_FACTOR = 10;
+const EDGE_MIN = 8;
+/** Rows a front edge must continue over to count. */
+const EDGE_MIN_ROWS = 3;
+
+/**
+ * Lightness change a front edge needs: EDGE_FACTOR times the typical
+ * left-to-right change in rect (sampling every 7th pixel), and at least
+ * EDGE_MIN.
+ */
+const strongEdge = (
+  pixels: Uint8ClampedArray,
+  imageWidth: number,
+  rect: PixelRect,
+) => {
+  const { width, height } = rect;
+  const lab = new Float32Array(3);
+  const lightness = (row: number, col: number) => {
+    toLab(pixels, ((rect.y + row) * imageWidth + rect.x + col) * 4, lab);
+    return lab[0];
+  };
+  const sample: number[] = [];
+  for (let n = 0; n < width * height; n += 7) {
+    const row = Math.floor(n / width);
+    const col = n % width;
+    sample.push(
+      col > 0 && col < width - 1
+        ? 4 * Math.abs(lightness(row, col + 1) - lightness(row, col - 1))
+        : 0,
+    );
+  }
+  return Math.max(EDGE_MIN, EDGE_FACTOR * medianOf(sample));
+};
+
+/**
+ * Rows (relative to rect) where the boat's front edge has reached the guide.
+ * The front edge is the first strong left-to-right lightness change in the
+ * direction of travel near the guide, located to a fraction of a pixel, so
+ * contact is found where the edge starts rather than once a pixel is solidly
+ * unlike the water. strong is the lightness change an edge needs.
+ */
+const edgeContactRows = (
+  pixels: Uint8ClampedArray,
+  imageWidth: number,
+  rect: PixelRect,
+  lineX: (row: number) => number,
+  travelStep: 1 | -1,
+  strong: number,
+) => {
+  const { width, height } = rect;
+  const light = new Float32Array(width * height);
+  const lab = new Float32Array(3);
+  for (let row = 0; row < height; row += 1) {
+    for (let col = 0; col < width; col += 1) {
+      toLab(pixels, ((rect.y + row) * imageWidth + rect.x + col) * 4, lab);
+      [light[row * width + col]] = lab;
+    }
+  }
+  // Left-to-right lightness change within each row, scaled like a Sobel
+  // filter. No blending with the rows above and below, so an edge does not
+  // spill past the rows the boat covers.
+  const grad = new Float32Array(width * height);
+  for (let row = 0; row < height; row += 1) {
+    for (let col = 1; col < width - 1; col += 1) {
+      const n = row * width + col;
+      grad[n] = 4 * Math.abs(light[n + 1] - light[n - 1]);
+    }
+  }
+  /** Front edge x (image coordinates) in the row, if any. */
+  const frontEdge = (row: number) => {
+    const guide = lineX(row) - rect.x;
+    // From ahead of the guide (direction of travel) back toward the boat.
+    const from = Math.floor(guide + travelStep * EDGE_AHEAD);
+    const to = Math.floor(guide - travelStep * EDGE_BEHIND);
+    const step = -travelStep;
+    const g = (c: number) =>
+      c > 0 && c < width - 1 ? grad[row * width + c] : 0;
+    for (let c = from; step > 0 ? c <= to : c >= to; c += step) {
+      const v = g(c);
+      if (v >= strong && v >= g(c - 1) && v >= g(c + 1)) {
+        // Peak of a parabola through the three samples.
+        const a = g(c - 1);
+        const b = g(c + 1);
+        const curve = a - 2 * v + b;
+        const offset = curve !== 0 ? (0.5 * (a - b)) / curve : 0;
+        return rect.x + c + 0.5 + offset;
+      }
+    }
+    return undefined;
+  };
+
+  const edges = Array.from({ length: height }, (_, row) => frontEdge(row));
+  const hits = new Uint8Array(height);
+  let start = -1;
+  for (let row = 0; row <= height; row += 1) {
+    const edge = row < height ? edges[row] : undefined;
+    if (edge !== undefined) {
+      if (start < 0) start = row;
+    } else if (start >= 0) {
+      if (row - start >= EDGE_MIN_ROWS) {
+        for (let r = start; r < row; r += 1) {
+          const reached =
+            travelStep < 0
+              ? (edges[r] as number) <= lineX(r)
+              : (edges[r] as number) >= lineX(r);
+          if (reached) hits[r] = 1;
+        }
+      }
+      start = -1;
+    }
+  }
+  return hits;
+};
+
+/** Rows touching the guide by each check, from row y of the image. */
+export type GuideContactRows = {
+  y: number;
+  /** Whole-view check: a boat-like patch unlike the view's water. */
+  patch: Uint8Array;
+  /** Edge check: the boat's front edge has reached the guide. */
+  edge: Uint8Array;
+};
+
+/**
+ * The two checks behind guideNonWaterSpans, row by row. The water colour and
+ * the noise levels the checks compare against come from statsRect when
+ * given, so the answer does not depend on how the view is framed; otherwise
+ * from the visible rect.
+ */
+export const guideContactRows = (
   pixels: Uint8ClampedArray,
   imageWidth: number,
   imageHeight: number,
@@ -407,18 +552,31 @@ export const guideNonWaterSpans = (
   xTop: number,
   xBottom: number,
   travelStep: 1 | -1 = 1,
-): RowSpan[] => {
+  statsRect: PixelRect | undefined = undefined,
+): GuideContactRows => {
   const rect = clampRect(visibleRect, imageWidth, imageHeight);
-  if (rect.width < 3 || rect.height === 0) return [];
-  const distances = waterDistances(pixels, imageWidth, rect);
-  const histogram = new Uint32Array(D_BINS);
-  for (let n = 0; n < distances.length; n += 1) {
-    histogram[
-      Math.min(D_BINS - 1, Math.floor(distances[n] * D_BINS_PER_UNIT))
-    ] += 1;
+  if (rect.width < 3 || rect.height === 0) {
+    const none = new Uint8Array(0);
+    return { y: rect.y, patch: none, edge: none };
   }
+  const clampedStats =
+    statsRect && clampRect(statsRect, imageWidth, imageHeight);
+  const stats =
+    clampedStats && clampedStats.width >= 3 && clampedStats.height > 0
+      ? clampedStats
+      : rect;
+  const fromStats = waterOf(pixels, imageWidth, stats);
+  const distances =
+    stats === rect
+      ? fromStats.distances
+      : distancesFrom(pixels, imageWidth, rect, fromStats.water).distances;
+  const histogram = new Uint32Array(D_BINS);
+  fromStats.distances.forEach((d) => {
+    histogram[Math.min(D_BINS - 1, Math.floor(d * D_BINS_PER_UNIT))] += 1;
+  });
   const median =
-    histogramPercentile(histogram, distances.length, 0.5) / D_BINS_PER_UNIT;
+    histogramPercentile(histogram, fromStats.distances.length, 0.5) /
+    D_BINS_PER_UNIT;
   const threshold = Math.min(
     GUIDE_FAR_MAX,
     Math.max(GUIDE_FAR_MIN, GUIDE_FAR_NOISE_FACTOR * median),
@@ -430,25 +588,85 @@ export const guideNonWaterSpans = (
     far[n] = distances[n] > threshold ? 1 : 0;
   }
   const boatLike = boatLikePixels(far, rect.width, rect.height);
+  const lineCol = (row: number) =>
+    Math.floor(xTop + ((xBottom - xTop) * (rect.y + row + 0.5)) / imageHeight) -
+    rect.x;
+  const edge = edgeContactRows(
+    pixels,
+    imageWidth,
+    rect,
+    (row) => xTop + ((xBottom - xTop) * (rect.y + row + 0.5)) / imageHeight,
+    travelStep,
+    strongEdge(pixels, imageWidth, stats),
+  );
+  // Whole-view contact, kept only in runs of PATCH_MIN_ROWS rows: a light
+  // ripple joined to the hull beside the bow ball touches the line for a
+  // row or two before the bow does.
+  const patch = new Uint8Array(rect.height);
+  for (let row = 0; row < rect.height; row += 1) {
+    const onLine = lineCol(row);
+    patch[row] = [onLine, onLine + travelStep].some((col) => {
+      const n = row * rect.width + col;
+      return (
+        col >= 0 &&
+        col < rect.width &&
+        boatLike[n] === 1 &&
+        distances[n] >= contact
+      );
+    })
+      ? 1
+      : 0;
+  }
+  let run = -1;
+  for (let row = 0; row <= rect.height; row += 1) {
+    if (row < rect.height && patch[row]) {
+      if (run < 0) run = row;
+    } else if (run >= 0) {
+      if (row - run < PATCH_MIN_ROWS) patch.fill(0, run, row);
+      run = -1;
+    }
+  }
+  return { y: rect.y, patch, edge };
+};
+
+/**
+ * Rows of rect where the guide line touches something unlike the water. The
+ * guide runs from x = xTop at y = 0 to x = xBottom at the image bottom. A row
+ * counts when the pixel the line passes through (0), or the next pixel in
+ * the direction of travel (+1), clearly differs from the water and is part of
+ * a non-water patch several rows tall or longer than a glint (in runs of at
+ * least PATCH_MIN_ROWS rows), or when the boat's front edge has reached the
+ * line (see edgeContactRows). A bow tip on the line counts, but not one with water
+ * between it and the line on the approach side. travelStep is -1 for boats
+ * moving right to left.
+ */
+export const guideNonWaterSpans = (
+  pixels: Uint8ClampedArray,
+  imageWidth: number,
+  imageHeight: number,
+  visibleRect: PixelRect,
+  xTop: number,
+  xBottom: number,
+  travelStep: 1 | -1 = 1,
+): RowSpan[] => {
+  const { y, patch, edge } = guideContactRows(
+    pixels,
+    imageWidth,
+    imageHeight,
+    visibleRect,
+    xTop,
+    xBottom,
+    travelStep,
+  );
   const spans: RowSpan[] = [];
   let start = -1;
-  for (let row = 0; row < rect.height; row += 1) {
-    const y = rect.y + row;
-    const x = xTop + ((xBottom - xTop) * (y + 0.5)) / imageHeight;
-    let hit = false;
-    const onLine = Math.floor(x) - rect.x;
-    for (const col of [onLine, onLine + travelStep]) {
-      if (col >= 0 && col < rect.width) {
-        const n = row * rect.width + col;
-        hit = hit || (boatLike[n] === 1 && distances[n] >= contact);
-      }
-    }
-    if (hit && start < 0) start = y;
+  for (let row = 0; row <= patch.length; row += 1) {
+    const hit = row < patch.length && (edge[row] === 1 || patch[row] === 1);
+    if (hit && start < 0) start = row;
     if (!hit && start >= 0) {
-      spans.push({ y0: start, y1: y });
+      spans.push({ y0: y + start, y1: y + row });
       start = -1;
     }
   }
-  if (start >= 0) spans.push({ y0: start, y1: rect.y + rect.height });
   return spans;
 };

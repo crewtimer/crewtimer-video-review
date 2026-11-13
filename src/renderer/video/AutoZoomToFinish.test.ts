@@ -23,6 +23,8 @@ import {
 jest.mock('../util/ImageScaling', () => ({ updateVideoScaling: jest.fn() }));
 jest.mock('./AutoTweak', () => ({
   autoTweakAfterZoom: jest.fn(async () => undefined),
+  clearAutoTweakGuide: () => {},
+  isCardOnBoat: () => true,
 }));
 jest.mock('../util/UseSettings', () => ({
   getBowDetectionOptions: () => ({
