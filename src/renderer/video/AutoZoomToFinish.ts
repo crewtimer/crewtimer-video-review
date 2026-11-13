@@ -410,13 +410,38 @@ export const selectBoatEdgeNearFinish = (
     ? ([leadingEdge] as const)
     : (['left', 'right'] as const);
   // A crew that already has a time is not the one being looked for, even
-  // when its bow is nearer the finish.
+  // when its bow is nearer the finish. When several boats read as the same
+  // scored crew, at most one of them is that crew: a misread card (such as
+  // 23 for bow 4, trimmed to 3) can match the crew just scored. The one
+  // furthest along in the direction of travel crossed first, so it is taken
+  // as the scored crew and the others stay eligible. Without a known
+  // direction, all of them are skipped.
+  const furthestAlong = new Map<string, BowDetection>();
+  if (bowFilter && leadingEdge) {
+    detections.forEach((detection) => {
+      if (!hasValidBow(detection)) return;
+      const bow = normalize(detection.text);
+      if (bow === normalizedBow || !bowFilter.isScoredBow(bow)) return;
+      const current = furthestAlong.get(bow);
+      const x = edgeX(detection.boatBox, leadingEdge);
+      const ahead = current
+        ? leadingEdge === 'left'
+          ? x < edgeX(current.boatBox, leadingEdge)
+          : x > edgeX(current.boatBox, leadingEdge)
+        : true;
+      if (ahead) furthestAlong.set(bow, detection);
+    });
+  }
   const eligible = detections.filter((detection) => {
     if (!bowFilter || !hasValidBow(detection)) {
       return true;
     }
     const bow = normalize(detection.text);
-    return bow === normalizedBow || !bowFilter.isScoredBow(bow);
+    if (bow === normalizedBow || !bowFilter.isScoredBow(bow)) {
+      return true;
+    }
+    const scored = furthestAlong.get(bow);
+    return !!scored && scored !== detection;
   });
   const choices = eligible
     .flatMap((detection) =>

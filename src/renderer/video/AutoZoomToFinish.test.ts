@@ -198,6 +198,41 @@ describe('Auto Zoom to Finish geometry', () => {
     expect(selected?.detection).toBe(unknown);
   });
 
+  test('skips only the furthest-along boat when two read as the scored crew', () => {
+    // Frame 91 of CT_20260329_144417, right to left with the finish at x 954:
+    // bow 3 (just scored) reads 13 and bow 4 misreads as 23; both trim to 3.
+    // Bow 3 is furthest along, so bow 4 stays eligible and is nearest.
+    const bow3 = detection(905);
+    bow3.text = '3';
+    const bow4 = detection(1098);
+    bow4.text = '3';
+    const bow5 = detection(1599);
+    bow5.text = '5';
+    const filter = {
+      normalizeBow: prefixC,
+      isScoredBow: (bow: string) => bow === 'C3',
+    };
+    const selected = selectBoatEdgeNearFinish(
+      [bow3, bow4, bow5],
+      954,
+      'C4',
+      Number.POSITIVE_INFINITY,
+      'left',
+      filter,
+    );
+    expect(selected?.detection).toBe(bow4);
+    // Left to right, the boat furthest right crossed first and is skipped.
+    const ltr = selectBoatEdgeNearFinish(
+      [bow3, bow4],
+      2000,
+      'C4',
+      Number.POSITIVE_INFINITY,
+      'right',
+      filter,
+    );
+    expect(ltr?.detection).toBe(bow3);
+  });
+
   test('keeps the target crew when it is already scored', () => {
     const target = detection(280);
     target.text = '4';
