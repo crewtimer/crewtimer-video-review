@@ -1,7 +1,11 @@
 import { KeyMap } from 'crewtimer-common';
 import { replaceFileSuffix } from 'renderer/util/Util';
 import { getFileStatusByName } from './VideoFileStatus';
-import { getVideoFile, getVideoSettings } from './VideoSettings';
+import {
+  getTravelRightToLeft,
+  getVideoFile,
+  getVideoSettings,
+} from './VideoSettings';
 import type { TimestampContext } from './TimestampContext';
 import {
   addSidecarTimestamp,
@@ -47,7 +51,8 @@ const updateVideoSidecar = (
 };
 
 /**
- * Saves the current video guide settings and lane configuration to a sidecar JSON file associated with the video.
+ * Saves the current video guide settings, lane configuration and travel
+ * direction to a sidecar JSON file associated with the video.
  *
  * If a video filename is provided, it is used; otherwise, the currently loaded video file is used.
  * Updates the sidecar data in memory and persists it to disk. Rejects if no video file is found or if required properties are missing.
@@ -66,6 +71,7 @@ export const saveVideoSidecar = (videoFilename?: string) => {
     guides,
     laneBelowGuide,
     courseArea,
+    travelRightToLeft: getTravelRightToLeft(),
   }));
 };
 

@@ -184,8 +184,9 @@ export const VideoSettingsDialog = () => {
                     value={rightToLeft ? 1 : 0}
                     label="Travel Direction"
                     onChange={(event: SelectChangeEvent<number | string>) => {
-                      console.log(event.target.value as number);
                       setRightToLeft((event.target.value as number) === 1);
+                      // Kept with the video, like its guides.
+                      saveVideoSidecar().catch(() => {});
                     }}
                   >
                     <MenuItem value={0}>Left to Right</MenuItem>

@@ -100,6 +100,8 @@ export interface ResultRowType {
 
 /** Contents of the json video sidecar file */
 export interface VideoSidecar extends VideoGuides {
+  /** Boats travel right to left; saved with the guides. */
+  travelRightToLeft?: boolean;
   file: {
     startTs: string; /// Start timestamp in UTC seconds
     stopTs: string; /// Stop timestamp in UTC seconds
@@ -227,10 +229,11 @@ export const [useTimeSort, setTimeSort, getTimeSort] = UseDatum(true);
 export const [useShowGridView] = UseDatum(true);
 export const [useSelectedIndex, setSelectedIndex, getSelectedIndex] =
   UseDatum(0);
-export const [useTravelRightToLeft, , getTravelRightToLeft] = UseStoredDatum(
-  'travelRightToLeft',
-  false,
-);
+export const [
+  useTravelRightToLeft,
+  setTravelRightToLeft,
+  getTravelRightToLeft,
+] = UseStoredDatum('travelRightToLeft', false);
 
 export const [useHyperZoomFactor, , getHyperZoomFactor] = UseStoredDatum(
   'hyperZoomFactor',

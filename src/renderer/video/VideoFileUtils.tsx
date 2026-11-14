@@ -15,6 +15,7 @@ import {
   GuideLine,
   setVideoFile,
   setVideoSettings,
+  setTravelRightToLeft,
   setLoadVideoSidecar,
   useFileSplitPending,
   useVideoDir,
@@ -146,6 +147,9 @@ const loadVideoSidecar = (
             }
           });
           normalizeGuides(videoSettings.guides);
+          if (typeof videoSidecar.travelRightToLeft === 'boolean') {
+            setTravelRightToLeft(videoSidecar.travelRightToLeft);
+          }
 
           if (videoSidecar.guide && !videoSidecar.guides) {
             // Provide default from video sidecar if not already set
