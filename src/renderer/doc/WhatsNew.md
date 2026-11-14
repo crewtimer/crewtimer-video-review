@@ -6,9 +6,6 @@
 | | Optional dashed course guides limit boat search to the course, so boats at the top of the frame are not picked for auto zoom or bow numbers |
 | | Contrast button beside the zoom factor: Auto-levels or Water contrast makes the bow easier to see at 2x zoom or more, on screen only |
 | | Highlight guide crossing while zooming (AI Assist) marks where the timing guide crosses a boat when zoomed in |
-| | AI Assist settings, except Limit Boat Search to Course, are now on by default for new installs |
-| | Auto zoom finds the right boat when a bow card is partly misread, and when the crossing is in the next overlapping file |
-| | Fixes: a memory leak while scoring with frame interpolation that could crash the app after several hours |
 | 2.0.8 | Better bow number reading and bow event selection |
 | | Updated AI models for boat detection and bow card reading |
 | | Bug fixes related to handling of ? bow numbers|
