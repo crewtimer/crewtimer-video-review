@@ -45,6 +45,32 @@ const timestampSort = (a: Lap, b: Lap) => {
 };
 
 /**
+ * The key a hint is kept under. A hint without a bow ('?') is keyed by gate
+ * and timestamp, whatever its event, so several in one event do not replace
+ * each other.
+ */
+export const lapKey = (
+  lap: Pick<Lap, 'Gate' | 'EventNum' | 'Bow' | 'Timestamp'>,
+) =>
+  lap.Bow === '?'
+    ? `${lap.Gate}_${lap.Timestamp}`
+    : `${lap.Gate}_${lap.EventNum}_${lap.Bow}`;
+
+/**
+ * Whether a hint is kept: not deleted, and in one of the day's events or,
+ * like a hint with no event, without a bow and on the day (or with no day
+ * chosen). A '?' bow hint keeps its event, which is selected on moving to it.
+ */
+export const keepLap = (
+  lap: Pick<Lap, 'State' | 'EventNum' | 'Bow'> & { Day?: string },
+  eventSet: Set<string>,
+  day: string | undefined,
+) =>
+  lap.State !== 'Deleted' &&
+  (eventSet.has(lap.EventNum) ||
+    ((lap.EventNum === '?' || lap.Bow === '?') && (!day || lap.Day === day)));
+
+/**
  * This function transforms data received by firebase into a more easily usable format.
  * @param lapdata
  * @returns Lap[]
@@ -89,18 +115,10 @@ const onDataRxTransformer = (
           setVideoEvent(lap.EventNum);
         }
       }
-      // omit deleted, "?" event, and non-matching day
-      const keep =
-        lap.State !== 'Deleted' &&
-        ((lap.EventNum === '?' && (!day || lap.Day === day)) ||
-          eventSet.has(lap.EventNum));
+      const keep = keepLap(lap, eventSet, day);
 
       // Update caches
-      let key = `${lap.Gate}_${lap.EventNum}_${lap.Bow}`;
-      if (lap.Bow === '?' && lap.EventNum === '?') {
-        // for laps with no event or bow, key by gate and timestamp to allow them to be used for timing hints without worrying about them being deleted by a later lap with the same event/bow
-        key = `${lap.Gate}_${lap.Timestamp}`;
-      }
+      const key = lapKey(lap);
       lap.keyid = key;
       if (keep) {
         keyedLaps.set(key, lap);
