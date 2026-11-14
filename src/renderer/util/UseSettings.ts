@@ -149,7 +149,8 @@ export const [useBowOcrModel, setBowOcrModel, getBowOcrModel] =
 export const [useBowCardLength, setBowCardLength, getBowCardLength] =
   UseStoredDatum<BowCardLength>(N_BOW_CARD_LENGTH, 'auto');
 
-const getCurrentEvent = (eventNum = getVideoEvent()) => {
+/** The scheduled event being viewed, or the given event. */
+export const getCurrentEvent = (eventNum = getVideoEvent()) => {
   return getMobileConfig()?.eventList?.find(
     (candidate) => candidate.EventNum === eventNum,
   );

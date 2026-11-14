@@ -10,6 +10,7 @@ import {
 } from 'renderer/util/UseSettings';
 import { getVideoEvent, setVideoBow } from './VideoSettings';
 import { autoZoomToFinishNearFinish } from './AutoZoomToFinish';
+import { laneBowAfterAutoZoom } from './LaneBow';
 
 /**
  * After seeking to a timing hint, auto zoom to the crossing nearest the
@@ -37,14 +38,17 @@ export const autoZoomAfterSeekToHint = async (
     if (!result) {
       return;
     }
+    if (next.Bow !== '?') {
+      return;
+    }
     const detectedBow = result.bow.trim();
-    if (
-      getLabelNumbers() &&
-      next.Bow === '?' &&
-      detectedBow &&
-      detectedBow !== '?'
-    ) {
-      setVideoBow(selectEventForBow(detectedBow), next.uuid);
+    // Without a readable bow card, a sprint crew is known by its lane.
+    const bow =
+      getLabelNumbers() && detectedBow && detectedBow !== '?'
+        ? selectEventForBow(detectedBow)
+        : laneBowAfterAutoZoom(result);
+    if (bow) {
+      setVideoBow(bow, next.uuid);
     }
   }
 };

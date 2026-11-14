@@ -55,6 +55,7 @@ import {
 } from './ZoomTransform';
 import ZoomTransformButton from './ZoomTransformButton';
 import { autoTweakGuideKey, autoTweakGuideSpans } from './AutoTweak';
+import { laneBowAfterAutoZoom } from './LaneBow';
 import VideoOverlay, {
   getNearEdge,
   useOverlayActive,
@@ -1194,10 +1195,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
               applyFinishZoom();
               return undefined;
             }
-            if (
-              !getLabelNumbers() ||
-              (getVideoBow() !== '' && getVideoBow() !== '?')
-            ) {
+            if (getVideoBow() !== '' && getVideoBow() !== '?') {
               return undefined;
             }
             const detectedBow = result.bow.trim();
@@ -1205,13 +1203,18 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
               ({ detection }) => detection.text === detectedBow,
             ).length;
             const bowNumber = Number(detectedBow);
-            if (
+            const cardRead =
+              getLabelNumbers() &&
               /^\d{1,3}$/.test(detectedBow) &&
               bowNumber >= 1 &&
               bowNumber <= 999 &&
-              supportingFrames >= 2
-            ) {
-              setVideoBow(selectEventForBow(detectedBow), getVideoBowUuid());
+              supportingFrames >= 2;
+            // Without a readable bow card, a sprint crew is known by its lane.
+            const bow = cardRead
+              ? selectEventForBow(detectedBow)
+              : laneBowAfterAutoZoom(result);
+            if (bow) {
+              setVideoBow(bow, getVideoBowUuid());
             }
             return undefined;
           })
