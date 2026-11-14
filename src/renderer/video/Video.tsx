@@ -126,6 +126,12 @@ type BowLabelHitRegion = {
   value: string;
 };
 
+/**
+ * While zoomed, the bow number panel is drawn this many times its unzoomed
+ * size on screen: a 28 px number in a 56 px tall panel.
+ */
+const ZOOMED_LABEL_SCALE = 2;
+
 const drawBowDetections = (
   ctx: CanvasRenderingContext2D,
   detections: BowDetection[],
@@ -202,21 +208,42 @@ const drawBowDetections = (
           width: fallbackDisplayWidth,
           height: fallbackDisplayHeight,
         };
-    const fontSize =
-      zoomedIn && !hasCardBox
-        ? 14 / screenScaleY
-        : Math.max(14, 14 / screenScaleY);
+    // While zoomed, the number is a fixed size on screen.
+    const fontSize = zoomedIn
+      ? (14 * ZOOMED_LABEL_SCALE) / screenScaleY
+      : Math.max(14, 14 / screenScaleY);
     ctx.font = `bold ${fontSize}px sans-serif`;
     if (detection.text && box.width > 0 && box.height > 0) {
       const number = detection.text;
-      const panelWidth = Math.max(
-        box.width,
-        ctx.measureText(number).width + 10 / screenScaleX,
-      );
-      const panelHeight =
-        zoomedIn && !hasCardBox
-          ? Math.max(box.height, 20 / screenScaleY)
-          : Math.max(box.height, 20, 20 / screenScaleY);
+      const textWidth =
+        ctx.measureText(number).width +
+        (10 * (zoomedIn ? ZOOMED_LABEL_SCALE : 1)) / screenScaleX;
+      // While zoomed, size the bar and gap to the screen like the number, so
+      // the panel stays a fixed size however far the view is zoomed.
+      const barHeight = zoomedIn
+        ? (3 * ZOOMED_LABEL_SCALE) / screenScaleY
+        : Math.max(3, 3 / screenScaleY);
+      const contentGap = zoomedIn
+        ? (2 * ZOOMED_LABEL_SCALE) / screenScaleY
+        : Math.max(2, 2 / screenScaleY);
+      const contentHeight = fontSize + contentGap + barHeight;
+      let panelWidth: number;
+      let panelHeight: number;
+      if (zoomedIn) {
+        // A card-sized panel can fill the zoomed view. Size it to the number
+        // instead, keeping the card's shape.
+        panelHeight = Math.max(
+          (28 * ZOOMED_LABEL_SCALE) / screenScaleY,
+          contentHeight + (4 * ZOOMED_LABEL_SCALE) / screenScaleY,
+        );
+        panelWidth = Math.max(
+          textWidth,
+          (panelHeight * box.width) / box.height,
+        );
+      } else {
+        panelWidth = Math.max(box.width, textWidth);
+        panelHeight = Math.max(box.height, 20, 20 / screenScaleY);
+      }
       let panelX = travelRightToLeft
         ? box.x + box.width + 6
         : box.x - panelWidth - 6;
@@ -248,9 +275,6 @@ const drawBowDetections = (
       const barInset = 2 / screenScaleX;
       const barX = panelX + barInset;
       const barWidth = Math.max(0, panelWidth - barInset * 2);
-      const barHeight = Math.max(3, 3 / screenScaleY);
-      const contentGap = Math.max(2, 2 / screenScaleY);
-      const contentHeight = fontSize + contentGap + barHeight;
       const contentY = panelY + Math.max(0, (panelHeight - contentHeight) / 2);
       const numberY = contentY + fontSize / 2;
       const barY = contentY + fontSize + contentGap;
