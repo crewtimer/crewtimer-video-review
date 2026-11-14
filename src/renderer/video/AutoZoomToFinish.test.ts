@@ -585,6 +585,48 @@ describe('Auto Zoom to Finish geometry', () => {
     );
   });
 
+  test('searches from the other edge when the travel direction is wrong', async () => {
+    // Travel is set left to right, but the boat moves right to left at
+    // 9 px/frame with its stern cut off at the frame's right edge, so the
+    // right edge never moves.
+    mockVideoFile = 'wrong-direction.mp4';
+    const bowEdge = (frameNum: number) => 700 - 9 * (frameNum - 1000);
+    const detectBow = jest.fn(async ({ frameNum }: { frameNum: number }) => ({
+      status: 'OK',
+      frameNum,
+      timestamp: 0,
+      detections: [
+        {
+          ...detection(bowEdge(frameNum)),
+          boatBox: {
+            x: bowEdge(frameNum),
+            y: 100,
+            width: 1080 - bowEdge(frameNum),
+            height: 50,
+          },
+        },
+      ],
+    }));
+    Object.assign(window, { VideoUtils: { detectBow } });
+    const image = {
+      file: 'wrong-direction.mp4',
+      frameNum: 1000,
+      width: 1080,
+      numFrames: 2000,
+      fps: 60,
+      tsMicro: 0,
+    } as AppImage;
+
+    const result = await autoZoomToFinishNearFinish(
+      '17',
+      Number.POSITIVE_INFINITY,
+      image,
+    );
+
+    // Crossed between frames 1017 (547) and 1018 (538).
+    expect(result?.frameNum).toBeCloseTo(1017 + 7 / 9, 5);
+  });
+
   test('keeps both directions of evidence when the starting box is far off', async () => {
     // A 27 px jitter measures -18 forward and +36 backward.
     const { result } = await searchWithJitteredStart('far-jitter.mp4', 400, 27);

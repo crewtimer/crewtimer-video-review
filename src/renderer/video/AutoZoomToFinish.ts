@@ -990,6 +990,7 @@ const runAutoZoomToFinish = async (
   zoomClickPoint?: Point,
   initialImage?: AppImage,
   boatBoxYFraction = 0.5,
+  travelRightToLeft = getTravelRightToLeft(),
 ): Promise<AutoZoomFinishResult | undefined | null> => {
   const operation = autoZoomOperation + 1;
   clearAutoTweakGuide();
@@ -1014,7 +1015,7 @@ const runAutoZoomToFinish = async (
   const initialFrame = Math.round(initialImage?.frameNum ?? getVideoFrameNum());
   const finish = getFinishLine();
   const finishX = image.width / 2 + (finish.pt1 + finish.pt2) / 2;
-  let rightToLeft = getTravelRightToLeft();
+  let rightToLeft = travelRightToLeft;
   let directionChanges = 0;
   let stalledSteps = 0;
   const initialResult = await detect(initialFrame);
@@ -1314,23 +1315,38 @@ export const autoZoomToFinish = (clickPoint: Point) =>
     clickPoint,
   );
 
-export const autoZoomToFinishNearFinish = (
+export const autoZoomToFinishNearFinish = async (
   knownBow: string,
   maxDistance: number,
   initialImage?: AppImage,
   bowFilter?: BowSelectionFilter,
-) =>
-  runAutoZoomToFinish(
-    (detections, finishX) =>
-      selectBoatEdgeNearFinish(
-        detections,
-        finishX,
-        knownBow,
-        maxDistance,
-        getTravelRightToLeft() ? 'left' : 'right',
-        bowFilter,
-      ),
-    undefined,
-    initialImage,
-    0.7,
+) => {
+  const search = (rightToLeft: boolean) =>
+    runAutoZoomToFinish(
+      (detections, finishX) =>
+        selectBoatEdgeNearFinish(
+          detections,
+          finishX,
+          knownBow,
+          maxDistance,
+          rightToLeft ? 'left' : 'right',
+          bowFilter,
+        ),
+      undefined,
+      initialImage,
+      0.7,
+      rightToLeft,
+    );
+  const configured = getTravelRightToLeft();
+  const result = await search(configured);
+  if (result !== undefined) {
+    return result;
+  }
+  // A wrong travel direction picks the stern as the leading edge, often cut
+  // off at the frame edge so the boat reads as not moving. Search again from
+  // the other edge before giving up.
+  console.log(
+    `Auto Zoom to Finish: retrying from the ${configured ? 'right' : 'left'} edge`,
   );
+  return search(!configured);
+};

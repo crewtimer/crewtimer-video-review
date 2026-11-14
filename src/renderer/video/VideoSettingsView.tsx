@@ -40,7 +40,7 @@ import {
 } from './VideoSettings';
 import HyperZoomSelector from '../util/HyperZoomSelector';
 import SettingsCard from '../util/SettingsCard';
-import { saveVideoSidecar } from './Sidecar';
+import { saveVideoSidecar, saveVideoSidecarTravelDirection } from './Sidecar';
 import { getFileStatusList } from './VideoFileStatus';
 import {
   BowCardLength,
@@ -184,9 +184,10 @@ export const VideoSettingsDialog = () => {
                     value={rightToLeft ? 1 : 0}
                     label="Travel Direction"
                     onChange={(event: SelectChangeEvent<number | string>) => {
-                      setRightToLeft((event.target.value as number) === 1);
+                      const rtl = (event.target.value as number) === 1;
+                      setRightToLeft(rtl);
                       // Kept with the video, like its guides.
-                      saveVideoSidecar().catch(() => {});
+                      saveVideoSidecarTravelDirection(rtl).catch(() => {});
                     }}
                   >
                     <MenuItem value={0}>Left to Right</MenuItem>
