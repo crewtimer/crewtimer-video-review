@@ -482,7 +482,7 @@ export const VideoSettingsDialog = () => {
               >
                 <FormControlLabel
                   labelPlacement="end"
-                  label="Highlight guide crossing while zooming"
+                  label="Highlight guide crossing when zooming (experimental)"
                   control={
                     <Checkbox
                       size="small"
