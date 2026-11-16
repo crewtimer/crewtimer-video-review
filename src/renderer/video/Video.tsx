@@ -54,7 +54,6 @@ import {
   RowSpan,
 } from './ZoomTransform';
 import ZoomTransformButton from './ZoomTransformButton';
-import { autoTweakGuideKey, autoTweakGuideSpans } from './AutoTweak';
 import { laneBowAfterAutoZoom } from './LaneBow';
 import VideoOverlay, {
   getNearEdge,
@@ -733,25 +732,20 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
     const xTop = frame.width / 2 + finish.pt1;
     const xBottom = frame.width / 2 + finish.pt2;
     const rect = visibleSourceRect(vScaling, width, height);
-    // After an auto zoom, show the auto tweak's own check so the highlight
-    // matches where it stopped; zoomed by hand, the whole-view check too.
-    const tweak = vScaling.autoZoomed;
-    const key = `${tweak && autoTweakGuideKey()}:${rect.x},${rect.y},${rect.width},${rect.height}:${xTop},${xBottom}:${getTravelRightToLeft()}`;
+    const key = `${rect.x},${rect.y},${rect.width},${rect.height}:${xTop},${xBottom}:${getTravelRightToLeft()}`;
     if (guideSpans.current.key !== key) {
       const { data } = frame;
       guideSpans.current = {
         key,
-        spans:
-          (tweak ? autoTweakGuideSpans(frame) : undefined) ??
-          guideNonWaterSpans(
-            new Uint8ClampedArray(data.buffer, data.byteOffset, data.length),
-            frame.width,
-            frame.height,
-            rect,
-            xTop,
-            xBottom,
-            getTravelRightToLeft() ? -1 : 1,
-          ),
+        spans: guideNonWaterSpans(
+          new Uint8ClampedArray(data.buffer, data.byteOffset, data.length),
+          frame.width,
+          frame.height,
+          rect,
+          xTop,
+          xBottom,
+          getTravelRightToLeft() ? -1 : 1,
+        ),
       };
     }
     const xAt = (y: number) => xTop + ((xBottom - xTop) * y) / frame.height;

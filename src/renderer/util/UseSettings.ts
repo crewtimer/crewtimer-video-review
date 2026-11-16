@@ -119,15 +119,6 @@ export const [
   setZoomToTimingGuide,
   getZoomToTimingGuide,
 ] = UseStoredDatum<boolean>(N_ZOOM_TO_TIMING_GUIDE, true);
-/**
- * When set, an auto zoom then steps to the first frame where the bow touches
- * the timing guide, using the guide highlight's check.
- */
-export const [
-  useAutoTweakAfterZoom,
-  setAutoTweakAfterZoom,
-  getAutoTweakAfterZoom,
-] = UseStoredDatum<boolean>('autoTweakAfterZoom', true);
 
 /** When set, an image of each recorded lap is uploaded to CrewTimer. */
 export const [useUploadLapImages, setUploadLapImages, getUploadLapImages] =

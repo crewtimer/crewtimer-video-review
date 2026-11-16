@@ -17,11 +17,6 @@ import {
 } from './VideoSettings';
 import { filterToCourseArea } from './BowDetectionSelection';
 import { getFinishLine, moveToFrame } from './VideoUtils';
-import {
-  autoTweakAfterZoom,
-  clearAutoTweakGuide,
-  isCardOnBoat,
-} from './AutoTweak';
 import { getBowDetectionOptions } from '../util/UseSettings';
 import { getFileStatusList } from './VideoFileStatus';
 import { overlapHandover } from './TimeSegmentUtils';
@@ -951,7 +946,22 @@ export const chooseBracketRefinementFrame = (
   );
 };
 
-export const ceilFrameToHyperZoomGrid = (
+/**
+ * The boat box's leading edge reaches the guide a median 0.7 ms before the
+ * bow ball does (257 SDFC26 crossings against reviewed times), so auto zoom
+ * moves its crossing this much later.
+ */
+export const AUTO_ZOOM_BIAS_MS = 0.7;
+
+/** Moves a crossing frame later by AUTO_ZOOM_BIAS_MS. */
+export const correctAutoZoomBias = (frameNum: number, fps: number) =>
+  fps > 0 ? frameNum + (AUTO_ZOOM_BIAS_MS * fps) / 1000 : frameNum;
+
+/**
+ * Rounds a frame to the nearest hyperzoom step in time, so arrow keys step
+ * on from a grid time. Leaves it unchanged without a hyperzoom resolution.
+ */
+export const roundFrameToHyperZoomGrid = (
   frameNum: number,
   referenceFrame: number,
   referenceTimeMicro: number,
@@ -963,10 +973,8 @@ export const ceilFrameToHyperZoomGrid = (
   }
   const crossingTimeMs =
     referenceTimeMicro / 1000 + ((frameNum - referenceFrame) * 1000) / fps;
-  // Subtract a tiny epsilon so a timestamp already on the grid is not moved
-  // to the following grid point because of floating-point noise.
   const roundedTimeMs =
-    Math.ceil((crossingTimeMs - 1e-7) / resolutionMs) * resolutionMs;
+    Math.round(crossingTimeMs / resolutionMs) * resolutionMs;
   return (
     referenceFrame + ((roundedTimeMs - referenceTimeMicro / 1000) * fps) / 1000
   );
@@ -993,7 +1001,6 @@ const runAutoZoomToFinish = async (
   travelRightToLeft = getTravelRightToLeft(),
 ): Promise<AutoZoomFinishResult | undefined | null> => {
   const operation = autoZoomOperation + 1;
-  clearAutoTweakGuide();
   autoZoomOperation = operation;
   const videoFile = initialImage?.file ?? getVideoFile();
   // A seek to another file supersedes the search and closes this file.
@@ -1127,8 +1134,8 @@ const runAutoZoomToFinish = async (
         bracket[1],
         finishX,
       );
-      const seekFrame = ceilFrameToHyperZoomGrid(
-        crossingFrame,
+      const seekFrame = roundFrameToHyperZoomGrid(
+        correctAutoZoomBias(crossingFrame, image.fps),
         image.frameNum,
         image.tsMicro,
         image.fps,
@@ -1182,26 +1189,7 @@ const runAutoZoomToFinish = async (
       if (!seekIsCurrent()) {
         return null;
       }
-      // Search the part of the boat box where the bow ball sits; without a
-      // boat box, below its bow card if one sits on the boat, else the click.
-      const latest = observations[observations.length - 1]?.detection;
-      const card = [...observations]
-        .reverse()
-        .find(({ detection }) => isCardOnBoat(detection.box, detection.boatBox))
-        ?.detection.box;
-      // eslint-disable-next-line no-await-in-loop
-      const tweakedFrame = await autoTweakAfterZoom(
-        {
-          clickY: (zoomClickPoint ?? targetEdgePoint).y,
-          card,
-          boatBox: latest?.boatBox,
-        },
-        seekIsCurrent,
-      );
-      if (!seekIsCurrent()) {
-        return null;
-      }
-      return { frameNum: tweakedFrame ?? seekFrame, bow, observations };
+      return { frameNum: seekFrame, bow, observations };
     }
 
     const previous = observations[observations.length - 2];

@@ -5,7 +5,8 @@ import {
   autoZoomToFinishNearFinish,
   buildBoatMatchRecoveryFrames,
   chooseBracketRefinementFrame,
-  ceilFrameToHyperZoomGrid,
+  correctAutoZoomBias,
+  roundFrameToHyperZoomGrid,
   interpolateCrossingFrame,
   interpolateBoatEdgePoint,
   interpolateDetectionPair,
@@ -21,11 +22,6 @@ import {
 } from './AutoZoomToFinish';
 
 jest.mock('../util/ImageScaling', () => ({ updateVideoScaling: jest.fn() }));
-jest.mock('./AutoTweak', () => ({
-  autoTweakAfterZoom: jest.fn(async () => undefined),
-  clearAutoTweakGuide: () => {},
-  isCardOnBoat: () => true,
-}));
 jest.mock('../util/UseSettings', () => ({
   getBowDetectionOptions: () => ({
     numericOnly: true,
@@ -431,16 +427,29 @@ describe('Auto Zoom to Finish geometry', () => {
     expect(interpolateBoatDetection(first, second, 10.6).text).toBe('17');
   });
 
-  test('rounds the crossing timestamp up to the hyperzoom grid', () => {
-    // Frame 10.5 is 350ms at 30fps when frame 10 is at 333ms. The next 2ms
-    // grid point is 350ms, which maps back to frame 10.51.
-    expect(ceilFrameToHyperZoomGrid(10.5, 10, 333000, 30, 2)).toBeCloseTo(
+  test('rounds the crossing timestamp to the nearest hyperzoom step', () => {
+    // Frame 10.5 is 349.67ms at 30fps when frame 10 is at 333ms. The nearest
+    // 2ms grid point is 350ms, which maps back to frame 10.51.
+    expect(roundFrameToHyperZoomGrid(10.5, 10, 333000, 30, 2)).toBeCloseTo(
       10.51,
+    );
+    // 340.6ms rounds down to 340ms.
+    expect(roundFrameToHyperZoomGrid(10.228, 10, 333000, 30, 2)).toBeCloseTo(
+      10.21,
     );
   });
 
   test('does not move a timestamp already on the grid', () => {
-    expect(ceilFrameToHyperZoomGrid(10, 10, 350000, 30, 2)).toBeCloseTo(10);
+    expect(roundFrameToHyperZoomGrid(10, 10, 350000, 30, 2)).toBeCloseTo(10);
+  });
+
+  test('leaves the frame unrounded without a hyperzoom resolution', () => {
+    expect(roundFrameToHyperZoomGrid(10.37, 10, 333000, 30, 0)).toBe(10.37);
+  });
+
+  test('moves the crossing 0.7ms later for the boat box bias', () => {
+    expect(correctAutoZoomBias(10, 60)).toBeCloseTo(10.042);
+    expect(correctAutoZoomBias(10, 0)).toBe(10);
   });
 
   test('refines a wide crossing bracket near the estimated crossing', () => {
@@ -564,7 +573,10 @@ describe('Auto Zoom to Finish geometry', () => {
       );
 
       expect(guardDuringSeek).toBe(true);
-      expect(result?.frameNum).toBeCloseTo(190 + 4 / 9, 5);
+      expect(result?.frameNum).toBeCloseTo(
+        correctAutoZoomBias(190 + 4 / 9, 60),
+        5,
+      );
     } finally {
       mockFileStatusList = [];
     }
@@ -579,7 +591,10 @@ describe('Auto Zoom to Finish geometry', () => {
     );
 
     // Crossed between frames 1015 (535) and 1016 (544).
-    expect(result?.frameNum).toBeCloseTo(1015 + 5 / 9, 5);
+    expect(result?.frameNum).toBeCloseTo(
+      correctAutoZoomBias(1015 + 5 / 9, 60),
+      5,
+    );
     expect(detectBow).not.toHaveBeenCalledWith(
       expect.objectContaining({ frameNum: 999 }),
     );
@@ -624,13 +639,19 @@ describe('Auto Zoom to Finish geometry', () => {
     );
 
     // Crossed between frames 1017 (547) and 1018 (538).
-    expect(result?.frameNum).toBeCloseTo(1017 + 7 / 9, 5);
+    expect(result?.frameNum).toBeCloseTo(
+      correctAutoZoomBias(1017 + 7 / 9, 60),
+      5,
+    );
   });
 
   test('keeps both directions of evidence when the starting box is far off', async () => {
     // A 27 px jitter measures -18 forward and +36 backward.
     const { result } = await searchWithJitteredStart('far-jitter.mp4', 400, 27);
 
-    expect(result?.frameNum).toBeCloseTo(1015 + 5 / 9, 5);
+    expect(result?.frameNum).toBeCloseTo(
+      correctAutoZoomBias(1015 + 5 / 9, 60),
+      5,
+    );
   });
 });
