@@ -1,9 +1,4 @@
-import {
-  DebugMessage,
-  DetectBowMessage,
-  GrabFrameMessage,
-  nativeVideoExecutor,
-} from 'crewtimer_video_reader';
+import { GrabFrameRequest, nativeVideoExecutor } from 'crewtimer_video_reader';
 import { app, ipcMain } from 'electron';
 import path from 'path';
 import {
@@ -16,10 +11,7 @@ export function stopVideoServices(_name: string) {}
 
 export function startVideoServices(logFilePath: string) {
   try {
-    nativeVideoExecutor({
-      op: 'setLogFile',
-      logFile: logFilePath,
-    } as unknown as GrabFrameMessage);
+    nativeVideoExecutor({ op: 'setLogFile', logFile: logFilePath });
   } catch (err) {
     console.error('Failed to redirect C++ logging:', err);
   }
@@ -36,10 +28,7 @@ ipcMain.handle('video:sendMulticast', (_event, msg, dest, port) => {
 
 ipcMain.handle('video:setDebugLevel', (_event, debugLevel: number) => {
   try {
-    return nativeVideoExecutor({
-      op: 'debug',
-      debugLevel,
-    } as DebugMessage);
+    return nativeVideoExecutor({ op: 'debug', debugLevel });
   } catch (err) {
     return { status: `${err instanceof Error ? err.message : err}` };
   }
@@ -75,20 +64,36 @@ const bowdetectModelFile = (fileName: string) =>
     ? path.join(process.resourcesPath, fileName)
     : path.join(__dirname, '../../native/bowdetect', fileName);
 
+/** Copy of obj without keys whose value is undefined. */
+const withoutUndefined = <T extends object>(obj: T): T =>
+  Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined),
+  ) as T;
+
 ipcMain.handle('video:getFrame', async (_event, request: VideoFrameRequest) => {
   try {
     // console.log('Grabbing frame', JSON.stringify(request, null, 2));
-    const nativeRequest =
-      request.interpMethod === 'rife'
-        ? { ...request, modelFile: rifeModelFile() }
-        : request;
+    // seekPercent and toTimestamp are resolved to frameNum/tsMilli by the
+    // renderer; commitGuard never crosses IPC.
+    const {
+      seekPercent: _seekPercent,
+      toTimestamp: _toTimestamp,
+      commitGuard: _commitGuard,
+      frameNum,
+      ...rest
+    } = request;
+    if (frameNum === undefined) {
+      return { status: 'Missing frameNum field' };
+    }
+    const nativeRequest: GrabFrameRequest = {
+      ...rest,
+      frameNum,
+      modelFile: request.interpMethod === 'rife' ? rifeModelFile() : undefined,
+    };
     const ret = await nativeVideoExecutor({
       op: 'grabFrameAt',
-      // clean request of undefined keys
-      request: Object.fromEntries(
-        Object.entries(nativeRequest).filter(([_, v]) => v !== undefined),
-      ),
-    } as unknown as GrabFrameMessage);
+      request: withoutUndefined(nativeRequest),
+    });
     return ret;
   } catch (err) {
     return { status: `${err instanceof Error ? err.message : err}` };
@@ -110,7 +115,7 @@ ipcMain.handle(
             numericOnly ? 'bow_crnn_numeric.onnx' : 'bow_crnn.onnx',
           ),
         },
-      } as unknown as DetectBowMessage);
+      });
       if (numericOnly) {
         result.detections = result.detections.map((detection) => ({
           ...detection,

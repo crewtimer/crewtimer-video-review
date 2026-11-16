@@ -12,22 +12,45 @@ declare module 'crewtimer_video_reader' {
     file: string;
   }
 
-  interface GrabFrameMessage extends MessageBase {
-    op: 'grabFrameAt';
+  interface Rect {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }
+
+  interface Prune {
+    side: 'top' | 'bottom';
+    percentage: number;
+  }
+
+  interface GrabFrameRequest {
+    videoFile: string;
+    /** 1-based frame number; fractional values interpolate between frames. */
     frameNum: number;
-    file: string;
-    zoom?: { x: number; y: number; width: number; height: number };
+    /** When non-zero, seek to this UTC time (ms) instead of frameNum. */
+    tsMilli?: number;
+    /** Region used for motion estimation when interpolating. */
+    zoom?: Rect;
     blend?: boolean;
+    /** Only get 'close' to the requested frame (faster seek). */
+    closeTo?: boolean;
     /** Return the native frame nearest the requested time instead of interpolating. */
     nearestFrame?: boolean;
-    saveAs?: string; // optional filename in which to save a png image of the frame
+    /** Optional filename in which to save a png image of the frame. */
+    saveAs?: string;
     /** Interpolation technique for fractional frameNum requests. Defaults to 'blend'. */
     interpMethod?: 'blend' | 'rife';
-    /** RIFE-only: region to interpolate. Required (or falls back to zoom) when interpMethod is 'rife'. */
-    crop?: { x: number; y: number; width: number; height: number };
-    prune?: { side: 'top' | 'bottom'; percentage: number };
+    /** RIFE-only: region to interpolate (falls back to zoom). */
+    crop?: Rect;
+    prune?: Prune;
     /** RIFE-only: path to the rife_v4.6.onnx model file. */
     modelFile?: string;
+  }
+
+  interface GrabFrameMessage extends MessageBase {
+    op: 'grabFrameAt';
+    request: GrabFrameRequest;
   }
 
   interface CloseFileMessage extends MessageBase {
@@ -47,11 +70,10 @@ declare module 'crewtimer_video_reader' {
     debugLevel: number;
   }
 
-  interface Rect {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
+  /** Redirects native stdout/stderr to the given file (appending). */
+  interface SetLogFileMessage extends MessageBase {
+    op: 'setLogFile';
+    logFile: string;
   }
 
   interface DetectBowMessage extends MessageBase {
@@ -68,7 +90,7 @@ declare module 'crewtimer_video_reader' {
       /** Full-frame pixel coordinates near the bow, used to pick which boat to read. */
       point?: { x: number; y: number };
       closeTo?: boolean;
-      prune?: { side: 'top' | 'bottom'; percentage: number };
+      prune?: Prune;
       detectCardsWithoutBoat?: boolean;
     };
   }
@@ -85,9 +107,10 @@ declare module 'crewtimer_video_reader' {
     numFrames: number;
     fps: number;
     file: string;
+    /** Frame time in UTC milliseconds. */
     timestamp: number;
-    fileStartTime: number;
-    fileEndTime: number;
+    /** Frame time in UTC microseconds. */
+    tsMicro: number;
     motion: { x: number; y: number; dt: number; valid: boolean };
   }
 
@@ -103,7 +126,7 @@ declare module 'crewtimer_video_reader' {
   }
 
   export function nativeVideoExecutor(
-    message: SendMulticastMessage | DebugMessage,
+    message: SendMulticastMessage | DebugMessage | SetLogFileMessage,
   ): MessageResponseBase;
 
   /**
