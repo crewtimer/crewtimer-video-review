@@ -33,6 +33,20 @@ public:
   cv::Mat interpolate(const cv::Mat &frameA, const cv::Mat &frameB, float t,
                       const cv::Rect &crop, int debugLevel = 0) const;
 
+  /**
+   * Returns the timestep to pass to interpolate() so that motion in the
+   * result lands at `target` (fraction of the way from frameA to frameB).
+   *
+   * RIFE v4.6 does not place motion linearly in t: it never gets closer than
+   * ~0.05 of a frame to either input frame, and it stalls around t=0.5 (the
+   * position races ahead over 0.40-0.46 then barely moves until ~0.56). The
+   * correction table was measured with native/rife/calibrate_rife.py and
+   * only applies to rife_v4.6.onnx. Targets outside the reachable range
+   * (~0.05..0.93) are clamped; use stacked half-frames to get near an
+   * input frame.
+   */
+  static float timestepForTarget(double target);
+
 private:
   struct Impl;
   std::unique_ptr<Impl> impl_;

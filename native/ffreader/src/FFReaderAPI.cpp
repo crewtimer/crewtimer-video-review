@@ -52,6 +52,7 @@ static std::map<std::string, FileInfo> fileInfoMap;
 // These are process-lifetime singletons anyway, so we never tear them down.
 static std::map<std::string, RifeInterpolator *> rifeInterpolatorMap;
 static std::map<std::string, BowNumberPipeline *> bowNumberPipelineMap;
+
 #endif
 static FrameInfoList frameInfoList;
 static FrameRect noZoom = {0, 0, 0, 0};
@@ -408,6 +409,105 @@ struct NativeTaskCompletion
   ResultBuilder result;
   std::string error;
 };
+
+#ifdef RIFE_SUPPORTED
+// RIFE midpoints between adjacent frames, reused while stepping near a frame:
+// the midpoint after frame N is also the one before frame N+1. Only touched on
+// the native worker thread.
+static std::map<std::string, cv::Mat> rifeHalfFrameCache;
+static std::deque<std::string> rifeHalfFrameOrder;
+constexpr size_t kRifeHalfFrameCacheSize = 8;
+// Within this fraction of a frame, interpolate between the RIFE midpoints on
+// either side of the frame instead of between the frame and its neighbour,
+// since RIFE cannot place motion close to its input frames.
+constexpr double kRifeStackedZone = 0.25;
+
+static cv::Mat rifeHalfFrame(RifeInterpolator &interpolator,
+                             const std::string &modelFile,
+                             const std::shared_ptr<FrameInfo> &a,
+                             const std::shared_ptr<FrameInfo> &b,
+                             const cv::Rect &crop)
+{
+  const std::string key = modelFile + "|" + a->file + "|" +
+                          std::to_string(a->frameNum) + "|" +
+                          std::to_string(crop.x) + "," + std::to_string(crop.y) +
+                          "," + std::to_string(crop.width) + "x" +
+                          std::to_string(crop.height);
+  auto it = rifeHalfFrameCache.find(key);
+  if (it != rifeHalfFrameCache.end())
+  {
+    return it->second;
+  }
+  cv::Mat matA(a->height, a->width, CV_8UC4, (void *)a->data->data());
+  cv::Mat matB(b->height, b->width, CV_8UC4, (void *)b->data->data());
+  cv::Mat half = interpolator.interpolate(
+      matA, matB, RifeInterpolator::timestepForTarget(0.5), crop, debugLevel);
+  rifeHalfFrameCache[key] = half;
+  rifeHalfFrameOrder.push_back(key);
+  while (rifeHalfFrameOrder.size() > kRifeHalfFrameCacheSize)
+  {
+    rifeHalfFrameCache.erase(rifeHalfFrameOrder.front());
+    rifeHalfFrameOrder.pop_front();
+  }
+  return half;
+}
+
+/**
+ * Interpolates the crop at `fraction` of the way from frameA to frameB with
+ * motion placed linearly in time. In the middle of the interval the RIFE
+ * timestep is corrected via the calibration table. Near either frame, where
+ * RIFE cannot reach, it interpolates between the midpoints on either side of
+ * that frame instead (falling back to the corrected direct request at the
+ * first/last frame of the file).
+ */
+static cv::Mat rifeInterpolateLinear(RifeInterpolator &interpolator,
+                                     const std::string &modelFile,
+                                     const FileInfo &fileInfo,
+                                     const std::string &file,
+                                     const std::shared_ptr<FrameInfo> &frameA,
+                                     const std::shared_ptr<FrameInfo> &frameB,
+                                     double fraction, const cv::Rect &crop)
+{
+  if (fraction < kRifeStackedZone || fraction > 1.0 - kRifeStackedZone)
+  {
+    const bool nearA = fraction < 0.5;
+    const int centerNum = static_cast<int>(std::lround(
+        nearA ? frameA->frameNum : frameB->frameNum));
+    if (centerNum > 1 && centerNum < fileInfo.numFrames)
+    {
+      auto before = nearA ? getFrame(fileInfo.videoReader, file, centerNum - 1)
+                          : frameA;
+      auto after = nearA ? frameB
+                         : getFrame(fileInfo.videoReader, file, centerNum + 1);
+      auto center = nearA ? frameA : frameB;
+      if (before && after && before->width == center->width &&
+          after->width == center->width && before->height == center->height &&
+          after->height == center->height)
+      {
+        cv::Mat halfBefore =
+            rifeHalfFrame(interpolator, modelFile, before, center, crop);
+        cv::Mat halfAfter =
+            rifeHalfFrame(interpolator, modelFile, center, after, crop);
+        const double delta = nearA ? fraction : fraction - 1.0;
+        if (debugLevel > 1)
+          std::cerr << "RIFE stacked about frame " << centerNum
+                    << " delta=" << delta << std::endl;
+        return interpolator.interpolate(
+            halfBefore, halfAfter,
+            RifeInterpolator::timestepForTarget(0.5 + delta),
+            cv::Rect(0, 0, crop.width, crop.height), debugLevel);
+      }
+    }
+  }
+  cv::Mat matA(frameA->height, frameA->width, CV_8UC4,
+               (void *)frameA->data->data());
+  cv::Mat matB(frameB->height, frameB->width, CV_8UC4,
+               (void *)frameB->data->data());
+  return interpolator.interpolate(
+      matA, matB, RifeInterpolator::timestepForTarget(fraction), crop,
+      debugLevel);
+}
+#endif
 
 /**
  * Queues task on the native worker and returns a Promise that settles with
@@ -1035,14 +1135,10 @@ Napi::Value nativeVideoExecutor(const Napi::CallbackInfo &info)
                 {
                   interpolator = new RifeInterpolator(rifeModelFile);
                 }
-                cv::Mat matA(frameA->height, frameA->width, CV_8UC4,
-                            (void *)frameA->data->data());
-                cv::Mat matB(frameA->height, frameA->width, CV_8UC4,
-                            (void *)frameB->data->data());
                 cv::Rect cvCrop(rifeRoi.x, rifeRoi.y, rifeRoi.width, rifeRoi.height);
-                cv::Mat resultMat = interpolator->interpolate(
-                    matA, matB, static_cast<float>(fractionalPart), cvCrop,
-                    debugLevel);
+                cv::Mat resultMat = rifeInterpolateLinear(
+                    *interpolator, rifeModelFile, fileInfo, file, frameA,
+                    frameB, fractionalPart, cvCrop);
 
                 // Composite the (small, fast-to-infer) interpolated crop back
                 // into a full-size copy of frameA so the response keeps the

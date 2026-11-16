@@ -40,7 +40,35 @@ int padAmount(int dim)
   int rem = dim % PAD_MULTIPLE;
   return rem == 0 ? 0 : PAD_MULTIPLE - rem;
 }
+
+// Where rife_v4.6.onnx actually places motion (fraction of the way from
+// frame A to frame B) when asked for timestep t = i * 0.02, i = 0..50.
+// Averaged over 8 SDFC26 finish-line clips (13-37 px/frame); spread between
+// clips is ~0.01 frame at every t. Regenerate with
+// native/rife/calibrate_rife.py if the model changes.
+constexpr double RIFE_TIMESTEP_STEP = 0.02;
+constexpr std::array<double, 51> RIFE_MEASURED_POSITION = {
+    0.0510, 0.0587, 0.0658, 0.0797, 0.0935, 0.1084, 0.1255, 0.1423, 0.1599,
+    0.1768, 0.1978, 0.2155, 0.2335, 0.2564, 0.2801, 0.3036, 0.3216, 0.3400,
+    0.3583, 0.3793, 0.4022, 0.4297, 0.4653, 0.4917, 0.5004, 0.5059, 0.5117,
+    0.5188, 0.5360, 0.5758, 0.6073, 0.6319, 0.6511, 0.6746, 0.6943, 0.7128,
+    0.7329, 0.7552, 0.7719, 0.7920, 0.8121, 0.8289, 0.8420, 0.8560, 0.8677,
+    0.8779, 0.8906, 0.9004, 0.9101, 0.9226, 0.9332};
 } // namespace
+
+float RifeInterpolator::timestepForTarget(double target)
+{
+  const auto &pos = RIFE_MEASURED_POSITION;
+  if (target <= pos.front())
+    return 0.0f;
+  if (target >= pos.back())
+    return 1.0f;
+  // The table is strictly increasing, so invert it by linear interpolation.
+  auto upper = std::upper_bound(pos.begin(), pos.end(), target);
+  const size_t i = static_cast<size_t>(upper - pos.begin()) - 1;
+  const double frac = (target - pos[i]) / (pos[i + 1] - pos[i]);
+  return static_cast<float>((i + frac) * RIFE_TIMESTEP_STEP);
+}
 
 struct RifeInterpolator::Impl
 {

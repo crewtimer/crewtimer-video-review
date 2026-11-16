@@ -36,3 +36,34 @@ interface (images, timestep plane, sampling grid, and flow multipliers packed
 into one tensor) is specific to the vs-mlrt exports; RIFE ONNX files from
 other sources use different input layouts and will not work without code
 changes.
+
+## Timestep calibration
+
+RIFE does not move content linearly with the requested timestep `t`. Measured
+on SDFC26 finish-line clips, `rife_v4.6.onnx`:
+
+- It never gets closer than ~0.05 of a frame (~1 ms at 60 fps) to either input
+  frame: `t=0` lands at 0.051 and `t=1` at 0.933.
+- It stalls around `t=0.5`: the position races ahead over 0.40–0.46, then
+  barely moves until ~0.56.
+
+The curve is the same across clips (spread ~0.01 frame) and boat speeds
+(10–60 px/frame), so the native code corrects it with a fixed table
+(`RIFE_MEASURED_POSITION` in `native/ffreader/src/RifeInterpolator.cpp`):
+
+- Between 0.25 and 0.75 of a frame interval, the requested `t` is mapped
+  through the inverted table.
+- Within 0.25 of a real frame N, where RIFE cannot reach, the native code builds
+  the RIFE midpoints on either side of N (cached) and interpolates between
+  them, again through the table.
+
+Without this, stepping 1 ms at a time jumps ~2.6 ms of motion each time it
+crosses a real frame. With it, steps stay within 0.5–1.4 ms.
+
+If the model is changed, regenerate the table and paste it into
+`RifeInterpolator.cpp`:
+
+```sh
+python3 native/rife/calibrate_rife.py --model native/rife/rife_v4.6.onnx \
+    <6-10 .mp4 files with scored bows in their .json sidecars>
+```
