@@ -6,6 +6,7 @@ import {
   buildBoatMatchRecoveryFrames,
   chooseBracketRefinementFrame,
   correctAutoZoomBias,
+  getAutoZoomBusy,
   roundFrameToHyperZoomGrid,
   interpolateCrossingFrame,
   interpolateBoatEdgePoint,
@@ -488,6 +489,30 @@ describe('Auto Zoom to Finish geometry', () => {
     expect(detectBow).toHaveBeenCalledWith(
       expect.objectContaining({ videoFile: 'closed.mp4', frameNum: 602 }),
     );
+  });
+
+  test('counts as busy only while the auto zoom runs', async () => {
+    mockVideoFile = 'next.mp4';
+    const detectBow = jest
+      .fn()
+      .mockRejectedValue(new Error('Video file is not open'));
+    Object.assign(window, { VideoUtils: { detectBow } });
+    const image = {
+      file: 'busy.mp4',
+      frameNum: 602,
+      width: 1080,
+      numFrames: 612,
+    } as AppImage;
+
+    expect(getAutoZoomBusy()).toBe(0);
+    const running = autoZoomToFinishNearFinish(
+      '17',
+      Number.POSITIVE_INFINITY,
+      image,
+    );
+    expect(getAutoZoomBusy()).toBe(1);
+    await running;
+    expect(getAutoZoomBusy()).toBe(0);
   });
 
   // Left-to-right at 9 px/frame toward a finish at x = 540, starting at

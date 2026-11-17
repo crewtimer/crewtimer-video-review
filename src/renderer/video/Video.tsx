@@ -1,4 +1,12 @@
-import { Box, Typography, Stack, Tooltip, Button, Paper } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Stack,
+  Tooltip,
+  Button,
+  Paper,
+  CircularProgress,
+} from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import React, {
   FC,
@@ -103,6 +111,7 @@ import {
   restoreMissingCardDetections,
   detectBoatNearPoint,
   isRecordedBoatSelection,
+  useAutoZoomBusy,
 } from './AutoZoomToFinish';
 import { getFileStatusByName } from './VideoFileStatus';
 import {
@@ -571,6 +580,21 @@ export const VideoBow: FC = () => {
   );
 };
 
+/** Shown while an auto zoom searches and seeks, on a backing that keeps it
+ * visible over bright water and dark hulls alike. */
+const BusySpinner = () => (
+  <Box
+    sx={{
+      p: 0.75,
+      display: 'flex',
+      borderRadius: '50%',
+      bgcolor: (theme) => alpha(theme.palette.background.paper, 0.7),
+    }}
+  >
+    <CircularProgress size={28} thickness={5} />
+  </Box>
+);
+
 const VideoImage: React.FC<{ width: number; height: number }> = ({
   width,
   height,
@@ -584,6 +608,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
   const [videoFile] = useVideoFile();
   const holdoffChanges = useRef<boolean>(false);
   const [videoError] = useVideoError();
+  const [autoZoomBusy] = useAutoZoomBusy();
   const [travelRightToLeft] = useTravelRightToLeft();
   const [resetZoomCount] = useResetZoomCounter();
   const destSize = useRef({ width, height });
@@ -1594,9 +1619,11 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
             position: 'absolute', // keeps the size from influencing the parent size
           }}
         />
-        {/* Floating VideoBow that follows the mouse pointer (30px below) */}
+        {/* Floating VideoBow that follows the mouse pointer (30px below);
+            a spinner takes its place while an auto zoom runs. */}
         {showFloatingBow && (
           <Box
+            aria-label={autoZoomBusy > 0 ? 'Auto zoom in progress' : undefined}
             sx={{
               position: 'absolute',
               left: `${floatingBowPos.x}px`,
@@ -1606,7 +1633,7 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
               zIndex: 500,
             }}
           >
-            <VideoBow />
+            {autoZoomBusy > 0 ? <BusySpinner /> : <VideoBow />}
           </Box>
         )}
         {showBlowup && (
@@ -1623,6 +1650,26 @@ const VideoImage: React.FC<{ width: number; height: number }> = ({
           />
         )}
         {videoOverlay}
+        {autoZoomBusy > 0 && !showFloatingBow && (
+          // Pointer off the video (auto zoom from a hint or key): top left
+          // of the image, clear of the finish line and the bow.
+          <Box
+            aria-label="Auto zoom in progress"
+            sx={{
+              position: 'absolute',
+              top: 12,
+              left:
+                Math.max(
+                  0,
+                  Math.trunc((width - image.width * videoScaling.scaleX) / 2),
+                ) + 12,
+              pointerEvents: 'none',
+              zIndex: 600,
+            }}
+          >
+            <BusySpinner />
+          </Box>
+        )}
       </Box>
     </Stack>
   );

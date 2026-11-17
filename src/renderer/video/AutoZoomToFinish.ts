@@ -1,3 +1,4 @@
+import { UseDatum } from 'react-usedatum';
 import type {
   AppImage,
   BowDetection,
@@ -1297,13 +1298,32 @@ const runAutoZoomToFinish = async (
   return undefined;
 };
 
+/**
+ * Number of auto zooms in progress. The video shows a spinner while it is
+ * above zero; a count, not a flag, so a superseded auto zoom finishing late
+ * does not hide the spinner of the one that replaced it.
+ */
+export const [useAutoZoomBusy, setAutoZoomBusy, getAutoZoomBusy] =
+  UseDatum<number>(0);
+
+const whileBusy = async <T>(run: () => Promise<T>): Promise<T> => {
+  setAutoZoomBusy(getAutoZoomBusy() + 1);
+  try {
+    return await run();
+  } finally {
+    setAutoZoomBusy(Math.max(0, getAutoZoomBusy() - 1));
+  }
+};
+
 export const autoZoomToFinish = (clickPoint: Point) =>
-  runAutoZoomToFinish(
-    (detections) => selectBoatEdgeNearPoint(detections, clickPoint),
-    clickPoint,
+  whileBusy(() =>
+    runAutoZoomToFinish(
+      (detections) => selectBoatEdgeNearPoint(detections, clickPoint),
+      clickPoint,
+    ),
   );
 
-export const autoZoomToFinishNearFinish = async (
+const searchNearFinish = async (
   knownBow: string,
   maxDistance: number,
   initialImage?: AppImage,
@@ -1338,3 +1358,13 @@ export const autoZoomToFinishNearFinish = async (
   );
   return search(!configured);
 };
+
+export const autoZoomToFinishNearFinish = (
+  knownBow: string,
+  maxDistance: number,
+  initialImage?: AppImage,
+  bowFilter?: BowSelectionFilter,
+) =>
+  whileBusy(() =>
+    searchNearFinish(knownBow, maxDistance, initialImage, bowFilter),
+  );
