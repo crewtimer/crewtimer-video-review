@@ -1,6 +1,9 @@
 
 | Version | What's New |
 | --- | --- |
+| 2.0.10 | More accurate auto zoom and smoother millisecond stepping when zoomed |
+| | Arrow key steps of 1 ms move the boat evenly, without a jump each time they pass a real video frame |
+| | A spinner shows while auto zoom searches for the crossing |
 | 2.0.9 | Light and dark themes, course guides for boat search, zoom contrast aids, and bug fixes |
 | | Theme item in the menu chooses System, Light or Dark; System follows the computer's setting |
 | | Optional dashed course guides limit boat search to the course, so boats at the top of the frame are not picked for auto zoom or bow numbers |
