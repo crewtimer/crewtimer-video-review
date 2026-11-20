@@ -47,6 +47,8 @@ const LINE_GRAB = 6;
 const LINE_END_GRAB = 20;
 /** Mouse movement, in px, that turns a press on a line into a drag. */
 const LINE_DRAG_START = 4;
+/** How long the course area labels stay up after the lines stop moving. */
+const COURSE_LABEL_HIDE_MS = 2000;
 
 type LineHit =
   | { course: 'top' | 'bottom' }
@@ -117,6 +119,18 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       // init volatile copy used while moving the mouse
       setCourseConfig(videoSettings);
     }, [videoSettings]);
+
+    // Show the course area labels while its lines move, then hide them.
+    const [showCourseLabels, setShowCourseLabels] = useState(true);
+    const shownCourseArea = getCourseArea(courseConfig.courseArea);
+    useEffect(() => {
+      setShowCourseLabels(true);
+      const timer = setTimeout(
+        () => setShowCourseLabels(false),
+        COURSE_LABEL_HIDE_MS,
+      );
+      return () => clearTimeout(timer);
+    }, [shownCourseArea.enabled, shownCourseArea.top, shownCourseArea.bottom]);
 
     useEffect(() => {
       let lastT = wheelTracking.current.count;
@@ -349,33 +363,38 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
             drawBox(context, { x: left, y: bottomY }, Dir.Horiz, true);
             drawBox(context, { x: right, y: bottomY }, Dir.Horiz, false);
           }
-          const centerX =
-            (Math.max(0, left) + Math.min(videoScaling.destWidth, right)) / 2;
-          // Labels sit outside the band, in the ignored area, when the
-          // visible image has room for them; otherwise inside the band.
-          const labelSpace = 32;
-          const visibleTop = Math.max(0, imageTop);
-          const visibleBottom = Math.min(videoScaling.destHeight, imageBottom);
-          drawText(
-            context,
-            'Course Top',
-            12,
-            centerX,
-            topY,
-            topY - visibleTop >= labelSpace ? 'above' : 'below',
-            'center',
-            `${COURSE_AREA_COLOR}80`,
-          );
-          drawText(
-            context,
-            'Course Bottom',
-            12,
-            centerX,
-            bottomY,
-            visibleBottom - bottomY >= labelSpace ? 'below' : 'above',
-            'center',
-            `${COURSE_AREA_COLOR}80`,
-          );
+          if (showCourseLabels) {
+            const centerX =
+              (Math.max(0, left) + Math.min(videoScaling.destWidth, right)) / 2;
+            // Labels sit outside the band, in the ignored area, when the
+            // visible image has room for them; otherwise inside the band.
+            const labelSpace = 32;
+            const visibleTop = Math.max(0, imageTop);
+            const visibleBottom = Math.min(
+              videoScaling.destHeight,
+              imageBottom,
+            );
+            drawText(
+              context,
+              'Course Top',
+              12,
+              centerX,
+              topY,
+              topY - visibleTop >= labelSpace ? 'above' : 'below',
+              'center',
+              `${COURSE_AREA_COLOR}80`,
+            );
+            drawText(
+              context,
+              'Course Bottom',
+              12,
+              centerX,
+              bottomY,
+              visibleBottom - bottomY >= labelSpace ? 'below' : 'above',
+              'center',
+              `${COURSE_AREA_COLOR}80`,
+            );
+          }
         }
 
         courseConfig.guides.forEach((guide) => {
@@ -474,6 +493,7 @@ const VideoOverlay = forwardRef<VideoOverlayHandles, VideoOverlayProps>(
       isZooming,
       adjustingOverlay,
       nearEdge,
+      showCourseLabels,
       width,
       height,
       videoScaling,
