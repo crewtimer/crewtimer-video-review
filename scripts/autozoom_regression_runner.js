@@ -9,7 +9,7 @@
 //
 // Usage: node autozoom_regression_runner.js <cases.json> <results.json>
 // Each case: { id, videoFile, numFrames, reviewedEpochMs, reviewedFrame,
-//              startEpochMs, startFrame, bow, scoredBows, courseArea,
+//              startEpochMs, startFrame, bow, scoredBows, courseArea, finishLine,
 //              hyperZoomMs, travelRightToLeft, cardLength, scheduledBowEndings }
 // The frames are estimates; the runner places both times from frame timestamps.
 const Module = require('module');
@@ -23,6 +23,7 @@ const [, , casesFile, resultsFile] = process.argv;
 const state = {
   image: undefined,
   courseArea: { enabled: false, top: 0, bottom: 1 },
+  finishLine: { enabled: true, dir: 1, label: 'Finish', pt1: 0, pt2: 0 },
   hyperZoomMs: 0,
   travelRightToLeft: false,
   detectionOptions: { numericOnly: true, cardLength: 'auto', scheduledBows: [] },
@@ -39,8 +40,8 @@ const stubs = {
   getVideoScaling: () => ({ srcHeight: state.image.height, zoomY: 1 }),
   // ImageScaling
   updateVideoScaling: () => {},
-  // VideoUtils: the finish guide at the image centre, as in the SDFC26 sidecars.
-  getFinishLine: () => ({ enabled: true, dir: 1, label: 'Finish', pt1: 0, pt2: 0 }),
+  // VideoUtils: the video's finish guide, from its sidecar.
+  getFinishLine: () => state.finishLine,
   moveToFrame: async () => {},
   // UseSettings: numeric OCR (the default) with the crossing's event schedule.
   getBowDetectionOptions: () => state.detectionOptions,
@@ -122,6 +123,7 @@ const frameAtTime = async (videoFile, epochMs, estimate) => {
 
 const runCase = async (c) => {
   state.courseArea = c.courseArea ?? { enabled: false, top: 0, bottom: 1 };
+  state.finishLine = c.finishLine ?? { enabled: true, dir: 1, label: 'Finish', pt1: 0, pt2: 0 };
   state.hyperZoomMs = c.hyperZoomMs;
   state.travelRightToLeft = c.travelRightToLeft;
   state.detectionOptions = {

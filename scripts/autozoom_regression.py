@@ -17,7 +17,10 @@ Deleted lap records are ignored.
              reference time instead, and --start-offset-ms that far from it.
 
 Each crossing runs in the video that covers its start time, with the
-sidecar's course area. Crews of the same event with an earlier reference time
+sidecar's course area, finish guide and travel direction. As in the app, a
+sidecar saves a travel direction only when one was chosen for that video;
+--right-to-left or --left-to-right gives it for videos without one, and the
+script stops if any video it needs has neither. Crews of the same event with an earlier reference time
 count as already scored.
 
 Error is auto zoom time minus reference time, in ms: positive is late.
@@ -25,12 +28,13 @@ Error is auto zoom time minus reference time, in ms: positive is late.
 Build the native module first (it must load in plain Node, not only Electron).
 
 Examples:
-  python3 scripts/autozoom_regression.py
-  python3 scripts/autozoom_regression.py --start-offset-ms -125
-  python3 scripts/autozoom_regression.py --save /tmp/az.json
-  python3 scripts/autozoom_regression.py --baseline /tmp/az.json
+  python3 scripts/autozoom_regression.py --right-to-left
+  python3 scripts/autozoom_regression.py --right-to-left --start-offset-ms -125
+  python3 scripts/autozoom_regression.py --right-to-left --save /tmp/az.json
+  python3 scripts/autozoom_regression.py --right-to-left --baseline /tmp/az.json
 """
 import argparse
+import datetime
 import json
 import os
 import re
@@ -79,22 +83,39 @@ def clock(ms):
     return f"{ms // 3600000:02d}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d}.{ms % 1000:03d}"
 
 
-def lap_times(lapdata, gate):
-    """{(event, bow): local time of day in ms} for a gate's live records.
+def lap_times(lapdata, gate, tz_ms):
+    """{(event, bow): local time in ms since the epoch} for a gate's live records.
 
-    A crew timed twice keeps its latest entry."""
+    A record holds only a time of day; its date is the latest day on which
+    that time is not after the record was entered (its Timestamp), so a
+    regatta's days stay apart. A crew timed twice keeps its latest entry."""
     times = {}
     for rec in sorted(lapdata.values(), key=lambda r: r.get("Timestamp", 0)):
         if rec.get("Gate") != gate or rec.get("State") == "Deleted" or not rec.get("Time"):
             continue
         if not rec.get("Bow") or rec.get("EventNum") in (None, "", "?"):
             continue
-        times[(rec["EventNum"], rec["Bow"])] = time_of_day_ms(rec["Time"])
+        if not rec.get("Timestamp"):
+            continue
+        entered = rec["Timestamp"] + tz_ms
+        t = entered // DAY_MS * DAY_MS + time_of_day_ms(rec["Time"])
+        if t > entered + 60000:  # a minute's grace for clock differences
+            t -= DAY_MS
+        times[(rec["EventNum"], rec["Bow"])] = t
     return times
 
 
+def finish_line(meta):
+    """The sidecar's finish guide, as getFinishLine in VideoUtils.ts picks it:
+    the first vertical guide when enabled, else the image centre."""
+    vert = next((g for g in meta.get("guides", []) if g.get("dir") == 1), None)
+    if not vert or not vert.get("enabled"):
+        return {"enabled": True, "dir": 1, "label": "Finish", "pt1": 0, "pt2": 0}
+    return vert
+
+
 def load_videos(folder):
-    """Each video with its local start/stop time of day, fps and sidecar."""
+    """Each video with its local start/stop time (ms since the epoch), fps and sidecar."""
     videos = []
     for sidecar in sorted(glob(os.path.join(folder, "*.json"))):
         video = sidecar[:-5] + ".mp4"
@@ -102,18 +123,47 @@ def load_videos(folder):
             continue
         with open(sidecar) as f:
             meta = json.load(f)
-        info = meta["file"]
+        info = meta.get("file", {})
+        if "startTs" not in info or "stopTs" not in info:
+            continue
         tz_ms = info.get("tzOffset", 0) * 60000
+        fps = info.get("fps")
+        if not fps:
+            # Older sidecars omit fps; frame 1 is at startTs and the last at stopTs.
+            span = float(info["stopTs"]) - float(info["startTs"])
+            if not info.get("numFrames") or span <= 0:
+                continue
+            fps = (info["numFrames"] - 1) / span
         videos.append({
             "file": video,
-            "fps": info["fps"],
+            "fps": fps,
             "numFrames": info.get("numFrames", 1 << 30),
             "startEpochMs": float(info["startTs"]) * 1000,
-            "start": (float(info["startTs"]) * 1000 + tz_ms) % DAY_MS,
-            "stop": (float(info["stopTs"]) * 1000 + tz_ms) % DAY_MS,
+            "tzMs": tz_ms,
+            "start": float(info["startTs"]) * 1000 + tz_ms,
+            "stop": float(info["stopTs"]) * 1000 + tz_ms,
             "courseArea": meta.get("courseArea"),
+            "finishLine": finish_line(meta),
+            "source": meta.get("source"),
+            # Saved only when the direction was chosen for this video.
+            "travelRightToLeft": meta.get("travelRightToLeft")
+            if isinstance(meta.get("travelRightToLeft"), bool) else None,
         })
     return videos
+
+
+def resolution(video):
+    """The video's size as WIDTHxHEIGHT, from its sidecar or else ffprobe."""
+    source = video.get("source") or {}
+    if source.get("width") and source.get("height"):
+        return f"{source['width']}x{source['height']}"
+    try:
+        out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                              "stream=width,height", "-of", "csv=p=0:s=x", video["file"]],
+                             capture_output=True, text=True, timeout=30).stdout.strip()
+        return out or "unknown"
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
 
 
 def video_at(videos, t):
@@ -123,7 +173,7 @@ def video_at(videos, t):
 
 
 def frame_at(video, t):
-    """Estimated frame (1-based, fractional) at local time of day t. The
+    """Estimated frame (1-based, fractional) at local time t. The
     runner refines it from frame timestamps."""
     return 1 + (t - video["start"]) * video["fps"] / 1000
 
@@ -137,16 +187,42 @@ def bow_order(bows):
     return sorted(set(bows), key=lambda b: (0, int(b), b) if b.isdigit() else (1, 0, b))
 
 
+def local_date(ms):
+    """The date of a local time in ms since the epoch."""
+    return datetime.date(1970, 1, 1) + datetime.timedelta(days=int(ms // DAY_MS))
+
+
+def day_matcher(spec):
+    """A test for dates matching --day: a weekday name (Sun, Sunday) or a
+    YYYY-MM-DD date."""
+    try:
+        date = datetime.date.fromisoformat(spec)
+        return lambda d: d == date
+    except ValueError:
+        pass
+    names = [datetime.date(2024, 1, i).strftime("%A").lower() for i in range(1, 8)]
+    match = [n for n in names if len(spec) >= 2 and n.startswith(spec.lower())]
+    if len(match) != 1:
+        sys.exit(f"--day {spec}: use a weekday name such as Sunday, or a date such as 2026-03-29")
+    return lambda d: d.strftime("%A").lower() == match[0]
+
+
 def load_cases(args, lapdata, results, videos):
     holdout = {b.strip() for b in args.holdout.split(",") if b.strip()}
-    reference = lap_times(lapdata, args.gate)
+    if holdout == {"none"}:
+        holdout = set()
+    tz_ms = videos[0]["tzMs"] if videos else 0
+    days = {int(v[k] // DAY_MS) for v in videos for k in ("start", "stop")}
+    # Crossings on days without any video in the folder are not counted.
+    reference = {k: t for k, t in lap_times(lapdata, args.gate, tz_ms).items()
+                 if int(t // DAY_MS) in days}
     from_reference = args.start == "reference" or args.start_offset_ms is not None
-    hints = reference if from_reference else lap_times(lapdata, args.hint_gate)
+    hints = reference if from_reference else lap_times(lapdata, args.hint_gate, tz_ms)
     offset = args.start_offset_ms or 0
     schedule = {e.get("EventNum", ""): [m.group() for m in (re.search(r"\d+$", (x.get("Bow") or "").strip())
                                                             for x in e.get("entries", [])) if m]
                 for e in results}
-    cases, skipped = [], []
+    cases, skipped, no_video = [], [], 0
     for (event, bow), ref in sorted(reference.items(), key=lambda kv: kv[1]):
         if (bow in holdout) != args.only_holdout:
             continue
@@ -158,7 +234,7 @@ def load_cases(args, lapdata, results, videos):
         start = hint + offset
         video = video_at(videos, start)
         if video is None:
-            skipped.append(f"{crossing}: no video at {clock(start)}")
+            no_video += 1
             continue
         endings = schedule.get(event, [])
         longest = max((len(e) for e in endings), default=0)
@@ -180,11 +256,14 @@ def load_cases(args, lapdata, results, videos):
             # As cardLengthForEvent and scheduledBowEndings in BowNumber.ts.
             "cardLength": longest if longest in (1, 2) else "auto",
             "scheduledBowEndings": endings,
+            "finishLine": video["finishLine"],
             "courseArea": video["courseArea"] or {"enabled": False, "top": 0.25, "bottom": 0.95},
             "hyperZoomMs": args.hyperzoom_ms,
-            "travelRightToLeft": not args.left_to_right,
+            # As the app: the sidecar's direction, else the configured one.
+            "travelRightToLeft": video["travelRightToLeft"]
+            if video["travelRightToLeft"] is not None else args.right_to_left,
         })
-    return cases, skipped, bow_order(holdout)
+    return cases, skipped, no_video, bow_order(holdout)
 
 
 def run_auto_zoom(cases, jobs):
@@ -225,16 +304,21 @@ def main():
     ap.add_argument("--refresh", action="store_true", help="read the CrewTimer data again")
     ap.add_argument("--gate", default="G_FinishCamera", help="gate holding the reference times")
     ap.add_argument("--hint-gate", default="F", help="gate holding the timing hints")
+    ap.add_argument("--day", help="test only this day's crossings: a weekday name (Sunday) or a date (2026-03-29)")
     ap.add_argument("--start", choices=("hint", "reference"), default="hint",
                     help="start auto zoom at the hint or at the reference time")
     ap.add_argument("--start-offset-ms", type=float,
                     help="start this far from the reference time instead of at the hint")
     ap.add_argument("--holdout", default=",".join(sorted(SDFC26_HOLDOUT, key=int)),
-                    help="comma-separated bows to leave out (default: the SDFC26 hold-outs)")
+                    help="comma-separated bows to leave out, or none (default: the SDFC26 hold-outs)")
     ap.add_argument("--only-holdout", action="store_true", help="run only the held-out bows")
     ap.add_argument("--threshold-ms", type=float, default=3.0, help="report errors larger than this")
     ap.add_argument("--hyperzoom-ms", type=float, default=1.0, help="hyperzoom step auto zoom rounds to")
-    ap.add_argument("--left-to-right", action="store_true", help="configured travel direction")
+    direction = ap.add_mutually_exclusive_group()
+    direction.add_argument("--right-to-left", dest="right_to_left", action="store_const", const=True,
+                           help="travel direction for videos whose sidecar does not save one")
+    direction.add_argument("--left-to-right", dest="right_to_left", action="store_const", const=False,
+                           help="travel direction for videos whose sidecar does not save one")
     ap.add_argument("--jobs", type=int, default=4, help="parallel runner processes")
     ap.add_argument("--limit", type=int, help="run only the first N crossings")
     ap.add_argument("--save", help="write per-crossing results to this JSON file")
@@ -247,11 +331,23 @@ def main():
                        LAPDATA_URL.format(regatta=args.regatta), args.refresh)
     results = archived(args.folder, args.regatta, "results",
                        RESULTS_URL.format(regatta=args.regatta), args.refresh)
-    cases, skipped, held_out = load_cases(args, lapdata, results, load_videos(args.folder))
+    videos = load_videos(args.folder)
+    if args.day:
+        on_day = day_matcher(args.day)
+        dates = sorted({local_date(v["start"]) for v in videos})
+        videos = [v for v in videos if on_day(local_date(v["start"])) or on_day(local_date(v["stop"]))]
+        if not videos:
+            sys.exit(f"no videos on {args.day} in {args.folder}; videos are on "
+                     + (", ".join(d.strftime("%A %Y-%m-%d") for d in dates) or "no days"))
+    cases, skipped, no_video, held_out = load_cases(args, lapdata, results, videos)
     if args.limit:
         cases = cases[:args.limit]
     if not cases:
         sys.exit(f"no {args.gate} crossings with video in {args.folder}")
+    unset = sorted({os.path.basename(c["videoFile"]) for c in cases if c["travelRightToLeft"] is None})
+    if unset:
+        sys.exit(f"{len(unset)} videos do not save a travel direction in their sidecar "
+                 f"(first {unset[0]}); pass --right-to-left or --left-to-right")
     if args.start == "hint" and args.start_offset_ms is None:
         start = f"{args.hint_gate} hint"
     else:
@@ -261,6 +357,15 @@ def main():
     print(f"{len(cases)} {args.gate} crossings of {args.regatta} in {args.folder} "
           f"({len(held_out)} bows held out{', running only those' if args.only_holdout else ''}), "
           f"starting at the {start}")
+    first = min(videos, key=lambda v: v["start"])
+    print(f"resolution {resolution(first)} ({os.path.basename(first['file'])})")
+    saved = sum(1 for c in cases if c["travelRightToLeft"] is not None
+                and next(v for v in videos if v["file"] == c["videoFile"])["travelRightToLeft"] is not None)
+    travel = lambda rtl: "right to left" if rtl else "left to right"
+    directions = sorted({travel(c["travelRightToLeft"]) for c in cases})
+    print(f"travel {' and '.join(directions)}: {saved} crossings from sidecars, "
+          f"{len(cases) - saved} from --{'right-to-left' if args.right_to_left else 'left-to-right'}"
+          if len(cases) > saved else f"travel {' and '.join(directions)}: from sidecars")
     if held_out:
         print(f"held out: {', '.join(held_out)}", flush=True)
 
@@ -287,6 +392,13 @@ def main():
                       key=lambda r: -abs(r["errorMs"]))
 
     print(f"\nAuto zoom found {len(ok)} of {len(rows)} crossings")
+    if ok:
+        # Bow OCR reads digits only, so bow U3 is read correctly as 3.
+        digits = lambda b: (re.search(r"\d+$", b) or re.search("$", b)).group()
+        right = sum(1 for r in ok if r["detectedBow"] and r["detectedBow"] in (r["bow"], digits(r["bow"])))
+        unread = sum(1 for r in ok if not r["detectedBow"])
+        print(f"  bow read correctly {100 * right / len(ok):.0f}% ({right} of {len(ok)}), "
+              f"misread {len(ok) - right - unread}, not read {unread}")
     if errs:
         print(f"  median {statistics.median(errs):+.2f} ms, mean |err| {statistics.mean(map(abs, errs)):.2f} ms")
         # Both times are on a 1 ms grid (with the default hyperzoom), so
@@ -313,6 +425,8 @@ def main():
             last = r["log"][-1] if r["log"] else ""
             print(f"  {r['id']:32s} event {r['event']:>3s}  start {r['startFromReviewedMs']:+5d} ms"
                   f"  {r['status']}  {last}")
+    if no_video:
+        print(f"\nNot run, no video: {no_video}")
     if skipped:
         print(f"\nNot run: {len(skipped)}")
         for s in skipped:
