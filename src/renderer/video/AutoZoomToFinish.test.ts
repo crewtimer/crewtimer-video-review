@@ -625,7 +625,7 @@ describe('Auto Zoom to Finish geometry', () => {
     );
   });
 
-  test('searches from the other edge when the travel direction is wrong', async () => {
+  test('does not second-guess a wrong travel direction setting', async () => {
     // Travel is set left to right, but the boat moves right to left at
     // 9 px/frame with its stern cut off at the frame's right edge, so the
     // right edge never moves.
@@ -663,9 +663,43 @@ describe('Auto Zoom to Finish geometry', () => {
       image,
     );
 
-    // Crossed between frames 1017 (547) and 1018 (538).
+    // The setting is trusted, so the cut-off stern is never found to move.
+    expect(result).toBeUndefined();
+  });
+
+  test('steps past boxes that lose the bow near the finish', async () => {
+    // The boat's right edge moves left to right at 9 px/frame, but in frames
+    // 1012-1017 the detector loses the bow and the box ends 150 px short.
+    mockVideoFile = 'lost-bow.mp4';
+    const trueEdge = (frameNum: number) => 400 + 9 * (frameNum - 1000);
+    const detectBow = jest.fn(async ({ frameNum }: { frameNum: number }) => {
+      const lost = frameNum >= 1012 && frameNum <= 1017;
+      return {
+        status: 'OK',
+        frameNum,
+        timestamp: 0,
+        detections: [detection(trueEdge(frameNum) - 200 - (lost ? 150 : 0))],
+      };
+    });
+    Object.assign(window, { VideoUtils: { detectBow } });
+    const image = {
+      file: 'lost-bow.mp4',
+      frameNum: 1000,
+      width: 1080,
+      numFrames: 2000,
+      fps: 60,
+      tsMicro: 0,
+    } as AppImage;
+
+    const result = await autoZoomToFinishNearFinish(
+      '17',
+      Number.POSITIVE_INFINITY,
+      image,
+    );
+
+    // The edge reaches the finish at 540 at frame 1015 + 5/9.
     expect(result?.frameNum).toBeCloseTo(
-      correctAutoZoomBias(1017 + 7 / 9, 60),
+      correctAutoZoomBias(1015 + 5 / 9, 60),
       5,
     );
   });

@@ -26,12 +26,12 @@ const MAX_CLICK_DISTANCE = 50;
 const MAX_SEARCH_ITERATIONS = 12;
 const MAX_FRAME_JUMP = 120;
 const MIN_VELOCITY = 0.05;
-/** Below this speed a one-step measurement says nothing about direction. */
-const MIN_REVERSE_VELOCITY = 2;
 const STALLED_STEP_FRAMES = 3;
 const MAX_STALLED_STEPS = 2;
-/** One reversal, plus one return when the reversal proves wrong. */
-const MAX_DIRECTION_CHANGES = 2;
+/** Detector jitter, in px, allowed against the travel direction. */
+const MAX_BACKWARD_PX = 3;
+/** Boxes moving against the travel direction ignored before giving up. */
+const MAX_IGNORED_BOXES = 8;
 const MAX_ADJACENT_BOAT_AREA_RATIO = 2.5;
 const MAX_EXTENDED_VELOCITY_RATIO = 4;
 const MATCH_RECOVERY_RADIUS = 3;
@@ -948,6 +948,56 @@ export const chooseBracketRefinementFrame = (
 };
 
 /**
+ * Whether a boat edge moved against the travel direction relative to any
+ * accepted observation: a bad detector box, such as one that lost the bow.
+ */
+export const movesAgainstTravel = (
+  current: BoatObservation,
+  observations: readonly BoatObservation[],
+  rightToLeft: boolean,
+) => {
+  const direction = rightToLeft ? -1 : 1;
+  return observations.some(
+    (other) =>
+      other.frameNum !== current.frameNum &&
+      direction *
+        (current.edgeX - other.edgeX) *
+        Math.sign(current.frameNum - other.frameNum) <
+        -MAX_BACKWARD_PX,
+  );
+};
+
+/**
+ * A frame inside the bracket to refine it, nearest the estimated crossing
+ * and not yet tried; undefined when none is left.
+ */
+export const chooseUntriedRefinementFrame = (
+  first: BoatObservation,
+  second: BoatObservation,
+  finishX: number,
+  tried: ReadonlySet<number>,
+) => {
+  const frame = chooseBracketRefinementFrame(first, second, finishX);
+  if (frame === undefined) {
+    return undefined;
+  }
+  const lowerFrame = Math.min(first.frameNum, second.frameNum) + 1;
+  const upperFrame = Math.max(first.frameNum, second.frameNum) - 1;
+  for (let offset = 0; offset <= upperFrame - lowerFrame; offset += 1) {
+    for (const candidate of [frame - offset, frame + offset]) {
+      if (
+        candidate >= lowerFrame &&
+        candidate <= upperFrame &&
+        !tried.has(candidate)
+      ) {
+        return candidate;
+      }
+    }
+  }
+  return undefined;
+};
+
+/**
  * The boat box's leading edge reaches the guide a median 0.7 ms before the
  * bow ball does (257 SDFC26 crossings against reviewed times), so auto zoom
  * moves its crossing this much later.
@@ -1023,9 +1073,12 @@ const runAutoZoomToFinish = async (
   const initialFrame = Math.round(initialImage?.frameNum ?? getVideoFrameNum());
   const finish = getFinishLine();
   const finishX = image.width / 2 + (finish.pt1 + finish.pt2) / 2;
-  let rightToLeft = travelRightToLeft;
-  let directionChanges = 0;
+  // The configured travel direction is trusted; a box that moves against
+  // it is a bad detection, not evidence of the opposite direction.
+  const rightToLeft = travelRightToLeft;
   let stalledSteps = 0;
+  const ignored: BoatObservation[] = [];
+  const tried = new Set<number>();
   const initialResult = await detect(initialFrame);
   if (!initialResult || !operationIsCurrent()) {
     return null;
@@ -1039,16 +1092,14 @@ const runAutoZoomToFinish = async (
   const observations = [
     makeObservation(initialResult.frameNum, selected.detection, selected.edge),
   ];
-  let initialDistance = signedFinishDistance(
+  tried.add(observations[0].frameNum);
+  const initialDistance = signedFinishDistance(
     observations[0],
     finishX,
     rightToLeft,
   );
   let timeDirection = initialDistance < 0 ? 1 : -1;
   let nextFrame = initialFrame + timeDirection;
-  // The configured direction's observations, kept when the search reverses.
-  let configuredSearch: BoatObservation[] = [];
-  let configuredTimeDirection = timeDirection;
   // Frame estimated to put the boat edge on the finish at this velocity.
   const stepToward = (from: BoatObservation, velocity: number) => {
     const estimated = from.frameNum + (finishX - from.edgeX) / velocity;
@@ -1056,12 +1107,19 @@ const runAutoZoomToFinish = async (
       -MAX_FRAME_JUMP,
       Math.min(MAX_FRAME_JUMP, Math.round(estimated) - from.frameNum),
     );
-    return from.frameNum + (delta || timeDirection);
+    const frame = from.frameNum + (delta || timeDirection);
+    // An estimate past either end of the file stops at its first or last
+    // frame, so the search still looks there.
+    const clamped = Math.max(1, Math.min(image.numFrames, frame));
+    return clamped === from.frameNum ? frame : clamped;
   };
 
   for (let iteration = 0; iteration < MAX_SEARCH_ITERATIONS; iteration += 1) {
     const prior = observations[observations.length - 1];
     if (nextFrame < 1 || nextFrame > image.numFrames) {
+      console.log(
+        `Auto Zoom to Finish: the crossing is before the start or after the end of the file (frame ${nextFrame})`,
+      );
       return undefined;
     }
     // Sequential observations are required to estimate and refine velocity.
@@ -1112,10 +1170,51 @@ const runAutoZoomToFinish = async (
       return undefined;
     }
     const current = makeObservation(result.frameNum, matched, prior.edge);
-    observations.push(current);
+    tried.add(current.frameNum);
+    const ignore = movesAgainstTravel(current, observations, rightToLeft);
+    if (ignore) {
+      ignored.push(current);
+      if (ignored.length > MAX_IGNORED_BOXES) {
+        console.log(
+          'Auto Zoom to Finish: too many boat boxes move against the travel direction',
+        );
+        return undefined;
+      }
+      // Ignored boxes do not use up the search budget.
+      iteration -= 1;
+      const [earlier, later] = ignored.slice(-2);
+      if (
+        observations.length === 1 &&
+        later &&
+        !movesAgainstTravel(later, [earlier], rightToLeft)
+      ) {
+        // Two later boxes agree with each other but not with the starting
+        // box, so the starting box is the bad one. Continue from them.
+        const spanVelocity =
+          (later.edgeX - earlier.edgeX) / (later.frameNum - earlier.frameNum);
+        console.log(
+          `Auto Zoom to Finish: starting box at frame ${initialFrame} disagrees with frames ${earlier.frameNum} and ${later.frameNum}; continuing from them`,
+        );
+        observations.splice(0, observations.length, earlier, later);
+        ignored.splice(0);
+        timeDirection =
+          signedFinishDistance(later, finishX, rightToLeft) < 0 ? 1 : -1;
+        nextFrame =
+          Math.abs(spanVelocity) < MIN_VELOCITY
+            ? later.frameNum + timeDirection * STALLED_STEP_FRAMES
+            : stepToward(later, spanVelocity);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      console.log(
+        `Auto Zoom to Finish: ignoring the boat box at frame ${current.frameNum}; it moves against the travel direction`,
+      );
+    } else {
+      observations.push(current);
+    }
     const bracket = findBracket(observations, finishX, rightToLeft);
     const refinementFrame = bracket
-      ? chooseBracketRefinementFrame(bracket[0], bracket[1], finishX)
+      ? chooseUntriedRefinementFrame(bracket[0], bracket[1], finishX, tried)
       : undefined;
     if (bracket && refinementFrame !== undefined) {
       const lowerFrame = Math.min(bracket[0].frameNum, bracket[1].frameNum);
@@ -1193,16 +1292,22 @@ const runAutoZoomToFinish = async (
       return { frameNum: seekFrame, bow, observations };
     }
 
+    if (ignore) {
+      // Step past the bad box, onward in the direction of the search.
+      nextFrame =
+        current.frameNum +
+        (Math.sign(current.frameNum - prior.frameNum) || timeDirection) *
+          STALLED_STEP_FRAMES;
+      // eslint-disable-next-line no-continue
+      continue;
+    }
     const previous = observations[observations.length - 2];
     const velocity =
       (current.edgeX - previous.edgeX) / (current.frameNum - previous.frameNum);
     const expectedDirection = rightToLeft ? -1 : 1;
-    const clearlyReversed =
-      Math.sign(velocity) === -expectedDirection &&
-      Math.abs(velocity) >= MIN_REVERSE_VELOCITY;
     if (
       Math.abs(velocity) < MIN_VELOCITY ||
-      (Math.sign(velocity) !== expectedDirection && !clearlyReversed)
+      Math.sign(velocity) !== expectedDirection
     ) {
       // A near-zero speed is an unreliable measurement, usually one jittered
       // detector box, not evidence of the opposite direction. Measure again
@@ -1222,76 +1327,6 @@ const runAutoZoomToFinish = async (
       continue;
     }
     stalledSteps = 0;
-    if (clearlyReversed) {
-      if (directionChanges >= MAX_DIRECTION_CHANGES) {
-        console.log(
-          `Auto Zoom to Finish: invalid velocity ${velocity.toFixed(2)}px/frame after reversing travel direction`,
-        );
-        return undefined;
-      }
-      directionChanges += 1;
-      rightToLeft = !rightToLeft;
-      if (directionChanges === MAX_DIRECTION_CHANGES) {
-        // Both directions measured motion away from the starting box, so that
-        // shared box is the bad one. Drop it and continue the configured
-        // direction from what both searches saw, rather than repeating the
-        // first step from the same box.
-        const order = configuredTimeDirection;
-        const evidence = [...configuredSearch, ...observations.slice(1)]
-          .filter(
-            (value, index, all) =>
-              all.findIndex((other) => other.frameNum === value.frameNum) ===
-              index,
-          )
-          .sort((a, b) => order * (a.frameNum - b.frameNum));
-        const last = evidence[evidence.length - 1];
-        const beforeLast = evidence[evidence.length - 2];
-        const spanVelocity =
-          last && beforeLast
-            ? (last.edgeX - beforeLast.edgeX) /
-              (last.frameNum - beforeLast.frameNum)
-            : 0;
-        if (
-          Math.abs(spanVelocity) < MIN_VELOCITY ||
-          Math.sign(spanVelocity) !== (rightToLeft ? -1 : 1)
-        ) {
-          console.log(
-            `Auto Zoom to Finish: conflicting velocities ${velocity.toFixed(2)}px/frame and ${spanVelocity.toFixed(2)}px/frame in both travel directions`,
-          );
-          return undefined;
-        }
-        observations.splice(0, observations.length, ...evidence);
-        timeDirection = order;
-        nextFrame = stepToward(last, spanVelocity);
-        iteration = -1;
-        console.log(
-          `Auto Zoom to Finish: starting box at frame ${initialFrame} disagrees with both directions; continuing ${
-            rightToLeft ? 'right-to-left' : 'left-to-right'
-          } at ${spanVelocity.toFixed(2)}px/frame`,
-        );
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-      configuredSearch = observations.slice(1);
-      configuredTimeDirection = timeDirection;
-      observations.splice(1);
-      initialDistance = signedFinishDistance(
-        observations[0],
-        finishX,
-        rightToLeft,
-      );
-      timeDirection = initialDistance < 0 ? 1 : -1;
-      nextFrame = initialFrame + timeDirection;
-      iteration = -1;
-      console.log(
-        `Auto Zoom to Finish: invalid velocity ${velocity.toFixed(2)}px/frame; retrying with ${
-          rightToLeft ? 'right-to-left' : 'left-to-right'
-        } travel`,
-      );
-      // Restart with a full search budget in the opposite direction.
-      // eslint-disable-next-line no-continue
-      continue;
-    }
     nextFrame = stepToward(current, velocity);
   }
   console.log('Auto Zoom to Finish: finish line was not bracketed');
@@ -1345,18 +1380,8 @@ const searchNearFinish = async (
       0.7,
       rightToLeft,
     );
-  const configured = getTravelRightToLeft();
-  const result = await search(configured);
-  if (result !== undefined) {
-    return result;
-  }
-  // A wrong travel direction picks the stern as the leading edge, often cut
-  // off at the frame edge so the boat reads as not moving. Search again from
-  // the other edge before giving up.
-  console.log(
-    `Auto Zoom to Finish: retrying from the ${configured ? 'right' : 'left'} edge`,
-  );
-  return search(!configured);
+  // The configured travel direction is trusted, never second-guessed.
+  return search(getTravelRightToLeft());
 };
 
 export const autoZoomToFinishNearFinish = (
