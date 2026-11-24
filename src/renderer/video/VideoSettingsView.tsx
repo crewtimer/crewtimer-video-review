@@ -606,6 +606,7 @@ export const VideoSettingsDialog = () => {
                         const guides = [...videoSettings.guides];
                         guides[0].enabled = !guides[0].enabled;
                         setVideoSettings({ ...videoSettings, guides }, true);
+                        saveVideoSidecar().catch(() => {});
                       }}
                     />
                   }
@@ -650,6 +651,7 @@ export const VideoSettingsDialog = () => {
                           },
                           true,
                         );
+                        saveVideoSidecar().catch(() => {});
                       }}
                     />
                   }
@@ -676,6 +678,7 @@ export const VideoSettingsDialog = () => {
                                 { ...videoSettings, guides },
                                 true,
                               );
+                              saveVideoSidecar().catch(() => {});
                             }}
                           />
                         }

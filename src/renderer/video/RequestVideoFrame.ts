@@ -28,9 +28,9 @@ import {
 } from './VideoFileStatus';
 import { generateTestPattern } from '../util/ImageUtils';
 import { getClickerData } from './UseClickerData';
-import { saveVideoSidecar } from './Sidecar';
 // eslint-disable-next-line import/no-cycle
 import { getVisibleSourceRect } from './VideoUtils';
+import { saveVideoSidecarFile, sidecarFileChanged } from './Sidecar';
 import {
   fileSegmentBounds,
   findTimeSegment,
@@ -157,7 +157,6 @@ async function ensureFileOpen(
       );
 
   const tzOffset = videoFileStatus.tzOffset || -new Date().getTimezoneOffset();
-  const missingSidecarFile = !videoFileStatus.sidecar?.file;
   const newVideoFileStatus = {
     filename: videoFile,
     open: true,
@@ -170,6 +169,7 @@ async function ensureFileOpen(
     sidecar: {
       ...videoFileStatus.sidecar,
       file: {
+        ...videoFileStatus.sidecar?.file,
         startTs: `${firstImage.tsMicro / 1000000}`,
         stopTs: `${lastImageTime / 1000000}`,
         numFrames: firstImage.numFrames,
@@ -181,10 +181,20 @@ async function ensureFileOpen(
   console.log(JSON.stringify(newVideoFileStatus, null, 2));
   updateFileStatus(newVideoFileStatus);
 
-  // Since we're opening the video file for viewing, ensure the sidecar has guides defined.
-  if (missingSidecarFile || !newVideoFileStatus.sidecar?.guides) {
-    // No guides, save current guide config. Saving will update the cached sidecar.
-    await saveVideoSidecar(videoFile);
+  // Opening a video writes its sidecar only to correct the file section; the
+  // rest is saved when a time is recorded or a setting changes.
+  if (
+    sidecarFileChanged(
+      videoFileStatus.sidecar?.file,
+      newVideoFileStatus.sidecar.file,
+    )
+  ) {
+    saveVideoSidecarFile(videoFile).catch((error) =>
+      console.log(
+        'saveVideoSidecarFile error',
+        error instanceof Error ? error.message : String(error),
+      ),
+    );
   }
 
   return newVideoFileStatus;
